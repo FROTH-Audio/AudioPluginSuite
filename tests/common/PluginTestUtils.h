@@ -98,6 +98,35 @@ namespace PluginTest
         processor.editorBeingDeleted (editor.get());
     }
 
+    /** Paints a component and its visible children into an image. */
+    inline juce::Image paintComponent (juce::Component& component)
+    {
+        juce::Image image (juce::Image::ARGB, component.getWidth(), component.getHeight(), true);
+
+        {
+            juce::Graphics g (image);
+            component.paintEntireComponent (g, true);
+        }
+
+        // The image is read only after the Graphics is destroyed (JUCE 8 and later).
+        return image;
+    }
+
+    /** Counts the pixels, sampled on a grid, where two images of the same size differ. */
+    inline int countChangedPixels (juce::Image& a, juce::Image& b, int step = 2)
+    {
+        const juce::Image::BitmapData first (a, juce::Image::BitmapData::readOnly);
+        const juce::Image::BitmapData second (b, juce::Image::BitmapData::readOnly);
+        int changed = 0;
+
+        for (int y = 0; y < a.getHeight(); y += step)
+            for (int x = 0; x < a.getWidth(); x += step)
+                if (first.getPixelColour (x, y).getARGB() != second.getPixelColour (x, y).getARGB())
+                    ++changed;
+
+        return changed;
+    }
+
     inline bool allFinite (const juce::AudioBuffer<float>& buffer)
     {
         for (int channel = 0; channel < buffer.getNumChannels(); ++channel)

@@ -11,6 +11,18 @@
 
 namespace SuiteModulation
 {
+    /** The tempo the synced LFOs run at: the host's tempo if it reports a usable one, otherwise fallbackBpm.
+        The effects have no sequencer to take a tempo from, so they use this. */
+    inline double hostTempoOrDefault (juce::AudioPlayHead* playHead, double fallbackBpm = 120.0)
+    {
+        if (playHead != nullptr)
+            if (const auto position = playHead->getPosition())
+                if (const auto bpm = position->getBpm(); bpm.hasValue() && *bpm > 1.0)
+                    return juce::jlimit (20.0, 300.0, *bpm);
+
+        return fallbackBpm;
+    }
+
     /** One control the routing can move. */
     struct TargetInfo
     {

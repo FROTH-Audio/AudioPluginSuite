@@ -17,6 +17,8 @@ namespace
 {
     constexpr int editorWidth = 780;
     constexpr int editorHeight = 776;
+    constexpr double fallbackSampleRate = 48000.0;
+    constexpr float signalThreshold = 1.0e-4f;
 
     constexpr int headerHeight = 40;
     constexpr int pageSelectorHeight = 28;
@@ -308,7 +310,7 @@ void SpectralDriftEditor::timerCallback()
     }
 
     const auto frames = snapshot.frames.load (std::memory_order_relaxed);
-    const bool signal = frames > 0 && peak > 1.0e-4f;
+    const bool signal = frames > 0 && peak > signalThreshold;
     spectrum.setSignalPresent (signal);
 
     // Say which of the two causes applies, so a silent preview can be diagnosed from the screen alone.
@@ -317,7 +319,7 @@ void SpectralDriftEditor::timerCallback()
     else
         spectrum.setWaitingMessage ("Audio is arriving, but the input is silent. Play or route a signal into the plugin.");
 
-    const double sampleRate = processor.getSampleRate() > 0.0 ? processor.getSampleRate() : 48000.0;
+    const double sampleRate = processor.getSampleRate() > 0.0 ? processor.getSampleRate() : fallbackSampleRate;
     const double binWidth = sampleRate / (double) CoreDSP::Spectral::frameSize;
 
     // Scales a full-scale Hann-windowed sine to about -6 dB on the display.

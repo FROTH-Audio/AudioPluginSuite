@@ -126,9 +126,6 @@ public:
 private:
     static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
 
-    /** The host tempo if it reports one, otherwise a fixed 120 BPM. Drives the synced LFOs. */
-    double currentTempo() const;
-
     static constexpr int maxChannels = 2;
 
     juce::dsp::Oversampling<float> oversampling { maxChannels, 1,

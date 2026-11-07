@@ -253,7 +253,8 @@ void SpectralDriftProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
     }
 
     // Advance the clock that drives the free LFOs and the synced beat position.
-    beatClock += (double) numSamples * currentTempo() / 60.0 / preparedSampleRate;
+    // No host tempo (including the Standalone): a fixed 120 BPM keeps the synced LFOs moving.
+    beatClock += (double) numSamples * SuiteModulation::hostTempoOrDefault (getPlayHead()) / 60.0 / preparedSampleRate;
     streamSample += numSamples;
     modulation.advanceBlock (numSamples);
 
@@ -296,16 +297,6 @@ void SpectralDriftProcessor::setStateInformation (const void* data, int sizeInBy
 float SpectralDriftProcessor::getModulatedValue (ModTarget target) const
 {
     return modulation.getModulatedValue ((int) target);
-}
-
-double SpectralDriftProcessor::currentTempo() const
-{
-    if (auto* playHead = getPlayHead())
-        if (const auto position = playHead->getPosition())
-            if (const auto bpm = position->getBpm(); bpm.hasValue() && *bpm > 1.0)
-                return juce::jlimit (20.0, 300.0, *bpm);
-
-    return 120.0;
 }
 
 //==============================================================================

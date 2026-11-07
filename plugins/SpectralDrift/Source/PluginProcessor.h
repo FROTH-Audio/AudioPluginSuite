@@ -140,9 +140,6 @@ private:
     void readSettings (CoreDSP::Spectral::DriftEngine::Settings& settings,
                        const SuiteModulation::Router::Offsets& offsets) const noexcept;
 
-    /** The host tempo if it reports one, otherwise a fixed 120 BPM. Drives the synced LFOs. */
-    double currentTempo() const;
-
     // The rate is the one prepareToPlay was given: getSampleRate() is 0 in a bare test harness.
     double preparedSampleRate = 44100.0;
 

@@ -635,41 +635,35 @@ namespace
         const float mixBefore = getParameter (processor.apvts, Processor::mixId);
         const float amountBefore = getParameter (processor.apvts, Processor::modAmountIds[0]);
 
-        auto paintedPixels = [&editor] ()
+        // A page must draw content of its own. Compare the page as shown with the same page with every
+        // child hidden. The difference is what the page's controls draw, so a blank page gives zero.
+        auto inkOnPage = [&editor, driftEditor] (int page)
         {
-            juce::Image image (juce::Image::ARGB, editor->getWidth(), editor->getHeight(), true);
+            driftEditor->setPage (page);
+            auto shown = PluginTest::paintComponent (*editor);
 
-            {
-                juce::Graphics g (image);
-                editor->paintEntireComponent (g, true);
-            }
+            for (int i = 0; i < editor->getNumChildComponents(); ++i)
+                editor->getChildComponent (i)->setVisible (false);
 
-            // JUCE 9: read the image only after the Graphics has been destroyed.
-            const juce::Image::BitmapData data (image, juce::Image::BitmapData::readOnly);
-            int painted = 0;
+            auto bare = PluginTest::paintComponent (*editor);
 
-            for (int y = 0; y < image.getHeight(); y += 4)
-                for (int x = 0; x < image.getWidth(); x += 4)
-                    if (data.getPixelColour (x, y).getBrightness() > 0.0f)
-                        ++painted;
+            // Show every child again, then apply the page's own visibility.
+            for (int i = 0; i < editor->getNumChildComponents(); ++i)
+                editor->getChildComponent (i)->setVisible (true);
+            driftEditor->setPage (page);
 
-            return painted;
+            return PluginTest::countChangedPixels (shown, bare);
         };
 
         assert (driftEditor->getPage() == 0);
-        assert (paintedPixels() > 0);
+        assert (inkOnPage (0) > 500);
+        assert (driftEditor->getPage() == 0);
 
-        driftEditor->setPage (1);
-        juce::MessageManager::getInstance()->runDispatchLoopUntil (80);
-
+        assert (inkOnPage (1) > 500);
         assert (driftEditor->getPage() == 1);
-        assert (paintedPixels() > 0);
 
         driftEditor->setPage (0);
-        juce::MessageManager::getInstance()->runDispatchLoopUntil (80);
-
         assert (driftEditor->getPage() == 0);
-        assert (paintedPixels() > 0);
 
         // Showing the pages must not touch the parameters.
         assert (getParameter (processor.apvts, Processor::mixId) == mixBefore);
