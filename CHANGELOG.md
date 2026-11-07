@@ -13,6 +13,7 @@ All notable changes to this project are documented here. The format follows
 - Spectral Drift Shifter: fourteen controls in total. Drift Depth, Bin Spread, Stereo Phase, LFO Shape (sine, triangle, saw, square), Spectral Shift (±32 bins), Spectral Tilt (±2), Spectral Gate, Feedback Damping, Drift Start and Output Gain.
 - Dynamic Saturation Companion: thirteen controls. Attack, Release, Detect HPF, Stereo Link, Tube Bias, Fold, Tone and Envelope Curve are new.
 - Dynamic Saturation Companion now runs its shaper at 2× oversampling. The latency is reported to the host.
+- Spectral Drift Shifter and Dynamic Saturation Companion: the shared two LFOs and six routing slots, with a SOUND/MOD page in each editor. Mix, feedback, feedback damping and output gain are smoothed per sample, so modulating them does not zipper.
 - Micro-Timing Chaos Sequencer: a lerp curve with five draggable points. Drag a point to shape it, right-click a point to reset it, and double-click the graph to reset the curve. The curve is saved with the session.
 - Micro-Timing Chaos Sequencer: a Lerp control, and X, Y and Z multipliers. Lerp scales how far each step drifts toward the attractor. Each multiplier scales one axis (timing, pitch and gate, velocity).
 - Micro-Timing Chaos Sequencer: a Curve and Preview tab. Preview shows the live drift for each axis and the timing, pitch and velocity of the last 32 steps.

@@ -1,17 +1,37 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
+#include <iterator>
+
 namespace
 {
     constexpr double gainSmoothingSeconds = 0.05;
     constexpr float detectorDefaultHz = 20.0f;
+
+    /** The controls the routing can move. Choice index n is entry n - 1, so the order matches
+        ModTarget and is saved in sessions: append only. */
+    const SuiteModulation::TargetInfo modulationTargets[] {
+        { DynamicSaturationProcessor::driveId,       "Drive" },
+        { DynamicSaturationProcessor::sensitivityId, "Sensitivity" },
+        { DynamicSaturationProcessor::mixId,         "Mix" },
+        { DynamicSaturationProcessor::outputLevelId, "Output" },
+        { DynamicSaturationProcessor::attackId,      "Attack" },
+        { DynamicSaturationProcessor::releaseId,     "Release" },
+        { DynamicSaturationProcessor::detectHpfId,   "Detect HPF" },
+        { DynamicSaturationProcessor::stereoLinkId,  "Stereo Link" },
+        { DynamicSaturationProcessor::biasId,        "Tube Bias" },
+        { DynamicSaturationProcessor::foldId,        "Fold" },
+        { DynamicSaturationProcessor::toneId,        "Tone" },
+        { DynamicSaturationProcessor::curveId,       "Curve" },
+    };
 }
 
 DynamicSaturationProcessor::DynamicSaturationProcessor()
     : AudioProcessor (BusesProperties()
                           .withInput ("Input", juce::AudioChannelSet::stereo(), true)
                           .withOutput ("Output", juce::AudioChannelSet::stereo(), true)),
-      apvts (*this, nullptr, "PARAMETERS", createParameterLayout())
+      apvts (*this, nullptr, "PARAMETERS", createParameterLayout()),
+      modulation (apvts, modulationTargets, (int) std::size (modulationTargets), nullptr)
 {
     drive = apvts.getRawParameterValue (driveId);
     sensitivity = apvts.getRawParameterValue (sensitivityId);
@@ -79,11 +99,39 @@ juce::AudioProcessorValueTreeState::ParameterLayout DynamicSaturationProcessor::
     params.push_back (std::make_unique<juce::AudioParameterFloat> (
         juce::ParameterID { curveId, 1 }, "Envelope Curve", juce::NormalisableRange<float> (0.5f, 3.0f, 0.001f), 1.0f));
 
+    // LFOs and modulation routing, appended last so the existing parameter order never moves.
+    SuiteModulation::Router::addParameters (params, modTargetNames());
+
     return { params.begin(), params.end() };
+}
+
+juce::StringArray DynamicSaturationProcessor::modTargetNames()
+{
+    // Must follow the ModTarget enum order exactly.
+    return { "None", "Drive", "Sensitivity", "Mix", "Output", "Attack", "Release",
+             "Detect HPF", "Stereo Link", "Tube Bias", "Fold", "Tone", "Curve" };
+}
+
+double DynamicSaturationProcessor::currentTempo() const
+{
+    if (auto* playHead = getPlayHead())
+        if (const auto position = playHead->getPosition())
+            if (const auto bpm = position->getBpm(); bpm.hasValue() && *bpm > 1.0)
+                return juce::jlimit (20.0, 300.0, *bpm);
+
+    // No host tempo (including the Standalone): a fixed internal tempo keeps the synced LFOs moving.
+    return 120.0;
+}
+
+float DynamicSaturationProcessor::getModulatedValue (ModTarget target) const
+{
+    return modulation.getModulatedValue ((int) target);
 }
 
 void DynamicSaturationProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
+    preparedSampleRate = sampleRate > 0.0 ? sampleRate : 44100.0;
+
     oversampling.initProcessing ((size_t) samplesPerBlock);
     oversampling.reset();
 
@@ -109,6 +157,10 @@ void DynamicSaturationProcessor::prepareToPlay (double sampleRate, int samplesPe
     driveGain.setCurrentAndTargetValue (CoreDSP::decibelsToGain (drive->load()));
     mixAmount.setCurrentAndTargetValue (mix->load() / 100.0f);
     outputGain.setCurrentAndTargetValue (CoreDSP::decibelsToGain (outputLevel->load()));
+
+    modulation.prepare (sampleRate);
+    streamSample = 0;
+    beatClock = 0.0;
 
     dryBuffer.setSize (maxChannels, samplesPerBlock);
     preGainBuffer.setSize (maxChannels, samplesPerBlock);
@@ -140,27 +192,41 @@ void DynamicSaturationProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     if (numChannels == 0 || numSamples == 0)
         return;
 
+    // The LFOs run on an internal beat clock: an effect has no sequencer position to follow, and a
+    // tempo-locked clock keeps the synced shapes moving when the transport is stopped.
+    const auto offsets = modulation.computeOffsets ((double) streamSample, beatClock, (double) streamSample);
+    modulation.publish (offsets, (double) streamSample, beatClock);
+
+    auto modulated = [this, &offsets] (ModTarget target, float base)
+    {
+        return modulation.modulate ((int) target, base, offsets);
+    };
+
     // Block-rate parameters.
-    const float sens = sensitivity->load();
-    const float curveValue = curve->load();
-    const float biasValue = bias->load();
-    const float foldAmount = fold->load() / 100.0f;
-    const float toneValue = tone->load();
-    const float link = stereoLink->load() / 100.0f;
+    const float sens = modulated (ModTarget::Sensitivity, sensitivity->load());
+    const float curveValue = modulated (ModTarget::Curve, curve->load());
+    const float biasValue = modulated (ModTarget::Bias, bias->load());
+    const float foldAmount = modulated (ModTarget::Fold, fold->load()) / 100.0f;
+    const float toneValue = modulated (ModTarget::Tone, tone->load());
+    const float link = modulated (ModTarget::StereoLink, stereoLink->load()) / 100.0f;
     const auto shaping = static_cast<CoreDSP::Saturation::Mode> (juce::roundToInt (mode->load()));
     const double sampleRate = getSampleRate() > 0.0 ? getSampleRate() : 44100.0;
 
-    linkedEnvelope.setTimes (attack->load(), release->load());
+    const float attackMs = modulated (ModTarget::Attack, attack->load());
+    const float releaseMs = modulated (ModTarget::Release, release->load());
+    const float hpfHz = modulated (ModTarget::DetectHpf, detectHpf->load());
+
+    linkedEnvelope.setTimes (attackMs, releaseMs);
 
     for (int channel = 0; channel < maxChannels; ++channel)
     {
-        channelEnvelope[(size_t) channel].setTimes (attack->load(), release->load());
-        detector[(size_t) channel].setCutoff (sampleRate, detectHpf->load());
+        channelEnvelope[(size_t) channel].setTimes (attackMs, releaseMs);
+        detector[(size_t) channel].setCutoff (sampleRate, hpfHz);
     }
 
-    driveGain.setTargetValue (CoreDSP::decibelsToGain (drive->load()));
-    mixAmount.setTargetValue (mix->load() / 100.0f);
-    outputGain.setTargetValue (CoreDSP::decibelsToGain (outputLevel->load()));
+    driveGain.setTargetValue (CoreDSP::decibelsToGain (modulated (ModTarget::Drive, drive->load())));
+    mixAmount.setTargetValue (modulated (ModTarget::Mix, mix->load()) / 100.0f);
+    outputGain.setTargetValue (CoreDSP::decibelsToGain (modulated (ModTarget::OutputLevel, outputLevel->load())));
 
     // Pass 1, base rate: envelope detection and per-sample pre-gain for each channel.
     for (int n = 0; n < numSamples; ++n)
@@ -241,6 +307,11 @@ void DynamicSaturationProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         if (hasLatency)
             dryDelayPosition = (dryDelayPosition + 1) % latencySamples;
     }
+
+    // Advance the clock that drives the free LFOs and the synced beat position.
+    beatClock += (double) numSamples * currentTempo() / 60.0 / preparedSampleRate;
+    streamSample += numSamples;
+    modulation.advanceBlock (numSamples);
 }
 
 juce::AudioProcessorEditor* DynamicSaturationProcessor::createEditor()

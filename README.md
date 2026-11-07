@@ -292,8 +292,8 @@ Nine CTest entries run seven test executables:
 | `CoreDSPTests` | DSP primitives in `modules/core_dsp` | 29 |
 | `SuiteUITests` | Shared widgets and look and feel | 9 |
 | `SuiteModulationTests` | Shared LFOs, routing and the control display in `modules/suite_modulation` | 9 |
-| `SpectralDriftTests` | Spectral Drift processor and editor | 13 |
-| `DynamicSaturationTests` | Dynamic Saturation processor and editor | 10 |
+| `SpectralDriftTests` | Spectral Drift processor and editor | 19 |
+| `DynamicSaturationTests` | Dynamic Saturation processor and editor | 17 |
 | `MicroTimingChaosTests` | Micro-Timing Chaos processor and editor | 34 |
 | `PluginHostTests` (×3) | Each built VST3 bundle, loaded through JUCE's own plugin host | 1 per plugin |
 
@@ -318,7 +318,7 @@ The tests use `assert` with `NDEBUG` undefined, so they also check in Release bu
 | State | Save and restore brings back a changed value. |
 | Buses | Mono and stereo are accepted, and mismatched layouts are rejected. |
 | Editor | The editor opens, its timers run, and it paints. |
-| Spectral Drift | The spectrum publishes real audio (regression test for the empty preview), silence is not reported as signal, freeze sustains the sound, stereo phase separates the channels, latency is 2048 samples. |
+| Spectral Drift | The spectrum publishes real audio (regression test for the empty preview), silence is not reported as signal, freeze sustains the sound, stereo phase separates the channels, latency is 2048 samples, an output gain change ramps both channels identically, and the LFO routing behaves as specified (idle routing is bit-identical, routed controls move the audio and stay in range, and synced LFOs follow the tempo). |
 | Dynamic Saturation | Latency matches the oversampler. Silence stays silent. Output is bounded at maximum settings. Modes differ. Mix 0 is the aligned dry signal. Stereo link and fold change the sound as specified. |
 | Micro-Timing Chaos | Audio passes through unchanged. Latency is 50 ms (2400 samples at 48 kHz). At 0 % Chaos the steps land exactly on the grid, and swing delays the odd steps by exactly the swing share. The pattern repeats at 0 % Chaos and varies at 100 %, and the pitches stay in the scale. Velocity and gate stay within their ranges. Notes never hang, even when retriggered or when the transport stops. Host Sync follows the host tempo. Incoming notes pass through with the latency. The lerp curve keeps its natural default, edits keep its points in order, it survives a state round trip, and a zero Lerp or X multiplier switches the timing drift off. |
 | Widgets | Segmented selector clamping and click handling. Every custom widget and the look and feel paint without problems. |

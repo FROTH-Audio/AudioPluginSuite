@@ -1,11 +1,28 @@
 // Plugin-level tests for Dynamic Saturation Companion. Compiles the real processor and editor sources.
 
 #include "PluginTestUtils.h"
+#include "ModulationTestUtils.h"
+#include "PluginEditor.h"
 #include "PluginProcessor.h"
+
+#include <cstdint>
 
 namespace
 {
     using namespace PluginTest;
+
+    // A host playhead whose tempo the test controls. The effects use it only for the tempo.
+    struct FakePlayHead : juce::AudioPlayHead
+    {
+        double bpm = 120.0;
+
+        juce::Optional<PositionInfo> getPosition() const override
+        {
+            PositionInfo info;
+            info.setBpm (bpm);
+            return info;
+        }
+    };
 
     constexpr double sampleRate = 48000.0;
     constexpr int blockSize = 512;
@@ -44,7 +61,15 @@ namespace
                            { Processor::driveId, Processor::sensitivityId, Processor::modeId, Processor::mixId,
                              Processor::outputLevelId, Processor::attackId, Processor::releaseId,
                              Processor::detectHpfId, Processor::stereoLinkId, Processor::biasId,
-                             Processor::foldId, Processor::toneId, Processor::curveId },
+                             Processor::foldId, Processor::toneId, Processor::curveId,
+                             Processor::lfo1RateId, Processor::lfo1ShapeId, Processor::lfo1SyncId,
+                             Processor::lfo1DivisionId, Processor::lfo1OffsetId,
+                             Processor::lfo2RateId, Processor::lfo2ShapeId, Processor::lfo2SyncId,
+                             Processor::lfo2DivisionId, Processor::lfo2OffsetId,
+                             Processor::modSourceIds[0], Processor::modSourceIds[5],
+                             Processor::modTargetIds[0], Processor::modTargetIds[5],
+                             Processor::modAmountIds[0], Processor::modAmountIds[5],
+                             Processor::modDelayIds[0], Processor::modDelayIds[5] },
                            Processor::numControls);
 
         checkRange (processor.apvts, Processor::driveId, 0.0f, 24.0f, 6.0f);
@@ -69,6 +94,9 @@ namespace
         Processor processor;
         checkStateRoundTrip (processor, processor.apvts, Processor::driveId, 18.0f);
         checkStateRoundTrip (processor, processor.apvts, Processor::foldId, 50.0f);
+        checkStateRoundTrip (processor, processor.apvts, Processor::lfo1RateId, 3.5f);
+        checkStateRoundTrip (processor, processor.apvts, Processor::modTargetIds[1], 7.0f);
+        checkStateRoundTrip (processor, processor.apvts, Processor::modAmountIds[1], -42.0f);
 
         pass ("testStateRoundTrip");
     }
@@ -244,6 +272,279 @@ namespace
 
         pass ("testEditor");
     }
+
+    //==============================================================================
+    // LFOs and modulation routing
+
+    /** The twelve routable controls, in ModTarget order, with the parameter each one moves. */
+    struct TargetEntry { Processor::ModTarget target; const char* id; };
+
+    const TargetEntry targetEntries[] {
+        { Processor::ModTarget::Drive,       Processor::driveId },
+        { Processor::ModTarget::Sensitivity, Processor::sensitivityId },
+        { Processor::ModTarget::Mix,         Processor::mixId },
+        { Processor::ModTarget::OutputLevel, Processor::outputLevelId },
+        { Processor::ModTarget::Attack,      Processor::attackId },
+        { Processor::ModTarget::Release,     Processor::releaseId },
+        { Processor::ModTarget::DetectHpf,   Processor::detectHpfId },
+        { Processor::ModTarget::StereoLink,  Processor::stereoLinkId },
+        { Processor::ModTarget::Bias,        Processor::biasId },
+        { Processor::ModTarget::Fold,        Processor::foldId },
+        { Processor::ModTarget::Tone,        Processor::toneId },
+        { Processor::ModTarget::Curve,       Processor::curveId },
+    };
+
+    void testModulationParameters()
+    {
+        Processor processor;
+
+        checkRange (processor.apvts, Processor::lfo1RateId, 0.02f, 20.0f, 0.25f);
+        checkRange (processor.apvts, Processor::lfo1ShapeId, 0.0f, 6.0f, 0.0f);
+        checkRange (processor.apvts, Processor::lfo1SyncId, 0.0f, 1.0f, 0.0f);
+        checkRange (processor.apvts, Processor::lfo1DivisionId, 0.0f, 6.0f, 4.0f);
+        checkRange (processor.apvts, Processor::lfo1OffsetId, -100.0f, 100.0f, 0.0f);
+        checkRange (processor.apvts, Processor::lfo2RateId, 0.02f, 20.0f, 0.25f);
+
+        checkRange (processor.apvts, Processor::modSourceIds[0], 0.0f, 1.0f, 0.0f);
+        checkRange (processor.apvts, Processor::modTargetIds[0], 0.0f, 12.0f, 0.0f);
+        checkRange (processor.apvts, Processor::modAmountIds[0], -100.0f, 100.0f, 0.0f);
+        checkRange (processor.apvts, Processor::modDelayIds[0], 0.0f, 10.0f, 0.0f);
+
+        // The target choices must match the enum order the sessions save.
+        auto* target = dynamic_cast<juce::AudioParameterChoice*> (processor.apvts.getParameter (Processor::modTargetIds[0]));
+        assert (target != nullptr);
+        assert (target->choices == Processor::modTargetNames());
+        assert (target->choices.size() == (int) Processor::ModTarget::count);
+
+        assert (processor.getRouter().getNumTargets() == 12);
+
+        pass ("testModulationParameters");
+    }
+
+    // With every routing amount at zero the modulation changes nothing, bit for bit.
+    void testDefaultRoutingIsSilent()
+    {
+        Processor processor;
+        processor.prepareToPlay (sampleRate, blockSize);
+
+        for (auto* id : Processor::modAmountIds)
+            assert (getParameter (processor.apvts, id) == 0.0f);
+
+        // One block publishes the offsets the display reads.
+        juce::AudioBuffer<float> audio (2, blockSize);
+        audio.clear();
+        juce::MidiBuffer midi;
+        processor.processBlock (audio, midi);
+
+        for (const auto& entry : targetEntries)
+        {
+            assert (processor.getRouter().getTargetOffset ((int) entry.target) == 0.0f);
+            assert (processor.getModulatedValue (entry.target) == getParameter (processor.apvts, entry.id));
+        }
+
+        // A routing that is aimed at a control but has no amount is the same as no routing at all.
+        Processor routed;
+        setRoute (routed, 0, 0, (int) Processor::ModTarget::Drive, 0.0f);
+
+        const auto plainOutput = renderSine (processor, 440.0, 0.3f, 40);
+        const auto routedOutput = renderSine (routed, 440.0, 0.3f, 40);
+
+        assert (plainOutput == routedOutput);
+
+        pass ("testDefaultRoutingIsSilent");
+    }
+
+    // A routing really moves the control, in the direction the amount says.
+    void testModulationDirection()
+    {
+        auto modulatedDrive = [] (float amount)
+        {
+            Processor processor;
+            setLfo (processor, 0, 1.0f, 3.0f, false, 4.0f);   // square: +1 for the first half cycle
+            setRoute (processor, 0, 0, (int) Processor::ModTarget::Drive, amount);
+            processor.prepareToPlay (sampleRate, blockSize);
+
+            juce::AudioBuffer<float> audio (2, blockSize);
+            audio.clear();
+            juce::MidiBuffer midi;
+            processor.processBlock (audio, midi);
+
+            return processor.getModulatedValue (Processor::ModTarget::Drive);
+        };
+
+        const float base = 6.0f;
+        assert (modulatedDrive (100.0f) > base + 1.0f);
+        assert (modulatedDrive (-100.0f) < base - 1.0f);
+
+        pass ("testModulationDirection");
+    }
+
+    // The routing reaches the audio: a routed drive changes the output, and removing the amount restores it.
+    void testModulationReachesAudio()
+    {
+        Processor plain;
+        const auto plainOutput = renderSine (plain, 440.0, 0.3f, 60);
+
+        Processor modulated;
+        setLfo (modulated, 0, 2.0f, 3.0f, false, 4.0f);                       // square, 2 Hz
+        setRoute (modulated, 0, 0, (int) Processor::ModTarget::Drive, 100.0f);
+        const auto modulatedOutput = renderSine (modulated, 440.0, 0.3f, 60);
+
+        assert (plainOutput.size() == modulatedOutput.size());
+
+        double difference = 0.0;
+        for (size_t n = 0; n < plainOutput.size(); ++n)
+            difference += std::abs (plainOutput[n] - modulatedOutput[n]);
+
+        assert (difference / (double) plainOutput.size() > 1.0e-3);
+
+        // The same routing with no amount is bit-identical to no routing.
+        Processor idle;
+        setLfo (idle, 0, 2.0f, 3.0f, false, 4.0f);
+        setRoute (idle, 0, 0, (int) Processor::ModTarget::Drive, 0.0f);
+        const auto idleOutput = renderSine (idle, 440.0, 0.3f, 60);
+        assert (idleOutput == plainOutput);
+
+        pass ("testModulationReachesAudio");
+    }
+
+    // A synced LFO runs on the tempo clock: the internal 120 BPM with no host, the host tempo when there is one.
+    void testSyncedLfoFollowsTempo()
+    {
+        auto phaseAfterBlocks = [] (double hostBpm, int blocks)
+        {
+            Processor processor;
+            FakePlayHead playhead;
+            playhead.bpm = hostBpm;
+            processor.setPlayHead (&playhead);
+
+            setLfo (processor, 0, 0.25f, 0.0f, true, 4.0f);   // sine, 1/4 note = one beat per cycle
+            processor.prepareToPlay (sampleRate, blockSize);
+
+            juce::AudioBuffer<float> audio (2, blockSize);
+            juce::MidiBuffer midi;
+
+            for (int block = 0; block < blocks; ++block)
+            {
+                audio.clear();
+                midi.clear();
+                processor.processBlock (audio, midi);
+            }
+
+            processor.setPlayHead (nullptr);
+            return processor.getRouter().getLfoPhase (0);
+        };
+
+        // The published phase describes the start of the last block.
+        const double elapsed = 47.0 * blockSize / sampleRate;   // 48 blocks processed
+
+        const float at120 = phaseAfterBlocks (120.0, 48);       // two beats per second, one beat per cycle
+        const float at60 = phaseAfterBlocks (60.0, 48);         // half the speed
+
+        assert (std::abs (at120 - (float) (2.0 * elapsed - std::floor (2.0 * elapsed))) < 1.0e-3f);
+        assert (std::abs (at60 - (float) (elapsed - std::floor (elapsed))) < 1.0e-3f);
+
+        pass ("testSyncedLfoFollowsTempo");
+    }
+
+    // Every routable control stays inside its own range, whatever the LFO does.
+    void testModulationStaysInRange()
+    {
+        for (const auto& entry : targetEntries)
+        {
+            Processor processor;
+            setLfo (processor, 0, 3.0f, 3.0f, false, 4.0f);                  // square, 3 Hz
+            setRoute (processor, 0, 0, (int) entry.target, 100.0f);
+            processor.prepareToPlay (sampleRate, blockSize);
+
+            auto* parameter = processor.apvts.getParameter (entry.id);
+            assert (parameter != nullptr);
+            const auto range = parameter->getNormalisableRange();
+
+            juce::AudioBuffer<float> audio (2, blockSize);
+            juce::MidiBuffer midi;
+            float smallest = range.end;
+            float largest = range.start;
+
+            for (int block = 0; block < 120; ++block)
+            {
+                audio.clear();
+                midi.clear();
+                processor.processBlock (audio, midi);
+
+                const float value = processor.getModulatedValue (entry.target);
+                assert (std::isfinite (value));
+                smallest = juce::jmin (smallest, value);
+                largest = juce::jmax (largest, value);
+            }
+
+            assert (smallest >= range.start - 1.0e-3f);
+            assert (largest <= range.end + 1.0e-3f);
+        }
+
+        pass ("testModulationStaysInRange");
+    }
+
+    // Both editor pages paint, and switching pages does not change a parameter.
+    void testEditorPages()
+    {
+        Processor processor;
+        processor.prepareToPlay (sampleRate, blockSize);
+
+        std::unique_ptr<juce::AudioProcessorEditor> editor (processor.createEditorAndMakeActive());
+        assert (editor != nullptr);
+
+        auto* saturationEditor = dynamic_cast<DynamicSaturationEditor*> (editor.get());
+        assert (saturationEditor != nullptr);
+
+        juce::MessageManager::getInstance()->runDispatchLoopUntil (120);
+
+        const float driveBefore = getParameter (processor.apvts, Processor::driveId);
+        const float amountBefore = getParameter (processor.apvts, Processor::modAmountIds[0]);
+
+        auto paintedPixels = [&editor] ()
+        {
+            juce::Image image (juce::Image::ARGB, editor->getWidth(), editor->getHeight(), true);
+
+            {
+                juce::Graphics g (image);
+                editor->paintEntireComponent (g, true);
+            }
+
+            // JUCE 9: read the image only after the Graphics has been destroyed.
+            const juce::Image::BitmapData data (image, juce::Image::BitmapData::readOnly);
+            int painted = 0;
+
+            for (int y = 0; y < image.getHeight(); y += 4)
+                for (int x = 0; x < image.getWidth(); x += 4)
+                    if (data.getPixelColour (x, y).getBrightness() > 0.0f)
+                        ++painted;
+
+            return painted;
+        };
+
+        assert (saturationEditor->getPage() == 0);
+        assert (paintedPixels() > 0);
+
+        saturationEditor->setPage (1);
+        juce::MessageManager::getInstance()->runDispatchLoopUntil (80);
+
+        assert (saturationEditor->getPage() == 1);
+        assert (paintedPixels() > 0);
+
+        saturationEditor->setPage (0);
+        juce::MessageManager::getInstance()->runDispatchLoopUntil (80);
+
+        assert (saturationEditor->getPage() == 0);
+        assert (paintedPixels() > 0);
+
+        // Showing the pages must not touch the parameters.
+        assert (getParameter (processor.apvts, Processor::driveId) == driveBefore);
+        assert (getParameter (processor.apvts, Processor::modAmountIds[0]) == amountBefore);
+
+        processor.editorBeingDeleted (editor.get());
+        pass ("testEditorPages");
+    }
 }
 
 int main()
@@ -262,6 +563,13 @@ int main()
     testStereoLinkDrivesQuietChannelHarder();
     testFoldChangesSound();
     testEditor();
+    testModulationParameters();
+    testDefaultRoutingIsSilent();
+    testModulationDirection();
+    testModulationReachesAudio();
+    testSyncedLfoFollowsTempo();
+    testModulationStaysInRange();
+    testEditorPages();
 
     std::puts ("All Dynamic Saturation plugin tests passed.");
     return 0;

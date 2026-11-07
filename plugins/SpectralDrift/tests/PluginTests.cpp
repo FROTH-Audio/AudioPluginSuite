@@ -1,7 +1,11 @@
 // Plugin-level tests for Spectral Drift Shifter. Compiles the real processor and editor sources.
 
 #include "PluginTestUtils.h"
+#include "ModulationTestUtils.h"
+#include "PluginEditor.h"
 #include "PluginProcessor.h"
+
+#include <cstdint>
 
 namespace
 {
@@ -23,7 +27,17 @@ namespace
                              SpectralDriftProcessor::tiltId, SpectralDriftProcessor::gateId,
                              SpectralDriftProcessor::feedbackId, SpectralDriftProcessor::mixId,
                              SpectralDriftProcessor::freezeId, SpectralDriftProcessor::feedbackDampingId,
-                             SpectralDriftProcessor::driftStartId, SpectralDriftProcessor::outputGainId },
+                             SpectralDriftProcessor::driftStartId, SpectralDriftProcessor::outputGainId,
+                             SpectralDriftProcessor::lfo1RateId, SpectralDriftProcessor::lfo1ShapeId,
+                             SpectralDriftProcessor::lfo1SyncId, SpectralDriftProcessor::lfo1DivisionId,
+                             SpectralDriftProcessor::lfo1OffsetId,
+                             SpectralDriftProcessor::lfo2RateId, SpectralDriftProcessor::lfo2ShapeId,
+                             SpectralDriftProcessor::lfo2SyncId, SpectralDriftProcessor::lfo2DivisionId,
+                             SpectralDriftProcessor::lfo2OffsetId,
+                             SpectralDriftProcessor::modSourceIds[0], SpectralDriftProcessor::modSourceIds[5],
+                             SpectralDriftProcessor::modTargetIds[0], SpectralDriftProcessor::modTargetIds[5],
+                             SpectralDriftProcessor::modAmountIds[0], SpectralDriftProcessor::modAmountIds[5],
+                             SpectralDriftProcessor::modDelayIds[0], SpectralDriftProcessor::modDelayIds[5] },
                            SpectralDriftProcessor::numControls);
 
         checkRange (processor.apvts, SpectralDriftProcessor::driftRateId, 0.1f, 10.0f, 1.0f);
@@ -41,6 +55,31 @@ namespace
         checkRange (processor.apvts, SpectralDriftProcessor::mixId, 0.0f, 100.0f, 100.0f);
         checkRange (processor.apvts, SpectralDriftProcessor::freezeId, 0.0f, 1.0f, 0.0f);
 
+        // The 34 shared LFO and routing parameters.
+        checkRange (processor.apvts, Processor::lfo1RateId, 0.02f, 20.0f, 0.25f);
+        checkRange (processor.apvts, Processor::lfo1ShapeId, 0.0f, 6.0f, 0.0f);
+        checkRange (processor.apvts, Processor::lfo1SyncId, 0.0f, 1.0f, 0.0f);
+        checkRange (processor.apvts, Processor::lfo1DivisionId, 0.0f, 6.0f, 4.0f);
+        checkRange (processor.apvts, Processor::lfo1OffsetId, -100.0f, 100.0f, 0.0f);
+        checkRange (processor.apvts, Processor::lfo2RateId, 0.02f, 20.0f, 0.25f);
+        checkRange (processor.apvts, Processor::lfo2ShapeId, 0.0f, 6.0f, 0.0f);
+        checkRange (processor.apvts, Processor::lfo2SyncId, 0.0f, 1.0f, 0.0f);
+        checkRange (processor.apvts, Processor::lfo2DivisionId, 0.0f, 6.0f, 4.0f);
+        checkRange (processor.apvts, Processor::lfo2OffsetId, -100.0f, 100.0f, 0.0f);
+
+        checkRange (processor.apvts, Processor::modSourceIds[0], 0.0f, 1.0f, 0.0f);
+        checkRange (processor.apvts, Processor::modTargetIds[0], 0.0f, 12.0f, 0.0f);
+        checkRange (processor.apvts, Processor::modAmountIds[0], -100.0f, 100.0f, 0.0f);
+        checkRange (processor.apvts, Processor::modDelayIds[0], 0.0f, 10.0f, 0.0f);
+
+        // The target choices must match the enum order the sessions save.
+        auto* target = dynamic_cast<juce::AudioParameterChoice*> (processor.apvts.getParameter (Processor::modTargetIds[0]));
+        assert (target != nullptr);
+        assert (target->choices == Processor::modTargetNames());
+        assert (target->choices.size() == (int) Processor::ModTarget::count);
+
+        assert (processor.getRouter().getNumTargets() == 12);
+
         pass ("testParameters");
     }
 
@@ -49,6 +88,9 @@ namespace
         SpectralDriftProcessor processor;
         checkStateRoundTrip (processor, processor.apvts, SpectralDriftProcessor::driftRateId, 5.0f);
         checkStateRoundTrip (processor, processor.apvts, SpectralDriftProcessor::lfoShapeId, 2.0f);
+        checkStateRoundTrip (processor, processor.apvts, Processor::lfo1RateId, 3.5f);
+        checkStateRoundTrip (processor, processor.apvts, Processor::modTargetIds[1], 7.0f);
+        checkStateRoundTrip (processor, processor.apvts, Processor::modAmountIds[1], -42.0f);
 
         pass ("testStateRoundTrip");
     }
@@ -304,6 +346,30 @@ namespace
         pass ("testOutputGainScalesSignal");
     }
 
+    // The output gain ramps through the first block after a change. Both channels must see the same ramp.
+    // With Mix at 0 the output is the dry signal only, so identical input gives identical output on each channel.
+    void testOutputGainRampMatchesChannels()
+    {
+        Processor processor;
+        setParameter (processor.apvts, Processor::mixId, 0.0f);
+        processor.prepareToPlay (sampleRate, blockSize);
+
+        setParameter (processor.apvts, Processor::outputGainId, -12.0f);   // the ramp runs through the next block
+
+        juce::AudioBuffer<float> audio (2, blockSize);
+        audio.clear();
+        addSine (audio, 0, sampleRate, 1000.0, 0.5f, 0);
+        addSine (audio, 1, sampleRate, 1000.0, 0.5f, 0);
+
+        juce::MidiBuffer midi;
+        processor.processBlock (audio, midi);
+
+        for (int n = 0; n < blockSize; ++n)
+            assert (audio.getSample (0, n) == audio.getSample (1, n));
+
+        pass ("testOutputGainRampMatchesChannels");
+    }
+
     void testFeedbackDampingChangesEcho()
     {
         // Feedback at its maximum in the plugin. A single click is repeated by the feedback loop.
@@ -378,6 +444,240 @@ namespace
 
         pass ("testEditor");
     }
+
+    //==============================================================================
+    // LFOs and modulation routing
+
+    struct TargetEntry { Processor::ModTarget target; const char* id; };
+
+    const TargetEntry targetEntries[] {
+        { Processor::ModTarget::DriftRate,        Processor::driftRateId },
+        { Processor::ModTarget::Depth,            Processor::depthId },
+        { Processor::ModTarget::BinSpread,        Processor::spreadId },
+        { Processor::ModTarget::StereoPhase,      Processor::stereoPhaseId },
+        { Processor::ModTarget::Shift,            Processor::shiftId },
+        { Processor::ModTarget::Tilt,             Processor::tiltId },
+        { Processor::ModTarget::Gate,             Processor::gateId },
+        { Processor::ModTarget::Feedback,         Processor::feedbackId },
+        { Processor::ModTarget::FeedbackDamping,  Processor::feedbackDampingId },
+        { Processor::ModTarget::DriftStart,       Processor::driftStartId },
+        { Processor::ModTarget::OutputGain,       Processor::outputGainId },
+        { Processor::ModTarget::Mix,              Processor::mixId },
+    };
+
+    void testModulationParameters()
+    {
+        Processor processor;
+
+        checkRange (processor.apvts, Processor::lfo1RateId, 0.02f, 20.0f, 0.25f);
+        checkRange (processor.apvts, Processor::lfo1ShapeId, 0.0f, 6.0f, 0.0f);
+        checkRange (processor.apvts, Processor::lfo1SyncId, 0.0f, 1.0f, 0.0f);
+        checkRange (processor.apvts, Processor::lfo1DivisionId, 0.0f, 6.0f, 4.0f);
+        checkRange (processor.apvts, Processor::lfo1OffsetId, -100.0f, 100.0f, 0.0f);
+        checkRange (processor.apvts, Processor::lfo2RateId, 0.02f, 20.0f, 0.25f);
+
+        checkRange (processor.apvts, Processor::modSourceIds[0], 0.0f, 1.0f, 0.0f);
+        checkRange (processor.apvts, Processor::modTargetIds[0], 0.0f, 12.0f, 0.0f);
+        checkRange (processor.apvts, Processor::modAmountIds[0], -100.0f, 100.0f, 0.0f);
+        checkRange (processor.apvts, Processor::modDelayIds[0], 0.0f, 10.0f, 0.0f);
+
+        auto* target = dynamic_cast<juce::AudioParameterChoice*> (processor.apvts.getParameter (Processor::modTargetIds[0]));
+        assert (target != nullptr);
+        assert (target->choices == Processor::modTargetNames());
+        assert (target->choices.size() == (int) Processor::ModTarget::count);
+
+        assert (processor.getRouter().getNumTargets() == 12);
+
+        pass ("testModulationParameters");
+    }
+
+    // With every routing amount at zero the modulation changes nothing, bit for bit.
+    void testDefaultRoutingIsSilent()
+    {
+        Processor processor;
+        processor.prepareToPlay (sampleRate, blockSize);
+
+        for (auto* id : Processor::modAmountIds)
+            assert (getParameter (processor.apvts, id) == 0.0f);
+
+        juce::AudioBuffer<float> audio (2, blockSize);
+        audio.clear();
+        juce::MidiBuffer midi;
+        processor.processBlock (audio, midi);
+
+        for (const auto& entry : targetEntries)
+        {
+            assert (processor.getRouter().getTargetOffset ((int) entry.target) == 0.0f);
+            assert (processor.getModulatedValue (entry.target) == getParameter (processor.apvts, entry.id));
+        }
+
+        // A routing aimed at a control with no amount is the same as no routing at all.
+        Processor routed;
+        setRoute (routed, 0, 0, (int) Processor::ModTarget::OutputGain, 0.0f);
+
+        const auto plainOutput = renderLeft (processor, 40);
+        const auto routedOutput = renderLeft (routed, 40);
+
+        assert (plainOutput == routedOutput);
+
+        pass ("testDefaultRoutingIsSilent");
+    }
+
+    // The routing reaches the audio: a routed output gain changes the output, and removing the amount restores it.
+    void testModulationReachesAudio()
+    {
+        Processor plain;
+        const auto plainOutput = renderLeft (plain, 94);   // 1 s
+
+        Processor modulated;
+        setLfo (modulated, 0, 4.0f, 3.0f, false, 4.0f);            // square, 4 Hz, free
+        setRoute (modulated, 0, 0, (int) Processor::ModTarget::OutputGain, 100.0f);
+        const auto modulatedOutput = renderLeft (modulated, 94);
+
+        assert (plainOutput.size() == modulatedOutput.size());
+
+        double difference = 0.0;
+        for (size_t n = 0; n < plainOutput.size(); ++n)
+            difference += std::abs (plainOutput[n] - modulatedOutput[n]);
+
+        assert (difference / (double) plainOutput.size() > 1.0e-3);
+
+        // The same routing with no amount is bit-identical to no routing.
+        Processor idle;
+        setLfo (idle, 0, 4.0f, 3.0f, false, 4.0f);
+        setRoute (idle, 0, 0, (int) Processor::ModTarget::OutputGain, 0.0f);
+        const auto idleOutput = renderLeft (idle, 94);
+        assert (idleOutput == plainOutput);
+
+        pass ("testModulationReachesAudio");
+    }
+
+    // A synced LFO runs on the tempo clock: the internal 120 BPM with no host playhead.
+    void testSyncedLfoFollowsTempo()
+    {
+        Processor processor;
+        setParameter (processor.apvts, Processor::lfo1SyncId, 1.0f);
+        setParameter (processor.apvts, Processor::lfo1DivisionId, 4.0f);   // 1/4 = 1 beat per cycle
+        processor.prepareToPlay (sampleRate, blockSize);
+
+        juce::AudioBuffer<float> audio (2, blockSize);
+        juce::MidiBuffer midi;
+
+        // 24 blocks ≈ 0.25 s: one beat every 0.5 s, so half a cycle -> phase ≈ 0.5.
+        for (int block = 0; block < 24; ++block)
+        {
+            audio.clear();
+            midi.clear();
+            processor.processBlock (audio, midi);
+        }
+        const float quarter = processor.getRouter().getLfoPhase (0);
+
+        // 24 more blocks ≈ 0.5 s: a full cycle, back to phase ≈ 0.
+        for (int block = 0; block < 24; ++block)
+        {
+            audio.clear();
+            midi.clear();
+            processor.processBlock (audio, midi);
+        }
+        const float half = processor.getRouter().getLfoPhase (0);
+
+        assert (std::abs (quarter - 0.5f) < 0.02f);
+        assert (std::abs (half - 0.0f) < 0.02f);
+
+        pass ("testSyncedLfoFollowsTempo");
+    }
+
+    // A routed control stays inside its own range, whatever the LFO does.
+    void testModulationClampsToRange()
+    {
+        Processor processor;
+        setLfo (processor, 0, 3.0f, 3.0f, false, 4.0f);                  // square, 3 Hz
+        setRoute (processor, 0, 0, (int) Processor::ModTarget::Shift, 100.0f);
+        processor.prepareToPlay (sampleRate, blockSize);
+
+        juce::AudioBuffer<float> audio (2, blockSize);
+        juce::MidiBuffer midi;
+        float smallest = 32.0f;
+        float largest = -32.0f;
+
+        for (int block = 0; block < 240; ++block)
+        {
+            audio.clear();
+            midi.clear();
+            processor.processBlock (audio, midi);
+
+            const float value = processor.getModulatedValue (Processor::ModTarget::Shift);
+            assert (std::isfinite (value));
+            smallest = juce::jmin (smallest, value);
+            largest = juce::jmax (largest, value);
+        }
+
+        assert (smallest >= -32.0f - 1.0e-3f);
+        assert (largest <= 32.0f + 1.0e-3f);
+
+        pass ("testModulationClampsToRange");
+    }
+
+    // Both editor pages paint, and switching pages does not change a parameter.
+    void testEditorPages()
+    {
+        SpectralDriftProcessor processor;
+        processor.prepareToPlay (sampleRate, blockSize);
+
+        std::unique_ptr<juce::AudioProcessorEditor> editor (processor.createEditorAndMakeActive());
+        assert (editor != nullptr);
+
+        auto* driftEditor = dynamic_cast<SpectralDriftEditor*> (editor.get());
+        assert (driftEditor != nullptr);
+
+        juce::MessageManager::getInstance()->runDispatchLoopUntil (120);
+
+        const float mixBefore = getParameter (processor.apvts, Processor::mixId);
+        const float amountBefore = getParameter (processor.apvts, Processor::modAmountIds[0]);
+
+        auto paintedPixels = [&editor] ()
+        {
+            juce::Image image (juce::Image::ARGB, editor->getWidth(), editor->getHeight(), true);
+
+            {
+                juce::Graphics g (image);
+                editor->paintEntireComponent (g, true);
+            }
+
+            // JUCE 9: read the image only after the Graphics has been destroyed.
+            const juce::Image::BitmapData data (image, juce::Image::BitmapData::readOnly);
+            int painted = 0;
+
+            for (int y = 0; y < image.getHeight(); y += 4)
+                for (int x = 0; x < image.getWidth(); x += 4)
+                    if (data.getPixelColour (x, y).getBrightness() > 0.0f)
+                        ++painted;
+
+            return painted;
+        };
+
+        assert (driftEditor->getPage() == 0);
+        assert (paintedPixels() > 0);
+
+        driftEditor->setPage (1);
+        juce::MessageManager::getInstance()->runDispatchLoopUntil (80);
+
+        assert (driftEditor->getPage() == 1);
+        assert (paintedPixels() > 0);
+
+        driftEditor->setPage (0);
+        juce::MessageManager::getInstance()->runDispatchLoopUntil (80);
+
+        assert (driftEditor->getPage() == 0);
+        assert (paintedPixels() > 0);
+
+        // Showing the pages must not touch the parameters.
+        assert (getParameter (processor.apvts, Processor::mixId) == mixBefore);
+        assert (getParameter (processor.apvts, Processor::modAmountIds[0]) == amountBefore);
+
+        processor.editorBeingDeleted (editor.get());
+        pass ("testEditorPages");
+    }
 }
 
 int main()
@@ -396,9 +696,16 @@ int main()
     testStereoPhaseDecorrelatesChannels();
     testMixZeroIsDelayedDry();
     testOutputGainScalesSignal();
+    testOutputGainRampMatchesChannels();
     testFeedbackDampingChangesEcho();
     testDriftStartLeavesLowBinsAlone();
     testEditor();
+    testModulationParameters();
+    testDefaultRoutingIsSilent();
+    testModulationReachesAudio();
+    testSyncedLfoFollowsTempo();
+    testModulationClampsToRange();
+    testEditorPages();
 
     std::puts ("All Spectral Drift plugin tests passed.");
     return 0;

@@ -22,6 +22,7 @@ target_sources(DynamicSaturation PRIVATE
 )
 
 suite_ui_add_to_target(DynamicSaturation)
+suite_modulation_add_to_target(DynamicSaturation)
 
 # The brand lockup (FROTH Audio wordmark, mark and the product name) is embedded, so the header loads it from inside the plugin.
 juce_add_binary_data(DynamicSaturationAssets
@@ -52,6 +53,7 @@ if(SUITE_BUILD_TESTS)
     )
 
     suite_ui_add_to_target(DynamicSaturationTests)
+    suite_modulation_add_to_target(DynamicSaturationTests)
 
     target_link_libraries(DynamicSaturationTests PRIVATE
         CoreDSP

@@ -64,7 +64,7 @@ plugins/<Name>/
   CMakeLists.txt                  juce_add_plugin, links, <Name>Tests executable, add_test
   Source/PluginProcessor.{h,cpp}  APVTS, processing, state, createPluginFilter()
   Source/PluginEditor.{h,cpp}     Editor, 60 Hz Timer reads processor snapshots
-  tests/PluginTests.cpp           Plugin tests: SpectralDrift 13, DynamicSaturation 10, MicroTimingChaos 34
+  tests/PluginTests.cpp           Plugin tests: SpectralDrift 19, DynamicSaturation 17, MicroTimingChaos 34
 plugins/MicroTimingChaos/         Additional files:
   MicroTimingChaosLookAndFeel.h   At the plugin root (not include/). MTC-only colours (axes, LFOs, preview text); the neutrals come from SuiteUI::Colours. Plus the LookAndFeel
   Source/MicroTimingChaosLookAndFeel.cpp  Rotary knobs, BPM Sync button, combo box; textures and icons from BinaryData
@@ -104,7 +104,7 @@ $CM = "C:\Program Files\Microsoft Visual Studio\18\Community\Common7\IDE\CommonE
 - JUCE is fetched by `FetchContent` into `build/_deps/juce-src`. That directory is a full local copy: grep it to check any API before using it.
 - Asset embedding: `juce_add_binary_data(MicroTimingChaosAssets ...)` builds a `BinaryData` target that the plugin and its test executable link. Add new icons or textures to its `SOURCES` list, then reference them by the generated name (`file_name_with_underscores`, for example `bpm_sync_active_svg`).
 
-Last verified status (2026-11-06): JUCE 9.0.5. Full Release build succeeds on Windows. All 9 CTest entries pass: CoreDSPTests, SuiteUI_Tests, SuiteModulation_Tests, the three plugin test executables, and the three VST3 host-load tests. SuiteUI_Tests also passes against JUCE 8.0.6, the previous pin, which is the version CI ran. macOS is not verified on JUCE 9.
+Last verified status (2026-11-07): JUCE 9.0.5. Full Release build succeeds on Windows. All 9 CTest entries pass: CoreDSPTests, SuiteUI_Tests, SuiteModulation_Tests, the three plugin test executables, and the three VST3 host-load tests. SuiteUI_Tests also passed against JUCE 8.0.6, the previous pin, which is the version CI ran (last checked 2026-11-06, not re-run since). macOS is not verified on JUCE 9.
 
 ---
 
@@ -112,7 +112,11 @@ Last verified status (2026-11-06): JUCE 9.0.5. Full Release build succeeds on Wi
 
 Parameter IDs are `static constexpr const char*` members of each processor. Defaults and ranges below are what `createParameterLayout()` defines. Each float uses a `NormalisableRange`, and some use a log or skew. The plugin tests check these values with `checkRange`, so a change here must change the test too.
 
-### 4.1 Spectral Drift Shifter (14 parameters)
+### 4.1 Spectral Drift Shifter (48 parameters)
+
+The 14 controls below are the original sound parameters. The remaining 34 are the two LFOs and six modulation
+routings added by `SuiteModulation::Router` (`lfo1Rate` … `mod6Delay`), appended last so the original order never
+moves. At defaults every routing amount is 0, so the sound is bit-identical to the 14-parameter version.
 
 | ID | Name | Range | Default | Notes |
 |---|---|---|---|---|
@@ -133,7 +137,11 @@ Parameter IDs are `static constexpr const char*` members of each processor. Defa
 
 Latency reported: 2048 samples (`setLatencySamples`). Tail length: 0.
 
-### 4.2 Dynamic Saturation Companion (13 parameters)
+### 4.2 Dynamic Saturation Companion (47 parameters)
+
+The 13 controls below are the original sound parameters. The remaining 34 are the two LFOs and six modulation
+routings added by `SuiteModulation::Router` (`lfo1Rate` … `mod6Delay`), appended last so the original order never
+moves. At defaults every routing amount is 0, so the sound is bit-identical to the 13-parameter version.
 
 | ID | Name | Range | Default | Notes |
 |---|---|---|---|---|
@@ -204,6 +212,18 @@ Targets (`ModTarget` in `PluginProcessor.h`; index order is saved in sessions, s
 LFO phase is counted in cycles. Free LFOs accumulate `rate × samples / sampleRate` at the end of each block, so a rate change never jumps the phase, and they keep running when the transport stops. Synced LFOs use `beat / divisionBeats`, where the beat is the sequencer's beat (host or internal), so they hold still when the transport stops. Sample and hold takes its seed from `lfoSeeds` and its cycle index from the unwrapped cycle count.
 
 LFOs are sampled at step times, not per sample, so a fast LFO can alias against the step grid (section 10).
+
+### Modulation targets in the effects
+
+Spectral Drift targets (12, in `ModTarget` order): 0 None, 1 Drift Rate, 2 Drift Depth, 3 Bin Spread, 4 Stereo Phase, 5 Spectral Shift, 6 Spectral Tilt, 7 Spectral Gate, 8 Feedback, 9 Feedback Damping, 10 Drift Start, 11 Output Gain, 12 Mix. Excluded: `freeze` (a switch) and `lfoShape` (the engine's own drift LFO).
+
+Mix, feedback, feedback damping and output gain are smoothed per-sample before reaching the engine, so modulating them per block never zips or clicks. Everything else is consumed once per frame (2048 samples) or per block, so block-rate modulation is safe.
+
+Dynamic Saturation targets (12, in `ModTarget` order): 0 None, 1 Drive, 2 Sensitivity, 3 Mix, 4 Output, 5 Attack, 6 Release, 7 Detect HPF, 8 Stereo Link, 9 Tube Bias, 10 Fold, 11 Tone, 12 Curve. Excluded: `mode` (a choice).
+
+DS already smooths drive, mix and output level for 50 ms, and its other targets are block-rate by construction, so no DSP change was needed.
+
+Synced LFOs in both effects use a tempo-locked internal beat clock (`beatClock += numSamples × tempo / 60 / sampleRate`), not the host's PPQ. With no playhead (Standalone) the clock runs at a fixed 120 BPM. This keeps synced shapes moving when the transport is stopped and avoids phase jumps on loop or relocate. The routing Delay clock runs from `prepareToPlay` and is not restarted on transport start.
 
 ## 5. Plugin behaviour
 
@@ -282,7 +302,7 @@ Audio: the stereo buffer passes through unchanged (tested).
 
 ## 6. Test architecture
 
-Nine CTest entries run seven executables: `CoreDSPTests` (29 test functions), `SuiteUI_Tests` (`SuiteUITests`, 9), `SuiteModulation_Tests` (`SuiteModulationTests`, 9), `SpectralDriftTests` (13), `DynamicSaturationTests` (10), `MicroTimingChaosTests` (34), and `PluginHostTests`, which has one ctest entry per plugin (3). The README has the full list.
+Nine CTest entries run seven executables: `CoreDSPTests` (29 test functions), `SuiteUI_Tests` (`SuiteUITests`, 9), `SuiteModulation_Tests` (`SuiteModulationTests`, 9), `SpectralDriftTests` (19), `DynamicSaturationTests` (17), `MicroTimingChaosTests` (34), and `PluginHostTests`, which has one ctest entry per plugin (3). The README has the full list.
 
 **Module tests** (`modules/suite_modulation/tests/SuiteModulationTests.cpp`): the router, with a stub processor (no plugin). They cover the routed LFO, the zero case (bit for bit), bipolar amounts, whole-number targets, Host Sync ignoring Tempo, the one-bar period, sample and hold, out-of-range indices, and the control display (values set without notifying). Not covered: the control display skipping a slider the mouse holds, since the test cannot press a mouse button. The panel and scope are checked only by the MicroTimingChaos editor test.
 
@@ -295,6 +315,8 @@ Nine CTest entries run seven executables: `CoreDSPTests` (29 test functions), `S
 The Micro-Timing Chaos tests cover the lerp curve (defaults, point editing and ordering, state round trip) and the hybrid drift (Lerp 0 and a zero X multiplier each switch the axis off). The LFO tests cover the no-modulation regression (an embedded table of the committed event log, which must match exactly), timing modulation and its bipolar symmetry, the Amount 0 case, the synced period against the host beat, the free rate in Hz, sample and hold, every target staying in range, state round trip, latency, and the editor with modulation in use. They do not cover mouse interaction with the curve, tab switching, the BPM readout, or the LFO panel's mouse use.
 
 **Host tests** (`tests/host/PluginHostTests.cpp`): loads the built `.vst3` bundle through `AudioPluginFormatManager` with `JUCE_PLUGINHOST_VST3=1`. This define is needed because the host is compiled out by default in JUCE 7. The test scans, instantiates, opens the editor, prepares and processes. CTest passes the bundle path as `$<TARGET_FILE_DIR:<Plugin>_VST3>/../..`, and each host test depends on its plugin's VST3 target.
+
+**Spectral Drift and Dynamic Saturation tests** cover the parameters, state, latency, the editor (both pages paint, and switching pages changes no parameter), and the shared routing: default routing is bit-identical, routed controls move the audio, synced LFOs follow the tempo clock, and routed values stay in range. The SD test `testOutputGainRampMatchesChannels` checks that both channels see the same output-gain ramp.
 
 **SuiteUI tests** (`modules/suite_ui/tests/SuiteUITests.cpp`): widget logic and painting into images, including the look and feel's drawing paths.
 
@@ -329,6 +351,10 @@ Mouse events in tests use the 15-argument `juce::MouseEvent` constructor, which 
 - **The control display is a module class, not editor code.** `ControlDisplay` takes the router and the list of sliders, and it reads Host Sync through the router. Whole-number targets are rounded inside the router, so the display and the sequencer agree.
 - **Modulation applies before the lerp curve**, so a modulated Chaos moves along the curve.
 - **The routing and LFO settings are plain APVTS parameters**, so they automate, save and restore like the rest.
+- **Effects use a SOUND/MOD page switch**, not a permanent panel. The existing SD (780×740) and DS (880×620) windows cannot hold the 318 px-tall routing panel beside the knobs, so each editor gained a tab row. SD is now 780×776 (+36 px) and DS is 880×660 (+40 px). Both show the visualiser on both pages and the `ModulationPanel` on the MOD page. `setPage` only touches visibility, so switching pages never changes a parameter.
+- **Synced LFOs in the effects use a tempo-locked internal beat clock** (120 BPM when there is no playhead), not the host PPQ. They keep moving when the transport stops and never jump on loop or relocate. The routing Delay clock runs from `prepareToPlay` and is not restarted on transport start.
+- **Spectral Drift smooths mix, feedback, feedback damping and output gain per sample** (20 ms). These four are consumed per sample in the engine, so block-rate modulation would zip or click; smoothing removes it. The smoothers are advanced once per block into per-sample curves (`mixCurve` and so on), and both channels read the same curves. Advancing them inside the channel loop made the right channel use the next block's ramp, which skewed the stereo image during ramps. `testOutputGainRampMatchesChannels` guards this. Everything else in SD is frame- or block-rate. DS needed no DSP change: it already smooths drive/mix/output level and its other targets are block-rate by construction.
+- **The engine's `processSample` keeps its single-argument behaviour bit-identical.** A two-argument overload takes `PerSampleSettings` (mix, feedback, damping); the old form forwards the raw settings, so all existing CoreDSP tests and the reconstruction test are unchanged.
 - **The LFO panel sits at the bottom of the left column, and the window is 980 px tall.** The plan's right-column option left the lerp curve about 100 px high.
 - **Interface typography.** Group titles are 15 pt bold in the accent colour, for every group. Knob captions are 13 pt bold, and value text 14 pt (look and feel `getLabelFont`). Knobs are capped at 110 x 150 px (`knobMaxWidth`, `knobMaxHeight`) and centred in their cells. The root note name is part of the parameter text (`C2 (48)`), so the separate note label is gone.
 - **Pattern display.** The sequencer view computes the pattern with the modulated Seed, Density and Timing Range, and `CoreDSP::Sequencer::densityCurve` (shared with the processor). Keep the two in step if either changes.
@@ -388,7 +414,6 @@ If you add a new consumer, use `suite_ui_add_to_target`. Do not add `SuiteUI` to
 - **Spectral Drift feedback range vs cap.** The Feedback range is 0–20 %, but processing caps the value at `maxFeedbackPercent` = 12, so the 12–20 % part of the knob does nothing. Decide whether the range should be 0–12 % or the cap should be raised to 20 %, then update the code, section 4.1, the README and the changelog together.
 - **LFO sampling.** LFOs are evaluated at step times, so an LFO faster than the step rate aliases against the grid. Tempo and Speed are evaluated per block and per step respectively.
 - **Discrete targets not modulated:** Root and Octaves (sample and hold on these is a possible follow-up), and Rate, Length and Scale.
-- **Spectral Drift and Dynamic Saturation have no modulation.** The shared module is ready for them. Adopting it needs the owner's choice of targets (proposed lists in `docs/plans/suite-modulation-refactor.md`, phase 7). Not started.
 - **Module tests do not cover the mouse hold in `ControlDisplay`.** The test cannot press a mouse button. The check is by reading the code only.
 - **Micro-Timing Chaos: plan items not built.** Zoom and pan on the curve view. UI automation tests for point dragging, tab switching, the BPM readout and the help line. The plan's "latency = timing range" (deliberately not built, see section 7).
 - **Micro-Timing Chaos: not exercised live.** The curve's mouse handling (drag, right-click reset, double-click reset) and hover help were written and compiled but not driven in a running host. The editor was checked by rendering it to an image at the default size (1200 × 820). The screenshot check found and fixed a header overlap and a readout collision.

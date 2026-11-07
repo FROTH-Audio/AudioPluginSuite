@@ -96,8 +96,21 @@ namespace CoreDSP::Spectral
         /** Updates the processing settings. Safe to call once per block. */
         void setSettings (const Settings& newSettings) noexcept { settings = newSettings; }
 
+        /** Per-sample values that change at block rate and need smoothing (mix, feedback, damping). */
+        struct PerSampleSettings
+        {
+            float mix = 1.0f;               // 0 (dry) .. 1 (wet)
+            float feedback = 0.0f;          // 0 .. 0.95 (the plugin exposes a much smaller range)
+            float feedbackDamping = 0.0f;   // 0 (bright feedback) .. 1 (strongly darkened feedback)
+        };
+
         /** Processes one sample and returns the sample that entered getLatencySamples() ago. */
         float processSample (float input) noexcept;
+
+        /** Processes one sample with per-sample mix, feedback and feedback damping. The smoother
+            applies these once per block; everything else (drift rate, depth, shift, ...) comes from
+            `settings`, which is set once per block. */
+        float processSample (float input, const PerSampleSettings& p) noexcept;
 
         /** Linear magnitudes of the most recent input frame (not updated while frozen). */
         const std::array<float, numBins>& getInputMagnitudes() const noexcept { return inputMagnitudes; }
@@ -189,6 +202,11 @@ namespace CoreDSP::Spectral
 
     inline float DriftEngine::processSample (float input) noexcept
     {
+        return processSample (input, { settings.mix, settings.feedback, settings.feedbackDamping });
+    }
+
+    inline float DriftEngine::processSample (float input, const PerSampleSettings& p) noexcept
+    {
         // The slot at ringPos holds index n - frameSize. Every frame that covers that index has already
         // been added, so the sample is final and can be emitted now.
         const float wet = outputAccumulator[(size_t) ringPos] * invOverlapGain[(size_t) hopIndex];
@@ -200,9 +218,9 @@ namespace CoreDSP::Spectral
 
         // Feedback is taken from the bounded wet signal so the loop cannot run away. Damping is a one-pole
         // low-pass on the loop: at 0 it passes the signal unchanged, and higher values darken each repeat.
-        const float dampedCoefficient = 1.0f - 0.9f * settings.feedbackDamping;
+        const float dampedCoefficient = 1.0f - 0.9f * p.feedbackDamping;
         feedbackState += dampedCoefficient * (std::tanh (wet) - feedbackState);
-        inputRing[(size_t) ringPos] = input + settings.feedback * feedbackState;
+        inputRing[(size_t) ringPos] = input + p.feedback * feedbackState;
 
         ringPos = (ringPos + 1) % frameSize;
         hopIndex = (hopIndex + 1) % hopSize;
@@ -210,7 +228,7 @@ namespace CoreDSP::Spectral
         if (hopIndex == 0)
             processFrame();
 
-        return dry + settings.mix * (wet - dry);
+        return dry + p.mix * (wet - dry);
     }
 
     inline void DriftEngine::shapeMagnitudes() noexcept
