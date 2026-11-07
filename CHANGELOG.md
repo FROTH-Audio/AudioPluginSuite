@@ -6,6 +6,9 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+- The macOS build's tests failed on `testOffsetControlIsUsable`, because Apple clang fused a multiply and an add on arm64 and left the LFO Offset default at 1.5e-6. Apple clang is now built with `-ffp-contract=off`, so macOS arithmetic matches Windows.
+
 ### Added
 - `modules/suite_modulation`: a shared module with the two LFOs, six routing slots, the LFO scope, the modulation panel and the control display, for plugins to reuse. Its tests (`SuiteModulationTests`, 9) run as a new CTest entry.
 - `tests/common/ModulationTestUtils.h`: `setLfo`, `setRoute` and `timingOffsets` for any processor with the shared LFO parameters.

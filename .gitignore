@@ -27,3 +27,5 @@ Thumbs.db
 # Note: .vscode/ is ignored by the original project setup. Remove this line
 # to share editor settings such as tasks.json with the team.
 .vscode/
+
+tools/brand/

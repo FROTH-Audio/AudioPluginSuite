@@ -1,31 +1,75 @@
-# Audio Plugin Suite
+<p align="center">
+  <img src="docs/images/froth-audio-suite.png" alt="FROTH Audio: Spectral Drift Shifter, Dynamic Saturation Companion and Micro-Timing Chaos" width="100%">
+</p>
 
-[![Build](https://github.com/tfroehlich82/AudioPluginSuite/actions/workflows/build.yml/badge.svg)](https://github.com/tfroehlich82/AudioPluginSuite/actions/workflows/build.yml)
-![C++18](https://img.shields.io/badge/C%2B%2B-18-00599C?logo=cplusplus&logoColor=white)
-![JUCE](https://img.shields.io/badge/JUCE-9.0.5-8A2BE2)
-![Formats](https://img.shields.io/badge/formats-VST3%20%7C%20AU%20%7C%20Standalone-informational)
-![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20macOS-lightgrey)
-[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
+<p align="center">
+  <b>Three JUCE plugins that bend phase, drive and groove.</b><br>
+  VST3, Audio Unit and Standalone. Each plugin has its own accent colour and a live visualiser.
+</p>
 
-Creative audio plugins built with [JUCE](https://juce.com) and C++18: 
- - an FFT phase-drift processor with spectral shaping
- - a dynamic saturation stage with an oversampled shaper
- - and a chaos-driven MIDI micro-timing sequencer. 
+<p align="center">
+  <a href="https://github.com/tfroehlich82/AudioPluginSuite/actions/workflows/build.yml"><img src="https://github.com/tfroehlich82/AudioPluginSuite/actions/workflows/build.yml/badge.svg" alt="Build"></a>
+  <img src="https://img.shields.io/badge/C%2B%2B-17-00599C?logo=cplusplus&logoColor=white" alt="C++17">
+  <img src="https://img.shields.io/badge/JUCE-9.0.5-8A2BE2" alt="JUCE 9.0.5">
+  <img src="https://img.shields.io/badge/formats-VST3%20%7C%20AU%20%7C%20Standalone-informational" alt="Formats">
+  <img src="https://img.shields.io/badge/platforms-Windows%20%7C%20macOS-lightgrey" alt="Platforms">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-GPLv3-blue.svg" alt="License: GPL v3"></a>
+</p>
 
-Every plugin ships with its own dark, neon-accented interface and real-time visualisers.
+---
 
-| Plugin | Type | What it does |
-|---|---|---|
-| **Spectral Drift Shifter** | Audio effect | FFT overlap-add processing with an LFO that drifts the phase of every frequency bin. Shift, tilt and gate the spectrum, freeze it, or feed it back into itself. |
-| **Dynamic Saturation Companion** | Audio effect | Tube, Tape or Diode waveshaping at 2× oversampling, whose drive follows the signal envelope. Thirteen controls, including detector filtering, stereo linking, fold and tone. |
-| **Micro-Timing Chaos** | MIDI step sequencer | A fixed pattern that never plays the same way twice. A Lorenz attractor shifts each step in time, picks its pitch, and sets its velocity and gate. |
+## The plugins
+
+FROTH Audio makes plugins that work on sound at the level of its structure: the phase of each frequency, the shape of each peak, and the timing of each note. Every product has one accent colour, and the colour runs through its interface, its artwork and its visualiser.
+
+<table align="center">
+<tr>
+<td align="center" valign="top" width="33%">
+  <img src="modules/suite_ui/brand/lockup_spectral_drift.png" width="250" alt="FROTH Audio Spectral Drift"><br><br>
+  <b>Spectral Drift Shifter</b><br>
+  <sub>Audio effect · cyan <code>#2DE2FF</code></sub><br><br>
+  <i>Phase, bent into motion.</i><br>
+  FFT drift of every frequency bin, with shift, tilt, gate and feedback.
+</td>
+<td align="center" valign="top" width="33%">
+  <img src="modules/suite_ui/brand/lockup_dynamic_saturation.png" width="250" alt="FROTH Audio Dynamic Saturation"><br><br>
+  <b>Dynamic Saturation Companion</b><br>
+  <sub>Audio effect · amber <code>#FF9F1C</code></sub><br><br>
+  <i>Drive that listens.</i><br>
+  Tube, Tape and Diode shaping at 2× oversampling, driven by the envelope.
+</td>
+<td align="center" valign="top" width="33%">
+  <img src="modules/suite_ui/brand/lockup_micro_timing_chaos.png" width="250" alt="FROTH Audio Micro-Timing Chaos"><br><br>
+  <b>Micro-Timing Chaos</b><br>
+  <sub>MIDI sequencer · lime <code>#7DFF5A</code></sub><br><br>
+  <i>A groove that never plays the same way twice.</i><br>
+  A fixed pattern, moved in time, pitch and velocity by a Lorenz attractor.
+</td>
+</tr>
+</table>
+
+### Design language
+
+- **Wordmark.** "FROTH" is set in bold type, with a bubble for the O: a ring, a smaller bubble inside it and a glint. The bubble is the brand's one recurring shape. The mark is three bubbles.
+- **Colour.** Each product takes one accent colour. The interface is dark and neutral, and the accent marks the parts that matter.
+- **Motion.** The visualisers redraw at 60 Hz, and the modulation displays follow the LFOs in real time.
+
+| Product | Accent | Hex | Lockup |
+|---|---|---|---|
+| Spectral Drift Shifter | Cyan | `#2DE2FF` | [`lockup_spectral_drift.png`](modules/suite_ui/brand/lockup_spectral_drift.png) |
+| Dynamic Saturation Companion | Amber | `#FF9F1C` | [`lockup_dynamic_saturation.png`](modules/suite_ui/brand/lockup_dynamic_saturation.png) |
+| Micro-Timing Chaos | Lime | `#7DFF5A` | [`lockup_micro_timing_chaos.png`](modules/suite_ui/brand/lockup_micro_timing_chaos.png) |
+
+The brand is described in full in [docs/brand.md](docs/brand.md).
 
 ---
 
 ## Contents
 
+- [The plugins](#the-plugins)
 - [For users](#for-users)
   - [Installation](#installation)
+  - [Modulation](#modulation)
   - [Spectral Drift Shifter](#spectral-drift-shifter)
   - [Dynamic Saturation Companion](#dynamic-saturation-companion)
   - [Micro-Timing Chaos](#micro-timing-chaos)
@@ -40,6 +84,7 @@ Every plugin ships with its own dark, neon-accented interface and real-time visu
   - [Continuous integration](#continuous-integration)
   - [Coding conventions](#coding-conventions)
   - [Known limitations](#known-limitations)
+- [Brand](#brand)
 - [Contributing](#contributing)
 - [License](#license)
 
@@ -63,6 +108,35 @@ Then rescan plugins in your DAW. The Standalone build runs without a host and is
 
 The plugins need a VST3 host on Windows, or a VST3 or Audio Unit host on macOS.
 
+### Modulation
+
+Spectral Drift, Dynamic Saturation and Micro-Timing Chaos share one modulation system. Each has **two LFOs** and **six routing slots**. A slot sends one LFO to one control, with a signed amount. The routed control moves across its own range, so ±100 % sweeps the full range of the control, whatever its scale.
+
+| Control | Range | Default | Description |
+|---|---|---|---|
+| **LFO Rate** | 0.02 – 20 Hz (logarithmic) | 0.25 Hz | Speed of each LFO when it is not synced. |
+| **LFO Shape** | Sine, Triangle, Saw, Square, Sample & Hold, Random, Noise | Sine | Waveform. Sample & Hold picks a new level each cycle. Random and Noise never repeat from cycle to cycle. |
+| **LFO Sync** / **Division** | on / off; 4 bars to 1/16 | off; 1/4 | Locks the LFO to musical time. The division sets the cycle length. |
+| **LFO Offset** | −100 – +100 % | 0 % | Adds an offset to the waveform before it is routed, then limits the result to ±1. |
+| **Mod Source / Target / Amount** | LFO 1 or 2; the plugin's targets; −100 – +100 % | None; 0 % | One routing slot. At 0 % amount the slot does nothing. |
+| **Mod Delay** | 0 – 10 s | 0 s | The slot stays silent for this long after the plugin is prepared. Micro-Timing Chaos also restarts the delay when playback starts. |
+
+Each routed control shows its modulated value live. While you hold the mouse on a control, it shows your own value, so you can still set it.
+
+**Synced LFOs** follow the host tempo when the host reports one. Without one, as in the Standalone, they run at 120 BPM. In the effects they keep moving when the transport stops. In Micro-Timing Chaos they hold still when it stops, because they follow the sequencer's position.
+
+**Editor pages.** The two effects have a **SOUND** page, with the knobs, and a **MOD** page, with the LFOs and routing. The visualiser stays on both pages. Switching pages never changes a parameter.
+
+**Targets** (the controls each plugin's routing can move):
+
+| Plugin | Targets |
+|---|---|
+| Spectral Drift Shifter | Drift Rate, Drift Depth, Bin Spread, Stereo Phase, Spectral Shift, Spectral Tilt, Spectral Gate, Feedback, Feedback Damping, Drift Start, Output Gain, Mix |
+| Dynamic Saturation Companion | Drive, Sensitivity, Mix, Output, Attack, Release, Detect HPF, Stereo Link, Tube Bias, Fold, Tone, Curve |
+| Micro-Timing Chaos | Chaos, Timing Range, Velocity Chaos, Lerp, Lerp X / Y / Z Mult, Density, Gate, Swing, Velocity, Speed, Tempo, Seed |
+
+Not routable on purpose: the switches and choices, such as Freeze, the Mode and the drift LFO's own Shape in Spectral Drift, and the Mode in Dynamic Saturation. In Micro-Timing Chaos, Rate, Length, Scale, Root, Octaves and Host Sync are not routable, because changing them would jump the groove. Velocity and Seed round to whole numbers. Tempo moves only while Host Sync is off.
+
 ### Spectral Drift Shifter
 
 An audio effect that breaks the input into 2048-point FFT frames, drifts the phase of each frequency bin with an LFO, shapes the magnitudes, and resynthesises the result.
@@ -75,7 +149,7 @@ An audio effect that breaks the input into 2048-point FFT frames, drifts the pha
 | **Drift Depth** | 0 – 100 % | 19 % | Phase swing of the LFO. 100 % is π radians. |
 | **Bin Spread** | 0 – 1 rad | 0.05 rad | How much the LFO phase differs between neighbouring bins. Larger values give a more scattered, shimmering texture. |
 | **Stereo Phase** | 0 – 180° | 90° | Offset of the right channel's LFO. 0° is mono-identical, 90° is maximally decorrelated. |
-| **LFO Shape** | Sine / Triangle / Saw / Square | Sine | Waveform of the drift LFO. |
+| **LFO Shape** | Sine / Triangle / Saw / Square | Sine | Waveform of the drift LFO. This is separate from the modulation LFOs. |
 
 **Spectral shaping**
 
@@ -95,6 +169,8 @@ An audio effect that breaks the input into 2048-point FFT frames, drifts the pha
 | **Output Gain** | −12 – +12 dB | 0 dB | Output level, applied after the wet and dry mix. |
 | **Mix** | 0 – 100 % | 100 % | Dry/wet balance. |
 | **Freeze** | on / off | off | Holds the captured spectrum and keeps advancing the phases, for a sustained texture. |
+
+Mix, feedback, feedback damping and output gain are smoothed per sample, so modulating them does not click.
 
 The display shows the input spectrum (dim) over the output spectrum (bright). Until audio arrives it says *Waiting for audio*, so a silent input is clearly an input problem and not a broken display.
 
@@ -200,16 +276,7 @@ The Lerp Curve group has two tabs. **Curve** is the editor above, with a live ma
 | **Tempo** | 40 – 240 BPM | 120 BPM | Used when the plugin runs freely. Disabled while Host Sync is on. |
 | **Host Sync** | on / off | off | Follows the host's tempo and position. When the transport stops, all notes end. The host tempo is shown under the button. |
 
-**LFO and modulation**
-
-| Control | Range | Default | Description |
-|---|---|---|---|
-| **LFO Rate** | 0.02 – 20 Hz | 0.25 Hz | Speed of each of the two LFOs. Disabled while that LFO is synced. |
-| **LFO Shape** | Sine, Triangle, Saw, Square, Sample & Hold, Random, Noise | Sine | Waveform. Sample & Hold picks a new random level each cycle. |
-| **LFO Sync** / **Division** | on / off, 4 bars to 1/16 | off, 1/4 | Locks an LFO to musical time, with the cycle length set by the division. |
-| **Mod Source / Target / Amount** | LFO 1 or 2; 14 targets; −100 to +100 % | None, 0 % | Six routing slots. A slot sends an LFO to a control, with a signed amount. Targets include Chaos, Timing Range, the lerp amounts, Density, Gate, Swing, Velocity, Speed, Tempo and Seed. |
-
-The full list, and the formulas, are in the [plugin README](plugins/MicroTimingChaos/README.md#lfo-and-modulation).
+**Modulation.** The sequencer's LFOs and routing are described in [Modulation](#modulation). In Micro-Timing Chaos, a fast LFO is sampled at step times, so it can alias against the grid. The [plugin README](plugins/MicroTimingChaos/README.md#lfo-and-modulation) has the full formulas.
 
 The left side of the editor shows the attractor's path, the step grid, and the LFO and routing panel at the bottom. Filled columns are the steps that fire, and the outlined column is the playhead. Each dot is a recent note. Its height shows its timing shift, and its size shows its velocity. Hover any control to see what it does in the line at the bottom of the window.
 
@@ -318,9 +385,9 @@ The tests use `assert` with `NDEBUG` undefined, so they also check in Release bu
 | State | Save and restore brings back a changed value. |
 | Buses | Mono and stereo are accepted, and mismatched layouts are rejected. |
 | Editor | The editor opens, its timers run, and it paints. |
-| Spectral Drift | The spectrum publishes real audio (regression test for the empty preview), silence is not reported as signal, freeze sustains the sound, stereo phase separates the channels, latency is 2048 samples, an output gain change ramps both channels identically, and the LFO routing behaves as specified (idle routing is bit-identical, routed controls move the audio and stay in range, and synced LFOs follow the tempo). |
-| Dynamic Saturation | Latency matches the oversampler. Silence stays silent. Output is bounded at maximum settings. Modes differ. Mix 0 is the aligned dry signal. Stereo link and fold change the sound as specified. |
-| Micro-Timing Chaos | Audio passes through unchanged. Latency is 50 ms (2400 samples at 48 kHz). At 0 % Chaos the steps land exactly on the grid, and swing delays the odd steps by exactly the swing share. The pattern repeats at 0 % Chaos and varies at 100 %, and the pitches stay in the scale. Velocity and gate stay within their ranges. Notes never hang, even when retriggered or when the transport stops. Host Sync follows the host tempo. Incoming notes pass through with the latency. The lerp curve keeps its natural default, edits keep its points in order, it survives a state round trip, and a zero Lerp or X multiplier switches the timing drift off. |
+| Spectral Drift | The spectrum publishes real audio (regression test for the empty preview), silence is not reported as signal, freeze sustains the sound, stereo phase separates the channels, latency is 2048 samples, an output gain change ramps both channels identically, and the LFO routing behaves as specified (idle routing is bit-identical, routed controls move the audio and stay in range, and synced LFOs follow the tempo). Both editor pages paint, and each draws content of its own. |
+| Dynamic Saturation | Latency matches the oversampler. Silence stays silent. Output is bounded at maximum settings. Modes differ. Mix 0 is the aligned dry signal. Stereo link and fold change the sound as specified. The LFO routing behaves as specified (idle routing is bit-identical, routed controls move the audio and stay in range, and synced LFOs follow the tempo). Both editor pages paint, and each draws content of its own. |
+| Micro-Timing Chaos | Audio passes through unchanged. Latency is 50 ms (2400 samples at 48 kHz). At 0 % Chaos the steps land exactly on the grid, and swing delays the odd steps by exactly the swing share. The pattern repeats at 0 % Chaos and varies at 100 %, and the pitches stay in the scale. Velocity and gate stay within their ranges. Notes never hang, even when retriggered or when the transport stops. Host Sync follows the host tempo. Incoming notes pass through with the latency. The lerp curve keeps its natural default, edits keep its points in order, it survives a state round trip, and a zero Lerp or X multiplier switches the timing drift off. The LFO tests cover the no-modulation regression, timing modulation, the synced period, sample and hold, and the editor with modulation in use. |
 | Widgets | Segmented selector clamping and click handling. Every custom widget and the look and feel paint without problems. |
 
 **What the host tests check**
@@ -333,38 +400,46 @@ Not covered by automated tests: loading the plugins in a specific DAW, the Stand
 
 ```
 AudioPluginSuite/
-├── CMakeLists.txt                  Root build: JUCE pin, global definitions, options
-├── AGENTS.md                       Project knowledge for coding agents (read first)
+├── CMakeLists.txt                       Root build: JUCE pin, global definitions, options
+├── AGENTS.md                            Project knowledge for coding agents (read first)
+├── CHANGELOG.md, LICENSE
+├── docs/
+│   ├── brand.md                         The FROTH Audio brand: parts, colours, regenerating the artwork
+│   ├── images/froth-audio-suite.png     The README banner (generated)
+│   └── plans/                           Design plans and their status
+├── tools/brand/make_brand.py            Generates the brand mark, the lockups and the README banner
 ├── modules/
-│   ├── core_dsp/                   Header-only DSP primitives (no plugin code)
-│   │   ├── include/                CoreDSP.h, SaturationEngine.h, ChaosEngine.h, SpectralEngine.h, SequencerEngine.h, ModulationEngine.h
-│   │   ├── tests/                  DSPTests.cpp
+│   ├── core_dsp/                        Header-only DSP primitives, no plugin code
+│   │   ├── include/                     CoreDSP.h, SaturationEngine.h, ChaosEngine.h, SpectralEngine.h,
+│   │   │                                SequencerEngine.h, ModulationEngine.h, ModulationTiming.h
+│   │   ├── tests/DSPTests.cpp
 │   │   └── CMakeLists.txt
-│   └── suite_ui/                   Shared look and feel and visualiser widgets
-│       ├── include/                SuiteLookAndFeel.h, SuiteWidgets.h
-│       ├── Source/                 SuiteLookAndFeel.cpp, SuiteWidgets.cpp
-│       ├── tests/                  SuiteUITests.cpp
-│       ├── SuiteUI.cmake           suite_ui_add_to_target(): compiles the UI into each consumer
-│       └── CMakeLists.txt          SuiteUITests
-│   └── suite_modulation/           Shared LFOs, routing slots, LFO scope, modulation panel and control display
-│       ├── include/                SuiteModulationRouter.h, SuiteModulationScope.h, SuiteModulationPanel.h, SuiteModulationControls.h
-│       ├── Source/                 The matching .cpp files
-│       ├── tests/                  SuiteModulationTests.cpp
-│       ├── suite_modulation.cmake  suite_modulation_add_to_target(): compiles the module into each consumer
-│       └── CMakeLists.txt          SuiteModulationTests
+│   ├── suite_ui/                        Shared look and feel, visualisers, brand lockup
+│   │   ├── include/                     SuiteLookAndFeel.h, SuiteWidgets.h, SuiteBrand.h
+│   │   ├── Source/                      SuiteLookAndFeel.cpp, SuiteWidgets.cpp
+│   │   ├── brand/                       brand_mark.png and the three lockups (generated)
+│   │   ├── tests/SuiteUITests.cpp
+│   │   ├── SuiteUI.cmake                suite_ui_add_to_target(): compiles the UI into each consumer
+│   │   └── CMakeLists.txt
+│   └── suite_modulation/                Shared LFOs, routing slots, LFO scope, modulation panel, control display
+│       ├── include/                     SuiteModulationRouter.h, SuiteModulationScope.h,
+│       │                                SuiteModulationPanel.h, SuiteModulationControls.h
+│       ├── Source/                      The matching .cpp files
+│       ├── tests/SuiteModulationTests.cpp
+│       ├── suite_modulation.cmake       suite_modulation_add_to_target(): compiles the module into each consumer
+│       └── CMakeLists.txt
 ├── plugins/
-│   ├── SpectralDrift/              Source/ (processor, editor), tests/PluginTests.cpp, CMakeLists.txt
-│   ├── DynamicSaturation/          Source/ (processor, editor), tests/PluginTests.cpp, CMakeLists.txt
-│   └── MicroTimingChaos/           Source/ (processor, editor, lerp curve, preview, look and feel), Resources/, tests/PluginTests.cpp, CMakeLists.txt
+│   ├── SpectralDrift/                   Source/ (processor, editor), tests/PluginTests.cpp, CMakeLists.txt
+│   ├── DynamicSaturation/               Source/ (processor, editor), tests/PluginTests.cpp, CMakeLists.txt
+│   └── MicroTimingChaos/                Source/ (processor, editor, lerp curve, preview, look and feel),
+│                                        Resources/, tests/PluginTests.cpp, README.md, CMakeLists.txt
 ├── tests/
-│   ├── common/PluginTestUtils.h    Shared helpers for the plugin tests
-│   ├── common/ModulationTestUtils.h  setLfo, setRoute and timingOffsets for any processor with the shared LFO parameters
-│   └── host/                       PluginHostTests: loads each built VST3 bundle
-├── .github/workflows/
-│   ├── build.yml                   CI: build and test on Windows and macOS
-│   └── release.yml                 Manual release: builds, tests, packages and publishes
-├── CHANGELOG.md
-└── LICENSE                         GNU GPL v3
+│   ├── common/PluginTestUtils.h         Shared helpers for the plugin tests
+│   ├── common/ModulationTestUtils.h     setLfo, setRoute and timingOffsets for any processor with the shared LFO parameters
+│   └── host/                            PluginHostTests: loads each built VST3 bundle
+└── .github/workflows/
+    ├── build.yml                        CI: build and test on Windows and macOS
+    └── release.yml                      Manual release: builds, tests, packages and publishes
 ```
 
 ### Architecture
@@ -379,10 +454,10 @@ AudioPluginSuite/
                        │ uses DSP                     │ uses UI (compiled in)
               ┌────────▼────────┐            ┌────────▼────────┐
               │   CoreDSP       │            │    SuiteUI      │
-              │ (header-only,   │            │ LookAndFeel and │
-              │  depends on     │            │ visualisers     │
-              │  juce_dsp)      │            └─────────────────┘
-              └─────────────────┘
+              │ (header-only,   │            │ LookAndFeel,    │
+              │  depends on     │            │ visualisers,    │
+              │  juce_dsp)      │            │ brand lockup    │
+              └─────────────────┘            └─────────────────┘
 ```
 
 Key decisions:
@@ -395,6 +470,7 @@ Key decisions:
 - **Oversampling** in Dynamic Saturation is JUCE's half-band FIR at 2×. The dry path is delayed by the same amount, so the mix stays aligned.
 - **SuiteUI is compiled into each consumer** rather than linked as a library. A library bundles the JUCE modules it uses, and those then clash with the same modules linked again by the plugin (duplicate symbols at link time).
 - **LFOs and routing are shared.** `SuiteModulation::Router` holds the two LFOs, the six routing slots and their parameters. A plugin supplies a table of the controls the routing can move, and the module does the rest. The module is compiled into each consumer like SuiteUI, and it needs SuiteUI in the same target.
+- **The brand is generated.** `tools/brand/make_brand.py` draws the mark, the lockups and the banner, so the artwork and the plugin colours come from one place.
 
 ### Adding a plugin
 
@@ -402,13 +478,14 @@ Key decisions:
 2. Give it unique `PLUGIN_MANUFACTURER_CODE` / `PLUGIN_CODE` values and a `BUNDLE_ID`. The codes must be four characters with at least one uppercase letter, and they must not change once a plugin has been released, because hosts use them to identify saved sessions.
 3. Put the DSP in `modules/core_dsp/include/` as a header-only class, and add a test for it in `DSPTests.cpp`.
 4. Register the plugin in the root `CMakeLists.txt` under `if(SUITE_BUILD_PLUGINS)`, and add a host test in `tests/host/CMakeLists.txt`.
-5. Add it to the table in this README and to `CHANGELOG.md`.
+5. Add its accent colour and lockup to `tools/brand/make_brand.py`, then regenerate the artwork with `python -I tools/brand/make_brand.py`.
+6. Add it to "the plugins" section in this README, to the table in this README, and to `CHANGELOG.md`.
 
 ### Continuous integration
 
 [`build.yml`](.github/workflows/build.yml) runs on every push and pull request to `main`:
 
-1. Configures with CMake on `windows-latest` (newest installed Visual Studio, x64) and `macos-14` (Xcode 15.4).
+1. Configures with CMake on `windows-latest` (newest installed Visual Studio, x64) and `macos-15` (the runner's default Xcode).
 2. Builds the whole suite in Release.
 3. Runs `ctest`, which includes the plugin editor tests and the VST3 host-load tests.
 4. Uploads the VST3 bundles as build artifacts.
@@ -419,18 +496,19 @@ The build runs before the tests, since CTest needs the test executables to exist
 
 ### Coding conventions
 
-- C++18. No compiler extensions; `CMAKE_CXX_EXTENSIONS` is `OFF`.
-- Namespaces: `CoreDSP::…` for DSP, `SuiteUI::…` for the UI module.
+- C++17. No compiler extensions; `CMAKE_CXX_EXTENSIONS` is `OFF`.
+- Namespaces: `CoreDSP::…` for DSP, `SuiteUI::…` for the UI module, `SuiteModulation::…` for the shared routing.
 - Audio-thread code is allocation-free and lock-free. Allocate in `prepareToPlay` and in constructors.
 - Any function that runs per sample is marked `noexcept`.
 - Every shaper returns values in [−1, 1] for any finite input, and the stage ceiling is enforced before the output level.
-- Parameter IDs and names are defined once, in the processor.
+- Parameter IDs and names are defined once, in the processor. Modulation target order is saved in sessions, so targets are only ever appended.
 - Comments explain *why*, not *what*.
 
 ### Known limitations
 
 - **Spectral Drift feedback:** the Feedback control goes to 20 %, but values above 12 % are treated as 12 %.
 - **Spectral Drift feedback tail:** `getTailLengthSeconds()` returns 0, so a host won't render the tail of a feedback echo after input stops.
+- **Modulation in the effects** is applied once per block. Mix, feedback, feedback damping and output gain are the exception, because they are smoothed per sample. A fast LFO at a large buffer size therefore sounds stepped.
 - **Micro-Timing Chaos** reports 50 ms of latency, so steps and passed-through notes are early by that amount until the host compensates. Hosts that ignore MIDI-effect latency will shift the whole sequence earlier by that amount.
 - **Micro-Timing Chaos** declares a stereo audio pass-through. Some hosts only load VST3 effects that have audio I/O, so this is the declared layout. The plugin does not touch the audio.
 - **Spectral Drift** is phase-only drift. Magnitudes are preserved by the drift itself, so the effect is most audible on sustained, harmonic material. Shift, tilt and gate are the magnitude-changing controls.
@@ -438,6 +516,18 @@ The build runs before the tests, since CTest needs the test executables to exist
 - **Micro-Timing Chaos** Lerp Curve is piecewise linear between its five points, so the natural curve is a close approximation of the logarithm rather than an exact one.
 - **Dynamic Saturation** oversamples 2×. Very high drive and fold can still alias above the oversampled band.
 - Plugins are not code-signed or notarised, so macOS will ask for approval on first launch.
+
+---
+
+## Brand
+
+**FROTH Audio** is the name of the plugin suite and its maker. The wordmark, the bubble mark and the three lockups are generated by `tools/brand/make_brand.py`. The accent colours are the same values as the editors'.
+
+```
+python -I tools/brand/make_brand.py
+```
+
+The script writes the mark and the lockups into `modules/suite_ui/brand/`, and the banner into `docs/images/`. Rebuild afterwards, because the plugins embed the lockups. The full brand notes are in [docs/brand.md](docs/brand.md).
 
 ---
 
@@ -457,4 +547,4 @@ The project builds on JUCE, which is available under the GPLv3 or a commercial l
 
 ---
 
-<sub>JUCE is a trademark of its respective owner. VST is a trademark of Steinberg Media Technologies GmbH.</sub>
+<p align="center"><sub>FROTH Audio. JUCE is a trademark of its respective owner. VST is a trademark of Steinberg Media Technologies GmbH.</sub></p>

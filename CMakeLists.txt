@@ -5,6 +5,14 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+# Apple clang fuses a multiply and an add into one rounding by default on arm64 (-ffp-contract=on).
+# JUCE's parameter snapping then leaves a residue of about 1.5e-6 where the value is exactly zero, so an
+# exact-zero default such as the LFO Offset reads 1.5e-6 and the test fails. Windows does not fuse, and passes.
+# Turning contraction off makes Apple arithmetic match. It must come before JUCE is fetched, so JUCE gets it too.
+if(APPLE AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    add_compile_options(-ffp-contract=off)
+endif()
+
 option(SUITE_BUILD_PLUGINS "Build the VST3 / AU / Standalone plugins" ON)
 option(SUITE_BUILD_TESTS "Build and register the unit tests" ON)
 

@@ -79,7 +79,7 @@ tests/
   common/PluginTestUtils.h        Helpers: setParameter, checkRange, checkStateRoundTrip, checkEditor, addSine, ...
   host/PluginHostTests.cpp        Loads a built .vst3 through JUCE's VST3 host (scan, instantiate, editor, process)
   host/CMakeLists.txt             PluginHostTests + one ctest entry per plugin
-.github/workflows/build.yml       CI: Windows (windows-latest) + macOS (macos-14, Xcode 15.4). Build, ctest, upload VST3
+.github/workflows/build.yml       CI: Windows (windows-latest) + macOS (macos-15, default Xcode). Build, ctest, upload VST3
 .github/workflows/release.yml     Manual release (workflow_dispatch): build, test, package zips, gh release create
 ```
 
@@ -100,7 +100,7 @@ $CM = "C:\Program Files\Microsoft Visual Studio\18\Community\Common7\IDE\CommonE
 
 - Do not pass `-G`. CI relies on CMake picking the newest installed Visual Studio, and the local `build/` cache already has a generator.
 - `-DSUITE_BUILD_PLUGINS=OFF` builds only CoreDSP and its tests. The SuiteUI tests are only registered when plugins are on.
-- macOS CI runs `macos-14` with Xcode 15.4 (see [section 10](#10-open-items-and-known-risks)).
+- macOS CI runs `macos-15` with the runner's default Xcode, and Apple clang is built with `-ffp-contract=off` (see section 11 and [section 10](#10-open-items-and-known-risks)).
 - JUCE is fetched by `FetchContent` into `build/_deps/juce-src`. That directory is a full local copy: grep it to check any API before using it.
 - Asset embedding: `juce_add_binary_data(MicroTimingChaosAssets ...)` builds a `BinaryData` target that the plugin and its test executable link. Add new icons or textures to its `SOURCES` list, then reference them by the generated name (`file_name_with_underscores`, for example `bpm_sync_active_svg`).
 
@@ -417,7 +417,7 @@ If you add a new consumer, use `suite_ui_add_to_target`. Do not add `SuiteUI` to
 - **Module tests do not cover the mouse hold in `ControlDisplay`.** The test cannot press a mouse button. The check is by reading the code only.
 - **Micro-Timing Chaos: plan items not built.** Zoom and pan on the curve view. UI automation tests for point dragging, tab switching, the BPM readout and the help line. The plan's "latency = timing range" (deliberately not built, see section 7).
 - **Micro-Timing Chaos: not exercised live.** The curve's mouse handling (drag, right-click reset, double-click reset) and hover help were written and compiled but not driven in a running host. The editor was checked by rendering it to an image at the default size (1200 × 820). The screenshot check found and fixed a header overlap and a readout collision.
-- **macOS CI** is pinned to `macos-14` with Xcode 15.4. The `macos-latest` image failed to compile JUCE 7.0.9's `juce_gui_basics.mm` while building `juceaide`. The cause is unconfirmed. If the pin fails, move to JUCE 7.0.12 (patch release, same API).
+- **macOS CI** runs on `macos-15` with the runner's default Xcode. An earlier pin to `macos-14` with Xcode 15.4 was used while the `macos-latest` image failed to compile JUCE 7.0.9's `juce_gui_basics.mm` while building `juceaide`. Under JUCE 9 the current runner has not been confirmed to build the plugins end to end; the last failure was a test, not a compile error (see section 11).
 - **GUI tests on CI.** The plugin and SuiteUI tests create editors, so CI needs a desktop session. Windows and macOS hosted runners normally have one. If the GUI tests fail there only, check that first.
 - **Not verified:** loading in specific DAWs, and the Standalone and AU builds. The on-screen layout was checked only at the default size.
 - **Repository licence:** GPLv3 is in place. Commercial redistribution would need a JUCE licence.
@@ -452,6 +452,7 @@ If you add a new consumer, use `suite_ui_add_to_target`. Do not add `SuiteUI` to
 - The root `CMakeLists.txt` must `include()` `SuiteUI.cmake` before any plugin subdirectory, because `suite_ui_add_to_target` is a function.
 - `juce::AudioParameterFloat`'s seven-argument constructor (label, category, `stringFromValue`) gives the value box its text. Setting `slider.textFromValueFunction` after the `SliderAttachment` exists does not refresh the box, so put the formatting on the parameter.
 - In JUCE 7.0.9 the text box position is `juce::Slider::TextBoxRight`. `juce::TextEntryBoxPosition::TextBoxRight` does not compile.
+- **Apple clang fuses multiply-add on arm64 by default, which breaks exact zeros.** `juce::NormalisableRange::snapToLegalValue` computes `start + interval * floor(...)`. With `start = -100` and `interval = 0.1f`, a zero default snaps to exactly `0` when the multiply and add round separately (MSVC), but to `1.49e-6` when they are fused (arm64 clang). The MTC test `testOffsetControlIsUsable` failed on macOS for this reason, while Windows passed. The root `CMakeLists.txt` sets `-ffp-contract=off` for Apple clang before JUCE is fetched. Keep it, because the exact-zero asserts rely on it. Compare the same arithmetic on both platforms before blaming a test.
 - A baseline for a processing change: build the committed code in a `git worktree` with `-DFETCHCONTENT_SOURCE_DIR_JUCE=<repo>/build/_deps/juce-src` (no re-download), run the same probe there, and diff against the new build.
 - Test failures reported as `Exit code 0xc0000409` with `Assertion failed` are a failed `checkRange` or similar assert. The message names the file and line. Run the executable directly to see the full output.
 - `juce::AudioParameterFloat` with the eight-argument form (label, category, `stringFromValue`, `valueFromString`) is deprecated in JUCE 7.0.9 and 9.0.5. MSVC warns with C4996. The shared router uses it as the MicroTimingChaos layout did. Move to the `Attributes` form when the plugins are next touched.

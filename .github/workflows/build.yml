@@ -24,9 +24,8 @@ jobs:
             # Pinning a year breaks whenever GitHub updates the runner image.
             configure: cmake -S . -B build -A x64
           - name: macOS Xcode
-            # macos-14 is pinned with Xcode 15.4. The macos-latest image failed to compile
-            # JUCE 7.0.9's juce_gui_basics.mm while building juceaide; the newer Xcode/SDK
-            # is the suspected cause, not confirmed. If this pin fails, try JUCE 7.0.12.
+            # macos-15 uses the runner's default Xcode (selected in the step below). Apple clang is run
+            # with -ffp-contract=off (see the root CMakeLists.txt), so its float results match Windows.
             os: macos-15
             configure: cmake -S . -B build -G Xcode
 
