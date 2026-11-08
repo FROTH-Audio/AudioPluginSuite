@@ -3,6 +3,7 @@
 suite_add_plugin(
     NAME            MicroTimingChaos
     PRODUCT_NAME    "Micro-Timing Chaos"
+    DESCRIPTION     "MIDI step sequencer whose timing, pitch and velocity drift follows a Lorenz attractor."
     MANUFACTURER    Asui
     PLUGIN_CODE     Mtch
     MIDI_EFFECT

@@ -23,8 +23,9 @@
 #
 # Optional:
 #   BUNDLE_ID     Default: com.audiosuite.<lowercased NAME>.
-#   COMPANY_NAME  Default: AudioSuite.
+#   COMPANY_NAME  Default: FROTH Audio. The manufacturer name hosts show. The bundle ID keeps com.audiosuite.
 #   VERSION       Default: ${PROJECT_VERSION}.
+#   DESCRIPTION   Description written into the bundle. Default: PRODUCT_NAME.
 #   LOCKUP        Brand lockup PNG, embedded as binary data.
 #   ASSETS        Other files embedded in the same binary data target as LOCKUP.
 #   MODULATION    Adds suite_modulation (LFOs and routing). Off by default.
@@ -37,7 +38,7 @@ set_property(GLOBAL PROPERTY SUITE_PLUGIN_CODES "")
 
 function(suite_add_plugin)
     set(options MODULATION MIDI_EFFECT)
-    set(oneValue NAME PRODUCT_NAME MANUFACTURER PLUGIN_CODE BUNDLE_ID COMPANY_NAME VERSION LOCKUP)
+    set(oneValue NAME PRODUCT_NAME MANUFACTURER PLUGIN_CODE BUNDLE_ID COMPANY_NAME VERSION DESCRIPTION LOCKUP)
     set(multiValue SOURCES TEST_SOURCES ASSETS)
     cmake_parse_arguments(SAP "${options}" "${oneValue}" "${multiValue}" ${ARGN})
 
@@ -67,7 +68,7 @@ function(suite_add_plugin)
         set(SAP_BUNDLE_ID "com.audiosuite.${lowerName}")
     endif()
     if(NOT SAP_COMPANY_NAME)
-        set(SAP_COMPANY_NAME "AudioSuite")
+        set(SAP_COMPANY_NAME "FROTH Audio")
     endif()
     if(NOT SAP_VERSION)
         set(SAP_VERSION "${PROJECT_VERSION}")
@@ -95,6 +96,10 @@ function(suite_add_plugin)
         EDITOR_WANTS_KEYBOARD_FOCUS FALSE
         COPY_PLUGIN_AFTER_BUILD FALSE
     )
+
+    if(SAP_DESCRIPTION)
+        set_target_properties(${SAP_NAME} PROPERTIES JUCE_DESCRIPTION "${SAP_DESCRIPTION}")
+    endif()
 
     target_sources(${SAP_NAME} PRIVATE ${SAP_SOURCES})
     target_include_directories(${SAP_NAME} PRIVATE

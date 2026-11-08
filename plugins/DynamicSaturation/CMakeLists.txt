@@ -3,6 +3,7 @@
 suite_add_plugin(
     NAME            DynamicSaturation
     PRODUCT_NAME    "Dynamic Saturation Companion"
+    DESCRIPTION     "Envelope-followed saturation with tube, tape and diode shapers, 2x oversampled."
     MANUFACTURER    Asui
     PLUGIN_CODE     Dsat
     SOURCES         Source/PluginProcessor.cpp Source/PluginProcessor.h

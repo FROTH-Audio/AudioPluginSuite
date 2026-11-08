@@ -28,6 +28,10 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(JUCE)
 
+# Metadata written into the VST3 and AU bundles, and shown by hosts. The e-mail is left empty on purpose.
+set_property (GLOBAL PROPERTY JUCE_COMPANY_WEBSITE "https://github.com/FROTH-Audio/AudioPluginSuite")
+set_property (GLOBAL PROPERTY JUCE_COMPANY_COPYRIGHT "Copyright (C) 2026 FROTH Audio. Licensed under the GNU GPL v3.")
+
 # Applied to every target, including JUCE's own modules.
 add_compile_definitions(
     JUCE_VST3_CAN_REPLACE_VST2=0   # no legacy VST2 flags

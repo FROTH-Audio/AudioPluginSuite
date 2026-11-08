@@ -3,12 +3,12 @@
 </p>
 
 <p align="center">
-  <b>Three JUCE plugins that bend phase, drive and groove.</b><br>
+  <b>Three plugins that bend phase, drive and groove.</b><br>
   VST3, Audio Unit and Standalone. Each plugin has its own accent colour and a live visualiser.
 </p>
 
 <p align="center">
-  <a href="https://github.com/tfroehlich82/AudioPluginSuite/actions/workflows/build.yml"><img src="https://github.com/tfroehlich82/AudioPluginSuite/actions/workflows/build.yml/badge.svg" alt="Build"></a>
+  <a href="https://github.com/FROTH-Audio/AudioPluginSuite/actions/workflows/build.yml"><img src="https://github.com/FROTH-Audio/AudioPluginSuite/actions/workflows/build.yml/badge.svg" alt="Build"></a>
   <img src="https://img.shields.io/badge/C%2B%2B-17-00599C?logo=cplusplus&logoColor=white" alt="C++17">
   <img src="https://img.shields.io/badge/JUCE-9.0.5-8A2BE2" alt="JUCE 9.0.5">
   <img src="https://img.shields.io/badge/formats-VST3%20%7C%20AU%20%7C%20Standalone-informational" alt="Formats">
@@ -79,7 +79,7 @@ FROTH Audio makes plugins that work on sound at the level of its structure: the 
 
 ### Installation
 
-Download the latest build from the [Releases](https://github.com/tfroehlich82/AudioPluginSuite/releases) page, or [build it yourself](#building).
+Download the latest build from the [Releases](https://github.com/FROTH-Audio/AudioPluginSuite/releases) page, or [build it yourself](#building).
 
 Copy the plugin bundles to your system plugin folder:
 

@@ -3,6 +3,7 @@
 suite_add_plugin(
     NAME            SpectralDrift
     PRODUCT_NAME    "Spectral Drift Shifter"
+    DESCRIPTION     "Spectral phase drift: FFT overlap-add with an LFO that drifts each bin, plus spectral shaping and feedback."
     MANUFACTURER    Asui
     PLUGIN_CODE     Sdft
     SOURCES         Source/PluginProcessor.cpp Source/PluginProcessor.h

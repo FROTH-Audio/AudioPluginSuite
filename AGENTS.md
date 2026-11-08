@@ -18,10 +18,10 @@ Three audio plugins written with JUCE 9.0.5 in C++17. Formats: VST3 on Windows a
 | Dynamic Saturation Companion | `plugins/DynamicSaturation` | audio effect | `CoreDSP::Saturation` | amber `#FF9F1C` |
 | Micro-Timing Chaos Sequencer | `plugins/MicroTimingChaos` | MIDI effect, with stereo pass-through | `CoreDSP::Chaos::LorenzAttractor`, `CoreDSP::Sequencer` | lime `#7DFF5A` |
 
-- Manufacturer name `AudioSuite`, manufacturer code `Asui`, bundle IDs `com.audiosuite.<name>`.
+- Manufacturer name `FROTH Audio` (shown by hosts; set by `COMPANY_NAME` in `modules/suite_plugin/SuitePlugin.cmake`), manufacturer code `Asui`, bundle IDs `com.audiosuite.<name>` (kept: they are part of the plugin identity, section 7).
 - Plugin codes `Sdft`, `Dsat`, `Mtch`. The Micro-Timing CMake file sets `Mtch`, but this document previously said `Mtsq`. Confirm which one is intended before a release. Codes and parameter IDs are saved in sessions and **must never change** after a release.
 - Licence: GNU GPL v3 (`LICENSE`, the unmodified GNU text). JUCE is used under its GPLv3 option. Closed-source distribution would need a commercial JUCE licence.
-- Repository: `https://github.com/tfroehlich82/AudioPluginSuite`. The `origin` remote points there.
+- Repository: `https://github.com/FROTH-Audio/AudioPluginSuite`. The `origin` remote points there.
 - The owner works on Windows in VS Code with CMake Tools. The existing `build/` cache uses the `Visual Studio 18 2026` generator with the `clang-cl` compiler.
 - State versioning: saved sessions carry a `suiteStateVersion` attribute. States without the attribute are version 1. Newer states than the plugin are refused.
 
@@ -417,7 +417,7 @@ If you add a new consumer, use `suite_ui_add_to_target`. Do not add `SuiteUI` to
 **Adding a plugin**
 1. Run `python tools/new_plugin/new_plugin.py <Name> "<Product name>" <Code>`. It copies `tools/new_plugin/skeleton/` into `plugins/<Name>/`, fills in the names, and refuses if the folder exists or the plugin code is in use. It writes nothing else.
 2. Add `add_subdirectory(plugins/<Name>)` to the root `CMakeLists.txt`, after the other plugins. The script prints this line.
-3. The plugin's CMake is one `suite_add_plugin(...)` call (`modules/suite_plugin/SuitePlugin.cmake`). It sets the plugin target, its `<Name>Tests` executable, the links, the lockup and `add_test`. Its arguments are described at the top of that file. Add `MODULATION` for the LFOs and routing, `MIDI_EFFECT` for a MIDI effect, and `LOCKUP` or `ASSETS` for embedded images and files.
+3. The plugin's CMake is one `suite_add_plugin(...)` call (`modules/suite_plugin/SuitePlugin.cmake`). It sets the plugin target, its `<Name>Tests` executable, the links, the lockup and `add_test`. Its arguments are described at the top of that file. `DESCRIPTION` sets the bundle description (default: the product name). The company website and copyright are set once, in the root `CMakeLists.txt`. Add `MODULATION` for the LFOs and routing, `MIDI_EFFECT` for a MIDI effect, and `LOCKUP` or `ASSETS` for embedded images and files.
 4. Add `suite_add_host_test(<Name>)` to `tests/host/CMakeLists.txt`. Add its accent colour and lockup to `tools/brand/build.py` and regenerate the artwork. Add it to the README and the CHANGELOG.
 5. The function checks that the plugin code is four characters and unique across all plugins. A duplicate stops configuration.
 

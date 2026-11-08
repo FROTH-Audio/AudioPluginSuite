@@ -7,6 +7,7 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Changed
+- Plugin metadata: each VST3 and AU bundle now has a description, the company website (the repository) and a copyright line (GPL v3). The Windows version resource shows the copyright. No e-mail is set. The manufacturer name hosts show is now FROTH Audio (was AudioSuite). The bundle IDs and plugin codes are unchanged, so sessions still load. Hosts may show the new name and description after a rescan.
 - Micro-Timing Chaos: its look and feel now derives from the suite's shared look and feel for the shared setup. The window is unchanged. Editor timers use one refresh constant, 60 Hz. No visible change.
 - Build: the deprecated juce::Font constructors are replaced by the juce::FontOptions form. The Release build has no deprecation warnings. No visible change.
 - Build: each plugin's CMake file is now one `suite_add_plugin(...)` call, and the plugin codes are checked for uniqueness at configure time. No user-visible change.
