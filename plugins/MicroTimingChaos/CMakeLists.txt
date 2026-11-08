@@ -6,7 +6,7 @@ juce_add_plugin(MicroTimingChaos
     PLUGIN_NAME "Micro-Timing Chaos"
     PRODUCT_NAME "Micro-Timing Chaos"
     FORMATS ${SUITE_PLUGIN_FORMATS}
-    IS_SYNTH FALSE
+    IS_SYNTH TRUE
     IS_MIDI_EFFECT TRUE
     NEEDS_MIDI_INPUT TRUE
     NEEDS_MIDI_OUTPUT TRUE
