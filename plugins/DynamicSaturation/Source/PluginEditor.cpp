@@ -46,7 +46,7 @@ DynamicSaturationEditor::DynamicSaturationEditor (DynamicSaturationProcessor& p)
     helpTracker.onMove = [this] (const juce::MouseEvent& e) { showHelp (e); };
     addMouseListener (&helpTracker, true);
 
-    helpLabel.setFont (juce::Font (14.0f));
+    helpLabel.setFont (juce::Font (juce::FontOptions (14.0f)));
     helpLabel.setColour (juce::Label::textColourId, SuiteUI::Colours::text);
     helpLabel.setText ("Hover a control to see what it does.", juce::dontSendNotification);
 
@@ -198,7 +198,7 @@ void DynamicSaturationEditor::paint (juce::Graphics& g)
     SuiteUI::drawBrandLockup (g, getLocalBounds().reduced (16, 0).removeFromTop (headerHeight), brandLockup());
 
     g.setColour (SuiteUI::Colours::textDim);
-    g.setFont (juce::Font (12.0f));
+    g.setFont (juce::Font (juce::FontOptions (12.0f)));
     g.drawText ("2x oversampled  |  transfer curve tracks the input level",
                 getLocalBounds().reduced (16, 0).removeFromTop (headerHeight), juce::Justification::centredRight);
 
@@ -212,7 +212,7 @@ void DynamicSaturationEditor::paint (juce::Graphics& g)
         g.drawRoundedRectangle (bounds, 8.0f, 1.0f);
 
         g.setColour (lookAndFeel.getAccent());
-        g.setFont (juce::Font (15.0f, juce::Font::bold));
+        g.setFont (juce::Font (juce::FontOptions (15.0f, juce::Font::bold)));
         g.drawText ("MODULATION", modulationGroupBounds.withHeight (groupTitleHeight).translated (0, 4).reduced (12, 0),
                     juce::Justification::centredLeft);
     }

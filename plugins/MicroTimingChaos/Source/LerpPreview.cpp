@@ -16,7 +16,7 @@ namespace
     // Axis legend, right-aligned: X drives timing, Y pitch and gate, Z velocity
     void drawLegend (juce::Graphics& g, juce::Rectangle<float> row)
     {
-        const juce::Font font (13.0f);
+        const juce::Font font (juce::FontOptions (13.0f));
         const struct { juce::String text; juce::Colour colour; } items[] = {
             { "X  timing", Palette::timing },
             { "Y  pitch & gate", Palette::pitch },
@@ -41,7 +41,7 @@ namespace
         auto valueArea = row.removeFromRight (60.0f);
 
         g.setColour (Palette::previewText);
-        g.setFont (juce::Font (13.0f, juce::Font::bold));
+        g.setFont (juce::Font (juce::FontOptions (13.0f, juce::Font::bold)));
         g.drawText (label, labelArea, juce::Justification::centredLeft);
 
         g.setColour (SuiteUI::Colours::track);
@@ -51,7 +51,7 @@ namespace
         g.fillRoundedRectangle (row.reduced (0.0f, 6.0f).withWidth (row.getWidth() * juce::jlimit (0.0f, 1.0f, amount)), 3.0f);
 
         g.setColour (Palette::previewText);
-        g.setFont (juce::Font (13.0f));
+        g.setFont (juce::Font (juce::FontOptions (13.0f)));
         g.drawText (juce::String (juce::roundToInt (amount * 100.0f)) + " %", valueArea, juce::Justification::centredRight);
     }
 }
@@ -94,7 +94,7 @@ void LerpPreview::paint (juce::Graphics& g)
     area.removeFromBottom (4.0f);
 
     g.setColour (Palette::previewText);
-    g.setFont (juce::Font (11.0f));
+    g.setFont (juce::Font (juce::FontOptions (11.0f)));
     g.drawText ("LAST " + juce::String ((int) steps.size()) + " STEPS, OLDEST LEFT", caption, juce::Justification::centredLeft);
 
     // Three lanes: timing, pitch and velocity of each recent step
@@ -113,7 +113,7 @@ void LerpPreview::paint (juce::Graphics& g)
         g.fillRoundedRectangle (plot, 4.0f);
 
         g.setColour (Palette::previewText);
-        g.setFont (juce::Font (11.0f));
+        g.setFont (juce::Font (juce::FontOptions (11.0f)));
         g.drawText (laneLabels[lane], laneArea.withWidth (laneLabelWidth - 8.0f), juce::Justification::centredLeft);
 
         if (lane == 0)

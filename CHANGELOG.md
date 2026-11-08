@@ -7,6 +7,7 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Changed
+- Build: the deprecated juce::Font constructors are replaced by the juce::FontOptions form. The Release build has no deprecation warnings. No visible change.
 - Build: each plugin's CMake file is now one `suite_add_plugin(...)` call, and the plugin codes are checked for uniqueness at configure time. No user-visible change.
 - Build: each plugin's version is passed explicitly from the project version. It is 1.0.0, the same version the hosts already see, so no DAW rescan is needed.
 - Spectral Drift Shifter: the Feedback control now runs from 0 to 12 %, the same as the processing cap. Sessions saved with a feedback above 12 % load at 12 %, which already sounded the same. Modulation depth on Feedback is now measured over 0 to 12 %.

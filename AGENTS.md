@@ -33,6 +33,7 @@ Three audio plugins written with JUCE 9.0.5 in C++17. Formats: VST3 on Windows a
 CMakeLists.txt                    Root: JUCE pin, global definitions, options, SUITE_PLUGIN_FORMATS
 AGENTS.md / CLAUDE.md             This file / Claude Code specifics (points here)
 README.md, CHANGELOG.md, LICENSE  User and developer docs, history, licence
+docs/plans/                       Ordered plans 00 to 06. Index and execution order: docs/plans/README.md
 modules/
   core_dsp/                       Header-only DSP, depends on juce::juce_dsp
     include/CoreDSP.h             Umbrella header; decibelsToGain()
@@ -56,7 +57,7 @@ modules/
     include/SuiteLookAndFeel.h    SuiteUI::Colours: the neutral palette shared by all plugins, plus SuiteLookAndFeel (LookAndFeel_V4)
     include/SuiteWidgets.h        SpectrumDisplay, TrailPlot, CurveView, LevelMeter, SegmentedSelector, LabelledSlider
     include/SuiteBrand.h          drawBrandLockup(): draws a brand lockup image at the left of a header area
-    brand/                        Generated artwork: brand_mark.png and lockup_<plugin>.png. Made by tools/brand/make_brand.py, do not edit by hand
+    brand/                        Generated artwork: brand_mark.png and lockup_<plugin>.png. Made by tools/brand/build.py, do not edit by hand
     Source/*.cpp                  Implementations
     SuiteUI.cmake                 suite_ui_add_to_target(<target>): adds sources + include dir
     tests/SuiteUITests.cpp        SuiteUITests (9 test functions)
@@ -108,9 +109,10 @@ $CM = "C:\Program Files\Microsoft Visual Studio\18\Community\Common7\IDE\CommonE
 - `-DSUITE_BUILD_PLUGINS=OFF` builds only CoreDSP and its tests. The SuiteUI tests are only registered when plugins are on.
 - macOS CI runs `macos-15` with the runner's default Xcode, and Apple clang is built with `-ffp-contract=off` (see section 11 and [section 10](#10-open-items-and-known-risks)).
 - JUCE is fetched by `FetchContent` into `build/_deps/juce-src`. That directory is a full local copy: grep it to check any API before using it.
+- Build records for the pre-refactor baseline are in `build/baselines/phase0-pre-refactor/`, and the converted tree in `build/baselines/phase1-after-suite_add_plugin/`. They are generated and not committed (`build/` is ignored). To regenerate: `git archive 0d21400` into `build/baselines/src`, configure that tree with `-DFETCHCONTENT_SOURCE_DIR_JUCE=<repo>/build/_deps/juce-src` so JUCE is not fetched again, build Release, then save `Defs.txt`, `Info.txt`, `<Name>_resources.rc`, the VST3 file list and the source lists from each `.vcxproj`.
 - Asset embedding: `juce_add_binary_data(MicroTimingChaosAssets ...)` builds a `BinaryData` target that the plugin and its test executable link. Add new icons or textures to its `SOURCES` list, then reference them by the generated name (`file_name_with_underscores`, for example `bpm_sync_active_svg`).
 
-Last verified status (2026-11-08): JUCE 9.0.5. Full Release build succeeds on Windows. All 10 CTest entries pass, including `SuiteState_Tests`, the plugin state tests and the phase 0 fixture check when `SUITE_FIXTURE_DIR` is set. Before 2026-11-08 the list was 9 entries: CoreDSPTests, SuiteUI_Tests, SuiteModulation_Tests, the three plugin test executables, and the three VST3 host-load tests. SuiteUI_Tests also passed against JUCE 8.0.6, the previous pin, which is the version CI ran (last checked 2026-11-06, not re-run since). macOS is not verified on JUCE 9.
+Last verified status (2026-11-08): JUCE 9.0.5. Full Release build succeeds on Windows with no errors and no deprecation warnings (the `juce::Font` constructors were replaced by `juce::FontOptions`). All 10 CTest entries pass, including `SuiteState_Tests`, the plugin state tests and the phase 0 fixture check when `SUITE_FIXTURE_DIR` is set. Before 2026-11-08 the list was 9 entries: CoreDSPTests, SuiteUI_Tests, SuiteModulation_Tests, the three plugin test executables, and the three VST3 host-load tests. SuiteUI_Tests also passed against JUCE 8.0.6, the previous pin, which is the version CI ran (last checked 2026-11-06, not re-run since). macOS is not verified on JUCE 9.
 
 ---
 
@@ -414,7 +416,7 @@ If you add a new consumer, use `suite_ui_add_to_target`. Do not add `SuiteUI` to
 1. Run `python tools/new_plugin/new_plugin.py <Name> "<Product name>" <Code>`. It copies `tools/new_plugin/skeleton/` into `plugins/<Name>/`, fills in the names, and refuses if the folder exists or the plugin code is in use. It writes nothing else.
 2. Add `add_subdirectory(plugins/<Name>)` to the root `CMakeLists.txt`, after the other plugins. The script prints this line.
 3. The plugin's CMake is one `suite_add_plugin(...)` call (`modules/suite_plugin/SuitePlugin.cmake`). It sets the plugin target, its `<Name>Tests` executable, the links, the lockup and `add_test`. Its arguments are described at the top of that file. Add `MODULATION` for the LFOs and routing, `MIDI_EFFECT` for a MIDI effect, and `LOCKUP` or `ASSETS` for embedded images and files.
-4. Add `suite_add_host_test(<Name>)` to `tests/host/CMakeLists.txt`. Add its accent colour and lockup to `tools/brand/make_brand.py` and regenerate the artwork. Add it to the README and the CHANGELOG.
+4. Add `suite_add_host_test(<Name>)` to `tests/host/CMakeLists.txt`. Add its accent colour and lockup to `tools/brand/build.py` and regenerate the artwork. Add it to the README and the CHANGELOG.
 5. The function checks that the plugin code is four characters and unique across all plugins. A duplicate stops configuration.
 
 **Adding modulation to a plugin** (the procedure used for Spectral Drift and Dynamic Saturation)
@@ -514,6 +516,40 @@ The original brief (`coding_agent_prompt.md`) is no longer in the repository. Th
 - Release: GitHub Actions → *Release* → *Run workflow* (version without `v`, draft on by default).
 
 ---
+
+## 14. Working notes for coding agents
+
+Each item is a mistake or a slow path hit during the framework work (2026-11-08). Read them before you start, and add to the list when you hit something new.
+
+**Stay inside the project.** Build output goes in `build/`, logs in `build/logs/`, baselines in `build/baselines/`. Do not write to `%TEMP%`, the home folder or a sibling folder. The owner asked for this. A baseline once sat in `Documents\PROJECTS\baselines` and had to be moved back.
+
+**Use absolute paths.** The shell's working directory persists between calls and can change under you. One search ran in `docs/plans` and missed `AGENTS.md`.
+
+**Shells.** `bash` in PowerShell starts WSL on this machine, not Git Bash. Use the Bash tool for `git archive`, `sed` and `grep`.
+
+**Processes.** Do not stop CMake or any other process. The IDE may own it. If a command is refused, do not look for another route to the same effect. Report it.
+
+**Encoding.** `Set-Content` writes ANSI and corrupts UTF-8 text. Edit with the Edit tool, or write bytes and keep the BOM and line endings. After an edit, `git diff --stat` should list only the lines you meant to change. A whole-file diff means line endings changed.
+
+**Untracked files.** `docs/plans/` is untracked, so git cannot restore a file deleted there. Show the owner before you delete one.
+
+**Build facts.** JUCE 9 does not write `JucePluginDefines.h`. The same data is in `<Name>_artefacts/JuceLibraryCode/Release/Defs.txt` and `Info.txt`. The root project is `VERSION 1.0.0`, so the plugin version is 1.0.0 even without a `VERSION` argument.
+
+**Deprecations.** Count them from the build log after the changed files rebuild. `juce::Font (x, flags)` is deprecated. The replacement is `juce::Font (juce::FontOptions (x, flags))`. Do not silence a warning with a pragma.
+
+**Asserts.** `tests/common/PluginTestUtils.h` undefines `NDEBUG` before `<cassert>`, so plugin asserts also run in Release. Do not add a second check mechanism.
+
+**Plans can be wrong.** Check each claim against the code before you build on it. Two examples from the framework work: a plan said `IS_SYNTH FALSE` for every plugin, but MicroTimingChaos is `TRUE`; and a plan said "six JUCE modules" where the plugins link five plus `SuiteState`.
+
+**Links drift.** Grep the repo for a file name before you rely on a link. Renamed plans are listed in `docs/plans/README.md`.
+
+**The brand generator.** It is `tools/brand/build.py`. `.gitignore` excludes `tools/brand/`, so the script is not in git. Do not assume it is tracked, and do not commit it without the owner's decision.
+
+**Throwaway builds.** When a test needs a root change, such as a new plugin, build in a folder under `build/`, then remove the root line and the folder. Check `git status` at the end.
+
+**Verification.** Run all 10 CTest entries before you say a change works. A change in the entry count is a change in the test set, so report it. Say which checks you could not run, such as macOS or a desktop-only editor test.
+
+**Stop and report** when a step needs the owner: a commit, a push, a macOS machine, an external search, a licence decision, or a deletion of an untracked file.
 
 ## Owner Rules
 

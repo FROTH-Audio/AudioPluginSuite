@@ -98,7 +98,7 @@ namespace SuiteUI
         // Frequency gridlines and labels: 100 Hz, 1 kHz and 10 kHz.
         const float minFreq = 20.0f;
         const float maxFreq = 20000.0f;
-        g.setFont (juce::Font (10.0f));
+        g.setFont (juce::Font (juce::FontOptions (10.0f)));
 
         for (const float freq : { 100.0f, 1000.0f, 10000.0f })
         {
@@ -114,7 +114,7 @@ namespace SuiteUI
         if (! signalPresent || inputDb.empty())
         {
             g.setColour (Colours::textDim);
-            g.setFont (juce::Font (13.0f));
+            g.setFont (juce::Font (juce::FontOptions (13.0f)));
             g.drawText (waitingMessage, area, juce::Justification::centred);
             return;
         }
@@ -315,7 +315,7 @@ namespace SuiteUI
             }
 
             g.setColour (isSelected ? accent : Colours::textDim);
-            g.setFont (juce::Font (fontHeight, isSelected ? juce::Font::bold : juce::Font::plain));
+            g.setFont (juce::Font (juce::FontOptions (fontHeight, isSelected ? juce::Font::bold : juce::Font::plain)));
             g.drawText (options[i], segment, juce::Justification::centred);
         }
     }
@@ -350,7 +350,7 @@ namespace SuiteUI
 
         label.setText (caption, juce::dontSendNotification);
         label.setJustificationType (juce::Justification::centred);
-        label.setFont (juce::Font (12.0f, juce::Font::bold));
+        label.setFont (juce::Font (juce::FontOptions (12.0f, juce::Font::bold)));
 
         addAndMakeVisible (label);
         addAndMakeVisible (slider);

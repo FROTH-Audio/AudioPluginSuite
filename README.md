@@ -393,7 +393,7 @@ AudioPluginSuite/
 │   ├── brand.md                         The FROTH Audio brand: parts, colours, regenerating the artwork
 │   ├── images/froth-audio-suite.png     The README banner (generated)
 │   └── plans/                           Design plans and their status
-├── tools/brand/make_brand.py            Generates the brand mark, the lockups and the README banner
+├── tools/brand/build.py            Generates the brand mark, the lockups and the README banner
 ├── modules/
 │   ├── core_dsp/                        Header-only DSP primitives, no plugin code
 │   │   ├── include/                     CoreDSP.h, SaturationEngine.h, ChaosEngine.h, SpectralEngine.h,
@@ -456,7 +456,7 @@ Key decisions:
 - **Oversampling** in Dynamic Saturation is JUCE's half-band FIR at 2×. The dry path is delayed by the same amount, so the mix stays aligned.
 - **SuiteUI is compiled into each consumer** rather than linked as a library. A library bundles the JUCE modules it uses, and those then clash with the same modules linked again by the plugin (duplicate symbols at link time).
 - **LFOs and routing are shared.** `SuiteModulation::Router` holds the two LFOs, the six routing slots and their parameters. A plugin supplies a table of the controls the routing can move, and the module does the rest. The module is compiled into each consumer like SuiteUI, and it needs SuiteUI in the same target.
-- **The brand is generated.** `tools/brand/make_brand.py` draws the mark, the lockups and the banner, so the artwork and the plugin colours come from one place.
+- **The brand is generated.** `tools/brand/build.py` draws the mark, the lockups and the banner, so the artwork and the plugin colours come from one place.
 
 ### Adding a plugin
 
@@ -464,7 +464,7 @@ Key decisions:
 2. The plugin code must be four letters or digits, with at least one uppercase letter. It must not change once a plugin has been released, because hosts use it to identify saved sessions.
 3. Put the DSP in `modules/core_dsp/include/` as a header-only class, and add a test for it in `DSPTests.cpp`.
 4. Add `add_subdirectory(plugins/<Name>)` to the root `CMakeLists.txt`, under `if(SUITE_BUILD_PLUGINS)`, after the other plugins. Add `suite_add_host_test(<Name>)` in `tests/host/CMakeLists.txt`.
-5. Add its accent colour and lockup to `tools/brand/make_brand.py`, then regenerate the artwork with `python -I tools/brand/make_brand.py`.
+5. Add its accent colour and lockup to `tools/brand/build.py`, then regenerate the artwork with `python -I tools/brand/build.py`.
 6. Add it to "the plugins" section in this README, to the table in this README, and to `CHANGELOG.md`.
 
 ### Continuous integration

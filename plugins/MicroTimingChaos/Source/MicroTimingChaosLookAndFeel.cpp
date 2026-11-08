@@ -167,11 +167,11 @@ namespace MicroTimingChaos
         auto textArea = bounds.reduced (6.0f, 0.0f);
 
         g.setColour (active ? SuiteUI::Colours::text : SuiteUI::Colours::textDim);
-        g.setFont (juce::Font (14.0f, juce::Font::bold));
+        g.setFont (juce::Font (juce::FontOptions (14.0f, juce::Font::bold)));
         g.drawText (button.getButtonText(), textArea.withTrimmedRight (34.0f), juce::Justification::centredLeft);
 
         g.setColour (colour);
-        g.setFont (juce::Font (13.0f, juce::Font::bold));
+        g.setFont (juce::Font (juce::FontOptions (13.0f, juce::Font::bold)));
         g.drawText (active ? "ON" : "OFF", textArea.removeFromRight (30.0f), juce::Justification::centredRight);
     }
 
@@ -204,16 +204,16 @@ namespace MicroTimingChaos
 
     juce::Font LookAndFeel::getLabelFont (juce::Label&)
     {
-        return juce::Font (14.0f);
+        return juce::Font (juce::FontOptions (14.0f));
     }
 
     juce::Font LookAndFeel::getComboBoxFont (juce::ComboBox&)
     {
-        return juce::Font (14.0f);
+        return juce::Font (juce::FontOptions (14.0f));
     }
 
     juce::Font LookAndFeel::getPopupMenuFont()
     {
-        return juce::Font (14.0f);
+        return juce::Font (juce::FontOptions (14.0f));
     }
 }
