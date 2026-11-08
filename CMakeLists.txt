@@ -46,6 +46,7 @@ enable_testing()
 
 if(SUITE_BUILD_TESTS OR SUITE_BUILD_PLUGINS)
     add_subdirectory(modules/core_dsp)
+    add_subdirectory(modules/suite_state)
 endif()
 
 if(SUITE_BUILD_PLUGINS)
