@@ -61,8 +61,10 @@ modules/
     SuiteUI.cmake                 suite_ui_add_to_target(<target>): adds sources + include dir
     tests/SuiteUITests.cpp        SuiteUITests (9 test functions)
     CMakeLists.txt                SuiteUITests only
+  suite_plugin/                   Build recipe. NOT a library target, see section 9
+    SuitePlugin.cmake             suite_add_plugin(...): juce_add_plugin, sources, lockup, links, <Name>Tests and add_test from one call. Checks PLUGIN_CODE is unique
 plugins/<Name>/
-  CMakeLists.txt                  juce_add_plugin, links, <Name>Tests executable, add_test
+  CMakeLists.txt                  One suite_add_plugin(...) call (see section 9)
   Source/PluginProcessor.{h,cpp}  APVTS, processing, state, createPluginFilter()
   Source/PluginEditor.{h,cpp}     Editor, 60 Hz Timer reads processor snapshots
   tests/PluginTests.cpp           Plugin tests: SpectralDrift 22, DynamicSaturation 19, MicroTimingChaos 40
@@ -80,6 +82,9 @@ tests/
   common/PluginTestUtils.h        Helpers: setParameter, checkRange, checkStateRoundTrip, checkEditor, addSine, ...
   host/PluginHostTests.cpp        Loads a built .vst3 through JUCE's VST3 host (scan, instantiate, editor, process)
   host/CMakeLists.txt             PluginHostTests + one ctest entry per plugin
+tools/new_plugin/
+  new_plugin.py                   Creates plugins/<Name>/ from the skeleton, and refuses a plugin code already in use
+  skeleton/                       CMakeLists.txt, Source/Plugin{Processor,Editor}.{h,cpp}, tests/PluginTests.cpp, with __NAME__, __PRODUCT__ and __CODE__ placeholders
 .github/workflows/build.yml       CI: Windows (windows-latest) + macOS (macos-15, default Xcode). Build, ctest, upload VST3
 .github/workflows/release.yml     Manual release (workflow_dispatch): build, test, package zips, gh release create
 ```
@@ -405,8 +410,15 @@ If you add a new consumer, use `suite_ui_add_to_target`. Do not add `SuiteUI` to
 
 ---
 
+**Adding a plugin**
+1. Run `python tools/new_plugin/new_plugin.py <Name> "<Product name>" <Code>`. It copies `tools/new_plugin/skeleton/` into `plugins/<Name>/`, fills in the names, and refuses if the folder exists or the plugin code is in use. It writes nothing else.
+2. Add `add_subdirectory(plugins/<Name>)` to the root `CMakeLists.txt`, after the other plugins. The script prints this line.
+3. The plugin's CMake is one `suite_add_plugin(...)` call (`modules/suite_plugin/SuitePlugin.cmake`). It sets the plugin target, its `<Name>Tests` executable, the links, the lockup and `add_test`. Its arguments are described at the top of that file. Add `MODULATION` for the LFOs and routing, `MIDI_EFFECT` for a MIDI effect, and `LOCKUP` or `ASSETS` for embedded images and files.
+4. Add `suite_add_host_test(<Name>)` to `tests/host/CMakeLists.txt`. Add its accent colour and lockup to `tools/brand/make_brand.py` and regenerate the artwork. Add it to the README and the CHANGELOG.
+5. The function checks that the plugin code is four characters and unique across all plugins. A duplicate stops configuration.
+
 **Adding modulation to a plugin** (the procedure used for Spectral Drift and Dynamic Saturation)
-1. In the plugin's CMake: `suite_ui_add_to_target` then `suite_modulation_add_to_target`, for the plugin and its test executable.
+1. In the plugin's CMake, pass `MODULATION` to `suite_add_plugin`. This adds `suite_ui_add_to_target` and `suite_modulation_add_to_target` to the plugin and its test executable.
 2. Declare a `static constexpr SuiteModulation::TargetInfo` table of the controls the routing may move, in ModTarget order, with `wholeNumber` and `ignoredWhileHostSync` where they apply. Append only.
 3. Add `SuiteModulation::Router::addParameters (params, names)` to `createParameterLayout()`, with `names` = `"None"` followed by the target names, in table order.
 4. Construct the router in the processor after `apvts`, with the table and the host sync ID (or `nullptr`). Call `prepare`, `computeOffsets`, `publish` and `advanceBlock` as MicroTimingChaos does. Read each routed control through `modulate`.

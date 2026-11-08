@@ -1,77 +1,14 @@
-# Spectral Drift Shifter - built with juce_add_plugin + suite config
+# Spectral Drift Shifter - built with suite_add_plugin (modules/suite_plugin/SuitePlugin.cmake)
 
-juce_add_plugin(SpectralDrift
-    COMPANY_NAME "AudioSuite"
-    BUNDLE_ID com.audiosuite.spectraldrift
-    PLUGIN_MANUFACTURER_CODE Asui
-    PLUGIN_CODE Sdft
-    PLUGIN_NAME "Spectral Drift Shifter"
-    PRODUCT_NAME "Spectral Drift Shifter"
-    FORMATS ${SUITE_PLUGIN_FORMATS}
-    IS_SYNTH FALSE
-    IS_MIDI_EFFECT FALSE
-    NEEDS_MIDI_INPUT FALSE
-    NEEDS_MIDI_OUTPUT FALSE
-    EDITOR_WANTS_KEYBOARD_FOCUS FALSE
-    COPY_PLUGIN_AFTER_BUILD FALSE
+suite_add_plugin(
+    NAME            SpectralDrift
+    PRODUCT_NAME    "Spectral Drift Shifter"
+    MANUFACTURER    Asui
+    PLUGIN_CODE     Sdft
+    SOURCES         Source/PluginProcessor.cpp Source/PluginProcessor.h
+                    Source/PluginEditor.cpp Source/PluginEditor.h
+    TEST_SOURCES    tests/PluginTests.cpp
+    # The brand lockup (FROTH Audio wordmark, mark and the product name) is embedded, so the header loads it from inside the plugin.
+    LOCKUP          ${CMAKE_SOURCE_DIR}/modules/suite_ui/brand/lockup_spectral_drift.png
+    MODULATION
 )
-
-target_sources(SpectralDrift PRIVATE
-    Source/PluginProcessor.cpp
-    Source/PluginProcessor.h
-    Source/PluginEditor.cpp
-    Source/PluginEditor.h
-)
-
-# Suite-specific configuration
-suite_ui_add_to_target(SpectralDrift)
-suite_modulation_add_to_target(SpectralDrift)
-
-# Brand lockup (FROTH Audio wordmark, mark and the product name) is embedded
-juce_add_binary_data(SpectralDriftAssets
-    SOURCES ../../modules/suite_ui/brand/lockup_spectral_drift.png
-)
-
-target_link_libraries(SpectralDrift PRIVATE
-    CoreDSP
-    SpectralDriftAssets
-    SuiteState
-    juce::juce_audio_utils
-    juce::juce_audio_processors
-    juce::juce_gui_basics
-    juce::juce_gui_extra
-    juce::juce_dsp
-)
-
-# Plugin tests: the real processor and editor sources, run headless with the GUI toolkit initialised.
-if(SUITE_BUILD_TESTS)
-    add_executable(SpectralDriftTests
-        tests/PluginTests.cpp
-        Source/PluginProcessor.cpp
-        Source/PluginEditor.cpp
-    )
-
-    target_include_directories(SpectralDriftTests PRIVATE
-        Source
-        ${CMAKE_SOURCE_DIR}/tests/common
-    )
-
-    suite_ui_add_to_target(SpectralDriftTests)
-    suite_modulation_add_to_target(SpectralDriftTests)
-
-    target_link_libraries(SpectralDriftTests PRIVATE
-        CoreDSP
-        SpectralDriftAssets
-        SuiteState
-        juce::juce_audio_utils
-        juce::juce_audio_processors
-        juce::juce_gui_basics
-        juce::juce_gui_extra
-        juce::juce_dsp
-    )
-
-    # The editor tests pump the message loop so timers fire.
-    target_compile_definitions(SpectralDriftTests PRIVATE JUCE_MODAL_LOOPS_PERMITTED=1)
-
-    add_test(NAME SpectralDrift_PluginTests COMMAND SpectralDriftTests)
-endif()

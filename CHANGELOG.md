@@ -7,6 +7,8 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Changed
+- Build: each plugin's CMake file is now one `suite_add_plugin(...)` call, and the plugin codes are checked for uniqueness at configure time. No user-visible change.
+- Build: each plugin's version is passed explicitly from the project version. It is 1.0.0, the same version the hosts already see, so no DAW rescan is needed.
 - Spectral Drift Shifter: the Feedback control now runs from 0 to 12 %, the same as the processing cap. Sessions saved with a feedback above 12 % load at 12 %, which already sounded the same. Modulation depth on Feedback is now measured over 0 to 12 %.
 - Micro-Timing Chaos: declared as a MIDI instrument (`IS_SYNTH TRUE`). VST3 hosts list it under instruments, so a DAW may need a rescan.
 - Micro-Timing Chaos: the editor's design height is 1380 px (was 1400 px). The window is 20 px shorter at the default scale.
@@ -16,6 +18,7 @@ All notable changes to this project are documented here. The format follows
 - The macOS build's tests failed on `testOffsetControlIsUsable`, because Apple clang fused a multiply and an add on arm64 and left the LFO Offset default at 1.5e-6. Apple clang is now built with `-ffp-contract=off`, so macOS arithmetic matches Windows.
 
 ### Added
+- `tools/new_plugin/new_plugin.py`: creates a new plugin from a skeleton, and refuses a plugin code that is already in use. Developer tool; no change to the plugins.
 - `modules/suite_modulation`: a shared module with the two LFOs, six routing slots, the LFO scope, the modulation panel and the control display, for plugins to reuse. Its tests (`SuiteModulationTests`, 9) run as a new CTest entry.
 - `tests/common/ModulationTestUtils.h`: `setLfo`, `setRoute` and `timingOffsets` for any processor with the shared LFO parameters.
 - `modules/core_dsp/include/ModulationTiming.h`: the division table, `fractionalPart` and `cyclesFromSeconds`, with DSP tests.

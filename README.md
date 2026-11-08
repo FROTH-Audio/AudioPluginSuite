@@ -460,10 +460,10 @@ Key decisions:
 
 ### Adding a plugin
 
-1. Create `plugins/<Name>/` with `CMakeLists.txt`, `Source/PluginProcessor.{h,cpp}` and `Source/PluginEditor.{h,cpp}`, and `tests/PluginTests.cpp`. Copy an existing plugin as the starting point.
-2. Give it unique `PLUGIN_MANUFACTURER_CODE` / `PLUGIN_CODE` values and a `BUNDLE_ID`. The codes must be four characters with at least one uppercase letter, and they must not change once a plugin has been released, because hosts use them to identify saved sessions.
+1. Run `python tools/new_plugin/new_plugin.py <Name> "<Product name>" <Code>`, for example `python tools/new_plugin/new_plugin.py SpectralDrift "Spectral Drift Shifter" Sdft`. It creates `plugins/<Name>/` from `tools/new_plugin/skeleton/`: the processor, the editor, the tests and a CMake file with one `suite_add_plugin(...)` call. It refuses if the folder exists or the plugin code is already in use. The bundle ID is `com.audiosuite.<name>`.
+2. The plugin code must be four letters or digits, with at least one uppercase letter. It must not change once a plugin has been released, because hosts use it to identify saved sessions.
 3. Put the DSP in `modules/core_dsp/include/` as a header-only class, and add a test for it in `DSPTests.cpp`.
-4. Register the plugin in the root `CMakeLists.txt` under `if(SUITE_BUILD_PLUGINS)`, and add a host test in `tests/host/CMakeLists.txt`.
+4. Add `add_subdirectory(plugins/<Name>)` to the root `CMakeLists.txt`, under `if(SUITE_BUILD_PLUGINS)`, after the other plugins. Add `suite_add_host_test(<Name>)` in `tests/host/CMakeLists.txt`.
 5. Add its accent colour and lockup to `tools/brand/make_brand.py`, then regenerate the artwork with `python -I tools/brand/make_brand.py`.
 6. Add it to "the plugins" section in this README, to the table in this README, and to `CHANGELOG.md`.
 
