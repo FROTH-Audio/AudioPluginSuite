@@ -1,3 +1,5 @@
+# Micro-Timing Chaos - built with juce_add_plugin + suite config
+
 juce_add_plugin(MicroTimingChaos
     COMPANY_NAME "AudioSuite"
     BUNDLE_ID com.audiosuite.microtimingchaos
@@ -28,7 +30,7 @@ set(MICRO_TIMING_CHAOS_SOURCES
     Source/MicroTimingChaosLookAndFeel.cpp
 )
 
-# Icons and textures are embedded in the binary, so they load from inside the plugin bundle.
+# Icons, textures and the brand lockup are embedded in the binary
 juce_add_binary_data(MicroTimingChaosAssets
     SOURCES
         Resources/icons/bpm_sync_active.svg
@@ -46,6 +48,7 @@ target_include_directories(MicroTimingChaos PRIVATE
     ${MICRO_TIMING_CHAOS_INCLUDE_DIR}/Source
 )
 
+# Suite-specific configuration
 suite_ui_add_to_target(MicroTimingChaos)
 suite_modulation_add_to_target(MicroTimingChaos)
 

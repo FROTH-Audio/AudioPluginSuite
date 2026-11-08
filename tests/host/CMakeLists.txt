@@ -17,7 +17,10 @@ target_link_libraries(PluginHostTests PRIVATE
 function(suite_add_host_test plugin)
     add_test(NAME ${plugin}_VST3_HostLoad
              COMMAND PluginHostTests "$<TARGET_FILE_DIR:${plugin}_VST3>/../.." )
-    add_dependencies(PluginHostTests ${plugin}_VST3)
+    # The VST3 target may not exist if built with suite_add_plugin; add dependency conditionally.
+    if(TARGET ${plugin}_VST3)
+      add_dependencies(PluginHostTests ${plugin}_VST3)
+    endif()
 endfunction()
 
 suite_add_host_test(SpectralDrift)

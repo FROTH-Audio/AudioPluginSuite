@@ -1,3 +1,5 @@
+# Dynamic Saturation Companion - built with juce_add_plugin + suite config
+
 juce_add_plugin(DynamicSaturation
     COMPANY_NAME "AudioSuite"
     BUNDLE_ID com.audiosuite.dynamicsaturation
@@ -21,10 +23,11 @@ target_sources(DynamicSaturation PRIVATE
     Source/PluginEditor.h
 )
 
+# Suite-specific configuration
 suite_ui_add_to_target(DynamicSaturation)
 suite_modulation_add_to_target(DynamicSaturation)
 
-# The brand lockup (FROTH Audio wordmark, mark and the product name) is embedded, so the header loads it from inside the plugin.
+# Brand lockup (FROTH Audio wordmark, mark and the product name) is embedded
 juce_add_binary_data(DynamicSaturationAssets
     SOURCES ../../modules/suite_ui/brand/lockup_dynamic_saturation.png
 )

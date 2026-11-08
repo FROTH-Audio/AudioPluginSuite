@@ -1,3 +1,5 @@
+# Spectral Drift Shifter - built with juce_add_plugin + suite config
+
 juce_add_plugin(SpectralDrift
     COMPANY_NAME "AudioSuite"
     BUNDLE_ID com.audiosuite.spectraldrift
@@ -21,10 +23,11 @@ target_sources(SpectralDrift PRIVATE
     Source/PluginEditor.h
 )
 
+# Suite-specific configuration
 suite_ui_add_to_target(SpectralDrift)
 suite_modulation_add_to_target(SpectralDrift)
 
-# The brand lockup (FROTH Audio wordmark, mark and the product name) is embedded, so the header loads it from inside the plugin.
+# Brand lockup (FROTH Audio wordmark, mark and the product name) is embedded
 juce_add_binary_data(SpectralDriftAssets
     SOURCES ../../modules/suite_ui/brand/lockup_spectral_drift.png
 )
