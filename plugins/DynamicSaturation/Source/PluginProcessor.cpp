@@ -1,4 +1,6 @@
 #include "PluginProcessor.h"
+
+#include "SuiteState.h"
 #include "PluginEditor.h"
 
 #include <iterator>
@@ -33,6 +35,8 @@ DynamicSaturationProcessor::DynamicSaturationProcessor()
       apvts (*this, nullptr, "PARAMETERS", createParameterLayout()),
       modulation (apvts, modulationTargets, (int) std::size (modulationTargets), nullptr)
 {
+    stateVersion = 1;
+    migrations = {};
     drive = apvts.getRawParameterValue (driveId);
     sensitivity = apvts.getRawParameterValue (sensitivityId);
     mode = apvts.getRawParameterValue (modeId);
@@ -311,17 +315,12 @@ juce::AudioProcessorEditor* DynamicSaturationProcessor::createEditor()
 
 void DynamicSaturationProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
-    const auto state = apvts.copyState();
-    std::unique_ptr<juce::XmlElement> xml (state.createXml());
-    copyXmlToBinary (*xml, destData);
+    destData = SuiteState::write (apvts, stateVersion);
 }
 
 void DynamicSaturationProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
-    std::unique_ptr<juce::XmlElement> xml (getXmlFromBinary (data, sizeInBytes));
-
-    if (xml != nullptr && xml->hasTagName (apvts.state.getType()))
-        apvts.replaceState (juce::ValueTree::fromXml (*xml));
+    SuiteState::read (data, sizeInBytes, apvts, stateVersion, migrations);
 }
 
 //==============================================================================

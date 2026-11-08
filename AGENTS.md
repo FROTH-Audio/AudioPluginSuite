@@ -23,6 +23,7 @@ Three audio plugins written with JUCE 9.0.5 in C++17. Formats: VST3 on Windows a
 - Licence: GNU GPL v3 (`LICENSE`, the unmodified GNU text). JUCE is used under its GPLv3 option. Closed-source distribution would need a commercial JUCE licence.
 - Repository: `https://github.com/tfroehlich82/AudioPluginSuite`. The `origin` remote points there.
 - The owner works on Windows in VS Code with CMake Tools. The existing `build/` cache uses the `Visual Studio 18 2026` generator with the `clang-cl` compiler.
+- State versioning: saved sessions carry a `suiteStateVersion` attribute. States without the attribute are version 1. Newer states than the plugin are refused.
 
 ---
 
@@ -64,7 +65,7 @@ plugins/<Name>/
   CMakeLists.txt                  juce_add_plugin, links, <Name>Tests executable, add_test
   Source/PluginProcessor.{h,cpp}  APVTS, processing, state, createPluginFilter()
   Source/PluginEditor.{h,cpp}     Editor, 60 Hz Timer reads processor snapshots
-  tests/PluginTests.cpp           Plugin tests: SpectralDrift 19, DynamicSaturation 17, MicroTimingChaos 34
+  tests/PluginTests.cpp           Plugin tests: SpectralDrift 22, DynamicSaturation 19, MicroTimingChaos 40
 plugins/MicroTimingChaos/         Additional files:
   MicroTimingChaosLookAndFeel.h   At the plugin root (not include/). MTC-only colours (axes, LFOs, preview text); the neutrals come from SuiteUI::Colours. Plus the LookAndFeel
   Source/MicroTimingChaosLookAndFeel.cpp  Rotary knobs, BPM Sync button, combo box; textures and icons from BinaryData
@@ -104,7 +105,7 @@ $CM = "C:\Program Files\Microsoft Visual Studio\18\Community\Common7\IDE\CommonE
 - JUCE is fetched by `FetchContent` into `build/_deps/juce-src`. That directory is a full local copy: grep it to check any API before using it.
 - Asset embedding: `juce_add_binary_data(MicroTimingChaosAssets ...)` builds a `BinaryData` target that the plugin and its test executable link. Add new icons or textures to its `SOURCES` list, then reference them by the generated name (`file_name_with_underscores`, for example `bpm_sync_active_svg`).
 
-Last verified status (2026-11-07): JUCE 9.0.5. Full Release build succeeds on Windows. All 9 CTest entries pass: CoreDSPTests, SuiteUI_Tests, SuiteModulation_Tests, the three plugin test executables, and the three VST3 host-load tests. SuiteUI_Tests also passed against JUCE 8.0.6, the previous pin, which is the version CI ran (last checked 2026-11-06, not re-run since). macOS is not verified on JUCE 9.
+Last verified status (2026-11-08): JUCE 9.0.5. Full Release build succeeds on Windows. All 10 CTest entries pass, including `SuiteState_Tests`, the plugin state tests and the phase 0 fixture check when `SUITE_FIXTURE_DIR` is set. Before 2026-11-08 the list was 9 entries: CoreDSPTests, SuiteUI_Tests, SuiteModulation_Tests, the three plugin test executables, and the three VST3 host-load tests. SuiteUI_Tests also passed against JUCE 8.0.6, the previous pin, which is the version CI ran (last checked 2026-11-06, not re-run since). macOS is not verified on JUCE 9.
 
 ---
 
@@ -302,13 +303,15 @@ Audio: the stereo buffer passes through unchanged (tested).
 
 ## 6. Test architecture
 
-Nine CTest entries run seven executables: `CoreDSPTests` (29 test functions), `SuiteUI_Tests` (`SuiteUITests`, 9), `SuiteModulation_Tests` (`SuiteModulationTests`, 9), `SpectralDriftTests` (19), `DynamicSaturationTests` (17), `MicroTimingChaosTests` (34), and `PluginHostTests`, which has one ctest entry per plugin (3). The README has the full list.
+Nine CTest entries run seven executables: `CoreDSPTests` (29 test functions), `SuiteUI_Tests` (`SuiteUITests`, 9), `SuiteModulation_Tests` (`SuiteModulationTests`, 9), `SpectralDriftTests` (22), `DynamicSaturationTests` (19), `MicroTimingChaosTests` (40), and `PluginHostTests`, which has one ctest entry per plugin (3). The README has the full list.
 
 **Module tests** (`modules/suite_modulation/tests/SuiteModulationTests.cpp`): the router, with a stub processor (no plugin). They cover the routed LFO, the zero case (bit for bit), bipolar amounts, whole-number targets, Host Sync ignoring Tempo, the one-bar period, sample and hold, out-of-range indices, and the control display (values set without notifying). Not covered: the control display skipping a slider the mouse holds, since the test cannot press a mouse button. The panel and scope are checked only by the MicroTimingChaos editor test.
 
 **Assertions.** Every test file starts with `#undef NDEBUG` before `<cassert>`. Release builds (what CI uses) would otherwise compile every `assert` away. Keep this in every new test file.
 
 **DSP tests** (`modules/core_dsp/tests/DSPTests.cpp`): pure functions and engines, no GUI. This includes the sequencer helpers (`blendDegree`, `timingOffsetMs`, `swingBeats`, `gateBeats`, `velocityFor`).
+
+**State tests** (in each plugin's `PluginTests.cpp`): a round trip with every parameter moved off its default, a refusal test (a state with `suiteStateVersion` 99 changes nothing), and a fixture test that loads a state saved before the `SuiteState` change and checks each recorded value. The fixture test reads `SUITE_FIXTURE_DIR`, and skips with a message when it is not set. The fixtures are not in the repository. The Micro-Timing Chaos fixture also checks the Lerp curve.
 
 **Plugin tests** (`plugins/<Name>/tests/PluginTests.cpp`): each executable compiles the plugin's own sources directly. The Micro-Timing Chaos plugin keeps its source list in the CMake variable `MICRO_TIMING_CHAOS_SOURCES`, which the plugin and its test executable both use, so a new source file only needs adding in one place. Tests include `tests/common/PluginTestUtils.h`. They run under `juce::ScopedJuceInitialiser_GUI`, and `JUCE_MODAL_LOOPS_PERMITTED=1` is defined for them so `MessageManager::runDispatchLoopUntil` exists. `checkEditor()` runs the message loop so the editor's 60 Hz timer fires, then paints the editor into an image.
 
@@ -347,7 +350,7 @@ Mouse events in tests use the 15-argument `juce::MouseEvent` constructor, which 
 - **Modulation in normalised space.** An amount of ±100 % sweeps the full range of the target, whatever its scale.
 - **Discrete targets excluded** (Rate, Length, Scale, Root, Octaves, Host Sync). They would change the length or pitch set abruptly. Seed is a target since commit 5eff266: it is read through `modulatedValue`, so a modulated seed changes the pattern and melody.
 - **Tempo modulation applies only while Host Sync is off**, because the host tempo is authoritative when synced.
-- **LFO and routing live in `suite_modulation`.** The `Router` uses target indices, not enums, so any plugin can share it. Each plugin supplies its own target table (`TargetInfo`), with `wholeNumber` and `ignoredWhileHostSync` flags. The plugin's `ModTarget` enum keeps its numbers, which are the saved indices. The shared module reproduces MicroTimingChaos's routing exactly. Phase 4 of `docs/plans/suite-modulation-refactor.md` checked this against the editor render (byte-identical).
+- **LFO and routing live in `suite_modulation`.** The `Router` uses target indices, not enums, so any plugin can share it. Each plugin supplies its own target table (`TargetInfo`), with `wholeNumber` and `ignoredWhileHostSync` flags. The plugin's `ModTarget` enum keeps its numbers, which are the saved indices. The shared module reproduces MicroTimingChaos's routing exactly. The editor render was checked byte-identical before and after the move.
 - **The control display is a module class, not editor code.** `ControlDisplay` takes the router and the list of sliders, and it reads Host Sync through the router. Whole-number targets are rounded inside the router, so the display and the sequencer agree.
 - **Modulation applies before the lerp curve**, so a modulated Chaos moves along the curve.
 - **The routing and LFO settings are plain APVTS parameters**, so they automate, save and restore like the rest.
@@ -390,6 +393,8 @@ If you add a new consumer, use `suite_ui_add_to_target`. Do not add `SuiteUI` to
 
 **Changing a parameter range or default.** Update `createParameterLayout()`, the plugin test's `checkRange`, section 4 here, and the user README. Note the change in `CHANGELOG.md`, since saved sessions can be clamped by a new range.
 
+**Changing a saved parameter or state layout:** bump `stateVersion`, add a migration, add a fixture test. Saved sessions carry a `suiteStateVersion` attribute; states without the attribute are version 1. Newer states than the plugin are refused and leave the current state unchanged.
+
 **Changing a DSP engine**
 - Add a test in `DSPTests.cpp` first where possible. Keep the reconstruction test passing.
 - If latency changes, update `getLatencySamples`, the plugin latency tests, and the README latency table.
@@ -400,7 +405,7 @@ If you add a new consumer, use `suite_ui_add_to_target`. Do not add `SuiteUI` to
 
 ---
 
-**Adding modulation to a plugin** (from `docs/plans/suite-modulation-refactor.md`, phase 7 procedure)
+**Adding modulation to a plugin** (the procedure used for Spectral Drift and Dynamic Saturation)
 1. In the plugin's CMake: `suite_ui_add_to_target` then `suite_modulation_add_to_target`, for the plugin and its test executable.
 2. Declare a `static constexpr SuiteModulation::TargetInfo` table of the controls the routing may move, in ModTarget order, with `wholeNumber` and `ignoredWhileHostSync` where they apply. Append only.
 3. Add `SuiteModulation::Router::addParameters (params, names)` to `createParameterLayout()`, with `names` = `"None"` followed by the target names, in table order.

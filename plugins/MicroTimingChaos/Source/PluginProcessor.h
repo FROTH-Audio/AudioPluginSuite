@@ -11,6 +11,7 @@
 
 #include "CoreDSP.h"
 #include "SuiteModulationRouter.h"
+#include "SuiteState.h"
 
 /**
     Micro-Timing Chaos.
@@ -148,6 +149,10 @@ public:
 
     juce::AudioProcessorValueTreeState apvts;
 
+    /** Saved-state version and its migrations (see SuiteState). Bump stateVersion when the saved layout changes. */
+    int stateVersion = 1;
+    std::vector<SuiteState::Migration> migrations;
+
     /** Oldest-to-newest (x, y) attractor points in [-1, 1], for the phase-space plot. */
     std::vector<juce::Point<float>> getTrail() const;
 
@@ -224,6 +229,8 @@ private:
 
     void loadLerpCurveFromState();
     void storeLerpCurveToState();
+    /** The lerp curve as the "x,y;x,y;..." text stored in the state. */
+    juce::String encodeLerpCurve() const;
 
     struct TrailSnapshot
     {

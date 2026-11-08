@@ -1,4 +1,6 @@
 #include "PluginProcessor.h"
+
+#include "SuiteState.h"
 #include "PluginEditor.h"
 
 #include <iterator>
@@ -32,6 +34,8 @@ SpectralDriftProcessor::SpectralDriftProcessor()
       apvts (*this, nullptr, "PARAMETERS", createParameterLayout()),
       modulation (apvts, modulationTargets, (int) std::size (modulationTargets), nullptr)
 {
+    stateVersion = 1;
+    migrations = {};
     driftRate = apvts.getRawParameterValue (driftRateId);
     depth = apvts.getRawParameterValue (depthId);
     spread = apvts.getRawParameterValue (spreadId);
@@ -281,17 +285,12 @@ juce::AudioProcessorEditor* SpectralDriftProcessor::createEditor()
 
 void SpectralDriftProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
-    const auto state = apvts.copyState();
-    std::unique_ptr<juce::XmlElement> xml (state.createXml());
-    copyXmlToBinary (*xml, destData);
+    destData = SuiteState::write (apvts, stateVersion);
 }
 
 void SpectralDriftProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
-    std::unique_ptr<juce::XmlElement> xml (getXmlFromBinary (data, sizeInBytes));
-
-    if (xml != nullptr && xml->hasTagName (apvts.state.getType()))
-        apvts.replaceState (juce::ValueTree::fromXml (*xml));
+    SuiteState::read (data, sizeInBytes, apvts, stateVersion, migrations);
 }
 
 float SpectralDriftProcessor::getModulatedValue (ModTarget target) const

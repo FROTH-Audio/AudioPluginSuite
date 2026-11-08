@@ -344,9 +344,10 @@ Nine CTest entries run seven test executables:
 | `CoreDSPTests` | DSP primitives in `modules/core_dsp` | 29 |
 | `SuiteUITests` | Shared widgets and look and feel | 9 |
 | `SuiteModulationTests` | Shared LFOs, routing and the control display in `modules/suite_modulation` | 9 |
-| `SpectralDriftTests` | Spectral Drift processor and editor | 19 |
-| `DynamicSaturationTests` | Dynamic Saturation processor and editor | 17 |
-| `MicroTimingChaosTests` | Micro-Timing Chaos processor and editor | 34 |
+| `SuiteState_Tests` | Versioned saved state in `modules/suite_state` | 9 |
+| `SpectralDriftTests` | Spectral Drift processor and editor | 22 |
+| `DynamicSaturationTests` | Dynamic Saturation processor and editor | 19 |
+| `MicroTimingChaosTests` | Micro-Timing Chaos processor and editor | 40 |
 | `PluginHostTests` (×3) | Each built VST3 bundle, loaded through JUCE's own plugin host | 1 per plugin |
 
 The tests use `assert` with `NDEBUG` undefined, so they also check in Release builds. Without that, every check would be compiled out.

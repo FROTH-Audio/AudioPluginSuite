@@ -52,6 +52,7 @@ suite_modulation_add_to_target(MicroTimingChaos)
 target_link_libraries(MicroTimingChaos PRIVATE
     CoreDSP
     MicroTimingChaosAssets
+    SuiteState
     juce::juce_audio_utils
     juce::juce_audio_processors
     juce::juce_gui_basics
@@ -81,6 +82,7 @@ if(SUITE_BUILD_TESTS)
     target_link_libraries(MicroTimingChaosTests PRIVATE
         CoreDSP
         MicroTimingChaosAssets
+        SuiteState
         juce::juce_audio_utils
         juce::juce_audio_processors
         juce::juce_gui_basics

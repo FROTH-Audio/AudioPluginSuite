@@ -1,4 +1,6 @@
 #include "PluginProcessor.h"
+
+#include "SuiteState.h"
 #include "PluginEditor.h"
 
 #include <algorithm>
@@ -35,6 +37,8 @@ MicroTimingChaosProcessor::MicroTimingChaosProcessor()
       apvts (*this, nullptr, "PARAMETERS", createParameterLayout()),
       modulation (apvts, modulationTargets, (int) std::size (modulationTargets), syncId)
 {
+    stateVersion = 1;
+    migrations = {};
     rate = apvts.getRawParameterValue (rateId);
     length = apvts.getRawParameterValue (lengthId);
     density = apvts.getRawParameterValue (densityId);
@@ -173,14 +177,19 @@ void MicroTimingChaosProcessor::loadLerpCurveFromState()
     }
 }
 
-void MicroTimingChaosProcessor::storeLerpCurveToState()
+juce::String MicroTimingChaosProcessor::encodeLerpCurve() const
 {
     juce::StringArray pairs;
 
     for (int i = 0; i < curvePointCount; ++i)
         pairs.add (juce::String (curveX[(size_t) i].load(), 4) + "," + juce::String (curveY[(size_t) i].load(), 4));
 
-    apvts.state.setProperty ("lerpCurve", pairs.joinIntoString (";"), nullptr);
+    return pairs.joinIntoString (";");
+}
+
+void MicroTimingChaosProcessor::storeLerpCurveToState()
+{
+    apvts.state.setProperty ("lerpCurve", encodeLerpCurve(), nullptr);
 }
 
 MicroTimingChaosProcessor::DriftAmounts MicroTimingChaosProcessor::getDriftAmounts() const noexcept
@@ -654,20 +663,18 @@ juce::AudioProcessorEditor* MicroTimingChaosProcessor::createEditor()
 
 void MicroTimingChaosProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
-    const auto state = apvts.copyState();
-    std::unique_ptr<juce::XmlElement> xml (state.createXml());
-    copyXmlToBinary (*xml, destData);
+    // The Lerp curve is not a parameter, so it is written into the copy that SuiteState::write saves.
+    destData = SuiteState::write (apvts, stateVersion, [this] (juce::ValueTree& state) {
+        state.setProperty ("lerpCurve", encodeLerpCurve(), nullptr);
+    });
 }
 
 void MicroTimingChaosProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
-    std::unique_ptr<juce::XmlElement> xml (getXmlFromBinary (data, sizeInBytes));
-
-    if (xml != nullptr && xml->hasTagName (apvts.state.getType()))
-    {
-        apvts.replaceState (juce::ValueTree::fromXml (*xml));
+    // Reads the curve back once the parameters are in place. Nothing changes if the state is refused.
+    SuiteState::read (data, sizeInBytes, apvts, stateVersion, migrations, [this] (const juce::ValueTree&) {
         loadLerpCurveFromState();
-    }
+    });
 }
 
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()

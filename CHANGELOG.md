@@ -10,6 +10,7 @@ All notable changes to this project are documented here. The format follows
 - Spectral Drift Shifter: the Feedback control now runs from 0 to 12 %, the same as the processing cap. Sessions saved with a feedback above 12 % load at 12 %, which already sounded the same. Modulation depth on Feedback is now measured over 0 to 12 %.
 - Micro-Timing Chaos: declared as a MIDI instrument (`IS_SYNTH TRUE`). VST3 hosts list it under instruments, so a DAW may need a rescan.
 - Micro-Timing Chaos: the editor's design height is 1380 px (was 1400 px). The window is 20 px shorter at the default scale.
+- **Saved sessions now carry a version; older sessions load unchanged.** Sessions saved before this refactor have no `suiteStateVersion` attribute and load as version 1. Newer states than the plugin are refused.
 
 ### Fixed
 - The macOS build's tests failed on `testOffsetControlIsUsable`, because Apple clang fused a multiply and an add on arm64 and left the LFO Offset default at 1.5e-6. Apple clang is now built with `-ffp-contract=off`, so macOS arithmetic matches Windows.

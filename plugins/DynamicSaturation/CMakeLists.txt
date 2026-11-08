@@ -32,6 +32,7 @@ juce_add_binary_data(DynamicSaturationAssets
 target_link_libraries(DynamicSaturation PRIVATE
     CoreDSP
     DynamicSaturationAssets
+    SuiteState
     juce::juce_audio_utils
     juce::juce_audio_processors
     juce::juce_gui_basics
@@ -58,6 +59,7 @@ if(SUITE_BUILD_TESTS)
     target_link_libraries(DynamicSaturationTests PRIVATE
         CoreDSP
         DynamicSaturationAssets
+        SuiteState
         juce::juce_audio_utils
         juce::juce_audio_processors
         juce::juce_gui_basics

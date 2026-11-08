@@ -4,6 +4,7 @@
 #include "ModulationTestUtils.h"
 #include "PluginEditor.h"
 #include "PluginProcessor.h"
+#include "StateFixtures.h"
 
 #include <cstdint>
 
@@ -299,7 +300,75 @@ namespace
     }
 
 
-    // Renders the left channel of a processor fed with a 1 kHz sine, for a number of blocks.
+    // Every parameter moved off its default, saved, and read into a new processor. Each value must come back.
+    void testStateRoundTripAllParameters()
+    {
+        SpectralDriftProcessor writer;
+        writer.prepareToPlay (sampleRate, blockSize);
+
+        for (auto* parameter : writer.getParameters())
+            parameter->setValueNotifyingHost (dynamic_cast<juce::AudioParameterBool*> (parameter) != nullptr ? 1.0f : 0.73f);
+
+        juce::MemoryBlock saved;
+        writer.getStateInformation (saved);
+
+        SpectralDriftProcessor reader;
+        reader.prepareToPlay (sampleRate, blockSize);
+        reader.setStateInformation (saved.getData(), (int) saved.getSize());
+
+        int compared = 0;
+
+        for (auto* parameter : writer.getParameters())
+            if (auto* withId = dynamic_cast<juce::AudioProcessorParameterWithID*> (parameter))
+            {
+                const auto* restored = reader.apvts.getParameter (withId->paramID);
+                assert (restored != nullptr);
+                assert (std::abs (restored->getValue() - parameter->getValue()) < 1.0e-6f);
+                ++compared;
+            }
+
+        assert (compared > 40);   // the 14 sound controls plus the 34 routing and LFO parameters
+
+        pass ("testStateRoundTripAllParameters");
+    }
+
+    // A state written by a newer plugin (version 99) is refused: nothing in the reader changes.
+    void testStateRefusal()
+    {
+        SpectralDriftProcessor writer;
+        writer.prepareToPlay (sampleRate, blockSize);
+
+        juce::MemoryBlock blob;
+        writer.getStateInformation (blob);
+
+        auto xml = SuiteState::detail::decodeXml (blob.getData(), (int) blob.getSize());
+        assert (xml != nullptr);
+        xml->setAttribute (SuiteState::versionProperty, 99);
+        const auto newer = SuiteState::detail::encodeXml (*xml);
+
+        SpectralDriftProcessor reader;
+        reader.prepareToPlay (sampleRate, blockSize);
+        reader.apvts.getParameter (SpectralDriftProcessor::driftRateId)->setValueNotifyingHost (0.9f);
+        const float before = reader.apvts.getRawParameterValue (SpectralDriftProcessor::driftRateId)->load();
+
+        reader.setStateInformation (newer.getData(), (int) newer.getSize());
+
+        assert (reader.apvts.getRawParameterValue (SpectralDriftProcessor::driftRateId)->load() == before);
+
+        pass ("testStateRefusal");
+    }
+
+    // Loads a state saved before the SuiteState change (a phase 0 fixture) and checks each recorded value.
+    void testLoadsPhase0Fixture()
+    {
+        SpectralDriftProcessor processor;
+        processor.prepareToPlay (sampleRate, blockSize);
+        assert (StateFixtures::loadsRecordedState (processor, "sd"));
+        
+        pass ("testLoadsPhase0Fixture");
+    }
+
+ // Renders the left channel of a processor fed with a 1 kHz sine, for a number of blocks.
     std::vector<float> renderLeft (Processor& processor, int blocks, float amplitude = 0.5f)
     {
         processor.prepareToPlay (sampleRate, blockSize);
@@ -682,6 +751,9 @@ int main()
 
     testParameters();
     testStateRoundTrip();
+    testStateRoundTripAllParameters();
+    testStateRefusal();
+    testLoadsPhase0Fixture();
     testLatencyReported();
     testBusLayouts();
     testSignalIsPublishedToSpectrum();

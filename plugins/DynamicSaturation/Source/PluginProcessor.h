@@ -10,6 +10,7 @@
 
 #include "CoreDSP.h"
 #include "SuiteModulationRouter.h"
+#include "SuiteState.h"
 
 /**
     Dynamic Saturation Companion.
@@ -110,6 +111,9 @@ public:
     void setStateInformation (const void*, int) override;
 
     juce::AudioProcessorValueTreeState apvts;
+
+    int stateVersion = 1;
+    std::vector<SuiteState::Migration> migrations;
 
     /** Linked detector level (linear), published for the editor's meter. */
     float getEnvelopeLevel() const noexcept { return envelopeLevel.load (std::memory_order_relaxed); }
