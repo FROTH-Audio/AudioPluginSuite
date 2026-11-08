@@ -414,7 +414,7 @@ MicroTimingChaosEditor::MicroTimingChaosEditor (MicroTimingChaosProcessor& p)
     // Preset bar (height 0 in public build, so layout is unchanged)
     presetBar = std::make_unique<SuitePresets::PresetBar> (processor, lookAndFeel.getAccent());
     addAndMakeVisible (*presetBar);
-    startTimerHz (60);
+    startTimerHz (SuiteUI::kRefreshHz);
 }
 
 MicroTimingChaosEditor::~MicroTimingChaosEditor()
@@ -448,6 +448,13 @@ namespace
                                                                          BinaryData::lockup_micro_timing_chaos_pngSize);
         return image;
     }
+}
+
+void MicroTimingChaosEditor::setLerpView (int index)
+{
+    lerpViewSelector.setSelectedIndex (index);
+    curveEditor.setVisible (index == 0);
+    lerpPreview.setVisible (index == 1);
 }
 
 void MicroTimingChaosEditor::paint (juce::Graphics& g)

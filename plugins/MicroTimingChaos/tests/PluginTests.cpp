@@ -3,6 +3,7 @@
 #include "PluginTestUtils.h"
 #include "ModulationTestUtils.h"
 #include "PluginProcessor.h"
+#include "PluginEditor.h"
 #include "StateFixtures.h"
 
 #include "BinaryData.h"
@@ -1396,6 +1397,31 @@ namespace
         pass ("testDisplayFollowsModulation");
     }
 
+    void testRenderBaseline()
+    {
+        const auto folder = juce::SystemStats::getEnvironmentVariable ("SUITE_RENDER_DIR", {});
+
+        if (folder.isEmpty())
+        {
+            std::printf ("[SKIP] editor renders: set SUITE_RENDER_DIR to write them\n");
+            return;
+        }
+
+        MicroTimingChaosProcessor processor;
+        processor.prepareToPlay (sampleRate, blockSize);
+
+        for (int view = 0; view < 2; ++view)
+        {
+            std::unique_ptr<juce::AudioProcessorEditor> editor (processor.createEditor());
+            static_cast<MicroTimingChaosEditor*> (editor.get())->setLerpView (view);
+
+            const juce::File file (juce::File (folder).getChildFile (view == 0 ? "microtimingchaos-curve.png" : "microtimingchaos-preview.png"));
+            assert (PluginTest::writeDeterministicPng (*editor, file));
+            processor.editorBeingDeleted (editor.get());
+        }
+
+        pass ("testRenderBaseline");
+    }
     void testEditor()
     {
         Processor processor;
@@ -1466,6 +1492,8 @@ int main()
     testEditorWithModulation();
     testDisplayFollowsModulation();
     testEditor();
+
+    testRenderBaseline ();
 
     std::puts ("All Micro-Timing Chaos plugin tests passed.");
     return 0;

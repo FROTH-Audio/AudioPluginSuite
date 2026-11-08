@@ -54,7 +54,7 @@ modules/
     tests/SuiteModulationTests.cpp  SuiteModulationTests (9 test functions), with a stub processor
     suite_modulation.cmake        suite_modulation_add_to_target(<target>): adds sources + include dir. Needs suite_ui_add_to_target on the same target
   suite_ui/                       Shared UI. NOT a library target, see section 8
-    include/SuiteLookAndFeel.h    SuiteUI::Colours: the neutral palette shared by all plugins, plus SuiteLookAndFeel (LookAndFeel_V4)
+    include/SuiteLookAndFeel.h    SuiteUI::Colours: the neutral palette shared by all plugins, SuiteLookAndFeel (LookAndFeel_V4), and kRefreshHz (the 60 Hz editor timer rate)
     include/SuiteWidgets.h        SpectrumDisplay, TrailPlot, CurveView, LevelMeter, SegmentedSelector, LabelledSlider
     include/SuiteBrand.h          drawBrandLockup(): draws a brand lockup image at the left of a header area
     brand/                        Generated artwork: brand_mark.png and lockup_<plugin>.png. Made by tools/brand/build.py, do not edit by hand
@@ -70,7 +70,7 @@ plugins/<Name>/
   Source/PluginEditor.{h,cpp}     Editor, 60 Hz Timer reads processor snapshots
   tests/PluginTests.cpp           Plugin tests: SpectralDrift 22, DynamicSaturation 19, MicroTimingChaos 40
 plugins/MicroTimingChaos/         Additional files:
-  MicroTimingChaosLookAndFeel.h   At the plugin root (not include/). MTC-only colours (axes, LFOs, preview text); the neutrals come from SuiteUI::Colours. Plus the LookAndFeel
+  MicroTimingChaosLookAndFeel.h   At the plugin root (not include/). MTC-only colours (axes, LFOs, preview text); the neutrals come from SuiteUI::Colours. Derives from SuiteUI::SuiteLookAndFeel for the shared setup. It keeps its own knob, toggle, combo box, linear slider and fonts, so the window is unchanged (plan 02 results)
   Source/MicroTimingChaosLookAndFeel.cpp  Rotary knobs, BPM Sync button, combo box; textures and icons from BinaryData
   Source/LerpCurveEditor.{h,cpp}  The 5-point curve editor (Curve tab)
   Source/LerpPreview.{h,cpp}      The live drift preview (Preview tab)
@@ -329,6 +329,8 @@ The Micro-Timing Chaos tests cover the lerp curve (defaults, point editing and o
 **Spectral Drift and Dynamic Saturation tests** cover the parameters, state, latency, the editor (both pages paint, and each page draws content of its own, and switching pages changes no parameter), and the shared routing: default routing is bit-identical, routed controls move the audio, synced LFOs follow the tempo clock, and routed values stay in range. The SD test `testOutputGainRampMatchesChannels` checks that both channels see the same output-gain ramp.
 
 **SuiteUI tests** (`modules/suite_ui/tests/SuiteUITests.cpp`): widget logic and painting into images, including the look and feel's drawing paths.
+
+**Editor renders** (`testRenderBaseline` in each plugin's `PluginTests.cpp`): when `SUITE_RENDER_DIR` is set, the test writes a PNG of each editor view: SpectralDrift and DynamicSaturation SOUND and MOD, and MicroTimingChaos CURVE and PREVIEW. Each view is rendered twice in one process and the test fails if the two differ. Without the variable it prints SKIP and CTest is unchanged. Store the output under `build/`. Across processes, the MicroTimingChaos PREVIEW view once differed in 3 glyph-edge pixels on its first render; see plan 02 for the measurement.
 
 Test helpers you will use: `setParameter(apvts, id, value)` takes denormalised values. `checkRange` checks the normalisable range and the default. `checkParameterIds` checks the count against `numControls`. `checkStateRoundTrip` saves state, changes a value and restores it. `addSine` adds to a buffer using a global sample index. `paintComponent` and `countChangedPixels` render a component and count the sampled pixels that differ between two renders (for example, a page shown against the same page with its children hidden).
 

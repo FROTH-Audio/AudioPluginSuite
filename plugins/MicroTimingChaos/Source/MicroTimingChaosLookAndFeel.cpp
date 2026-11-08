@@ -62,7 +62,7 @@ namespace MicroTimingChaos
     }
 
     LookAndFeel::LookAndFeel (juce::Colour accentColour)
-        : accent (accentColour)
+        : SuiteLookAndFeel (accentColour), accent (accentColour)
     {
         setColour (juce::Label::textColourId, SuiteUI::Colours::text);
         setColour (juce::Slider::textBoxTextColourId, SuiteUI::Colours::text);
@@ -73,6 +73,20 @@ namespace MicroTimingChaos
         setColour (juce::PopupMenu::textColourId, SuiteUI::Colours::text);
         setColour (juce::PopupMenu::highlightedBackgroundColourId, accent.withAlpha (0.25f));
         setColour (juce::PopupMenu::highlightedTextColourId, SuiteUI::Colours::text);
+
+        // The shared look sets these for its own sliders and toggles. Put back the LookAndFeel_V4 values, which
+        // the modulation sliders and the toggles here were drawn with before the shared base class.
+        const juce::LookAndFeel_V4 defaults;
+        setColour (juce::Slider::thumbColourId, defaults.findColour (juce::Slider::thumbColourId));
+        setColour (juce::ToggleButton::textColourId, defaults.findColour (juce::ToggleButton::textColourId));
+    }
+
+    void LookAndFeel::drawLinearSlider (juce::Graphics& g, int x, int y, int width, int height,
+                                        float sliderPos, float minSliderPos, float maxSliderPos,
+                                        juce::Slider::SliderStyle style, juce::Slider& slider)
+    {
+        // The modulation rows use linear sliders. Keep the LookAndFeel_V4 drawing they had before.
+        juce::LookAndFeel_V4::drawLinearSlider (g, x, y, width, height, sliderPos, minSliderPos, maxSliderPos, style, slider);
     }
 
     void LookAndFeel::paint (juce::Graphics& g, juce::Component& component)

@@ -41,6 +41,9 @@ class MicroTimingChaosEditor : public juce::AudioProcessorEditor,
 {
 public:
     explicit MicroTimingChaosEditor (MicroTimingChaosProcessor&);
+
+    /** Switches between the curve editor (0) and the live preview (1). The tests use it too. */
+    void setLerpView (int index);
     ~MicroTimingChaosEditor() override;
 
     void paint (juce::Graphics&) override;

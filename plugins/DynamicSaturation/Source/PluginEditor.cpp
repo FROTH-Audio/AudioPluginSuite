@@ -137,7 +137,7 @@ DynamicSaturationEditor::DynamicSaturationEditor (DynamicSaturationProcessor& p)
     pageSelector.onChange = [this] (int index) { setPage (index); };
 
     setPage (0);
-    startTimerHz (60);
+    startTimerHz (SuiteUI::kRefreshHz);
 }
 
 DynamicSaturationEditor::~DynamicSaturationEditor()

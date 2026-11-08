@@ -152,7 +152,7 @@ SpectralDriftEditor::SpectralDriftEditor (SpectralDriftProcessor& p)
     pageSelector.onChange = [this] (int index) { setPage (index); };
 
     setPage (0);
-    startTimerHz (60);
+    startTimerHz (SuiteUI::kRefreshHz);
 }
 
 SpectralDriftEditor::~SpectralDriftEditor()

@@ -7,6 +7,7 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Changed
+- Micro-Timing Chaos: its look and feel now derives from the suite's shared look and feel for the shared setup. The window is unchanged. Editor timers use one refresh constant, 60 Hz. No visible change.
 - Build: the deprecated juce::Font constructors are replaced by the juce::FontOptions form. The Release build has no deprecation warnings. No visible change.
 - Build: each plugin's CMake file is now one `suite_add_plugin(...)` call, and the plugin codes are checked for uniqueness at configure time. No user-visible change.
 - Build: each plugin's version is passed explicitly from the project version. It is 1.0.0, the same version the hosts already see, so no DAW rescan is needed.
