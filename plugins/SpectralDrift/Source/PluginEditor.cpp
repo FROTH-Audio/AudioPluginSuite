@@ -144,10 +144,6 @@ SpectralDriftEditor::SpectralDriftEditor (SpectralDriftProcessor& p)
             { mixSlider.slider,         (int) Target::Mix },
         });
 
-    // Preset bar (height 0 in public build, so layout is unchanged)
-    presetBar = std::make_unique<SuitePresets::PresetBar> (processor, lookAndFeel.getAccent());
-    addAndMakeVisible (*presetBar);
-
     pageSelector.setOptions ({ "SOUND", "MOD" });
     pageSelector.onChange = [this] (int index) { setPage (index); };
 

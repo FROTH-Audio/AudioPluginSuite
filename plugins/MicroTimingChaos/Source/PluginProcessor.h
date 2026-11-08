@@ -12,7 +12,6 @@
 #include "CoreDSP.h"
 #include "SuiteModulationRouter.h"
 #include "SuiteState.h"
-#include "SuitePresets.h"
 
 /**
     Micro-Timing Chaos.
@@ -23,8 +22,7 @@
 
     Incoming MIDI notes pass through with the same latency. Audio passes through unchanged.
 */
-class MicroTimingChaosProcessor : public juce::AudioProcessor,
-                   public SuitePresets::StateHolder
+class MicroTimingChaosProcessor : public juce::AudioProcessor
 {
 public:
     // Pattern
@@ -317,11 +315,6 @@ private:
     std::atomic<float> driftTiming { 0.0f };
     std::atomic<float> driftPitch { 0.0f };
     std::atomic<float> driftVelocity { 0.0f };
-
-    // Preset system (StateHolder): the preset bar acts on this state.
-    juce::String getPresetPluginId() const override { return "MicroTimingChaos"; }
-    juce::AudioProcessorValueTreeState& getPresetStateTree() override { return apvts; }
-    void applyPresetState (const juce::ValueTree& vt) override;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MicroTimingChaosProcessor)
 };

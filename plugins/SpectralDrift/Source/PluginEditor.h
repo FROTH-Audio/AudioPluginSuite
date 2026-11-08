@@ -77,9 +77,6 @@ private:
     SuiteModulation::ModulationPanel modulation { processor.getRouter(), modulationStyle() };
     std::unique_ptr<SuiteModulation::ControlDisplay> controls;  // built in the constructor, once the sliders exist
 
-    // Preset system seam
-    std::unique_ptr<SuitePresets::PresetBar> presetBar;
-
     juce::Rectangle<int> modulationGroupBounds;
     int page = 0;
 

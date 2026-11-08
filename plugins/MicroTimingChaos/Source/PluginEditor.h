@@ -115,9 +115,6 @@ juce::Label scaleCaption;
     std::unique_ptr<SuiteModulation::ControlDisplay> controls;  // built in the constructor, once the sliders exist
     SuiteUI::LabelledSlider lerpSlider { "LERP", juce::Slider::RotaryVerticalDrag };
 
-    // Preset system seam
-    std::unique_ptr<SuitePresets::PresetBar> presetBar;
-
     SuiteUI::LabelledSlider lerpXMultSlider { "X MULT", juce::Slider::RotaryVerticalDrag };
     SuiteUI::LabelledSlider lerpYMultSlider { "Y MULT", juce::Slider::RotaryVerticalDrag };
     SuiteUI::LabelledSlider lerpZMultSlider { "Z MULT", juce::Slider::RotaryVerticalDrag };
