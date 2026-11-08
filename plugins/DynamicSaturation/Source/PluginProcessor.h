@@ -11,6 +11,7 @@
 #include "CoreDSP.h"
 #include "SuiteModulationRouter.h"
 #include "SuiteState.h"
+#include "SuitePresets.h"
 
 /**
     Dynamic Saturation Companion.
@@ -19,7 +20,8 @@
     the harder the stage is pushed, scaled by Sensitivity. The shaping runs at 2x
     oversampling to reduce aliasing. Its latency is reported to the host.
 */
-class DynamicSaturationProcessor : public juce::AudioProcessor
+class DynamicSaturationProcessor : public juce::AudioProcessor,
+                   public SuitePresets::StateHolder
 {
 public:
     // Core controls
@@ -126,6 +128,11 @@ public:
 
     /** The value a control shows right now: its base value moved by the published routing offset. */
     float getModulatedValue (ModTarget target) const;
+
+    // Preset system (StateHolder): the preset bar acts on this state.
+    juce::String getPresetPluginId() const override { return "DynamicSaturation"; }
+    juce::AudioProcessorValueTreeState& getPresetStateTree() override { return apvts; }
+    void applyPresetState (const juce::ValueTree& vt) override;
 
 private:
     static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();

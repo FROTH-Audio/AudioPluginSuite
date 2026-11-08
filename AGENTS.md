@@ -551,6 +551,48 @@ Each item is a mistake or a slow path hit during the framework work (2026-11-08)
 
 **Stop and report** when a step needs the owner: a commit, a push, a macOS machine, an external search, a licence decision, or a deletion of an untracked file.
 
+## 15. Post-change checks
+
+Run these after every change, before you report it as working. Each one was missed at least once in the framework work (2026-11-08), and each miss hid a real defect. Run them in order.
+
+**1. Clean build, then count.** Run `--target clean`, then a full Release build. An incremental build compiles only the files you touched, so warnings in untouched targets stay hidden. Incremental builds reported no warnings. The clean build showed four `getenv` deprecations in test code, and two more in files that had not changed.
+
+```powershell
+$CM = "C:\Program Files\Microsoft Visual Studio\18\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe"
+& $CM --build "C:\Users\tfroe\Documents\PROJECTS\AudioPluginSuite\build" --config Release --target clean
+& $CM --build "C:\Users\tfroe\Documents\PROJECTS\AudioPluginSuite\build" --config Release --parallel 8 > "C:\Users\tfroe\Documents\PROJECTS\AudioPluginSuite\build\logs\check-build.log" 2>&1
+Select-String -Path "C:\Users\tfroe\Documents\PROJECTS\AudioPluginSuite\build\logs\check-build.log" -Pattern " error " | Measure-Object   # must be 0
+Select-String -Path "C:\Users\tfroe\Documents\PROJECTS\AudioPluginSuite\build\logs\check-build.log" -Pattern "warning" | Measure-Object  # must be 0
+```
+
+**2. CTest.** Run all 10 entries, with `ctest.exe --test-dir build -C Release --output-on-failure`. A changed entry count is a changed test set. Say so.
+
+**3. Look for escape damage.** A PowerShell replace once wrote the two characters backtick and `n` into C++ source in place of newlines. Search every changed file for them, and for duplicate definitions:
+
+```powershell
+Select-String -Path <changed files> -Pattern '`n' -SimpleMatch      # must print nothing
+```
+
+Then check each function you touched is defined once: `Select-String -Pattern 'Processor::<name>\('` should return one definition.
+
+**4. Diff shape.** Run `git diff --stat`. A file listed with far more lines than you edited means line endings or encoding changed. A `CRLF will be replaced by LF` warning on a file you did not touch means the file mixes endings; leave it alone and mention it.
+
+**5. Declarations match.** Check each `override` against a base virtual with the same signature. Check that no abstract class is used as a data member: a pure-virtual interface can only be a base, or be held by pointer or reference. An abstract class in a member declaration fails only at the build, after the edit looks finished.
+
+**6. Includes resolve.** Every `#include` you added must be on an include path. Check that the CMake function that adds the include directory is actually called for that target. The presets header was not found because its CMake function existed but was never called.
+
+**7. Renders.** Any change to a look and feel, a layout or a colour needs a before and after render of every affected editor, compared byte for byte, and both renders stored under `build/`. No render means no claim of "no visible change". Plan 02 requires this before its own phase 2.
+
+**8. Plan claims.** Before you mark a plan step done, grep for the thing it says was removed or added. `MicroTimingChaosLookAndFeel.h` was still present after the plan said it was removed. A plan step is done when the code shows it, not when a status line says so.
+
+**9. Documents.** After a rename or deletion, grep the repo for the old name, including `AGENTS.md`, `CLAUDE.md`, `README.md` and `docs/`. Plan links break silently.
+
+**10. Edits to files.** Count matches before you replace, and stop if the count is not what you expect. Keep the BOM and line endings. Make a scripted edit idempotent: skip it if the change is already present, so a rerun after a partial failure does not double it. Do not use `Set-Content` on UTF-8 files.
+
+**11. Untracked work.** Run `git status --short` at the end. Anything new and untracked must be deliberate: a source file to keep, a plan the owner expects, or a build output that `.gitignore` covers. Show the owner any untracked file you did not create.
+
+**12. Report what you did not check.** List the checks you could not run here, such as macOS, the AU build, renders on a desktop session, or a DAW. Do not describe them as passing.
+
 ## Owner Rules
 
 - **Build tooling** CMake is not on the bash PATH. Use the full path: C:\Program Files\Microsoft Visual Studio\18\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe (and ctest.exe in the same folder). See section 3.

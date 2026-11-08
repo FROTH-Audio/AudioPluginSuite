@@ -68,7 +68,6 @@ namespace
     {
         const Mode modes[] = { Mode::tube, Mode::tape, Mode::diode };
         const float gains[] = { 1.0f, 10.0f, 100.0f, 10000.0f };
-        const float biases[] = { 0.0f, 0.2f, 0.5f };
 
         for (auto mode : modes)
         {

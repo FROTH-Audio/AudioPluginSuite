@@ -161,6 +161,11 @@ void DynamicSaturationProcessor::prepareToPlay (double sampleRate, int samplesPe
     outputCurve.assign ((size_t) samplesPerBlock, 1.0f);
 }
 
+void DynamicSaturationProcessor::applyPresetState (const juce::ValueTree& vt)
+{
+    apvts.replaceState (vt);
+}
+
 bool DynamicSaturationProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
 {
     const auto& output = layouts.getMainOutputChannelSet();
@@ -328,3 +333,4 @@ juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 {
     return new DynamicSaturationProcessor();
 }
+

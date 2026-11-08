@@ -10,6 +10,7 @@
 #include "SpectralEngine.h"
 #include "SuiteModulationRouter.h"
 #include "SuiteState.h"
+#include "SuitePresets.h"
 
 /**
     Spectral Drift Shifter.
@@ -18,7 +19,8 @@
     shaping (shift, tilt, gate). The channels run on LFOs offset by the Stereo Phase control,
     which decorrelates them and widens the image.
 */
-class SpectralDriftProcessor : public juce::AudioProcessor
+class SpectralDriftProcessor : public juce::AudioProcessor,
+                   public SuitePresets::StateHolder
 {
 public:
     static constexpr int numBins = CoreDSP::Spectral::numBins;
@@ -135,6 +137,11 @@ public:
     void setStateInformation (const void*, int) override;
 
     const SpectrumSnapshot& getSpectrumSnapshot() const noexcept { return snapshot; }
+
+    // Preset system (StateHolder): the preset bar acts on this state.
+    juce::String getPresetPluginId() const override { return "SpectralDrift"; }
+    juce::AudioProcessorValueTreeState& getPresetStateTree() override { return apvts; }
+    void applyPresetState (const juce::ValueTree& vt) override;
 
 private:
     static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();

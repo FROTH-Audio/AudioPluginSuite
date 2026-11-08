@@ -411,6 +411,9 @@ MicroTimingChaosEditor::MicroTimingChaosEditor (MicroTimingChaosProcessor& p)
             { seedSlider.slider,          (int) Target::Seed },
         });
 
+    // Preset bar (height 0 in public build, so layout is unchanged)
+    presetBar = std::make_unique<SuitePresets::PresetBar> (processor, lookAndFeel.getAccent());
+    addAndMakeVisible (*presetBar);
     startTimerHz (60);
 }
 

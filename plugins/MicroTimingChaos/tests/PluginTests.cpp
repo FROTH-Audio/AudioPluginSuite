@@ -760,7 +760,7 @@ namespace
         MicroTimingChaosProcessor processor;
         processor.prepareToPlay (sampleRate, blockSize);
         assert (StateFixtures::loadsRecordedState (processor, "mtc"));
-        if (std::getenv ("SUITE_FIXTURE_DIR") != nullptr)
+        if (juce::SystemStats::getEnvironmentVariable ("SUITE_FIXTURE_DIR", {}).isNotEmpty())
         {
             // The MicroTimingChaos fixture was saved with point 2 set to (0.31, 0.82).
             const auto curve = processor.getLerpCurve();

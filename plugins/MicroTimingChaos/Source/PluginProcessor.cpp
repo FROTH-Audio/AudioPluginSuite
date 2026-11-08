@@ -177,6 +177,11 @@ void MicroTimingChaosProcessor::loadLerpCurveFromState()
     }
 }
 
+void MicroTimingChaosProcessor::applyPresetState(const juce::ValueTree& vt)
+{
+	apvts.replaceState(vt);
+}
+
 juce::String MicroTimingChaosProcessor::encodeLerpCurve() const
 {
     juce::StringArray pairs;
@@ -681,3 +686,6 @@ juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 {
     return new MicroTimingChaosProcessor();
 }
+
+
+

@@ -49,6 +49,9 @@ if(SUITE_BUILD_TESTS OR SUITE_BUILD_PLUGINS)
     add_subdirectory(modules/suite_state)
 endif()
 
+# Preset system seam (public build always available)
+include(${CMAKE_SOURCE_DIR}/modules/suite_presets/SuitePresets.cmake)
+
 if(SUITE_BUILD_PLUGINS)
     include(${CMAKE_SOURCE_DIR}/modules/suite_modulation/suite_modulation.cmake)
     include(${CMAKE_SOURCE_DIR}/modules/suite_ui/SuiteUI.cmake)

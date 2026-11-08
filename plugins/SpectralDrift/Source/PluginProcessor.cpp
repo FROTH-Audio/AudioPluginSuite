@@ -168,6 +168,11 @@ void SpectralDriftProcessor::prepareToPlay (double sampleRate, int samplesPerBlo
     gainCurve.assign (size, 1.0f);
 }
 
+void SpectralDriftProcessor::applyPresetState(const juce::ValueTree& vt)
+{
+    apvts.replaceState(vt);
+}
+
 bool SpectralDriftProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
 {
     const auto& output = layouts.getMainOutputChannelSet();
@@ -303,3 +308,5 @@ juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 {
     return new SpectralDriftProcessor();
 }
+
+

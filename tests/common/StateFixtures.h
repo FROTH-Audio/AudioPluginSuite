@@ -22,16 +22,16 @@ namespace StateFixtures
     template <typename Processor>
     bool loadsRecordedState (Processor& processor, const char* name)
     {
-        const char* folder = std::getenv ("SUITE_FIXTURE_DIR");
+        const auto folder = juce::SystemStats::getEnvironmentVariable ("SUITE_FIXTURE_DIR", {});
 
-        if (folder == nullptr)
+        if (folder.isEmpty())
         {
             std::printf ("[SKIP] %s fixture: set SUITE_FIXTURE_DIR to check it\n", name);
             return true;
         }
 
-        const juce::File stateFile (juce::String (folder) + "/" + name + "_v1.xml");
-        const juce::File valuesFile (juce::String (folder) + "/" + name + "_v1.values.txt");
+        const juce::File stateFile (folder + "/" + name + "_v1.xml");
+        const juce::File valuesFile (folder + "/" + name + "_v1.values.txt");
 
         juce::MemoryBlock blob;
         if (! stateFile.loadFileAsData (blob) || blob.getSize() == 0)

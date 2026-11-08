@@ -97,6 +97,7 @@ function(suite_add_plugin)
     )
 
     target_sources(${SAP_NAME} PRIVATE ${SAP_SOURCES})
+    suite_presets_add_to_target(${SAP_NAME})
     target_include_directories(${SAP_NAME} PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}
         ${CMAKE_CURRENT_SOURCE_DIR}/Source
@@ -139,6 +140,7 @@ function(suite_add_plugin)
         endforeach()
 
         add_executable(${SAP_NAME}Tests ${testSources})
+        suite_presets_add_to_target(${SAP_NAME}Tests)
 
         # Plugin tests: the real processor and editor sources, run headless with the GUI toolkit initialised.
         target_include_directories(${SAP_NAME}Tests PRIVATE
