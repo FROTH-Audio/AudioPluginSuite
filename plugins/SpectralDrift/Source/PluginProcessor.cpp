@@ -83,7 +83,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout SpectralDriftProcessor::crea
         juce::ParameterID { gateId, 1 }, "Spectral Gate", juce::NormalisableRange<float> (CoreDSP::Spectral::gateOffDb, 0.0f, 0.1f), CoreDSP::Spectral::gateOffDb, "dB"));
 
     params.push_back (std::make_unique<juce::AudioParameterFloat> (
-        juce::ParameterID { feedbackId, 1 }, "Feedback", juce::NormalisableRange<float> (0.0f, 20.0f, 0.01f), 0.0f, "%"));
+        juce::ParameterID { feedbackId, 1 }, "Feedback", juce::NormalisableRange<float> (0.0f, 12.0f, 0.01f), 0.0f, "%"));
 
     params.push_back (std::make_unique<juce::AudioParameterFloat> (
         juce::ParameterID { mixId, 1 }, "Mix", juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 100.0f, "%"));

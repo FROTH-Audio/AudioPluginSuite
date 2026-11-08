@@ -128,7 +128,7 @@ moves. At defaults every routing amount is 0, so the sound is bit-identical to t
 | `shift` | Spectral Shift | −32 – +32 bins | 0 | Magnitudes read from bin k − shift, linear interpolation |
 | `tilt` | Spectral Tilt | −2 – +2 | 0 | Gain (k / 32)^tilt, clamped to [1/16, 8] |
 | `gate` | Spectral Gate | −90 – 0 dB | −90 | At −90 the gate is open for every bin |
-| `feedback` | Feedback | 0 – 20 % | 0 % | The range is 20 %, but processing still caps the value at `maxFeedbackPercent` = 12 %. See section 10. Engine accepts up to 0.95. Fed back through tanh |
+| `feedback` | Feedback | 0 – 12 % | 0 % | Processing also caps the value at `maxFeedbackPercent` = 12 %, which guards sessions saved with the old 0–20 % range. Engine accepts up to 0.95. Fed back through tanh |
 | `feedbackDamping` | Feedback Damping | 0 – 100 % | 30 % | One-pole low-pass in the feedback loop. 0 % passes the loop unchanged |
 | `driftStart` | Drift Start | 0 – 100 % | 0 % | Bins below this fraction of the spectrum are not drifted |
 | `outputGain` | Output Gain | −12 – +12 dB | 0 dB | Applied to the whole output after the engines |
@@ -223,7 +223,7 @@ Dynamic Saturation targets (12, in `ModTarget` order): 0 None, 1 Drive, 2 Sensit
 
 DS already smooths drive, mix and output level for 50 ms, and its other targets are block-rate by construction, so no DSP change was needed.
 
-Synced LFOs in both effects use a tempo-locked internal beat clock (`beatClock += numSamples × tempo / 60 / sampleRate`), not the host's PPQ. With no playhead (Standalone) the clock runs at a fixed 120 BPM. This keeps synced shapes moving when the transport is stopped and avoids phase jumps on loop or relocate. The routing Delay clock runs from `prepareToPlay` and is not restarted on transport start.
+Synced LFOs in both effects use a tempo-locked beat clock (`beatClock += numSamples × tempo / 60 / sampleRate`), not the host's PPQ. The tempo is the host's when the host reports one, clamped to 20–300 BPM (`SuiteModulation::hostTempoOrDefault`). With no playhead (Standalone) it is 120 BPM. The clock only accumulates, so it does not jump on loop or relocate, and it keeps moving while the host still reports a tempo with the transport stopped. The routing Delay clock runs from `prepareToPlay` and is not restarted on transport start.
 
 ## 5. Plugin behaviour
 
@@ -352,7 +352,7 @@ Mouse events in tests use the 15-argument `juce::MouseEvent` constructor, which 
 - **Modulation applies before the lerp curve**, so a modulated Chaos moves along the curve.
 - **The routing and LFO settings are plain APVTS parameters**, so they automate, save and restore like the rest.
 - **Effects use a SOUND/MOD page switch**, not a permanent panel. The existing SD (780×740) and DS (880×620) windows cannot hold the 318 px-tall routing panel beside the knobs, so each editor gained a tab row. SD is now 780×776 (+36 px) and DS is 880×660 (+40 px). Both show the visualiser on both pages and the `ModulationPanel` on the MOD page. `setPage` only touches visibility, so switching pages never changes a parameter.
-- **Synced LFOs in the effects use a tempo-locked internal beat clock** (120 BPM when there is no playhead), not the host PPQ. They keep moving when the transport stops and never jump on loop or relocate. The routing Delay clock runs from `prepareToPlay` and is not restarted on transport start.
+- **Synced LFOs in the effects use a tempo-locked beat clock that follows the host tempo** (120 BPM when there is no playhead), not the host PPQ. The clock only accumulates, so it never jumps on loop or relocate. The routing Delay clock runs from `prepareToPlay` and is not restarted on transport start.
 - **Spectral Drift smooths mix, feedback, feedback damping and output gain per sample** (20 ms). These four are consumed per sample in the engine, so block-rate modulation would zip or click; smoothing removes it. The smoothers are advanced once per block into per-sample curves (`mixCurve` and so on), and both channels read the same curves. Advancing them inside the channel loop made the right channel use the next block's ramp, which skewed the stereo image during ramps. `testOutputGainRampMatchesChannels` guards this. Everything else in SD is frame- or block-rate. DS needed no DSP change: it already smooths drive/mix/output level and its other targets are block-rate by construction.
 - **The engine's `processSample` keeps its single-argument behaviour bit-identical.** A two-argument overload takes `PerSampleSettings` (mix, feedback, damping); the old form forwards the raw settings, so all existing CoreDSP tests and the reconstruction test are unchanged.
 - **The LFO panel sits at the bottom of the left column, and the window is 980 px tall.** The plan's right-column option left the lerp curve about 100 px high.
@@ -411,7 +411,6 @@ If you add a new consumer, use `suite_ui_add_to_target`. Do not add `SuiteUI` to
 ## 10. Open items and known risks
 
 - **MicroTiming DAW load:** the reported failure is not reproduced. JUCE's VST3 host loads and opens it, both before and after the stereo bus change. The remedy applied (stereo pass-through) is a best guess. If it still fails in a DAW, ask for the DAW name, its scanner log, and the exact error.
-- **Spectral Drift feedback range vs cap.** The Feedback range is 0–20 %, but processing caps the value at `maxFeedbackPercent` = 12, so the 12–20 % part of the knob does nothing. Decide whether the range should be 0–12 % or the cap should be raised to 20 %, then update the code, section 4.1, the README and the changelog together.
 - **LFO sampling.** LFOs are evaluated at step times, so an LFO faster than the step rate aliases against the grid. Tempo and Speed are evaluated per block and per step respectively.
 - **Discrete targets not modulated:** Root and Octaves (sample and hold on these is a possible follow-up), and Rate, Length and Scale.
 - **Module tests do not cover the mouse hold in `ControlDisplay`.** The test cannot press a mouse button. The check is by reading the code only.

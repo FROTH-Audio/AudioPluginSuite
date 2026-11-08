@@ -148,7 +148,7 @@ An audio effect that breaks the input into 2048-point FFT frames, drifts the pha
 
 | Control | Range | Default | Description |
 |---|---|---|---|
-| **Feedback** | 0 – 20 % (values above 12 % act as 12 %) | 0 % | Feeds the wet signal back into the input. Processing caps the feedback at 12 %, because larger amounts build up quickly. The feedback path is soft-limited, so it cannot run away. |
+| **Feedback** | 0 – 12 % | 0 % | Feeds the wet signal back into the input. Larger amounts build up quickly, so the range stops at 12 %. The feedback path is soft-limited, so it cannot run away. |
 | **Feedback Damping** | 0 – 100 % | 30 % | Darkens each repeat of the feedback. At 0 % the repeats keep their full brightness. |
 | **Drift Start** | 0 – 100 % | 0 % | Lowest part of the spectrum that drifts. Bins below this share stay exactly as they were, so 50 % drifts only the upper half. |
 | **Output Gain** | −12 – +12 dB | 0 dB | Output level, applied after the wet and dry mix. |
@@ -491,7 +491,6 @@ The build runs before the tests, since CTest needs the test executables to exist
 
 ### Known limitations
 
-- **Spectral Drift feedback:** the Feedback control goes to 20 %, but values above 12 % are treated as 12 %.
 - **Spectral Drift feedback tail:** `getTailLengthSeconds()` returns 0, so a host won't render the tail of a feedback echo after input stops.
 - **Modulation in the effects** is applied once per block. Mix, feedback, feedback damping and output gain are the exception, because they are smoothed per sample. A fast LFO at a large buffer size therefore sounds stepped.
 - **Micro-Timing Chaos** reports 50 ms of latency, so steps and passed-through notes are early by that amount until the host compensates. Hosts that ignore MIDI-effect latency will shift the whole sequence earlier by that amount.
