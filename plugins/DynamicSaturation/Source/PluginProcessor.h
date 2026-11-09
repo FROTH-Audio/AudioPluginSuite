@@ -11,6 +11,7 @@
 #include "CoreDSP.h"
 #include "SuiteModulationRouter.h"
 #include "SuiteState.h"
+#include "SuitePresets.h"  // StateHolder interface for presets
 
 /**
     Dynamic Saturation Companion.
@@ -19,7 +20,7 @@
     the harder the stage is pushed, scaled by Sensitivity. The shaping runs at 2x
     oversampling to reduce aliasing. Its latency is reported to the host.
 */
-class DynamicSaturationProcessor : public juce::AudioProcessor
+class DynamicSaturationProcessor : public juce::AudioProcessor, public SuitePresets::StateHolder
 {
 public:
     // Core controls
@@ -111,9 +112,9 @@ public:
     void setStateInformation (const void*, int) override;
 
     // Preset system: StateHolder interface
-    juce::String getPresetPluginId() const override { return "DynamicSaturation"; }
-    juce::AudioProcessorValueTreeState& getPresetStateTree() override { return apvts; }
-    void applyPresetState (const juce::ValueTree&) override;
+    juce::String getPresetPluginId() const { return "DynamicSaturation"; }
+    juce::AudioProcessorValueTreeState& getPresetStateTree() { return apvts; }
+    void applyPresetState (const juce::ValueTree&);
 
     juce::AudioProcessorValueTreeState apvts;
 

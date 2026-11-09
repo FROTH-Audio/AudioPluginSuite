@@ -14,14 +14,13 @@
 #include "SuiteWidgets.h"
 
 class DynamicSaturationEditor : public juce::AudioProcessorEditor,
-                                private juce::Timer
+                                 private juce::Timer
 {
 public:
     explicit DynamicSaturationEditor (DynamicSaturationProcessor&);
     ~DynamicSaturationEditor() override;
 
     void paint (juce::Graphics&) override;
-    void resized() override;
 
     /** Switches between the sound controls (0) and the modulation page (1). The tests use it too. */
     void setPage (int page);
@@ -64,7 +63,6 @@ private:
     SuiteUI::LabelledSlider curveSlider { "CURVE", juce::Slider::RotaryVerticalDrag };
     SuiteUI::LabelledSlider attackSlider { "ATTACK", juce::Slider::RotaryVerticalDrag };
     SuiteUI::LabelledSlider releaseSlider { "RELEASE", juce::Slider::RotaryVerticalDrag };
-    SuiteUI::LabelledSlider mixSlider { "MIX", juce::Slider::RotaryVerticalDrag };
 
     SuiteUI::LabelledSlider detectHpfSlider { "DETECT HPF", juce::Slider::RotaryVerticalDrag };
     SuiteUI::LabelledSlider stereoLinkSlider { "STEREO LINK", juce::Slider::RotaryVerticalDrag };
@@ -72,6 +70,7 @@ private:
     SuiteUI::LabelledSlider foldSlider { "FOLD", juce::Slider::RotaryVerticalDrag };
     SuiteUI::LabelledSlider toneSlider { "TONE", juce::Slider::RotaryVerticalDrag };
     SuiteUI::LabelledSlider outputSlider { "OUTPUT", juce::Slider::RotaryVerticalDrag };
+    SuiteUI::LabelledSlider mixSlider { "MIX", juce::Slider::RotaryVerticalDrag };
 
     // Modulation page: the page switch, then the shared LFO and routing panel
     SuiteUI::SegmentedSelector pageSelector { juce::Colour (0xffff9f1c) };
@@ -83,6 +82,11 @@ private:
 
     std::vector<std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>> sliderAttachments;
     std::unique_ptr<juce::ParameterAttachment> modeAttachment;
+
+    // Preset bar (Pro builds: visible, public build: height 0 so layout unchanged)
+    std::unique_ptr<SuitePresets::PresetBar> presetBar;
+
+    void resized() override;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (DynamicSaturationEditor)
 };

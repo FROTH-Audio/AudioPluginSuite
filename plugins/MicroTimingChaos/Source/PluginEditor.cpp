@@ -240,7 +240,8 @@ void StepGridView::paint (juce::Graphics& g)
 MicroTimingChaosEditor::MicroTimingChaosEditor (MicroTimingChaosProcessor& p)
     : AudioProcessorEditor (&p),
       processor (p),
-      curveEditor (p)
+      curveEditor (p),
+      presetBar { std::make_unique<SuitePresets::PresetBar>(processor, lookAndFeel.getAccent()) }
 {
     setLookAndFeel (&lookAndFeel);
     setSize (editorWidth, editorHeight);
@@ -249,6 +250,9 @@ MicroTimingChaosEditor::MicroTimingChaosEditor (MicroTimingChaosProcessor& p)
     // The smallest size is the fixed right column plus the smallest sequencer and display.
     // The smallest size fits the widest row (the melody, chaos and transport groups side by side).
     setResizeLimits (editorWidth, minEditorHeight, 2400, 1600);
+
+    // Create preset bar after look and feel is set
+    presetBar = std::make_unique<SuitePresets::PresetBar>(processor, juce::Colour(0xff7dff5a));
 
     helpTracker.onMove = [this] (const juce::MouseEvent& e) { showHelp (e); };
     addMouseListener (&helpTracker, true);
@@ -341,6 +345,8 @@ MicroTimingChaosEditor::MicroTimingChaosEditor (MicroTimingChaosProcessor& p)
 
     scaleBox.addItemList ({ "Chromatic", "Major", "Minor", "Minor Pentatonic", "Dorian", "Whole Tone" }, 1);
     scaleBox.setTextWhenNothingSelected ("Scale");
+
+    presetBar->addAndMakeVisible (*presetBar);
 
     hostTempoLabel.setText ("FREE", juce::dontSendNotification);
 
@@ -487,8 +493,17 @@ void MicroTimingChaosEditor::resized()
 {
     groups.clear();
 
+    // Reserve space for the preset bar, right-aligned in the header.
+    const int barWidth = 300;
+    const int barHeight = 30;
+    presetBar->setBounds (getLocalBounds().removeFromTop (titleBandHeight).removeFromRight (barWidth).withHeight (barHeight)
+                            .withY ((getLocalBounds().removeFromTop (titleBandHeight).getCentreY() - barHeight / 2)));
+
+    auto area = getLocalBounds().reduced (16);
+    area.removeFromTop (titleBandHeight);
+
     // Every gap is groupGap: the outer margin, and the space between groups in both directions.
-    auto content = getLocalBounds().withTrimmedTop (titleBandHeight).reduced (groupGap);
+    auto content = area.withTrimmedTop (groupGap).reduced (groupGap);
     helpLabel.setBounds (content.removeFromBottom (helpHeight));
     content.removeFromBottom (groupGap);
 

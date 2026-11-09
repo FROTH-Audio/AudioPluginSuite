@@ -36,12 +36,16 @@ namespace
 
 DynamicSaturationEditor::DynamicSaturationEditor (DynamicSaturationProcessor& p)
     : AudioProcessorEditor (&p),
-      processor (p)
+      processor (p),
+      presetBar { std::make_unique<SuitePresets::PresetBar>(processor, lookAndFeel.getAccent()) }
 {
     setLookAndFeel (&lookAndFeel);
     setSize (editorWidth, editorHeight);
     setResizable (true, true);
     setResizeLimits (720, 656, 1400, 1000);
+
+    // Create preset bar after look and feel is set
+    presetBar = std::make_unique<SuitePresets::PresetBar>(processor, juce::Colour(0xffff9f1c));
 
     helpTracker.onMove = [this] (const juce::MouseEvent& e) { showHelp (e); };
     addMouseListener (&helpTracker, true);
@@ -131,6 +135,8 @@ DynamicSaturationEditor::DynamicSaturationEditor (DynamicSaturationProcessor& p)
 
     pageSelector.setOptions ({ "SOUND", "MOD" });
     pageSelector.onChange = [this] (int index) { setPage (index); };
+
+    presetBar->addAndMakeVisible (*presetBar);
 
     setPage (0);
     startTimerHz (SuiteUI::kRefreshHz);
@@ -222,6 +228,12 @@ void DynamicSaturationEditor::resized()
 {
     auto area = getLocalBounds().reduced (16);
     area.removeFromTop (headerHeight);
+
+    // Reserve space for the preset bar, right-aligned in the header.
+    const int barWidth = 300;
+    const int barHeight = 30;
+    presetBar->setBounds (area.removeFromRight (barWidth).withHeight (barHeight)
+                            .withY (area.getCentreY() - barHeight / 2));
 
     pageSelector.setBounds (area.removeFromTop (pageSelectorHeight).withWidth (240));
     area.removeFromTop (groupGap);

@@ -2,6 +2,8 @@
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_gui_basics/juce_gui_basics.h>
+#include <memory>  // for std::unique_ptr
+#include <vector>   // for std::vector
 
 namespace SuitePresets
 {
@@ -40,7 +42,10 @@ namespace SuitePresets
         int  getNumFactoryPresets() const noexcept { return 0; }  // Pro returns real count
 
     private:
-        struct Impl;
+        StateHolder* _holder;  // pointer to avoid slicing
+        juce::Colour _accent;
+        
+        struct Impl { };  // Pimpl structure
         std::unique_ptr<Impl> impl;
     };
 }

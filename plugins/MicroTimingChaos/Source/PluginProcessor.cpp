@@ -693,7 +693,7 @@ void MicroTimingChaosProcessor::setStateInformation (const void* data, int sizeI
 void MicroTimingChaosProcessor::applyPresetState (const juce::ValueTree& tree)
 {
     // Presets use resetMissing=true so absent parameters are set to default.
-    SuiteState::read (tree.createXml()->getFirstChild(), -1, apvts, stateVersion, migrations, {}, true);
+    SuiteState::read (tree.createXml()->getFirstChildElement(), -1, apvts, stateVersion, migrations, {}, true);
     
     // If this is a mid-playback preset load, clear the grid to prevent stuck notes.
     panicRequested.store(true, std::memory_order_relaxed);

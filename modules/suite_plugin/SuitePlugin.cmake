@@ -111,6 +111,7 @@ function(suite_add_plugin)
     if(SAP_MODULATION)
         suite_modulation_add_to_target(${SAP_NAME})
     endif()
+    suite_presets_add_to_target(${SAP_NAME})  # StateHolder interface for presets
 
     #---- Binary data: the lockup and any other assets ----
     set(assets ${SAP_ASSETS})

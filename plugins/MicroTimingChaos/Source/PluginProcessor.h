@@ -12,6 +12,7 @@
 #include "CoreDSP.h"
 #include "SuiteModulationRouter.h"
 #include "SuiteState.h"
+#include "SuitePresets.h"  // StateHolder interface for presets
 
 /**
     Micro-Timing Chaos.
@@ -22,7 +23,7 @@
 
     Incoming MIDI notes pass through with the same latency. Audio passes through unchanged.
 */
-class MicroTimingChaosProcessor : public juce::AudioProcessor
+class MicroTimingChaosProcessor : public juce::AudioProcessor, public SuitePresets::StateHolder
 {
 public:
     // Pattern
@@ -148,9 +149,9 @@ public:
     void setStateInformation (const void*, int) override;
 
     // Preset system: StateHolder interface
-    juce::String getPresetPluginId() const override { return "MicroTimingChaos"; }
-    juce::AudioProcessorValueTreeState& getPresetStateTree() override { return apvts; }
-    void applyPresetState (const juce::ValueTree&) override;
+    juce::String getPresetPluginId() const { return "MicroTimingChaos"; }
+    juce::AudioProcessorValueTreeState& getPresetStateTree() { return apvts; }
+    void applyPresetState (const juce::ValueTree&);
 
     juce::AudioProcessorValueTreeState apvts;
 

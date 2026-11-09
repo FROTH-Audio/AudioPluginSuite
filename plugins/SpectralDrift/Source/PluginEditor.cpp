@@ -40,12 +40,16 @@ SpectralDriftEditor::SpectralDriftEditor (SpectralDriftProcessor& p)
     : AudioProcessorEditor (&p),
       processor (p),
       inputMagnitudes (CoreDSP::Spectral::numBins, 0.0f),
-      outputMagnitudes (CoreDSP::Spectral::numBins, 0.0f)
+      outputMagnitudes (CoreDSP::Spectral::numBins, 0.0f),
+      presetBar { std::make_unique<SuitePresets::PresetBar>(processor, juce::Colour(0xff2de2ff)) }
 {
     setLookAndFeel (&lookAndFeel);
     setSize (editorWidth, editorHeight);
     setResizable (true, true);
     setResizeLimits (640, 656, 1400, 1100);
+
+    // Create preset bar after look and feel is set
+    presetBar.reset(new SuitePresets::PresetBar(static_cast<SuitePresets::StateHolder&>(processor), juce::Colour(0xff2de2ff)));
 
     helpTracker.onMove = [this] (const juce::MouseEvent& e) { showHelp (e); };
     addMouseListener (&helpTracker, true);
@@ -147,6 +151,8 @@ SpectralDriftEditor::SpectralDriftEditor (SpectralDriftProcessor& p)
     pageSelector.setOptions ({ "SOUND", "MOD" });
     pageSelector.onChange = [this] (int index) { setPage (index); };
 
+    presetBar->addAndMakeVisible (*presetBar);
+
     setPage (0);
     startTimerHz (SuiteUI::kRefreshHz);
 }
@@ -239,6 +245,12 @@ void SpectralDriftEditor::resized()
 {
     auto area = getLocalBounds().reduced (16);
     area.removeFromTop (headerHeight);
+
+    // Reserve space for the preset bar, right-aligned in the header.
+    const int barWidth = 300;
+    const int barHeight = 30;
+    presetBar->setBounds (area.removeFromRight (barWidth).withHeight (barHeight)
+                            .withY (area.getCentreY() - barHeight / 2));
 
     pageSelector.setBounds (area.removeFromTop (pageSelectorHeight).withWidth (240));
     area.removeFromTop (groupGap);

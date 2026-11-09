@@ -296,7 +296,7 @@ void SpectralDriftProcessor::setStateInformation (const void* data, int sizeInBy
 void SpectralDriftProcessor::applyPresetState (const juce::ValueTree& tree)
 {
     // Presets use resetMissing=true so absent parameters are set to default.
-    SuiteState::read (tree.createXml()->getFirstChild(), -1, apvts, stateVersion, migrations, {}, true);
+    SuiteState::read (tree.createXml()->getFirstChildElement(), -1, apvts, stateVersion, migrations, {}, true);
 }
 
 float SpectralDriftProcessor::getModulatedValue (ModTarget target) const
