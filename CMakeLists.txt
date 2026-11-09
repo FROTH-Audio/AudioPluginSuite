@@ -28,6 +28,10 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(JUCE)
 
+# Metadata written into the VST3 and AU bundles, and shown by hosts. The e-mail is left empty on purpose.
+set_property (GLOBAL PROPERTY JUCE_COMPANY_WEBSITE "https://github.com/FROTH-Audio/AudioPluginSuite")
+set_property (GLOBAL PROPERTY JUCE_COMPANY_COPYRIGHT "Copyright (C) 2026 FROTH Audio. Licensed under the GNU GPL v3.")
+
 # Applied to every target, including JUCE's own modules.
 add_compile_definitions(
     JUCE_VST3_CAN_REPLACE_VST2=0   # no legacy VST2 flags
@@ -46,11 +50,13 @@ enable_testing()
 
 if(SUITE_BUILD_TESTS OR SUITE_BUILD_PLUGINS)
     add_subdirectory(modules/core_dsp)
+    add_subdirectory(modules/suite_state)
 endif()
 
 if(SUITE_BUILD_PLUGINS)
     include(${CMAKE_SOURCE_DIR}/modules/suite_modulation/suite_modulation.cmake)
     include(${CMAKE_SOURCE_DIR}/modules/suite_ui/SuiteUI.cmake)
+    include(${CMAKE_SOURCE_DIR}/modules/suite_plugin/SuitePlugin.cmake)
     add_subdirectory(modules/suite_modulation)
     add_subdirectory(modules/suite_ui)
     add_subdirectory(plugins/SpectralDrift)

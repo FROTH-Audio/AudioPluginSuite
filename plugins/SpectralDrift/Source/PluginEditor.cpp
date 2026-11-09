@@ -50,7 +50,7 @@ SpectralDriftEditor::SpectralDriftEditor (SpectralDriftProcessor& p)
     helpTracker.onMove = [this] (const juce::MouseEvent& e) { showHelp (e); };
     addMouseListener (&helpTracker, true);
 
-    helpLabel.setFont (juce::Font (14.0f));
+    helpLabel.setFont (juce::Font (juce::FontOptions (14.0f)));
     helpLabel.setColour (juce::Label::textColourId, SuiteUI::Colours::text);
     helpLabel.setText ("Hover a control to see what it does.", juce::dontSendNotification);
 
@@ -93,7 +93,7 @@ SpectralDriftEditor::SpectralDriftEditor (SpectralDriftProcessor& p)
 
     shapeCaption.setText ("LFO SHAPE", juce::dontSendNotification);
     shapeCaption.setJustificationType (juce::Justification::centred);
-    shapeCaption.setFont (juce::Font (12.0f, juce::Font::bold));
+    shapeCaption.setFont (juce::Font (juce::FontOptions (12.0f, juce::Font::bold)));
 
     auto& apvts = processor.apvts;
 
@@ -148,7 +148,7 @@ SpectralDriftEditor::SpectralDriftEditor (SpectralDriftProcessor& p)
     pageSelector.onChange = [this] (int index) { setPage (index); };
 
     setPage (0);
-    startTimerHz (60);
+    startTimerHz (SuiteUI::kRefreshHz);
 }
 
 SpectralDriftEditor::~SpectralDriftEditor()
@@ -215,7 +215,7 @@ void SpectralDriftEditor::paint (juce::Graphics& g)
     SuiteUI::drawBrandLockup (g, getLocalBounds().reduced (16, 0).removeFromTop (headerHeight), brandLockup());
 
     g.setColour (SuiteUI::Colours::textDim);
-    g.setFont (juce::Font (12.0f));
+    g.setFont (juce::Font (juce::FontOptions (12.0f)));
     g.drawText ("FFT 2048 / 75 % overlap / 2048 samples latency",
                 getLocalBounds().reduced (16, 0).removeFromTop (headerHeight), juce::Justification::centredRight);
 
@@ -229,7 +229,7 @@ void SpectralDriftEditor::paint (juce::Graphics& g)
         g.drawRoundedRectangle (bounds, 8.0f, 1.0f);
 
         g.setColour (lookAndFeel.getAccent());
-        g.setFont (juce::Font (15.0f, juce::Font::bold));
+        g.setFont (juce::Font (juce::FontOptions (15.0f, juce::Font::bold)));
         g.drawText ("MODULATION", modulationGroupBounds.withHeight (groupTitleHeight).translated (0, 4).reduced (12, 0),
                     juce::Justification::centredLeft);
     }

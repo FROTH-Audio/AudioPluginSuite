@@ -9,6 +9,7 @@
 
 #include "SpectralEngine.h"
 #include "SuiteModulationRouter.h"
+#include "SuiteState.h"
 
 /**
     Spectral Drift Shifter.
@@ -104,6 +105,9 @@ public:
     float getModulatedValue (ModTarget target) const;
 
     juce::AudioProcessorValueTreeState apvts;
+
+    int stateVersion = 1;
+    std::vector<SuiteState::Migration> migrations;
 
     SpectralDriftProcessor();
     ~SpectralDriftProcessor() override = default;

@@ -41,6 +41,9 @@ class MicroTimingChaosEditor : public juce::AudioProcessorEditor,
 {
 public:
     explicit MicroTimingChaosEditor (MicroTimingChaosProcessor&);
+
+    /** Switches between the curve editor (0) and the live preview (1). The tests use it too. */
+    void setLerpView (int index);
     ~MicroTimingChaosEditor() override;
 
     void paint (juce::Graphics&) override;
@@ -111,6 +114,7 @@ juce::Label scaleCaption;
     SuiteModulation::ModulationPanel modulation { processor.getRouter(), modulationStyle() };
     std::unique_ptr<SuiteModulation::ControlDisplay> controls;  // built in the constructor, once the sliders exist
     SuiteUI::LabelledSlider lerpSlider { "LERP", juce::Slider::RotaryVerticalDrag };
+
     SuiteUI::LabelledSlider lerpXMultSlider { "X MULT", juce::Slider::RotaryVerticalDrag };
     SuiteUI::LabelledSlider lerpYMultSlider { "Y MULT", juce::Slider::RotaryVerticalDrag };
     SuiteUI::LabelledSlider lerpZMultSlider { "Z MULT", juce::Slider::RotaryVerticalDrag };

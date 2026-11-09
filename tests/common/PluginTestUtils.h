@@ -112,6 +112,30 @@ namespace PluginTest
         return image;
     }
 
+    inline int countChangedPixels (juce::Image& a, juce::Image& b, int step);
+
+    /**
+        Renders a component twice and writes the PNG. Returns false if the two renders differ, or the file cannot be
+        written. Used by the editor render baselines (docs/plans/02_framework-refactor-3-editor-ui.md, phase 0).
+    */
+    inline bool writeDeterministicPng (juce::Component& component, const juce::File& file)
+    {
+        const auto first = paintComponent (component);
+        const auto second = paintComponent (component);
+
+        if (countChangedPixels (const_cast<juce::Image&> (first), const_cast<juce::Image&> (second), 1) != 0)
+            return false;
+
+        file.getParentDirectory().createDirectory();
+        file.deleteFile();
+
+        juce::FileOutputStream stream (file);
+        if (! stream.openedOk())
+            return false;
+
+        juce::PNGImageFormat png;
+        return png.writeImageToStream (first, stream);
+    }
     /** Counts the pixels, sampled on a grid, where two images of the same size differ. */
     inline int countChangedPixels (juce::Image& a, juce::Image& b, int step = 2)
     {

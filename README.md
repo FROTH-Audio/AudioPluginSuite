@@ -3,12 +3,12 @@
 </p>
 
 <p align="center">
-  <b>Three JUCE plugins that bend phase, drive and groove.</b><br>
+  <b>Three plugins that bend phase, drive and groove.</b><br>
   VST3, Audio Unit and Standalone. Each plugin has its own accent colour and a live visualiser.
 </p>
 
 <p align="center">
-  <a href="https://github.com/tfroehlich82/AudioPluginSuite/actions/workflows/build.yml"><img src="https://github.com/tfroehlich82/AudioPluginSuite/actions/workflows/build.yml/badge.svg" alt="Build"></a>
+  <a href="https://github.com/FROTH-Audio/AudioPluginSuite/actions/workflows/build.yml"><img src="https://github.com/FROTH-Audio/AudioPluginSuite/actions/workflows/build.yml/badge.svg" alt="Build"></a>
   <img src="https://img.shields.io/badge/C%2B%2B-17-00599C?logo=cplusplus&logoColor=white" alt="C++17">
   <img src="https://img.shields.io/badge/JUCE-9.0.5-8A2BE2" alt="JUCE 9.0.5">
   <img src="https://img.shields.io/badge/formats-VST3%20%7C%20AU%20%7C%20Standalone-informational" alt="Formats">
@@ -79,7 +79,7 @@ FROTH Audio makes plugins that work on sound at the level of its structure: the 
 
 ### Installation
 
-Download the latest build from the [Releases](https://github.com/tfroehlich82/AudioPluginSuite/releases) page, or [build it yourself](#building).
+Download the latest build from the [Releases](https://github.com/FROTH-Audio/AudioPluginSuite/releases) page, or [build it yourself](#building).
 
 Copy the plugin bundles to your system plugin folder:
 
@@ -344,9 +344,10 @@ Nine CTest entries run seven test executables:
 | `CoreDSPTests` | DSP primitives in `modules/core_dsp` | 29 |
 | `SuiteUITests` | Shared widgets and look and feel | 9 |
 | `SuiteModulationTests` | Shared LFOs, routing and the control display in `modules/suite_modulation` | 9 |
-| `SpectralDriftTests` | Spectral Drift processor and editor | 19 |
-| `DynamicSaturationTests` | Dynamic Saturation processor and editor | 17 |
-| `MicroTimingChaosTests` | Micro-Timing Chaos processor and editor | 34 |
+| `SuiteState_Tests` | Versioned saved state in `modules/suite_state` | 9 |
+| `SpectralDriftTests` | Spectral Drift processor and editor | 22 |
+| `DynamicSaturationTests` | Dynamic Saturation processor and editor | 19 |
+| `MicroTimingChaosTests` | Micro-Timing Chaos processor and editor | 40 |
 | `PluginHostTests` (×3) | Each built VST3 bundle, loaded through JUCE's own plugin host | 1 per plugin |
 
 The tests use `assert` with `NDEBUG` undefined, so they also check in Release builds. Without that, every check would be compiled out.
@@ -392,7 +393,7 @@ AudioPluginSuite/
 │   ├── brand.md                         The FROTH Audio brand: parts, colours, regenerating the artwork
 │   ├── images/froth-audio-suite.png     The README banner (generated)
 │   └── plans/                           Design plans and their status
-├── tools/brand/make_brand.py            Generates the brand mark, the lockups and the README banner
+├── tools/brand/build.py            Generates the brand mark, the lockups and the README banner
 ├── modules/
 │   ├── core_dsp/                        Header-only DSP primitives, no plugin code
 │   │   ├── include/                     CoreDSP.h, SaturationEngine.h, ChaosEngine.h, SpectralEngine.h,
@@ -455,15 +456,15 @@ Key decisions:
 - **Oversampling** in Dynamic Saturation is JUCE's half-band FIR at 2×. The dry path is delayed by the same amount, so the mix stays aligned.
 - **SuiteUI is compiled into each consumer** rather than linked as a library. A library bundles the JUCE modules it uses, and those then clash with the same modules linked again by the plugin (duplicate symbols at link time).
 - **LFOs and routing are shared.** `SuiteModulation::Router` holds the two LFOs, the six routing slots and their parameters. A plugin supplies a table of the controls the routing can move, and the module does the rest. The module is compiled into each consumer like SuiteUI, and it needs SuiteUI in the same target.
-- **The brand is generated.** `tools/brand/make_brand.py` draws the mark, the lockups and the banner, so the artwork and the plugin colours come from one place.
+- **The brand is generated.** `tools/brand/build.py` draws the mark, the lockups and the banner, so the artwork and the plugin colours come from one place.
 
 ### Adding a plugin
 
-1. Create `plugins/<Name>/` with `CMakeLists.txt`, `Source/PluginProcessor.{h,cpp}` and `Source/PluginEditor.{h,cpp}`, and `tests/PluginTests.cpp`. Copy an existing plugin as the starting point.
-2. Give it unique `PLUGIN_MANUFACTURER_CODE` / `PLUGIN_CODE` values and a `BUNDLE_ID`. The codes must be four characters with at least one uppercase letter, and they must not change once a plugin has been released, because hosts use them to identify saved sessions.
+1. Run `python tools/new_plugin/new_plugin.py <Name> "<Product name>" <Code>`, for example `python tools/new_plugin/new_plugin.py SpectralDrift "Spectral Drift Shifter" Sdft`. It creates `plugins/<Name>/` from `tools/new_plugin/skeleton/`: the processor, the editor, the tests and a CMake file with one `suite_add_plugin(...)` call. It refuses if the folder exists or the plugin code is already in use. The bundle ID is `com.audiosuite.<name>`.
+2. The plugin code must be four letters or digits, with at least one uppercase letter. It must not change once a plugin has been released, because hosts use it to identify saved sessions.
 3. Put the DSP in `modules/core_dsp/include/` as a header-only class, and add a test for it in `DSPTests.cpp`.
-4. Register the plugin in the root `CMakeLists.txt` under `if(SUITE_BUILD_PLUGINS)`, and add a host test in `tests/host/CMakeLists.txt`.
-5. Add its accent colour and lockup to `tools/brand/make_brand.py`, then regenerate the artwork with `python -I tools/brand/make_brand.py`.
+4. Add `add_subdirectory(plugins/<Name>)` to the root `CMakeLists.txt`, under `if(SUITE_BUILD_PLUGINS)`, after the other plugins. Add `suite_add_host_test(<Name>)` in `tests/host/CMakeLists.txt`.
+5. Add its accent colour and lockup to `tools/brand/build.py`, then regenerate the artwork with `python -I tools/brand/build.py`.
 6. Add it to "the plugins" section in this README, to the table in this README, and to `CHANGELOG.md`.
 
 ### Continuous integration

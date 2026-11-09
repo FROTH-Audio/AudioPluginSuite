@@ -7,14 +7,21 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Changed
+- Plugin metadata: each VST3 and AU bundle now has a description, the company website (the repository) and a copyright line (GPL v3). The Windows version resource shows the copyright. No e-mail is set. The manufacturer name hosts show is now FROTH Audio (was AudioSuite). The bundle IDs and plugin codes are unchanged, so sessions still load. Hosts may show the new name and description after a rescan.
+- Micro-Timing Chaos: its look and feel now derives from the suite's shared look and feel for the shared setup. The window is unchanged. Editor timers use one refresh constant, 60 Hz. No visible change.
+- Build: the deprecated juce::Font constructors are replaced by the juce::FontOptions form. The Release build has no deprecation warnings. No visible change.
+- Build: each plugin's CMake file is now one `suite_add_plugin(...)` call, and the plugin codes are checked for uniqueness at configure time. No user-visible change.
+- Build: each plugin's version is passed explicitly from the project version. It is 1.0.0, the same version the hosts already see, so no DAW rescan is needed.
 - Spectral Drift Shifter: the Feedback control now runs from 0 to 12 %, the same as the processing cap. Sessions saved with a feedback above 12 % load at 12 %, which already sounded the same. Modulation depth on Feedback is now measured over 0 to 12 %.
 - Micro-Timing Chaos: declared as a MIDI instrument (`IS_SYNTH TRUE`). VST3 hosts list it under instruments, so a DAW may need a rescan.
 - Micro-Timing Chaos: the editor's design height is 1380 px (was 1400 px). The window is 20 px shorter at the default scale.
+- **Saved sessions now carry a version; older sessions load unchanged.** Sessions saved before this refactor have no `suiteStateVersion` attribute and load as version 1. Newer states than the plugin are refused.
 
 ### Fixed
 - The macOS build's tests failed on `testOffsetControlIsUsable`, because Apple clang fused a multiply and an add on arm64 and left the LFO Offset default at 1.5e-6. Apple clang is now built with `-ffp-contract=off`, so macOS arithmetic matches Windows.
 
 ### Added
+- `tools/new_plugin/new_plugin.py`: creates a new plugin from a skeleton, and refuses a plugin code that is already in use. Developer tool; no change to the plugins.
 - `modules/suite_modulation`: a shared module with the two LFOs, six routing slots, the LFO scope, the modulation panel and the control display, for plugins to reuse. Its tests (`SuiteModulationTests`, 9) run as a new CTest entry.
 - `tests/common/ModulationTestUtils.h`: `setLfo`, `setRoute` and `timingOffsets` for any processor with the shared LFO parameters.
 - `modules/core_dsp/include/ModulationTiming.h`: the division table, `fractionalPart` and `cyclesFromSeconds`, with DSP tests.

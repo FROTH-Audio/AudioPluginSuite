@@ -49,7 +49,7 @@ namespace
     /** Emphasised caption above a knob: bold and centred. */
     void emphasiseCaption (juce::Label& label)
     {
-        label.setFont (juce::Font (13.0f, juce::Font::bold));
+        label.setFont (juce::Font (juce::FontOptions (13.0f, juce::Font::bold)));
         label.setJustificationType (juce::Justification::centred);
     }
 
@@ -95,7 +95,7 @@ namespace
     void styleCaption (juce::Label& label, const juce::String& text)
     {
         label.setText (text, juce::dontSendNotification);
-        label.setFont (juce::Font (13.0f, juce::Font::bold));
+        label.setFont (juce::Font (juce::FontOptions (13.0f, juce::Font::bold)));
         label.setColour (juce::Label::textColourId, SuiteUI::Colours::textDim);
         label.setJustificationType (juce::Justification::centred);
     }
@@ -138,7 +138,7 @@ void StepGridView::paint (juce::Graphics& g)
     auto yFor = [=] (float offsetMs) { return centreY - juce::jlimit (-1.0f, 1.0f, offsetMs / range) * halfHeight; };
 
     // Timing guides, with labels on the left: +range, 0 and -range
-    g.setFont (juce::Font (13.0f));
+    g.setFont (juce::Font (juce::FontOptions (13.0f)));
     const float guides[] = { range, 0.0f, -range };
     for (const float value : guides)
     {
@@ -193,7 +193,7 @@ void StepGridView::paint (juce::Graphics& g)
         }
 
         g.setColour (isPlayhead ? accent : SuiteUI::Colours::textDim);
-        g.setFont (juce::Font (14.0f, isPlayhead ? juce::Font::bold : juce::Font::plain));
+        g.setFont (juce::Font (juce::FontOptions (14.0f, isPlayhead ? juce::Font::bold : juce::Font::plain)));
         g.drawText (juce::String (step + 1),
                     juce::Rectangle<float> (column.getX(), bounds.getBottom() - numberHeight, column.getWidth(), numberHeight),
                     juce::Justification::centred);
@@ -253,15 +253,15 @@ MicroTimingChaosEditor::MicroTimingChaosEditor (MicroTimingChaosProcessor& p)
     helpTracker.onMove = [this] (const juce::MouseEvent& e) { showHelp (e); };
     addMouseListener (&helpTracker, true);
 
-    helpLabel.setFont (juce::Font (14.0f));
+    helpLabel.setFont (juce::Font (juce::FontOptions (14.0f)));
     helpLabel.setColour (juce::Label::textColourId, SuiteUI::Colours::text);
     helpLabel.setText ("Hover a control to see what it does.", juce::dontSendNotification);
 
     readout.setJustificationType (juce::Justification::centredLeft);
     readout.setColour (juce::Label::textColourId, SuiteUI::Colours::text);
-    readout.setFont (juce::Font (14.0f, juce::Font::bold));
+    readout.setFont (juce::Font (juce::FontOptions (14.0f, juce::Font::bold)));
 
-    hostTempoLabel.setFont (juce::Font (13.0f, juce::Font::bold));
+    hostTempoLabel.setFont (juce::Font (juce::FontOptions (13.0f, juce::Font::bold)));
     hostTempoLabel.setColour (juce::Label::textColourId, SuiteUI::Colours::textDim);
     hostTempoLabel.setJustificationType (juce::Justification::centred);
 
@@ -411,7 +411,7 @@ MicroTimingChaosEditor::MicroTimingChaosEditor (MicroTimingChaosProcessor& p)
             { seedSlider.slider,          (int) Target::Seed },
         });
 
-    startTimerHz (60);
+    startTimerHz (SuiteUI::kRefreshHz);
 }
 
 MicroTimingChaosEditor::~MicroTimingChaosEditor()
@@ -447,6 +447,13 @@ namespace
     }
 }
 
+void MicroTimingChaosEditor::setLerpView (int index)
+{
+    lerpViewSelector.setSelectedIndex (index);
+    curveEditor.setVisible (index == 0);
+    lerpPreview.setVisible (index == 1);
+}
+
 void MicroTimingChaosEditor::paint (juce::Graphics& g)
 {
     lookAndFeel.paint (g, *this);
@@ -470,7 +477,7 @@ void MicroTimingChaosEditor::paint (juce::Graphics& g)
         g.drawRoundedRectangle (bounds, 8.0f, 1.0f);
 
         g.setColour (lookAndFeel.getAccent());
-        g.setFont (juce::Font (15.0f, juce::Font::bold));
+        g.setFont (juce::Font (juce::FontOptions (15.0f, juce::Font::bold)));
         g.drawText (group.title, group.bounds.withHeight (groupTitleHeight).translated (0, 4).reduced (12, 0),
                     juce::Justification::centredLeft);
     }

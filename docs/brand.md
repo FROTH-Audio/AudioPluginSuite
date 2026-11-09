@@ -31,7 +31,23 @@ From the repository root:
 python -I tools/brand/make_brand.py
 ```
 
-Then rebuild. The script needs Pillow. It writes into `modules/suite_ui/brand/`. Do not edit the PNGs by hand.
+Then rebuild. The script needs Pillow. It writes the mark and the lockups into `modules/suite_ui/brand/`, and the README banner into `docs/images/froth-audio-suite.png`. Do not edit the PNGs by hand.
+
+## Product line
+
+FROTH Audio is one plugin suite with one product per accent colour. Each product keeps its own name in the interface, its bundle, and its saved sessions. The product names are not part of the wordmark.
+
+| Product | Accent | Hex | Plugin code |
+|---|---|---|---|
+| Spectral Drift Shifter | Cyan | `#2DE2FF` | `Sdft` |
+| Dynamic Saturation Companion | Amber | `#FF9F1C` | `Dsat` |
+| Micro-Timing Chaos | Lime | `#7DFF5A` | `Mtch` |
+
+The plugin codes are saved in sessions and must not change after release. A new product needs a new accent colour, a lockup entry in `PLUGINS` in the script, and a row in this table and in the README's product line.
+
+## The README banner
+
+The banner is the wordmark with a cyan-to-lime sweep and a glow, the three product names with a dot in each accent colour, and the formats in the footer. Its bubbles are placed with a fixed random seed, so regenerating it gives the same picture. Its size is `BANNER_W` and `BANNER_H` in the script.
 
 ## Known limits
 

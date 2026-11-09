@@ -4,6 +4,7 @@
 #include "ModulationTestUtils.h"
 #include "PluginEditor.h"
 #include "PluginProcessor.h"
+#include "StateFixtures.h"
 
 #include <cstdint>
 
@@ -99,6 +100,74 @@ namespace
         checkStateRoundTrip (processor, processor.apvts, Processor::modAmountIds[1], -42.0f);
 
         pass ("testStateRoundTrip");
+    }
+
+    // Every parameter moved off its default, saved, and read into a new processor. Each value must come back.
+    void testStateRoundTripAllParameters()
+    {
+        DynamicSaturationProcessor writer;
+        writer.prepareToPlay (sampleRate, blockSize);
+
+        for (auto* parameter : writer.getParameters())
+            parameter->setValueNotifyingHost (dynamic_cast<juce::AudioParameterBool*> (parameter) != nullptr ? 1.0f : 0.73f);
+
+        juce::MemoryBlock saved;
+        writer.getStateInformation (saved);
+
+        DynamicSaturationProcessor reader;
+        reader.prepareToPlay (sampleRate, blockSize);
+        reader.setStateInformation (saved.getData(), (int) saved.getSize());
+
+        int compared = 0;
+
+        for (auto* parameter : writer.getParameters())
+            if (auto* withId = dynamic_cast<juce::AudioProcessorParameterWithID*> (parameter))
+            {
+                const auto* restored = reader.apvts.getParameter (withId->paramID);
+                assert (restored != nullptr);
+                assert (std::abs (restored->getValue() - parameter->getValue()) < 1.0e-6f);
+                ++compared;
+            }
+
+        assert (compared > 40);
+
+        pass ("testStateRoundTripAllParameters");
+    }
+
+    // A state written by a newer plugin (version 99) is refused: nothing in the reader changes.
+    void testStateRefusal()
+    {
+        DynamicSaturationProcessor writer;
+        writer.prepareToPlay (sampleRate, blockSize);
+
+        juce::MemoryBlock blob;
+        writer.getStateInformation (blob);
+
+        auto xml = SuiteState::detail::decodeXml (blob.getData(), (int) blob.getSize());
+        assert (xml != nullptr);
+        xml->setAttribute (SuiteState::versionProperty, 99);
+        const auto newer = SuiteState::detail::encodeXml (*xml);
+
+        DynamicSaturationProcessor reader;
+        reader.prepareToPlay (sampleRate, blockSize);
+        reader.apvts.getParameter (DynamicSaturationProcessor::driveId)->setValueNotifyingHost (0.9f);
+        const float before = reader.apvts.getRawParameterValue (DynamicSaturationProcessor::driveId)->load();
+
+        reader.setStateInformation (newer.getData(), (int) newer.getSize());
+
+        assert (reader.apvts.getRawParameterValue (DynamicSaturationProcessor::driveId)->load() == before);
+
+        pass ("testStateRefusal");
+    }
+
+    // Loads a state saved before the SuiteState change (a phase 0 fixture) and checks each recorded value.
+    void testLoadsPhase0Fixture()
+    {
+        DynamicSaturationProcessor processor;
+        processor.prepareToPlay (sampleRate, blockSize);
+        assert (StateFixtures::loadsRecordedState (processor, "ds"));
+        
+        pass ("testLoadsPhase0Fixture");
     }
 
     void testLatencyMatchesOversampler()
@@ -264,6 +333,31 @@ namespace
         pass ("testFoldChangesSound");
     }
 
+    void testRenderBaseline()
+    {
+        const auto folder = juce::SystemStats::getEnvironmentVariable ("SUITE_RENDER_DIR", {});
+
+        if (folder.isEmpty())
+        {
+            std::printf ("[SKIP] editor renders: set SUITE_RENDER_DIR to write them\n");
+            return;
+        }
+
+        DynamicSaturationProcessor processor;
+        processor.prepareToPlay (sampleRate, blockSize);
+
+        for (int page = 0; page < 2; ++page)
+        {
+            std::unique_ptr<juce::AudioProcessorEditor> editor (processor.createEditor());
+            static_cast<DynamicSaturationEditor*> (editor.get())->setPage (page);
+
+            const juce::File file (juce::File (folder).getChildFile (page == 0 ? "dynamicsaturation-sound.png" : "dynamicsaturation-mod.png"));
+            assert (PluginTest::writeDeterministicPng (*editor, file));
+            processor.editorBeingDeleted (editor.get());
+        }
+
+        pass ("testRenderBaseline");
+    }
     void testEditor()
     {
         Processor processor;
@@ -549,6 +643,9 @@ int main()
 
     testParameters();
     testStateRoundTrip();
+    testStateRoundTripAllParameters();
+    testStateRefusal();
+    testLoadsPhase0Fixture();
     testLatencyMatchesOversampler();
     testSilenceStaysSilent();
     testOutputIsBounded();
@@ -564,6 +661,8 @@ int main()
     testSyncedLfoFollowsTempo();
     testModulationStaysInRange();
     testEditorPages();
+
+    testRenderBaseline ();
 
     std::puts ("All Dynamic Saturation plugin tests passed.");
     return 0;

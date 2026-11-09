@@ -4,6 +4,9 @@
 
 namespace SuiteUI
 {
+    /** Editor refresh rate in Hz. Every plugin editor's timer uses it, so the three stay in step. */
+    inline constexpr int kRefreshHz = 60;
+
     /** Palette shared by every plugin in the suite. Each plugin supplies only its own accent colour. */
     namespace Colours
     {

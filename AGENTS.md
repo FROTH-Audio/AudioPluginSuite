@@ -18,11 +18,12 @@ Three audio plugins written with JUCE 9.0.5 in C++17. Formats: VST3 on Windows a
 | Dynamic Saturation Companion | `plugins/DynamicSaturation` | audio effect | `CoreDSP::Saturation` | amber `#FF9F1C` |
 | Micro-Timing Chaos Sequencer | `plugins/MicroTimingChaos` | MIDI effect, with stereo pass-through | `CoreDSP::Chaos::LorenzAttractor`, `CoreDSP::Sequencer` | lime `#7DFF5A` |
 
-- Manufacturer name `AudioSuite`, manufacturer code `Asui`, bundle IDs `com.audiosuite.<name>`.
+- Manufacturer name `FROTH Audio` (shown by hosts; set by `COMPANY_NAME` in `modules/suite_plugin/SuitePlugin.cmake`), manufacturer code `Asui`, bundle IDs `com.audiosuite.<name>` (kept: they are part of the plugin identity, section 7).
 - Plugin codes `Sdft`, `Dsat`, `Mtch`. The Micro-Timing CMake file sets `Mtch`, but this document previously said `Mtsq`. Confirm which one is intended before a release. Codes and parameter IDs are saved in sessions and **must never change** after a release.
 - Licence: GNU GPL v3 (`LICENSE`, the unmodified GNU text). JUCE is used under its GPLv3 option. Closed-source distribution would need a commercial JUCE licence.
-- Repository: `https://github.com/tfroehlich82/AudioPluginSuite`. The `origin` remote points there.
+- Repository: `https://github.com/FROTH-Audio/AudioPluginSuite`. The `origin` remote points there.
 - The owner works on Windows in VS Code with CMake Tools. The existing `build/` cache uses the `Visual Studio 18 2026` generator with the `clang-cl` compiler.
+- State versioning: saved sessions carry a `suiteStateVersion` attribute. States without the attribute are version 1. Newer states than the plugin are refused.
 
 ---
 
@@ -32,6 +33,7 @@ Three audio plugins written with JUCE 9.0.5 in C++17. Formats: VST3 on Windows a
 CMakeLists.txt                    Root: JUCE pin, global definitions, options, SUITE_PLUGIN_FORMATS
 AGENTS.md / CLAUDE.md             This file / Claude Code specifics (points here)
 README.md, CHANGELOG.md, LICENSE  User and developer docs, history, licence
+docs/plans/                       Ordered plans 00 to 06. Index and execution order: docs/plans/README.md
 modules/
   core_dsp/                       Header-only DSP, depends on juce::juce_dsp
     include/CoreDSP.h             Umbrella header; decibelsToGain()
@@ -52,21 +54,23 @@ modules/
     tests/SuiteModulationTests.cpp  SuiteModulationTests (9 test functions), with a stub processor
     suite_modulation.cmake        suite_modulation_add_to_target(<target>): adds sources + include dir. Needs suite_ui_add_to_target on the same target
   suite_ui/                       Shared UI. NOT a library target, see section 8
-    include/SuiteLookAndFeel.h    SuiteUI::Colours: the neutral palette shared by all plugins, plus SuiteLookAndFeel (LookAndFeel_V4)
+    include/SuiteLookAndFeel.h    SuiteUI::Colours: the neutral palette shared by all plugins, SuiteLookAndFeel (LookAndFeel_V4), and kRefreshHz (the 60 Hz editor timer rate)
     include/SuiteWidgets.h        SpectrumDisplay, TrailPlot, CurveView, LevelMeter, SegmentedSelector, LabelledSlider
     include/SuiteBrand.h          drawBrandLockup(): draws a brand lockup image at the left of a header area
-    brand/                        Generated artwork: brand_mark.png and lockup_<plugin>.png. Made by tools/brand/make_brand.py, do not edit by hand
+    brand/                        Generated artwork: brand_mark.png and lockup_<plugin>.png. Made by tools/brand/build.py, do not edit by hand
     Source/*.cpp                  Implementations
     SuiteUI.cmake                 suite_ui_add_to_target(<target>): adds sources + include dir
     tests/SuiteUITests.cpp        SuiteUITests (9 test functions)
     CMakeLists.txt                SuiteUITests only
+  suite_plugin/                   Build recipe. NOT a library target, see section 9
+    SuitePlugin.cmake             suite_add_plugin(...): juce_add_plugin, sources, lockup, links, <Name>Tests and add_test from one call. Checks PLUGIN_CODE is unique
 plugins/<Name>/
-  CMakeLists.txt                  juce_add_plugin, links, <Name>Tests executable, add_test
+  CMakeLists.txt                  One suite_add_plugin(...) call (see section 9)
   Source/PluginProcessor.{h,cpp}  APVTS, processing, state, createPluginFilter()
   Source/PluginEditor.{h,cpp}     Editor, 60 Hz Timer reads processor snapshots
-  tests/PluginTests.cpp           Plugin tests: SpectralDrift 19, DynamicSaturation 17, MicroTimingChaos 34
+  tests/PluginTests.cpp           Plugin tests: SpectralDrift 22, DynamicSaturation 19, MicroTimingChaos 40
 plugins/MicroTimingChaos/         Additional files:
-  MicroTimingChaosLookAndFeel.h   At the plugin root (not include/). MTC-only colours (axes, LFOs, preview text); the neutrals come from SuiteUI::Colours. Plus the LookAndFeel
+  MicroTimingChaosLookAndFeel.h   At the plugin root (not include/). MTC-only colours (axes, LFOs, preview text); the neutrals come from SuiteUI::Colours. Derives from SuiteUI::SuiteLookAndFeel for the shared setup. It keeps its own knob, toggle, combo box, linear slider and fonts, so the window is unchanged (plan 02 results)
   Source/MicroTimingChaosLookAndFeel.cpp  Rotary knobs, BPM Sync button, combo box; textures and icons from BinaryData
   Source/LerpCurveEditor.{h,cpp}  The 5-point curve editor (Curve tab)
   Source/LerpPreview.{h,cpp}      The live drift preview (Preview tab)
@@ -79,6 +83,9 @@ tests/
   common/PluginTestUtils.h        Helpers: setParameter, checkRange, checkStateRoundTrip, checkEditor, addSine, ...
   host/PluginHostTests.cpp        Loads a built .vst3 through JUCE's VST3 host (scan, instantiate, editor, process)
   host/CMakeLists.txt             PluginHostTests + one ctest entry per plugin
+tools/new_plugin/
+  new_plugin.py                   Creates plugins/<Name>/ from the skeleton, and refuses a plugin code already in use
+  skeleton/                       CMakeLists.txt, Source/Plugin{Processor,Editor}.{h,cpp}, tests/PluginTests.cpp, with __NAME__, __PRODUCT__ and __CODE__ placeholders
 .github/workflows/build.yml       CI: Windows (windows-latest) + macOS (macos-15, default Xcode). Build, ctest, upload VST3
 .github/workflows/release.yml     Manual release (workflow_dispatch): build, test, package zips, gh release create
 ```
@@ -102,9 +109,10 @@ $CM = "C:\Program Files\Microsoft Visual Studio\18\Community\Common7\IDE\CommonE
 - `-DSUITE_BUILD_PLUGINS=OFF` builds only CoreDSP and its tests. The SuiteUI tests are only registered when plugins are on.
 - macOS CI runs `macos-15` with the runner's default Xcode, and Apple clang is built with `-ffp-contract=off` (see section 11 and [section 10](#10-open-items-and-known-risks)).
 - JUCE is fetched by `FetchContent` into `build/_deps/juce-src`. That directory is a full local copy: grep it to check any API before using it.
+- Build records for the pre-refactor baseline are in `build/baselines/phase0-pre-refactor/`, and the converted tree in `build/baselines/phase1-after-suite_add_plugin/`. They are generated and not committed (`build/` is ignored). To regenerate: `git archive 0d21400` into `build/baselines/src`, configure that tree with `-DFETCHCONTENT_SOURCE_DIR_JUCE=<repo>/build/_deps/juce-src` so JUCE is not fetched again, build Release, then save `Defs.txt`, `Info.txt`, `<Name>_resources.rc`, the VST3 file list and the source lists from each `.vcxproj`.
 - Asset embedding: `juce_add_binary_data(MicroTimingChaosAssets ...)` builds a `BinaryData` target that the plugin and its test executable link. Add new icons or textures to its `SOURCES` list, then reference them by the generated name (`file_name_with_underscores`, for example `bpm_sync_active_svg`).
 
-Last verified status (2026-11-07): JUCE 9.0.5. Full Release build succeeds on Windows. All 9 CTest entries pass: CoreDSPTests, SuiteUI_Tests, SuiteModulation_Tests, the three plugin test executables, and the three VST3 host-load tests. SuiteUI_Tests also passed against JUCE 8.0.6, the previous pin, which is the version CI ran (last checked 2026-11-06, not re-run since). macOS is not verified on JUCE 9.
+Last verified status (2026-11-08): JUCE 9.0.5. Full Release build succeeds on Windows with no errors and no deprecation warnings (the `juce::Font` constructors were replaced by `juce::FontOptions`). All 10 CTest entries pass, including `SuiteState_Tests`, the plugin state tests and the phase 0 fixture check when `SUITE_FIXTURE_DIR` is set. Before 2026-11-08 the list was 9 entries: CoreDSPTests, SuiteUI_Tests, SuiteModulation_Tests, the three plugin test executables, and the three VST3 host-load tests. SuiteUI_Tests also passed against JUCE 8.0.6, the previous pin, which is the version CI ran (last checked 2026-11-06, not re-run since). macOS is not verified on JUCE 9.
 
 ---
 
@@ -302,13 +310,15 @@ Audio: the stereo buffer passes through unchanged (tested).
 
 ## 6. Test architecture
 
-Nine CTest entries run seven executables: `CoreDSPTests` (29 test functions), `SuiteUI_Tests` (`SuiteUITests`, 9), `SuiteModulation_Tests` (`SuiteModulationTests`, 9), `SpectralDriftTests` (19), `DynamicSaturationTests` (17), `MicroTimingChaosTests` (34), and `PluginHostTests`, which has one ctest entry per plugin (3). The README has the full list.
+Nine CTest entries run seven executables: `CoreDSPTests` (29 test functions), `SuiteUI_Tests` (`SuiteUITests`, 9), `SuiteModulation_Tests` (`SuiteModulationTests`, 9), `SpectralDriftTests` (22), `DynamicSaturationTests` (19), `MicroTimingChaosTests` (40), and `PluginHostTests`, which has one ctest entry per plugin (3). The README has the full list.
 
 **Module tests** (`modules/suite_modulation/tests/SuiteModulationTests.cpp`): the router, with a stub processor (no plugin). They cover the routed LFO, the zero case (bit for bit), bipolar amounts, whole-number targets, Host Sync ignoring Tempo, the one-bar period, sample and hold, out-of-range indices, and the control display (values set without notifying). Not covered: the control display skipping a slider the mouse holds, since the test cannot press a mouse button. The panel and scope are checked only by the MicroTimingChaos editor test.
 
 **Assertions.** Every test file starts with `#undef NDEBUG` before `<cassert>`. Release builds (what CI uses) would otherwise compile every `assert` away. Keep this in every new test file.
 
 **DSP tests** (`modules/core_dsp/tests/DSPTests.cpp`): pure functions and engines, no GUI. This includes the sequencer helpers (`blendDegree`, `timingOffsetMs`, `swingBeats`, `gateBeats`, `velocityFor`).
+
+**State tests** (in each plugin's `PluginTests.cpp`): a round trip with every parameter moved off its default, a refusal test (a state with `suiteStateVersion` 99 changes nothing), and a fixture test that loads a state saved before the `SuiteState` change and checks each recorded value. The fixture test reads `SUITE_FIXTURE_DIR`, and skips with a message when it is not set. The fixtures are not in the repository. The Micro-Timing Chaos fixture also checks the Lerp curve.
 
 **Plugin tests** (`plugins/<Name>/tests/PluginTests.cpp`): each executable compiles the plugin's own sources directly. The Micro-Timing Chaos plugin keeps its source list in the CMake variable `MICRO_TIMING_CHAOS_SOURCES`, which the plugin and its test executable both use, so a new source file only needs adding in one place. Tests include `tests/common/PluginTestUtils.h`. They run under `juce::ScopedJuceInitialiser_GUI`, and `JUCE_MODAL_LOOPS_PERMITTED=1` is defined for them so `MessageManager::runDispatchLoopUntil` exists. `checkEditor()` runs the message loop so the editor's 60 Hz timer fires, then paints the editor into an image.
 
@@ -319,6 +329,8 @@ The Micro-Timing Chaos tests cover the lerp curve (defaults, point editing and o
 **Spectral Drift and Dynamic Saturation tests** cover the parameters, state, latency, the editor (both pages paint, and each page draws content of its own, and switching pages changes no parameter), and the shared routing: default routing is bit-identical, routed controls move the audio, synced LFOs follow the tempo clock, and routed values stay in range. The SD test `testOutputGainRampMatchesChannels` checks that both channels see the same output-gain ramp.
 
 **SuiteUI tests** (`modules/suite_ui/tests/SuiteUITests.cpp`): widget logic and painting into images, including the look and feel's drawing paths.
+
+**Editor renders** (`testRenderBaseline` in each plugin's `PluginTests.cpp`): when `SUITE_RENDER_DIR` is set, the test writes a PNG of each editor view: SpectralDrift and DynamicSaturation SOUND and MOD, and MicroTimingChaos CURVE and PREVIEW. Each view is rendered twice in one process and the test fails if the two differ. Without the variable it prints SKIP and CTest is unchanged. Store the output under `build/`. Across processes, the MicroTimingChaos PREVIEW view once differed in 3 glyph-edge pixels on its first render; see plan 02 for the measurement.
 
 Test helpers you will use: `setParameter(apvts, id, value)` takes denormalised values. `checkRange` checks the normalisable range and the default. `checkParameterIds` checks the count against `numControls`. `checkStateRoundTrip` saves state, changes a value and restores it. `addSine` adds to a buffer using a global sample index. `paintComponent` and `countChangedPixels` render a component and count the sampled pixels that differ between two renders (for example, a page shown against the same page with its children hidden).
 
@@ -347,7 +359,7 @@ Mouse events in tests use the 15-argument `juce::MouseEvent` constructor, which 
 - **Modulation in normalised space.** An amount of ±100 % sweeps the full range of the target, whatever its scale.
 - **Discrete targets excluded** (Rate, Length, Scale, Root, Octaves, Host Sync). They would change the length or pitch set abruptly. Seed is a target since commit 5eff266: it is read through `modulatedValue`, so a modulated seed changes the pattern and melody.
 - **Tempo modulation applies only while Host Sync is off**, because the host tempo is authoritative when synced.
-- **LFO and routing live in `suite_modulation`.** The `Router` uses target indices, not enums, so any plugin can share it. Each plugin supplies its own target table (`TargetInfo`), with `wholeNumber` and `ignoredWhileHostSync` flags. The plugin's `ModTarget` enum keeps its numbers, which are the saved indices. The shared module reproduces MicroTimingChaos's routing exactly. Phase 4 of `docs/plans/suite-modulation-refactor.md` checked this against the editor render (byte-identical).
+- **LFO and routing live in `suite_modulation`.** The `Router` uses target indices, not enums, so any plugin can share it. Each plugin supplies its own target table (`TargetInfo`), with `wholeNumber` and `ignoredWhileHostSync` flags. The plugin's `ModTarget` enum keeps its numbers, which are the saved indices. The shared module reproduces MicroTimingChaos's routing exactly. The editor render was checked byte-identical before and after the move.
 - **The control display is a module class, not editor code.** `ControlDisplay` takes the router and the list of sliders, and it reads Host Sync through the router. Whole-number targets are rounded inside the router, so the display and the sequencer agree.
 - **Modulation applies before the lerp curve**, so a modulated Chaos moves along the curve.
 - **The routing and LFO settings are plain APVTS parameters**, so they automate, save and restore like the rest.
@@ -390,6 +402,8 @@ If you add a new consumer, use `suite_ui_add_to_target`. Do not add `SuiteUI` to
 
 **Changing a parameter range or default.** Update `createParameterLayout()`, the plugin test's `checkRange`, section 4 here, and the user README. Note the change in `CHANGELOG.md`, since saved sessions can be clamped by a new range.
 
+**Changing a saved parameter or state layout:** bump `stateVersion`, add a migration, add a fixture test. Saved sessions carry a `suiteStateVersion` attribute; states without the attribute are version 1. Newer states than the plugin are refused and leave the current state unchanged.
+
 **Changing a DSP engine**
 - Add a test in `DSPTests.cpp` first where possible. Keep the reconstruction test passing.
 - If latency changes, update `getLatencySamples`, the plugin latency tests, and the README latency table.
@@ -400,8 +414,15 @@ If you add a new consumer, use `suite_ui_add_to_target`. Do not add `SuiteUI` to
 
 ---
 
-**Adding modulation to a plugin** (from `docs/plans/suite-modulation-refactor.md`, phase 7 procedure)
-1. In the plugin's CMake: `suite_ui_add_to_target` then `suite_modulation_add_to_target`, for the plugin and its test executable.
+**Adding a plugin**
+1. Run `python tools/new_plugin/new_plugin.py <Name> "<Product name>" <Code>`. It copies `tools/new_plugin/skeleton/` into `plugins/<Name>/`, fills in the names, and refuses if the folder exists or the plugin code is in use. It writes nothing else.
+2. Add `add_subdirectory(plugins/<Name>)` to the root `CMakeLists.txt`, after the other plugins. The script prints this line.
+3. The plugin's CMake is one `suite_add_plugin(...)` call (`modules/suite_plugin/SuitePlugin.cmake`). It sets the plugin target, its `<Name>Tests` executable, the links, the lockup and `add_test`. Its arguments are described at the top of that file. `DESCRIPTION` sets the bundle description (default: the product name). The company website and copyright are set once, in the root `CMakeLists.txt`. Add `MODULATION` for the LFOs and routing, `MIDI_EFFECT` for a MIDI effect, and `LOCKUP` or `ASSETS` for embedded images and files.
+4. Add `suite_add_host_test(<Name>)` to `tests/host/CMakeLists.txt`. Add its accent colour and lockup to `tools/brand/build.py` and regenerate the artwork. Add it to the README and the CHANGELOG.
+5. The function checks that the plugin code is four characters and unique across all plugins. A duplicate stops configuration.
+
+**Adding modulation to a plugin** (the procedure used for Spectral Drift and Dynamic Saturation)
+1. In the plugin's CMake, pass `MODULATION` to `suite_add_plugin`. This adds `suite_ui_add_to_target` and `suite_modulation_add_to_target` to the plugin and its test executable.
 2. Declare a `static constexpr SuiteModulation::TargetInfo` table of the controls the routing may move, in ModTarget order, with `wholeNumber` and `ignoredWhileHostSync` where they apply. Append only.
 3. Add `SuiteModulation::Router::addParameters (params, names)` to `createParameterLayout()`, with `names` = `"None"` followed by the target names, in table order.
 4. Construct the router in the processor after `apvts`, with the table and the host sync ID (or `nullptr`). Call `prepare`, `computeOffsets`, `publish` and `advanceBlock` as MicroTimingChaos does. Read each routed control through `modulate`.
@@ -497,6 +518,82 @@ The original brief (`coding_agent_prompt.md`) is no longer in the repository. Th
 - Release: GitHub Actions → *Release* → *Run workflow* (version without `v`, draft on by default).
 
 ---
+
+## 14. Working notes for coding agents
+
+Each item is a mistake or a slow path hit during the framework work (2026-11-08). Read them before you start, and add to the list when you hit something new.
+
+**Stay inside the project.** Build output goes in `build/`, logs in `build/logs/`, baselines in `build/baselines/`. Do not write to `%TEMP%`, the home folder or a sibling folder. The owner asked for this. A baseline once sat in `Documents\PROJECTS\baselines` and had to be moved back.
+
+**Use absolute paths.** The shell's working directory persists between calls and can change under you. One search ran in `docs/plans` and missed `AGENTS.md`.
+
+**Shells.** `bash` in PowerShell starts WSL on this machine, not Git Bash. Use the Bash tool for `git archive`, `sed` and `grep`.
+
+**Processes.** Do not stop CMake or any other process. The IDE may own it. If a command is refused, do not look for another route to the same effect. Report it.
+
+**Encoding.** `Set-Content` writes ANSI and corrupts UTF-8 text. Edit with the Edit tool, or write bytes and keep the BOM and line endings. After an edit, `git diff --stat` should list only the lines you meant to change. A whole-file diff means line endings changed.
+
+**Untracked files.** `docs/plans/` is untracked, so git cannot restore a file deleted there. Show the owner before you delete one.
+
+**Build facts.** JUCE 9 does not write `JucePluginDefines.h`. The same data is in `<Name>_artefacts/JuceLibraryCode/Release/Defs.txt` and `Info.txt`. The root project is `VERSION 1.0.0`, so the plugin version is 1.0.0 even without a `VERSION` argument.
+
+**Deprecations.** Count them from the build log after the changed files rebuild. `juce::Font (x, flags)` is deprecated. The replacement is `juce::Font (juce::FontOptions (x, flags))`. Do not silence a warning with a pragma.
+
+**Asserts.** `tests/common/PluginTestUtils.h` undefines `NDEBUG` before `<cassert>`, so plugin asserts also run in Release. Do not add a second check mechanism.
+
+**Plans can be wrong.** Check each claim against the code before you build on it. Two examples from the framework work: a plan said `IS_SYNTH FALSE` for every plugin, but MicroTimingChaos is `TRUE`; and a plan said "six JUCE modules" where the plugins link five plus `SuiteState`.
+
+**Links drift.** Grep the repo for a file name before you rely on a link. Renamed plans are listed in `docs/plans/README.md`.
+
+**The brand generator.** It is `tools/brand/build.py`. `.gitignore` excludes `tools/brand/`, so the script is not in git. Do not assume it is tracked, and do not commit it without the owner's decision.
+
+**Throwaway builds.** When a test needs a root change, such as a new plugin, build in a folder under `build/`, then remove the root line and the folder. Check `git status` at the end.
+
+**Verification.** Run all 10 CTest entries before you say a change works. A change in the entry count is a change in the test set, so report it. Say which checks you could not run, such as macOS or a desktop-only editor test.
+
+**Stop and report** when a step needs the owner: a commit, a push, a macOS machine, an external search, a licence decision, or a deletion of an untracked file.
+
+## 15. Post-change checks
+
+Run these after every change, before you report it as working. Each one was missed at least once in the framework work (2026-11-08), and each miss hid a real defect. Run them in order.
+
+**1. Clean build, then count.** Run `--target clean`, then a full Release build. An incremental build compiles only the files you touched, so warnings in untouched targets stay hidden. Incremental builds reported no warnings. The clean build showed four `getenv` deprecations in test code, and two more in files that had not changed.
+
+```powershell
+$CM = "C:\Program Files\Microsoft Visual Studio\18\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe"
+& $CM --build "C:\Users\tfroe\Documents\PROJECTS\AudioPluginSuite\build" --config Release --target clean
+& $CM --build "C:\Users\tfroe\Documents\PROJECTS\AudioPluginSuite\build" --config Release --parallel 8 > "C:\Users\tfroe\Documents\PROJECTS\AudioPluginSuite\build\logs\check-build.log" 2>&1
+Select-String -Path "C:\Users\tfroe\Documents\PROJECTS\AudioPluginSuite\build\logs\check-build.log" -Pattern " error " | Measure-Object   # must be 0
+Select-String -Path "C:\Users\tfroe\Documents\PROJECTS\AudioPluginSuite\build\logs\check-build.log" -Pattern "warning" | Measure-Object  # must be 0
+```
+
+**2. CTest.** Run all 10 entries, with `ctest.exe --test-dir build -C Release --output-on-failure`. A changed entry count is a changed test set. Say so.
+
+**3. Look for escape damage.** A PowerShell replace once wrote the two characters backtick and `n` into C++ source in place of newlines. Search every changed file for them, and for duplicate definitions:
+
+```powershell
+Select-String -Path <changed files> -Pattern '`n' -SimpleMatch      # must print nothing
+```
+
+Then check each function you touched is defined once: `Select-String -Pattern 'Processor::<name>\('` should return one definition.
+
+**4. Diff shape.** Run `git diff --stat`. A file listed with far more lines than you edited means line endings or encoding changed. A `CRLF will be replaced by LF` warning on a file you did not touch means the file mixes endings; leave it alone and mention it.
+
+**5. Declarations match.** Check each `override` against a base virtual with the same signature. Check that no abstract class is used as a data member: a pure-virtual interface can only be a base, or be held by pointer or reference. An abstract class in a member declaration fails only at the build, after the edit looks finished.
+
+**6. Includes resolve.** Every `#include` you added must be on an include path. Check that the CMake function that adds the include directory is actually called for that target. The presets header was not found because its CMake function existed but was never called.
+
+**7. Renders.** Any change to a look and feel, a layout or a colour needs a before and after render of every affected editor, compared byte for byte, and both renders stored under `build/`. No render means no claim of "no visible change". Plan 02 requires this before its own phase 2.
+
+**8. Plan claims.** Before you mark a plan step done, grep for the thing it says was removed or added. `MicroTimingChaosLookAndFeel.h` was still present after the plan said it was removed. A plan step is done when the code shows it, not when a status line says so.
+
+**9. Documents.** After a rename or deletion, grep the repo for the old name, including `AGENTS.md`, `CLAUDE.md`, `README.md` and `docs/`. Plan links break silently.
+
+**10. Edits to files.** Count matches before you replace, and stop if the count is not what you expect. Keep the BOM and line endings. Make a scripted edit idempotent: skip it if the change is already present, so a rerun after a partial failure does not double it. Do not use `Set-Content` on UTF-8 files.
+
+**11. Untracked work.** Run `git status --short` at the end. Anything new and untracked must be deliberate: a source file to keep, a plan the owner expects, or a build output that `.gitignore` covers. Show the owner any untracked file you did not create.
+
+**12. Report what you did not check.** List the checks you could not run here, such as macOS, the AU build, renders on a desktop session, or a DAW. Do not describe them as passing.
 
 ## Owner Rules
 
