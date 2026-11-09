@@ -33,6 +33,12 @@ namespace SuiteState
         newerThanPlugin
     };
 
+    /** True if the saved state is from a newer plugin than the current one. */
+    inline bool isNewerThanPlugin (int storedVersion, int currentVersion) noexcept
+    {
+        return storedVersion > currentVersion;
+    }
+
     namespace detail
     {
         // JUCE's AudioProcessor::copyXmlToBinary and getXmlFromBinary are protected, so the same format is written here.
