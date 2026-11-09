@@ -134,6 +134,11 @@ public:
     void getStateInformation (juce::MemoryBlock&) override;
     void setStateInformation (const void*, int) override;
 
+    // Preset system: StateHolder interface
+    juce::String getPresetPluginId() const override { return "SpectralDrift"; }
+    juce::AudioProcessorValueTreeState& getPresetStateTree() override { return apvts; }
+    void applyPresetState (const juce::ValueTree&) override;
+
     const SpectrumSnapshot& getSpectrumSnapshot() const noexcept { return snapshot; }
 
 private:

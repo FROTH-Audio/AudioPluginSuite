@@ -110,6 +110,11 @@ public:
     void getStateInformation (juce::MemoryBlock&) override;
     void setStateInformation (const void*, int) override;
 
+    // Preset system: StateHolder interface
+    juce::String getPresetPluginId() const override { return "DynamicSaturation"; }
+    juce::AudioProcessorValueTreeState& getPresetStateTree() override { return apvts; }
+    void applyPresetState (const juce::ValueTree&) override;
+
     juce::AudioProcessorValueTreeState apvts;
 
     int stateVersion = 1;

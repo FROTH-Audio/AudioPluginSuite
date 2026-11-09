@@ -16,6 +16,9 @@ endif()
 option(SUITE_BUILD_PLUGINS "Build the VST3 / AU / Standalone plugins" ON)
 option(SUITE_BUILD_TESTS "Build and register the unit tests" ON)
 
+option(SUITE_PRO_PRESETS "Build the Pro preset browser and factory bank" OFF)
+include(${CMAKE_SOURCE_DIR}/modules/suite_presets/SuitePresets.cmake)
+
 # JUCE is pinned to a release tag so that builds are reproducible.
 include(FetchContent)
 set(JUCE_BUILD_EXTRAS OFF CACHE BOOL "" FORCE)

@@ -589,6 +589,16 @@ void MicroTimingChaosProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
     }
     else
     {
+        // Panic flag from preset load: clear the grid to prevent stuck notes.
+        if (panicRequested.load(std::memory_order_relaxed))
+        {
+            panicRequested.store(false, std::memory_order_relaxed);
+            stopAllNotes();
+            pending.clear();
+            sounding.clear();
+            nextStep = 0;
+        }
+
         // Delays count from the start of playback
         if (! wasRunning)
             modulation.restartDelayClock();
@@ -674,7 +684,19 @@ void MicroTimingChaosProcessor::setStateInformation (const void* data, int sizeI
     // Reads the curve back once the parameters are in place. Nothing changes if the state is refused.
     SuiteState::read (data, sizeInBytes, apvts, stateVersion, migrations, [this] (const juce::ValueTree&) {
         loadLerpCurveFromState();
+        // If new state was loaded, clear any pending panic from a previous preset load.
+        if (panicRequested.load(std::memory_order_relaxed))
+            panicRequested.store(false, std::memory_order_relaxed);
     });
+}
+
+void MicroTimingChaosProcessor::applyPresetState (const juce::ValueTree& tree)
+{
+    // Presets use resetMissing=true so absent parameters are set to default.
+    SuiteState::read (tree.createXml()->getFirstChild(), -1, apvts, stateVersion, migrations, {}, true);
+    
+    // If this is a mid-playback preset load, clear the grid to prevent stuck notes.
+    panicRequested.store(true, std::memory_order_relaxed);
 }
 
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()

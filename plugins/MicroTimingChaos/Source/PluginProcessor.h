@@ -147,11 +147,19 @@ public:
     void getStateInformation (juce::MemoryBlock&) override;
     void setStateInformation (const void*, int) override;
 
+    // Preset system: StateHolder interface
+    juce::String getPresetPluginId() const override { return "MicroTimingChaos"; }
+    juce::AudioProcessorValueTreeState& getPresetStateTree() override { return apvts; }
+    void applyPresetState (const juce::ValueTree&) override;
+
     juce::AudioProcessorValueTreeState apvts;
 
     /** Saved-state version and its migrations (see SuiteState). Bump stateVersion when the saved layout changes. */
     int stateVersion = 1;
     std::vector<SuiteState::Migration> migrations;
+
+    /** Panic flag: set by applyPresetState to clear grid mid-playback. */
+    std::atomic<bool> panicRequested { false };
 
     /** Oldest-to-newest (x, y) attractor points in [-1, 1], for the phase-space plot. */
     std::vector<juce::Point<float>> getTrail() const;
