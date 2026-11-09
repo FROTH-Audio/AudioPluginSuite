@@ -1,0 +1,9 @@
+{
+  "_name": "Triplet Drift",
+  "_category": "Rhythmic",
+  "_description": "12 steps with a negative swing.",
+  "_plugin": "MicroTimingChaos",
+  "_pluginVersion": "1.0.0",
+  "length": 12,
+  "swing": -10.0
+}

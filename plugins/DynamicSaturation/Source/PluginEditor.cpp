@@ -231,8 +231,8 @@ void DynamicSaturationEditor::resized()
     auto area = getLocalBounds().reduced (16);
     area.removeFromTop (headerHeight);
 
-    // Reserve space for the preset bar, right-aligned in the header. The stub reports height 0, which
-    // keeps the public build's layout identical to before the preset system.
+    // Reserve space for the preset bar (300x30), right-aligned in the header. The bar ships in
+    // every build now.
     const int barWidth = 300;
     const int barHeight = presetBar != nullptr ? presetBar->getPreferredHeight() : 0;
     if (barHeight > 0)

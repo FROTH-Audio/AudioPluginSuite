@@ -1,0 +1,10 @@
+{
+  "_name": "Saw Sweep",
+  "_category": "Rhythmic",
+  "_description": "Slow saw sweep across the bins.",
+  "_plugin": "SpectralDrift",
+  "_pluginVersion": "1.0.0",
+  "driftRate": 0.5,
+  "spread": 0.3,
+  "lfoShape": 2
+}

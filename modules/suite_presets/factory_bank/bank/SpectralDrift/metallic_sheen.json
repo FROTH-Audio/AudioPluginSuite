@@ -1,0 +1,10 @@
+{
+  "_name": "Metallic Sheen",
+  "_category": "Bright",
+  "_description": "Bright tilt with a small upward shift.",
+  "_plugin": "SpectralDrift",
+  "_pluginVersion": "1.0.0",
+  "spread": 0.1,
+  "shift": 7.0,
+  "tilt": 1.5
+}

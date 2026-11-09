@@ -1,0 +1,9 @@
+{
+  "_name": "Release Tail",
+  "_category": "Ambient",
+  "_description": "Long release, partly wet.",
+  "_plugin": "DynamicSaturation",
+  "_pluginVersion": "1.0.0",
+  "mix": 60.0,
+  "release": 1200.0
+}

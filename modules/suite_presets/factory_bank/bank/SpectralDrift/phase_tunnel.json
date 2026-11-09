@@ -1,0 +1,10 @@
+{
+  "_name": "Phase Tunnel",
+  "_category": "Wide",
+  "_description": "Full depth and a long feedback path.",
+  "_plugin": "SpectralDrift",
+  "_pluginVersion": "1.0.0",
+  "depth": 100.0,
+  "spread": 0.6,
+  "feedback": 10.0
+}

@@ -1,0 +1,10 @@
+{
+  "_name": "Pentatonic Bells",
+  "_category": "Melodic",
+  "_description": "High pentatonic with long gates.",
+  "_plugin": "MicroTimingChaos",
+  "_pluginVersion": "1.0.0",
+  "gate": 90.0,
+  "root": 60,
+  "scale": 3
+}

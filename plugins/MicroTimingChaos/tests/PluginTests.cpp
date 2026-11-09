@@ -814,26 +814,51 @@ namespace
         pass ("testPresetStateRoundTrip");
     }
 
-    // The public build has no preset bank: the seam must report unavailable and the bar must be empty.
-    void testPresetSeamUnavailable()
+    // A preset that carries no lerpCurve resets the curve to its default, the same rule the
+    // parameters follow. Without this an applied delta silently keeps the previous preset's curve.
+    void testPresetWithoutCurveResetsToDefault()
     {
-#if ! SUITE_PRO_PRESETS
-        assert (! SuitePresets::isAvailable());
+        Processor processor;
+        processor.prepareToPlay (sampleRate, blockSize);
+
+        processor.setLerpCurvePoint (2, { 0.6f, 0.4f });
+        assert (std::abs (processor.getLerpCurve()[2].y - 0.4f) < 1.0e-4f);
+
+        juce::ValueTree tree ("PARAMETERS");
+        tree.setProperty (SuiteState::versionProperty, 1, nullptr);
+        processor.applyPresetState (tree);
+
+        const auto curve = processor.getLerpCurve();
+        assert (std::abs (curve[2].y - std::log10 (5.5f)) < 1.0e-5f);
+        assert (curve[0].x == 0.0f && curve[4].x == 1.0f);
+
+        pass ("testPresetWithoutCurveResetsToDefault");
+    }
+
+    // The preset bar ships in every build. Without the bank it shows only user presets and INIT.
+    void testPresetBar()
+    {
+        assert (SuitePresets::isAvailable());
 
         Processor processor;
         SuitePresets::PresetBar bar (processor, juce::Colour (0xff7dff5a));
-        assert (bar.getPreferredHeight() == 0);
+        assert (bar.getPreferredHeight() == 30);
+
+#if SUITE_PRESET_BANK
+        assert (bar.getNumFactoryPresets() > 0);
+#else
+        assert (bar.getNumFactoryPresets() == 0);
 #endif
 
         // Without the program flag the plugin keeps the single default program.
-#if ! SUITE_PRO_PRESETS_AS_PROGRAMS
+#if ! SUITE_PRESET_BANK_AS_PROGRAMS
         {
-            Processor processor;
-            assert (processor.getNumPrograms() == 1);
-            assert (processor.getProgramName (0).isEmpty());
+            Processor processor2;
+            assert (processor2.getNumPrograms() == 1);
+            assert (processor2.getProgramName (0).isEmpty());
         }
 #endif
-        pass ("testPresetSeamUnavailable");
+        pass ("testPresetBar");
     }
 
     // Drift is curve(chaos) * multiplier, scaled by Lerp. At Lerp 0 nothing drifts, and a zero multiplier switches its axis off.
@@ -1497,7 +1522,8 @@ int main()
     testParameters();
     testStateRoundTrip();
     testPresetStateRoundTrip();
-    testPresetSeamUnavailable();
+    testPresetWithoutCurveResetsToDefault();
+    testPresetBar();
     testStateRoundTripAllParameters();
     testStateRefusal();
     testLoadsPhase0Fixture();

@@ -179,26 +179,30 @@ namespace
         pass ("testStateRefusal");
     }
 
-    // The public build has no preset bank: the seam must report unavailable and the bar must be empty.
-    void testPresetSeamUnavailable()
+    // The preset bar ships in every build. Without the bank it shows only user presets and INIT.
+    void testPresetBar()
     {
-#if ! SUITE_PRO_PRESETS
-        assert (! SuitePresets::isAvailable());
+        assert (SuitePresets::isAvailable());
 
         Processor processor;
         SuitePresets::PresetBar bar (processor, juce::Colour (0xffff9f1c));
-        assert (bar.getPreferredHeight() == 0);
+        assert (bar.getPreferredHeight() == 30);
+
+#if SUITE_PRESET_BANK
+        assert (bar.getNumFactoryPresets() > 0);
+#else
+        assert (bar.getNumFactoryPresets() == 0);
 #endif
 
         // Without the program flag the plugin keeps the single default program.
-#if ! SUITE_PRO_PRESETS_AS_PROGRAMS
+#if ! SUITE_PRESET_BANK_AS_PROGRAMS
         {
-            Processor processor;
-            assert (processor.getNumPrograms() == 1);
-            assert (processor.getProgramName (0).isEmpty());
+            Processor processor2;
+            assert (processor2.getNumPrograms() == 1);
+            assert (processor2.getProgramName (0).isEmpty());
         }
 #endif
-        pass ("testPresetSeamUnavailable");
+        pass ("testPresetBar");
     }
 
     // Loads a state saved before the SuiteState change (a phase 0 fixture) and checks each recorded value.
@@ -685,7 +689,7 @@ int main()
     testParameters();
     testStateRoundTrip();
     testPresetStateRoundTrip();
-    testPresetSeamUnavailable();
+    testPresetBar();
     testStateRoundTripAllParameters();
     testStateRefusal();
     testLoadsPhase0Fixture();

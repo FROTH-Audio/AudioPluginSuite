@@ -16,10 +16,16 @@ endif()
 option(SUITE_BUILD_PLUGINS "Build the VST3 / AU / Standalone plugins" ON)
 option(SUITE_BUILD_TESTS "Build and register the unit tests" ON)
 
-option(SUITE_PRO_PRESETS "Build the Pro preset browser and factory bank" OFF)
-option(SUITE_PRO_PRESETS_AS_PROGRAMS "Expose the Pro factory bank as host programs" OFF)
-set(SUITE_PRO_DIR "${CMAKE_SOURCE_DIR}/modules/suite_presets/pro_preset_bank" CACHE PATH
-    "Path to the private Pro preset overlay (contains include/, Source/, bank/)")
+# The preset bar, .ausp preset files and user presets ship in every build. SUITE_PRESET_BANK embeds
+# the free factory bank into the binaries; SUITE_PRESET_BANK_AS_PROGRAMS exposes that bank as host
+# programs (index-cached by hosts: bank order is append-only once the flag is on).
+option(SUITE_PRESET_BANK "Embed the factory preset bank into the plugin binaries" OFF)
+option(SUITE_PRESET_BANK_AS_PROGRAMS "Expose the embedded factory bank as host programs" OFF)
+
+if(SUITE_PRESET_BANK_AS_PROGRAMS AND NOT SUITE_PRESET_BANK)
+    message(FATAL_ERROR "SUITE_PRESET_BANK_AS_PROGRAMS=ON needs SUITE_PRESET_BANK=ON")
+endif()
+
 include(${CMAKE_SOURCE_DIR}/modules/suite_presets/SuitePresets.cmake)
 
 # JUCE is pinned to a release tag so that builds are reproducible.
@@ -59,10 +65,10 @@ if(SUITE_BUILD_TESTS OR SUITE_BUILD_PLUGINS)
     add_subdirectory(modules/suite_state)
 endif()
 
-add_subdirectory(modules/suite_presets)  # Public seam: StateHolder, PresetBar
-if(SUITE_PRO_PRESETS)
-    add_subdirectory(modules/suite_presets/pro_preset_bank)  # Pro overlay: bank, bar, file I/O
+if(SUITE_PRESET_BANK)
+    add_subdirectory(modules/suite_presets/factory_bank)  # embedded bank data target, adds first
 endif()
+add_subdirectory(modules/suite_presets)  # PresetBar, .ausp I/O, menu model (ships in every build)
 
 if(SUITE_BUILD_PLUGINS)
     include(${CMAKE_SOURCE_DIR}/modules/suite_modulation/suite_modulation.cmake)

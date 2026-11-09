@@ -1,0 +1,11 @@
+{
+  "_name": "Tempo Rider",
+  "_category": "Utility",
+  "_description": "Triangle LFO moves the tempo.",
+  "_plugin": "MicroTimingChaos",
+  "_pluginVersion": "1.0.0",
+  "lfo2Shape": 1,
+  "mod1Source": 1,
+  "mod1Target": 13,
+  "mod1Amount": 30.0
+}

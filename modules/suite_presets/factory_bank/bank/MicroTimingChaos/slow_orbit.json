@@ -1,0 +1,10 @@
+{
+  "_name": "Slow Orbit",
+  "_category": "Ambient",
+  "_description": "Slow, sparse orbit.",
+  "_plugin": "MicroTimingChaos",
+  "_pluginVersion": "1.0.0",
+  "density": 50.0,
+  "lerp": 40.0,
+  "speed": 0.5
+}

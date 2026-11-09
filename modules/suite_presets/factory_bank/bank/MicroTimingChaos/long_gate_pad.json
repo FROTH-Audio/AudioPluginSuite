@@ -1,0 +1,10 @@
+{
+  "_name": "Long Gate Pad",
+  "_category": "Ambient",
+  "_description": "Long gates, sparse and soft.",
+  "_plugin": "MicroTimingChaos",
+  "_pluginVersion": "1.0.0",
+  "density": 40.0,
+  "gate": 100.0,
+  "baseVelocity": 70
+}

@@ -1,0 +1,8 @@
+{
+  "_name": "Half Time",
+  "_category": "Rhythmic",
+  "_description": "Eighth notes.",
+  "_plugin": "MicroTimingChaos",
+  "_pluginVersion": "1.0.0",
+  "rate": 1
+}

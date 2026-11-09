@@ -1,0 +1,10 @@
+{
+  "_name": "Full Send",
+  "_category": "Extreme",
+  "_description": "Maximum drive and bias.",
+  "_plugin": "DynamicSaturation",
+  "_pluginVersion": "1.0.0",
+  "drive": 24.0,
+  "bias": 0.25,
+  "fold": 40.0
+}

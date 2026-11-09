@@ -3,8 +3,8 @@
 #include "SuiteState.h"
 #include "PluginEditor.h"
 
-#if SUITE_PRO_PRESETS_AS_PROGRAMS
- #include "SuitePresetsPro.h"
+#if SUITE_PRESET_BANK_AS_PROGRAMS
+ #include "PresetBank.h"
 #endif
 
 #include <iterator>
@@ -336,7 +336,7 @@ void DynamicSaturationProcessor::applyPresetState (const juce::ValueTree& tree)
     const auto result = SuiteState::read (block.getData(), (int) block.getSize(), apvts, stateVersion,
                                           migrations, {}, true);
 
-#if SUITE_PRO_PRESETS_AS_PROGRAMS
+#if SUITE_PRESET_BANK_AS_PROGRAMS
     // A preset applied from the bar or a file is no longer one of the host programs.
     if (result == SuiteState::LoadResult::loaded)
         currentProgramIndex.store (-1, std::memory_order_relaxed);
@@ -347,12 +347,12 @@ void DynamicSaturationProcessor::applyPresetState (const juce::ValueTree& tree)
 
 //==============================================================================
 // Host program list. Program 0 is Init; 1 to N are the factory presets in bank order. The list only
-// exists in a Pro build with SUITE_PRO_PRESETS_AS_PROGRAMS on; otherwise the plugin reports one
+// exists in a build with SUITE_PRESET_BANK_AS_PROGRAMS on; otherwise the plugin reports one
 // program, as it did before the preset system.
 
 int DynamicSaturationProcessor::getNumPrograms()
 {
-#if SUITE_PRO_PRESETS_AS_PROGRAMS
+#if SUITE_PRESET_BANK_AS_PROGRAMS
     return SuitePresets::PresetPrograms::getNumPrograms (getPresetPluginId());
 #else
     return 1;
@@ -361,7 +361,7 @@ int DynamicSaturationProcessor::getNumPrograms()
 
 int DynamicSaturationProcessor::getCurrentProgram()
 {
-#if SUITE_PRO_PRESETS_AS_PROGRAMS
+#if SUITE_PRESET_BANK_AS_PROGRAMS
     return currentProgramIndex.load (std::memory_order_relaxed);
 #else
     return 0;
@@ -370,7 +370,7 @@ int DynamicSaturationProcessor::getCurrentProgram()
 
 void DynamicSaturationProcessor::setCurrentProgram (int index)
 {
-#if SUITE_PRO_PRESETS_AS_PROGRAMS
+#if SUITE_PRESET_BANK_AS_PROGRAMS
     if (SuitePresets::PresetPrograms::applyProgram (*this, index))
         currentProgramIndex.store (index, std::memory_order_relaxed);
 #else
@@ -380,7 +380,7 @@ void DynamicSaturationProcessor::setCurrentProgram (int index)
 
 const juce::String DynamicSaturationProcessor::getProgramName (int index)
 {
-#if SUITE_PRO_PRESETS_AS_PROGRAMS
+#if SUITE_PRESET_BANK_AS_PROGRAMS
     return SuitePresets::PresetPrograms::getProgramName (getPresetPluginId(), index);
 #else
     juce::ignoreUnused (index);
@@ -402,7 +402,7 @@ void DynamicSaturationProcessor::setCurrentProgramStateInformation (const void* 
 {
     setStateInformation (data, sizeInBytes);
 
-#if SUITE_PRO_PRESETS_AS_PROGRAMS
+#if SUITE_PRESET_BANK_AS_PROGRAMS
     currentProgramIndex.store (-1, std::memory_order_relaxed);
 #endif
 }

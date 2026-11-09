@@ -495,11 +495,11 @@ void MicroTimingChaosEditor::resized()
 {
     groups.clear();
 
-    // Reserve space for the preset bar, right-aligned in the header. The stub reports height 0, which
-    // keeps the public build's layout identical to before the preset system.
-    const int barWidth = 300;
-    const int barHeight = presetBar != nullptr ? presetBar->getPreferredHeight() : 0;
-    if (barHeight > 0)
+    // Reserve space for the preset bar (360x34 at design scale, right-aligned in the title band;
+    // around 240x23 px at the window's 2/3 scale). The window height does not change.
+    const int barWidth = 360;
+    const int barHeight = 34;
+    if (presetBar != nullptr && presetBar->getPreferredHeight() > 0)
         presetBar->setBounds (getLocalBounds().removeFromTop (titleBandHeight).removeFromRight (barWidth).withHeight (barHeight)
                                 .withY ((getLocalBounds().removeFromTop (titleBandHeight).getCentreY() - barHeight / 2)));
 

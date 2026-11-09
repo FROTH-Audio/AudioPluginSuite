@@ -1,0 +1,11 @@
+{
+  "_name": "Kick Punch",
+  "_category": "Drums",
+  "_description": "Short envelope, strong curve.",
+  "_plugin": "DynamicSaturation",
+  "_pluginVersion": "1.0.0",
+  "drive": 8.0,
+  "attack": 1.0,
+  "release": 50.0,
+  "curve": 2.0
+}
