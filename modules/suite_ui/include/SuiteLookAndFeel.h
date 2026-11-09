@@ -22,6 +22,13 @@ namespace SuiteUI
     /**
         Dark, flat look with neon accents: arc knobs with an LED ring, glow toggles and
         thin linear sliders. Every plugin editor sets this as its look and feel.
+
+        Pattern: instantiate with your accent colour, then call setLookAndFeel(&laf) in
+        createEditor(), and nullptr on shutdown. The same laf can be reused across editors.
+
+        Example:
+            SuiteUI::SuiteLookAndFeel laf { juce::Colour (0xff2de2ff) }; // cyan accent
+            setLookAndFeel (&laf);
     */
     class SuiteLookAndFeel : public juce::LookAndFeel_V4
     {
@@ -45,4 +52,17 @@ namespace SuiteUI
     private:
         juce::Colour accent;
     };
+
+    /** Factory helper: creates a look-and-feel with the given accent colour.
+        This is not a factory in the traditional sense — it simply constructs and returns
+        a SuiteLookAndFeel. It exists to make the pattern obvious in new code.
+
+        Usage:
+            auto laf = createSuiteLookAndFeel (juce::Colour (0xffff9f1c)); // amber accent
+            setLookAndFeel (&laf);
+    */
+    inline std::unique_ptr<SuiteUI::SuiteLookAndFeel> createSuiteLookAndFeel (juce::Colour accentColour)
+    {
+        return std::make_unique<SuiteUI::SuiteLookAndFeel> (accentColour);
+    }
 }
