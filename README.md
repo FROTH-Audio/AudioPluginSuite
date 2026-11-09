@@ -122,6 +122,20 @@ Each routed control shows its modulated value live. While you hold the mouse on 
 
 Not routable on purpose: the switches and choices, such as Freeze, the Mode and the drift LFO's own Shape in Spectral Drift, and the Mode in Dynamic Saturation. In Micro-Timing Chaos, Rate, Length, Scale, Root, Octaves and Host Sync are not routable, because changing them would jump the groove. Velocity and Seed round to whole numbers. Tempo moves only while Host Sync is off.
 
+### Presets (Pro build)
+
+Spectral Drift, Dynamic Saturation and Micro-Timing Chaos share a preset system behind the `SUITE_PRO_PRESETS` flag. It adds no APVTS parameters and no new controls — presets load by writing values onto the existing parameters, so an old session still opens and a preset never introduces a parameter the host doesn't know.
+
+**Preset files** use the `.ausp` extension: UTF-8 XML (`<AudioSuitePreset formatVersion="1" plugin="..." pluginVersion="...">`, `<Meta>`, `<PARAMETERS suiteStateVersion="N">`). User presets are stored under `Documents/AudioSuite/<plugin>/Presets` (Windows) or the platform equivalent, and the plugin id and state version are checked on read — a preset saved with a newer plugin version is refused rather than partially applied.
+
+**Factory bank.** The Pro build ships 80 factory presets embedded in the plugin binary (`bank/AudioSuitePresets.xml`): 26 for Spectral Drift, 26 for Dynamic Saturation and 28 for Micro-Timing Chaos. Each preset is a delta from the default state, so absent parameters are set to their defaults at load time. The bank is checked by `tools/audit_bank.py` (unique names, in-range values, no preset equal to the default, category rules, and Micro-Timing Chaos base patterns that fire at least one step).
+
+**Preset bar.** Each editor gains a header bar (right-aligned in the title area) that lists factory presets by category, INIT (reset-all-defaults) and SAVE. In the public build the bar reports height 0 and the editor layout is byte-identical to before the preset system.
+
+**Host program list** (separate `SUITE_PRO_PRESETS_AS_PROGRAMS` flag): with both flags on, program 0 is "Init" and programs 1..N are the factory presets in bank order; `setCurrentProgram(i)` applies preset i and `getCurrentProgram()` tracks the last applied index. Bank order is append-only once hosts cache indices, so this step is behind its own flag.
+
+Spectral Drift's `freeze` is on only in the `Freeze` factory category; Dynamic Saturation's `drive` 24 + `fold` 50 appears only in `Extreme`; and Micro-Timing Chaos keeps host sync off and `bpm` at 120 in every factory preset. Micro-Timing Chaos's `lerpCurve` state property (not a parameter) round-trips through presets and the factory bank.
+
 ### Spectral Drift Shifter
 
 An audio effect that breaks the input into 2048-point FFT frames, drifts the phase of each frequency bin with an LFO, shapes the magnitudes, and resynthesises the result.
@@ -321,6 +335,8 @@ Plugin bundles are written to `build/plugins/<Name>/<Name>_artefacts/Release/`.
 |---|---|---|
 | `SUITE_BUILD_PLUGINS` | `ON` | Build the plugins, their editors and the host-level tests. Set to `OFF` to build only the DSP core and its tests, which is faster. |
 | `SUITE_BUILD_TESTS` | `ON` | Build and register the unit tests. |
+| `SUITE_PRO_PRESETS` | `OFF` | Build the Pro preset browser and the embedded factory bank (`bank/AudioSuitePresets.xml`, 80 presets). |
+| `SUITE_PRO_PRESETS_AS_PROGRAMS` | `OFF` | With `SUITE_PRO_PRESETS=ON`, expose the factory bank as host programs (program 0 = Init, then one per preset). Bank order is append-only once hosts cache indices. |
 
 Example, DSP tests only:
 
@@ -337,7 +353,7 @@ Plugin formats are chosen automatically: VST3 and Standalone everywhere, plus AU
 ctest --test-dir build -C Release --output-on-failure
 ```
 
-Nine CTest entries run seven test executables:
+**Public build** (`SUITE_PRO_PRESETS=OFF`): ten CTest entries run seven test executables:
 
 | Executable | Scope | Tests |
 |---|---|---|
@@ -349,6 +365,8 @@ Nine CTest entries run seven test executables:
 | `DynamicSaturationTests` | Dynamic Saturation processor and editor | 19 |
 | `MicroTimingChaosTests` | Micro-Timing Chaos processor and editor | 40 |
 | `PluginHostTests` (×3) | Each built VST3 bundle, loaded through JUCE's own plugin host | 1 per plugin |
+
+**Pro build** (`SUITE_PRO_PRESETS=ON`): fourteen CTest entries — the ten public entries plus `SuitePresetsPro_Tests` (file format and bank parser) and one `*_PresetTests` executable per plugin (bank ranges, apply/reset, editor, menu model, MIDI sanity). With `SUITE_PRO_PRESETS_AS_PROGRAMS=ON`, the program-list virtuals are also exercised inside the plugin preset tests.
 
 The tests use `assert` with `NDEBUG` undefined, so they also check in Release builds. Without that, every check would be compiled out.
 

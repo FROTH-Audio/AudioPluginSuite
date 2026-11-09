@@ -1,0 +1,286 @@
+"""Audit the factory bank against the rules in `docs/plans/03_presets.md` section 5.
+
+Checks the authoring data in `tools/preset_data.py` and, when they exist, the generated files
+under `modules/suite_presets/pro_preset_bank/bank/`. Exits non-zero on the first rule that is
+broken, so it can be used in CI.
+
+Rules:
+
+- 26 / 26 / 28 presets (80 total).
+- Unique names per plugin, at least 3 categories per plugin, non-empty category and description.
+- Every ID exists, every value is inside its `NormalisableRange`, values have the right type.
+- No preset equals the default state.
+- Spectral Drift: `freeze` only in the `Freeze` category.
+- Dynamic Saturation: no `drive` 24 + `fold` 50 outside the `Extreme` category.
+- Micro-Timing Chaos: host `sync` off in every factory preset and `bpm` left at 120, and the base
+  pattern must fire at least one step (a low density with a short repeating pattern can be silent).
+- Generated XML and JSON match the authoring data (metadata and every delta value).
+"""
+
+import argparse
+import json
+import math
+import sys
+import xml.etree.ElementTree as ET
+from pathlib import Path
+
+from preset_data import PRESETS, SCHEMA
+
+EXPECTED_COUNTS = {"SpectralDrift": 26, "DynamicSaturation": 26, "MicroTimingChaos": 28}
+EXPECTED_TOTAL = 80
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+DEFAULT_BANK = REPO_ROOT / "modules" / "suite_presets" / "pro_preset_bank" / "bank"
+
+
+class Audit:
+    def __init__(self):
+        self.errors = []
+
+    def check(self, condition, message):
+        if not condition:
+            self.errors.append(message)
+
+    def report(self):
+        if not self.errors:
+            print("Bank audit passed.")
+            return True
+
+        print(f"Bank audit failed with {len(self.errors)} problem(s):")
+        for error in self.errors:
+            print(f"  - {error}")
+        return False
+
+
+def as_number(spec, value):
+    kind = spec["type"]
+    if kind in ("int", "choice", "bool"):
+        return int(round(float(value)))
+    return float(value)
+
+
+def mtc_hash_unit(seed, index):
+    """Mirror of CoreDSP::Sequencer::hashUnit, so the audit sees the same pattern as the plugin."""
+    x = (seed * 0x9E3779B9 + index * 0x85EBCA6B + 0x27D4EB2F) & 0xFFFFFFFF
+    x ^= x >> 16
+    x = (x * 0x7FEB352D) & 0xFFFFFFFF
+    x ^= x >> 15
+    x = (x * 0x846CA68B) & 0xFFFFFFFF
+    x ^= x >> 16
+    return (x >> 8) / 16777216.0
+
+
+def mtc_density_curve(density):
+    """Mirror of CoreDSP::Sequencer::densityCurve, for a density in [0, 1]."""
+    return math.log1p(density * 0.99) / math.log1p(0.99) if density > 0.0 else 0.0
+
+
+def mtc_preset_fires(params):
+    """True when the base pattern (no modulation) fires at least one step.
+
+    The pattern repeats every `length` steps, so a density below the lowest hash for that seed and
+    length is silent forever, which would make the factory preset a dead entry in the menu.
+    """
+    seed = int(params.get("seed", SCHEMA["MicroTimingChaos"]["seed"]["default"]))
+    length = int(params.get("length", SCHEMA["MicroTimingChaos"]["length"]["default"]))
+    density = float(params.get("density", SCHEMA["MicroTimingChaos"]["density"]["default"]))
+    threshold = mtc_density_curve(density / 100.0)
+
+    return any(mtc_hash_unit(seed, index) < threshold for index in range(length))
+
+
+def check_authoring(audit):
+    total = 0
+
+    for plugin, schema in SCHEMA.items():
+        presets = PRESETS.get(plugin, [])
+        total += len(presets)
+
+        audit.check(len(presets) == EXPECTED_COUNTS.get(plugin, len(presets)),
+                    f"{plugin}: expected {EXPECTED_COUNTS.get(plugin)} presets, found {len(presets)}")
+
+        names = set()
+        categories = set()
+
+        for preset in presets:
+            label = f"{plugin} / {preset.get('name', '<unnamed>')}"
+
+            name = preset.get("name", "").strip()
+            category = preset.get("category", "").strip()
+            description = preset.get("description", "").strip()
+
+            audit.check(bool(name), f"{label}: empty name")
+            audit.check(bool(category), f"{label}: empty category")
+            audit.check(bool(description), f"{label}: empty description")
+
+            if name:
+                audit.check(name not in names, f"{label}: duplicate preset name")
+                names.add(name)
+            if category:
+                categories.add(category)
+
+            params = preset.get("params", {})
+            audit.check(bool(params), f"{label}: empty delta (equals the default state)")
+
+            if "lerpCurve" in preset:
+                audit.check(plugin == "MicroTimingChaos",
+                            f"{label}: lerpCurve is only valid for MicroTimingChaos")
+                points = preset["lerpCurve"].split(";")
+                audit.check(len(points) == 5, f"{label}: lerpCurve needs 5 points")
+                audit.check(points[0].startswith("0.0000,"), f"{label}: lerpCurve must start at x=0")
+                audit.check(points[-1].startswith("1.0000,"), f"{label}: lerpCurve must end at x=1")
+
+            for pid, value in params.items():
+                spec = schema.get(pid)
+                audit.check(spec is not None, f"{label}: unknown parameter id {pid!r}")
+                if spec is None:
+                    continue
+
+                number = as_number(spec, value)
+                audit.check(spec["min"] <= number <= spec["max"],
+                            f"{label}: {pid}={value} outside [{spec['min']}, {spec['max']}]")
+
+                if spec["type"] in ("int", "choice", "bool"):
+                    audit.check(float(number) == float(value),
+                                f"{label}: {pid}={value} is not a whole number")
+
+            if plugin == "SpectralDrift" and params.get("freeze") in (1, True):
+                audit.check(category == "Freeze",
+                            f"{label}: freeze is only allowed in the Freeze category")
+
+            if plugin == "DynamicSaturation":
+                drive = params.get("drive", schema["drive"]["default"])
+                fold = params.get("fold", schema["fold"]["default"])
+                if float(drive) == 24.0 and float(fold) == 50.0:
+                    audit.check(category == "Extreme",
+                                f"{label}: drive 24 + fold 50 is only allowed in Extreme")
+
+            if plugin == "MicroTimingChaos":
+                audit.check(int(params.get("sync", 0)) == 0, f"{label}: host sync must be off")
+                audit.check(float(params.get("bpm", 120.0)) == 120.0,
+                            f"{label}: bpm must stay at 120")
+                audit.check(mtc_preset_fires(params),
+                            f"{label}: the base pattern fires no steps (raise density or change the seed)")
+
+        audit.check(len(categories) >= 3,
+                    f"{plugin}: needs at least 3 categories, found {len(categories)}")
+
+    audit.check(total == EXPECTED_TOTAL, f"expected {EXPECTED_TOTAL} presets, found {total}")
+
+
+def load_generated_xml(bank_dir):
+    xml_path = Path(bank_dir) / "AudioSuitePresets.xml"
+    if not xml_path.is_file():
+        return None
+
+    return ET.parse(xml_path).getroot()
+
+
+def check_generated(audit, bank_dir):
+    root = load_generated_xml(bank_dir)
+
+    if root is None:
+        print(f"Note: {Path(bank_dir) / 'AudioSuitePresets.xml'} not found, skipping the generated-file check.")
+        return
+
+    audit.check(root.tag == "Bank", f"bank XML root is <{root.tag}>, expected <Bank>")
+
+    generated = {}
+
+    for element in root.findall("AudioSuitePreset"):
+        plugin = element.get("plugin", "")
+        meta = element.find("Meta")
+        audit.check(meta is not None, f"bank XML: {plugin} preset has no <Meta>")
+        if meta is None:
+            continue
+
+        name = meta.get("name", "")
+        parameters = element.find("PARAMETERS")
+        audit.check(parameters is not None, f"bank XML: {plugin} / {name} has no <PARAMETERS>")
+        if parameters is None:
+            continue
+
+        params = {child.get("id"): child.get("value") for child in parameters.findall("PARAM")}
+        generated.setdefault(plugin, {})[name] = {
+            "category": meta.get("category", ""),
+            "description": meta.get("description", ""),
+            "params": params,
+            "lerpCurve": parameters.get("lerpCurve"),
+        }
+
+    for plugin, presets in PRESETS.items():
+        plugin_generated = generated.get(plugin, {})
+        audit.check(len(plugin_generated) == len(presets),
+                    f"bank XML: {plugin} has {len(plugin_generated)} presets, expected {len(presets)}")
+
+        for preset in presets:
+            name = preset["name"]
+            entry = plugin_generated.get(name)
+            audit.check(entry is not None, f"bank XML: {plugin} / {name} is missing")
+            if entry is None:
+                continue
+
+            audit.check(entry["category"] == preset["category"],
+                        f"bank XML: {plugin} / {name} category differs")
+            audit.check(entry["description"] == preset["description"],
+                        f"bank XML: {plugin} / {name} description differs")
+
+            expected_ids = set(preset["params"])
+            audit.check(set(entry["params"]) == expected_ids,
+                        f"bank XML: {plugin} / {name} parameter set differs")
+
+            audit.check(entry["lerpCurve"] == preset.get("lerpCurve"),
+                        f"bank XML: {plugin} / {name} lerpCurve differs")
+
+            for pid, value in preset["params"].items():
+                spec = SCHEMA[plugin][pid]
+                if spec["type"] in ("int", "choice", "bool"):
+                    expected = str(int(round(float(value))))
+                else:
+                    expected = format(float(value), ".10g")
+
+                audit.check(entry["params"].get(pid) == expected,
+                            f"bank XML: {plugin} / {name} {pid} is {entry['params'].get(pid)!r}, expected {expected!r}")
+
+        # JSON parity: one file per preset, metadata and delta identical to the authoring data.
+        plugin_dir = Path(bank_dir) / plugin
+        for preset in presets:
+            slug = "".join(c if c.isalnum() else "_" for c in preset["name"]).strip("_").lower()
+            json_path = plugin_dir / f"{slug}.json"
+            audit.check(json_path.is_file(), f"bank JSON: {plugin} / {preset['name']} is missing ({json_path.name})")
+            if not json_path.is_file():
+                continue
+
+            data = json.loads(json_path.read_text(encoding="utf-8"))
+            audit.check(data.get("_name") == preset["name"], f"bank JSON: {plugin} / {preset['name']} name differs")
+            audit.check(data.get("_category") == preset["category"],
+                        f"bank JSON: {plugin} / {preset['name']} category differs")
+            audit.check(data.get("_description") == preset["description"],
+                        f"bank JSON: {plugin} / {preset['name']} description differs")
+
+            delta = {key: value for key, value in data.items() if not key.startswith("_")}
+            audit.check(set(delta) == set(preset["params"]),
+                        f"bank JSON: {plugin} / {preset['name']} parameter set differs")
+            audit.check(data.get("_lerpCurve") == preset.get("lerpCurve"),
+                        f"bank JSON: {plugin} / {preset['name']} lerpCurve differs")
+
+            for pid, value in preset["params"].items():
+                audit.check(float(delta.get(pid, float("nan"))) == float(value),
+                            f"bank JSON: {plugin} / {preset['name']} {pid} differs")
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--bank", default=str(DEFAULT_BANK),
+                        help=f"generated bank directory (default: {DEFAULT_BANK})")
+    args = parser.parse_args(argv)
+
+    audit = Audit()
+    check_authoring(audit)
+    check_generated(audit, args.bank)
+
+    return 0 if audit.report() else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

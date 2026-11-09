@@ -243,15 +243,16 @@ MicroTimingChaosEditor::MicroTimingChaosEditor (MicroTimingChaosProcessor& p)
       curveEditor (p)
 {
     setLookAndFeel (&lookAndFeel);
+
+    // The bar exists before setSize(), because setSize() runs resized(), which lays the bar out.
+    presetBar = std::make_unique<SuitePresets::PresetBar>(processor, juce::Colour(0xff7dff5a));
+
     setSize (editorWidth, editorHeight);
     setScaleFactor (1.0f);   // applies designScale, as the host's scale is 1 at start
     setResizable (true, true);
     // The smallest size is the fixed right column plus the smallest sequencer and display.
     // The smallest size fits the widest row (the melody, chaos and transport groups side by side).
     setResizeLimits (editorWidth, minEditorHeight, 2400, 1600);
-
-    // Create preset bar after look and feel is set
-    presetBar = std::make_unique<SuitePresets::PresetBar>(processor, juce::Colour(0xff7dff5a));
 
     helpTracker.onMove = [this] (const juce::MouseEvent& e) { showHelp (e); };
     addMouseListener (&helpTracker, true);
@@ -346,7 +347,7 @@ MicroTimingChaosEditor::MicroTimingChaosEditor (MicroTimingChaosProcessor& p)
     scaleBox.setTextWhenNothingSelected ("Scale");
 
     if (presetBar->getPreferredHeight() > 0)
-        presetBar->addAndMakeVisible (*presetBar);
+        addAndMakeVisible (*presetBar);
     presetBar->onPresetLoaded = [this] { curveEditor.repaint(); };
 
     hostTempoLabel.setText ("FREE", juce::dontSendNotification);
@@ -497,7 +498,7 @@ void MicroTimingChaosEditor::resized()
     // Reserve space for the preset bar, right-aligned in the header. The stub reports height 0, which
     // keeps the public build's layout identical to before the preset system.
     const int barWidth = 300;
-    const int barHeight = presetBar->getPreferredHeight();
+    const int barHeight = presetBar != nullptr ? presetBar->getPreferredHeight() : 0;
     if (barHeight > 0)
         presetBar->setBounds (getLocalBounds().removeFromTop (titleBandHeight).removeFromRight (barWidth).withHeight (barHeight)
                                 .withY ((getLocalBounds().removeFromTop (titleBandHeight).getCentreY() - barHeight / 2)));

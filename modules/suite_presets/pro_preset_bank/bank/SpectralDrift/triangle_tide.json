@@ -1,0 +1,10 @@
+{
+  "_name": "Triangle Tide",
+  "_category": "Rhythmic",
+  "_description": "Triangle LFO with a deep sweep.",
+  "_plugin": "SpectralDrift",
+  "_pluginVersion": "1.0.0",
+  "driftRate": 0.25,
+  "depth": 60.0,
+  "lfoShape": 1
+}

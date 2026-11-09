@@ -1,0 +1,10 @@
+{
+  "_name": "Square Steps",
+  "_category": "Rhythmic",
+  "_description": "Square LFO at 2 Hz.",
+  "_plugin": "SpectralDrift",
+  "_pluginVersion": "1.0.0",
+  "driftRate": 2.0,
+  "depth": 40.0,
+  "lfoShape": 3
+}

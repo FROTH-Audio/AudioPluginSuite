@@ -1,26 +1,43 @@
-# Private overlay: Pro preset bank and file I/O
+# Private overlay: Pro preset bank, bar and file I/O.
+#
+# This is not a library target. `suite_presets_add_to_target()` compiles the sources below into
+# each consumer, the same rule as suite_ui and suite_modulation, because a static library that
+# links JUCE modules produces duplicate symbols. Only the embedded factory bank is a real target.
 
 set(SUITE_PRO_PRESETS_SOURCES
-    Source/PresetBank.cpp
-    Source/PresetBar.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/Source/PresetBank.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/Source/PresetFile.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/Source/PresetBar.cpp
 )
 
-if(NOT SUITE_PRO_PRESETS)
-    message(STATUS "SUITE_PRO_PRESETS is OFF - using public seam only")
-else()
-    add_library(SuiteProPresetBank STATIC ${SUITE_PRO_PRESETS_SOURCES})
-    target_include_directories(SuiteProPresetBank PUBLIC include)
-    target_include_directories(SuiteProPresetBank PRIVATE ${CMAKE_CURRENT_LIST_DIR}/include)
-    # Also expose the parent suite_presets' include directory for SuitePresets.h
-    target_include_directories(SuiteProPresetBank PUBLIC ${CMAKE_CURRENT_LIST_DIR}/../include)
-    target_link_libraries(SuiteProPresetBank PUBLIC juce_audio_processors juce_gui_basics)
-endif()
+# Plugins are added after this directory, so they inherit the list from the root scope.
+set(SUITE_PRO_PRESETS_SOURCES "${SUITE_PRO_PRESETS_SOURCES}" PARENT_SCOPE)
 
-# Add the pro_preset_bank module to the suite_presets module so it gets included when using suite_presets_add_to_target
-target_include_directories(suite_presets INTERFACE ${CMAKE_CURRENT_LIST_DIR}/../include)
+# The one embedded asset. The generated header is SuiteProPresetBankData.h, and the resource
+# names are BinaryData::AudioSuitePresets_xml / AudioSuitePresets_xmlSize.
+juce_add_binary_data(SuiteProPresetBankData
+    SOURCES ${CMAKE_CURRENT_LIST_DIR}/bank/AudioSuitePresets.xml
+    HEADER_NAME SuiteProPresetBankData.h
+    NAMESPACE SuiteProPresetBankData)
 
-# Register tests when SUITE_BUILD_TESTS is on (handled by root CMakeLists.txt)
-if(SUITE_BUILD_TESTS AND SUITE_PRO_PRESETS)
-    add_executable(PresetTests tests/PresetTests.cpp)
-    target_link_libraries(PresetTests PRIVATE SuiteProPresetBank juce_audio_processors juce_gui_basics)
+# The per-plugin preset tests are registered by suite_add_plugin(). This one covers the file
+# format, sanitising and the menu model, which do not need a plugin instance.
+if(SUITE_BUILD_TESTS)
+    add_executable(SuitePresetsPro_Tests
+        ${CMAKE_CURRENT_LIST_DIR}/tests/PresetFileTests.cpp
+        ${SUITE_PRO_PRESETS_SOURCES})
+
+    target_include_directories(SuitePresetsPro_Tests PRIVATE
+        ${CMAKE_CURRENT_LIST_DIR}/include
+        ${CMAKE_CURRENT_LIST_DIR}/../include
+        ${CMAKE_SOURCE_DIR}/tests/common)
+
+    target_compile_definitions(SuitePresetsPro_Tests PRIVATE SUITE_PRO_PRESETS=1)
+    target_link_libraries(SuitePresetsPro_Tests PRIVATE
+        SuiteProPresetBankData
+        SuiteState
+        juce::juce_audio_processors
+        juce::juce_gui_basics)
+
+    add_test(NAME SuitePresetsPro_Tests COMMAND SuitePresetsPro_Tests)
 endif()

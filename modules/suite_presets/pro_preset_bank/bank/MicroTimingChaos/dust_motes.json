@@ -1,0 +1,11 @@
+{
+  "_name": "Dust Motes",
+  "_category": "Sparse",
+  "_description": "Very sparse with the widest timing range.",
+  "_plugin": "MicroTimingChaos",
+  "_pluginVersion": "1.0.0",
+  "density": 20.0,
+  "seed": 5,
+  "baseVelocity": 30,
+  "timingRange": 50.0
+}

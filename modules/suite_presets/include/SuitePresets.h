@@ -2,8 +2,7 @@
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_gui_basics/juce_gui_basics.h>
-#include <memory>  // for std::unique_ptr
-#include <vector>   // for std::vector
+#include <memory>
 
 namespace SuitePresets
 {
@@ -13,6 +12,7 @@ namespace SuitePresets
     public:
         virtual ~StateHolder() = default;
         virtual juce::String getPresetPluginId() const = 0;                 // "SpectralDrift", ...
+        virtual int getPresetStateVersion() const = 0;                      // SuiteState version
         virtual juce::AudioProcessorValueTreeState& getPresetStateTree() = 0;
         virtual void applyPresetState (const juce::ValueTree&) = 0;         // message thread only
     };
@@ -39,13 +39,10 @@ namespace SuitePresets
 
         /** Message thread. Used by the host-program bridge and tests. */
         void selectPreset (int factoryIndex);
-        int  getNumFactoryPresets() const noexcept { return 0; }  // Pro returns real count
+        int  getNumFactoryPresets() const noexcept;   // 0 public, real bank size in Pro
 
     private:
-        StateHolder* _holder;  // pointer to avoid slicing
-        juce::Colour _accent;
-        
-        struct Impl { };  // Pimpl structure
+        struct Impl;
         std::unique_ptr<Impl> impl;
     };
 }

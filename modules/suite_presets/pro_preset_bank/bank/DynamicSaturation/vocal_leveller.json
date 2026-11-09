@@ -1,0 +1,11 @@
+{
+  "_name": "Vocal Leveller",
+  "_category": "Vocal",
+  "_description": "Vocal-friendly detector and envelope.",
+  "_plugin": "DynamicSaturation",
+  "_pluginVersion": "1.0.0",
+  "attack": 8.0,
+  "release": 120.0,
+  "detectHpf": 90.0,
+  "curve": 1.2
+}

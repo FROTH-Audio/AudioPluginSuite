@@ -1,0 +1,11 @@
+{
+  "_name": "S&H Pitch",
+  "_category": "Experimental",
+  "_description": "Sample and hold moves the chaos.",
+  "_plugin": "MicroTimingChaos",
+  "_pluginVersion": "1.0.0",
+  "lfo2Shape": 4,
+  "mod1Source": 1,
+  "mod1Target": 1,
+  "mod1Amount": 50.0
+}

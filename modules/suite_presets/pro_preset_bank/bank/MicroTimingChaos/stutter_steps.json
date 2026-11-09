@@ -1,0 +1,10 @@
+{
+  "_name": "Stutter Steps",
+  "_category": "Glitch",
+  "_description": "Short gates at 1/32.",
+  "_plugin": "MicroTimingChaos",
+  "_pluginVersion": "1.0.0",
+  "rate": 3,
+  "gate": 15.0,
+  "timingRange": 10.0
+}

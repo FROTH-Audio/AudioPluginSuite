@@ -139,17 +139,20 @@ public:
     bool producesMidi() const override { return true; }
     double getTailLengthSeconds() const override { return 0.0; }
 
-    int getNumPrograms() override { return 1; }
-    int getCurrentProgram() override { return 0; }
-    void setCurrentProgram (int) override {}
-    const juce::String getProgramName (int) override { return {}; }
-    void changeProgramName (int, const juce::String&) override {}
+    int getNumPrograms() override;
+    int getCurrentProgram() override;
+    void setCurrentProgram (int) override;
+    const juce::String getProgramName (int) override;
+    void changeProgramName (int, const juce::String&) override;
+    void getCurrentProgramStateInformation (juce::MemoryBlock&) override;
+    void setCurrentProgramStateInformation (const void*, int) override;
 
     void getStateInformation (juce::MemoryBlock&) override;
     void setStateInformation (const void*, int) override;
 
     // Preset system: StateHolder interface
     juce::String getPresetPluginId() const { return "MicroTimingChaos"; }
+    int getPresetStateVersion() const override { return stateVersion; }
     juce::AudioProcessorValueTreeState& getPresetStateTree() { return apvts; }
     void applyPresetState (const juce::ValueTree&);
 
@@ -318,6 +321,10 @@ private:
     std::atomic<int> logHead { 0 };
     std::atomic<int> playheadStep { -1 };
     std::atomic<int> patternLength { 8 };
+
+    // Host program list (Pro + SUITE_PRO_PRESETS_AS_PROGRAMS). -1 means a state that is not a
+    // factory program, for example a user preset.
+    std::atomic<int> currentProgramIndex { 0 };
 
     std::array<std::atomic<float>, curvePointCount> curveX {};
     std::array<std::atomic<float>, curvePointCount> curveY {};

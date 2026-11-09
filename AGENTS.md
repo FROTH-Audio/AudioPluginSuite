@@ -112,7 +112,13 @@ $CM = "C:\Program Files\Microsoft Visual Studio\18\Community\Common7\IDE\CommonE
 - Build records for the pre-refactor baseline are in `build/baselines/phase0-pre-refactor/`, and the converted tree in `build/baselines/phase1-after-suite_add_plugin/`. They are generated and not committed (`build/` is ignored). To regenerate: `git archive 0d21400` into `build/baselines/src`, configure that tree with `-DFETCHCONTENT_SOURCE_DIR_JUCE=<repo>/build/_deps/juce-src` so JUCE is not fetched again, build Release, then save `Defs.txt`, `Info.txt`, `<Name>_resources.rc`, the VST3 file list and the source lists from each `.vcxproj`.
 - Asset embedding: `juce_add_binary_data(MicroTimingChaosAssets ...)` builds a `BinaryData` target that the plugin and its test executable link. Add new icons or textures to its `SOURCES` list, then reference them by the generated name (`file_name_with_underscores`, for example `bpm_sync_active_svg`).
 
-Last verified status (2026-11-08): JUCE 9.0.5. Full Release build succeeds on Windows with no errors and no deprecation warnings (the `juce::Font` constructors were replaced by `juce::FontOptions`). All 10 CTest entries pass, including `SuiteState_Tests`, the plugin state tests and the phase 0 fixture check when `SUITE_FIXTURE_DIR` is set. Before 2026-11-08 the list was 9 entries: CoreDSPTests, SuiteUI_Tests, SuiteModulation_Tests, the three plugin test executables, and the three VST3 host-load tests. SuiteUI_Tests also passed against JUCE 8.0.6, the previous pin, which is the version CI ran (last checked 2026-11-06, not re-run since). macOS is not verified on JUCE 9.
+Last verified status (2026-11-09): JUCE 9.0.5. Full Release build succeeds on Windows with no errors and no new deprecation warnings (the `juce::Font` constructors were replaced by `juce::FontOptions`; the remaining `C4996 AudioParameterFloat` warnings pre-date this work). All CTest entries pass:
+
+- Public (`SUITE_PRO_PRESETS=OFF`): 10 entries — CoreDSPTests, SuiteState_Tests, SuiteModulation_Tests, SuiteUI_Tests, the three plugin test executables, and the three VST3 host-load tests.
+- Pro (`SUITE_PRO_PRESETS=ON`, `SUITE_PRO_PRESETS_AS_PROGRAMS=OFF`): 14 entries — the 10 public entries plus `SuitePresetsPro_Tests`, `SpectralDrift_PresetTests`, `DynamicSaturation_PresetTests`, `MicroTimingChaos_PresetTests`.
+- Pro with host program list (`SUITE_PRO_PRESETS_AS_PROGRAMS=ON`): still 14 entries; the program-list virtuals are exercised inside `MicroTimingChaos_PresetTests`/`SpectralDrift_PresetTests`/`DynamicSaturation_PresetTests` via `runProgramList`.
+
+Before 2026-11-08 the list was 9 entries: CoreDSPTests, SuiteUI_Tests, SuiteModulation_Tests, the three plugin test executables, and the three VST3 host-load tests. SuiteUI_Tests also passed against JUCE 8.0.6, the previous pin, which is the version CI ran (last checked 2026-11-06, not re-run since). macOS is not verified on JUCE 9.
 
 ---
 
@@ -308,6 +314,30 @@ Audio: the stereo buffer passes through unchanged (tested).
 
 ---
 
+## 5.5 Presets (`SuitePresets`, Pro overlay)
+
+The public seam is `modules/suite_presets/include/SuitePresets.h`: a `StateHolder` interface (`getPresetPluginId`, `getPresetStateVersion`, `getPresetStateTree`, `applyPresetState`) each processor implements, plus an `isAvailable()` helper and a `PresetBar` whose public (stub) form reports height 0 so the public build's layout is unchanged.
+
+`applyPresetState()` runs through `SuiteState::read` with `resetMissing=true`: the preset tree (a `<PARAMETERS>` element) is encoded to binary, then `SuiteState::read` does the version check, migrations, `replaceState` and reset-to-default for absent IDs. Nothing changes if the state is `notXml`, `wrongRoot` or `newerThanPlugin`. So a preset carries only the parameters it changes — deltas that materialise into full state at load time.
+
+The Pro overlay (`modules/suite_presets/pro_preset_bank/`, gated by `SUITE_PRO_PRESETS`) adds:
+
+- `PresetBank`: parses the embedded factory bank (`bank/AudioSuitePresets.xml`, one `AudioSuitePreset` per preset), provides `getFactoryPresets()` / `getNumFactoryPresets()` / `getFactoryPreset(i)`, plus `parseDelta()` which merges a JSON delta onto the default state.
+- `PresetFile`: `.ausp` read/write (`<AudioSuitePreset formatVersion="1" plugin="..." pluginVersion="...">`, `<Meta>`, `<PARAMETERS suiteStateVersion="N">`), user presets stored under `userDocuments/AudioSuite/<plugin>/Presets`, sanitised file names, version check at read time.
+- `PresetBar`: header-bar UI (factory presets, INIT, SAVE, menu), `selectPreset(i)`, `getNumFactoryPresets()`.
+- `PresetMenuModel`: builds a `juce::PopupMenu` with Factory/User submenus grouped by category.
+- `PresetPrograms` (behind the separate `SUITE_PRO_PRESETS_AS_PROGRAMS` flag): host program list where program 0 is Init and programs 1..N are the factory presets in bank order. Bank order is append-only once hosts cache indices.
+
+Factory presets are authored as JSON deltas in `tools/preset_data.py` (26 SD / 26 DS / 28 MTC = 80) and generated into `modules/suite_presets/pro_preset_bank/bank/` by `tools/build_bank.py`. `tools/audit_bank.py` enforces the rules: unique names per plugin, ≥3 categories, every value inside the parameter's `NormalisableRange`, no preset equal to the default state, SD `freeze` only in `Freeze`, DS `drive` 24+`fold` 50 only in `Extreme`, MTC host `sync` off and `bpm` 120 in every factory preset, and the base pattern must fire at least one step.
+
+`SUITE_PRO_PRESETS_AS_PROGRAMS=OFF` (public): plugins report `getNumPrograms() == 1`, `getProgramName() == ""`, exactly as before the preset system. With both flags on, the program virtuals map to `applyPresetState` / `getStateInformation`, and `currentProgramIndex` tracks the last applied program (-1 after any preset/state change that is not a factory program).
+
+The preset system adds no APVTS parameters; `numControls` and `checkParameterIds` are unchanged (48 / 47 / 54).
+
+MTC's `lerpCurve` state property (not a parameter) round-trips through presets and factory bank XML via the `lerpCurve` attribute on `<PARAMETERS>`; `applyPresetState()` reloads it through `loadLerpCurveFromState()`.
+
+---
+
 ## 6. Test architecture
 
 Nine CTest entries run seven executables: `CoreDSPTests` (29 test functions), `SuiteUI_Tests` (`SuiteUITests`, 9), `SuiteModulation_Tests` (`SuiteModulationTests`, 9), `SpectralDriftTests` (22), `DynamicSaturationTests` (19), `MicroTimingChaosTests` (40), and `PluginHostTests`, which has one ctest entry per plugin (3). The README has the full list.
@@ -404,6 +434,17 @@ If you add a new consumer, use `suite_ui_add_to_target`. Do not add `SuiteUI` to
 
 **Changing a saved parameter or state layout:** bump `stateVersion`, add a migration, add a fixture test. Saved sessions carry a `suiteStateVersion` attribute; states without the attribute are version 1. Newer states than the plugin are refused and leave the current state unchanged.
 
+**Adding a factory preset** (Pro build)
+1. Add a `_preset(...)` entry to `tools/preset_data.py` under the right plugin, using only IDs from that plugin's schema. Values must be inside the parameter's `NormalisableRange`.
+2. Run `python tools/build_bank.py` to regenerate `bank/AudioSuitePresets.xml` and the per-preset JSON files.
+3. Run `python tools/audit_bank.py` — it enforces unique names, ≥3 categories per plugin, in-range values, no preset equal to the default state, and the category/format rules.
+4. The `bankNotDefault` test in each plugin's `*_PresetTests` executable asserts every preset differs from the default state.
+
+**Host program list** (`SUITE_PRO_PRESETS_AS_PROGRAMS`)
+- Program 0 is Init; programs 1..N are the factory presets in bank order. The order is **append-only** once hosts cache indices — add new presets at the end of each plugin's list in `tools/preset_data.py`, never reorder or remove.
+- The virtuals map to `applyPresetState` / `getStateInformation`. `currentProgramIndex` tracks the last applied program (-1 after any non-factory state change).
+- This flag is separate from `SUITE_PRO_PRESETS` and is revertable.
+
 **Changing a DSP engine**
 - Add a test in `DSPTests.cpp` first where possible. Keep the reconstruction test passing.
 - If latency changes, update `getLatencySamples`, the plugin latency tests, and the README latency table.
@@ -432,18 +473,13 @@ If you add a new consumer, use `suite_ui_add_to_target`. Do not add `SuiteUI` to
 ## 10. Open items and known risks
 
 - **MicroTiming DAW load:** the reported failure is not reproduced. JUCE's VST3 host loads and opens it, both before and after the stereo bus change. The remedy applied (stereo pass-through) is a best guess. If it still fails in a DAW, ask for the DAW name, its scanner log, and the exact error.
-- **LFO sampling.** LFOs are evaluated at step times, so an LFO faster than the step rate aliases against the grid. Tempo and Speed are evaluated per block and per step respectively.
-- **Discrete targets not modulated:** Root and Octaves (sample and hold on these is a possible follow-up), and Rate, Length and Scale.
-- **Module tests do not cover the mouse hold in `ControlDisplay`.** The test cannot press a mouse button. The check is by reading the code only.
-- **Micro-Timing Chaos: plan items not built.** Zoom and pan on the curve view. UI automation tests for point dragging, tab switching, the BPM readout and the help line. The plan's "latency = timing range" (deliberately not built, see section 7).
-- **Micro-Timing Chaos: not exercised live.** The curve's mouse handling (drag, right-click reset, double-click reset) and hover help were written and compiled but not driven in a running host. The editor was checked by rendering it to an image at the default size (1200 × 820). The screenshot check found and fixed a header overlap and a readout collision.
-- **macOS CI** runs on `macos-15` with the runner's default Xcode. An earlier pin to `macos-14` with Xcode 15.4 was used while the `macos-latest` image failed to compile JUCE 7.0.9's `juce_gui_basics.mm` while building `juceaide`. Under JUCE 9 the current runner has not been confirmed to build the plugins end to end; the last failure was a test, not a compile error (see section 11).
-- **GUI tests on CI.** The plugin and SuiteUI tests create editors, so CI needs a desktop session. Windows and macOS hosted runners normally have one. If the GUI tests fail there only, check that first.
-- **Not verified:** loading in specific DAWs, and the Standalone and AU builds. The on-screen layout was checked only at the default size.
-- **Repository licence:** GPLv3 is in place. Commercial redistribution would need a JUCE licence.
-- **No code signing or notarisation.** macOS users will need to approve the plugins on first launch.
-- **Feedback tail:** `getTailLengthSeconds` returns 0 in all plugins.
-- **README lint:** MD060 table-spacing warnings. Cosmetic.
+- **Presets (Phase 7 done):** public build (`SUITE_PRO_PRESETS=OFF`) is visually and behaviourally unchanged — 10 CTest entries, all green. Pro build (`SUITE_PRO_PRESETS=ON`) adds 4 CTest entries, all green: `SuitePresetsPro_Tests` plus one `*_PresetTests` per plugin. `SUITE_PRO_PRESETS_AS_PROGRAMS` adds the host-program virtuals with no entry-count change.
+- **Preset licence (plan §11):** GPL vs commercial JUCE — owner decision pending. Not resolved by this work.
+- **macOS / AU / Standalone / DAW verification:** not performed for presets; same caveats as before.
+- **GUI tests on CI:** create editors, so CI needs a desktop session. Editor renders under `build/` are required before claiming "no visible change".
+- **Bank binary data namespace:** `SuiteProPresetBankData`, not `BinaryData`, so it does not collide with each plugin's `<Name>Assets` binary-data target.
+- **PopupMenu recursion:** `containsCommandItem` does not recurse into submenus; tests use `MenuItemIterator(..., true)` instead.
+
 
 ---
 
@@ -513,6 +549,9 @@ The original brief (`coding_agent_prompt.md`) is no longer in the repository. Th
 ## 13. Quick reference
 
 - Build: `cmake -S . -B build -A x64`, then `cmake --build build --config Release`.
+- Public: `cmake -S . -B build -A x64 -DSUITE_PRO_PRESETS=OFF` → 10 CTest entries.
+- Pro: `cmake -S . -B build -A x64 -DSUITE_PRO_PRESETS=ON` → 14 CTest entries.
+- Pro + programs: add `-DSUITE_PRO_PRESETS_AS_PROGRAMS=ON` → still 14 entries, program-list virtuals exercised inside the plugin preset tests.
 - Test: `ctest --test-dir build -C Release --output-on-failure`.
 - Bundles: `build/plugins/<Name>/<Name>_artefacts/Release/VST3/`.
 - Release: GitHub Actions → *Release* → *Run workflow* (version without `v`, draft on by default).

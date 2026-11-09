@@ -1,0 +1,9 @@
+{
+  "_name": "Tight Techno",
+  "_category": "Techno",
+  "_description": "Very short gates and tight timing.",
+  "_plugin": "MicroTimingChaos",
+  "_pluginVersion": "1.0.0",
+  "gate": 25.0,
+  "timingRange": 5.0
+}

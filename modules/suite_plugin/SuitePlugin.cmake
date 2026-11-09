@@ -166,4 +166,35 @@ function(suite_add_plugin)
 
         add_test(NAME ${SAP_NAME}_PluginTests COMMAND ${SAP_NAME}Tests)
     endif()
+
+    #---- Pro preset test executable ----
+    # Only in a Pro build. It compiles the plugin sources, the Pro overlay and one test file, so the
+    # bank is checked against the live APVTS ranges of this plugin.
+    if(SUITE_BUILD_TESTS AND SUITE_PRO_PRESETS)
+        set(presetTestSources ${SUITE_PRO_DIR}/tests/${SAP_NAME}PresetTests.cpp)
+        foreach(src IN LISTS SAP_SOURCES)
+            if("${src}" MATCHES "\\.cpp$")
+                list(APPEND presetTestSources ${src})
+            endif()
+        endforeach()
+
+        add_executable(${SAP_NAME}PresetTests ${presetTestSources})
+
+        target_include_directories(${SAP_NAME}PresetTests PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}
+            ${CMAKE_CURRENT_SOURCE_DIR}/Source
+            ${CMAKE_SOURCE_DIR}/tests/common
+        )
+
+        suite_ui_add_to_target(${SAP_NAME}PresetTests)
+        if(SAP_MODULATION)
+            suite_modulation_add_to_target(${SAP_NAME}PresetTests)
+        endif()
+        suite_presets_add_to_target(${SAP_NAME}PresetTests)
+
+        target_link_libraries(${SAP_NAME}PresetTests PRIVATE ${links})
+        target_compile_definitions(${SAP_NAME}PresetTests PRIVATE JUCE_MODAL_LOOPS_PERMITTED=1)
+
+        add_test(NAME ${SAP_NAME}_PresetTests COMMAND ${SAP_NAME}PresetTests)
+    endif()
 endfunction()

@@ -1,0 +1,10 @@
+{
+  "_name": "Bin Wash",
+  "_category": "Ambient",
+  "_description": "Wide bin spread and a dark tilt.",
+  "_plugin": "SpectralDrift",
+  "_pluginVersion": "1.0.0",
+  "spread": 0.9,
+  "tilt": -1.0,
+  "mix": 80.0
+}

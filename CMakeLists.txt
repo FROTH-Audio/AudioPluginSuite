@@ -17,6 +17,9 @@ option(SUITE_BUILD_PLUGINS "Build the VST3 / AU / Standalone plugins" ON)
 option(SUITE_BUILD_TESTS "Build and register the unit tests" ON)
 
 option(SUITE_PRO_PRESETS "Build the Pro preset browser and factory bank" OFF)
+option(SUITE_PRO_PRESETS_AS_PROGRAMS "Expose the Pro factory bank as host programs" OFF)
+set(SUITE_PRO_DIR "${CMAKE_SOURCE_DIR}/modules/suite_presets/pro_preset_bank" CACHE PATH
+    "Path to the private Pro preset overlay (contains include/, Source/, bank/)")
 include(${CMAKE_SOURCE_DIR}/modules/suite_presets/SuitePresets.cmake)
 
 # JUCE is pinned to a release tag so that builds are reproducible.
@@ -57,7 +60,9 @@ if(SUITE_BUILD_TESTS OR SUITE_BUILD_PLUGINS)
 endif()
 
 add_subdirectory(modules/suite_presets)  # Public seam: StateHolder, PresetBar
-add_subdirectory(modules/suite_presets/pro_preset_bank)  # Pro preset bank library
+if(SUITE_PRO_PRESETS)
+    add_subdirectory(modules/suite_presets/pro_preset_bank)  # Pro overlay: bank, bar, file I/O
+endif()
 
 if(SUITE_BUILD_PLUGINS)
     include(${CMAKE_SOURCE_DIR}/modules/suite_modulation/suite_modulation.cmake)

@@ -1,25 +1,2 @@
-# Module: suite_presets
-# Provides StateHolder interface and PresetBar for preset management
-
-# Module: suite_presets
-# Provides StateHolder interface and PresetBar for preset management
-
-add_library(suite_presets INTERFACE)
-target_include_directories(suite_presets INTERFACE ${CMAKE_CURRENT_LIST_DIR}/include)
-
-function(suite_presets_add_to_target target)
-    # CMAKE_CURRENT_LIST_DIR inside a function is the correct one for functions (CMake >= 3.17)
-    if(SUITE_PRO_PRESETS)
-        if(NOT EXISTS "${SUITE_PRO_DIR}/presets/CMakeLists.txt")
-            message(FATAL_ERROR "SUITE_PRO_PRESETS=ON but SUITE_PRO_DIR is not set")
-        endif()
-        target_sources(${target} PRIVATE ${SUITE_PRO_PRESETS_SOURCES})
-        target_include_directories(${target} PRIVATE ${SUITE_PRO_DIR}/presets/include)
-        target_compile_definitions(${target} PRIVATE SUITE_PRO_PRESETS=1)
-        target_link_libraries(${target} PRIVATE SuiteProPresetBank)
-    else()
-        target_sources(${target} PRIVATE ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/SuitePresetsStub.cpp)
-        target_compile_definitions(${target} PRIVATE SUITE_PRO_PRESETS=0)
-    endif()
-    target_include_directories(${target} PRIVATE ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/include)
-endfunction()
+# The public seam has no targets of its own. SuitePresets.cmake adds the stub or the Pro overlay
+# to each consumer. This file exists so the directory can be added before the plugin subdirectories.

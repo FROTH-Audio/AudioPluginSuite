@@ -189,6 +189,15 @@ namespace
         SuitePresets::PresetBar bar (processor, juce::Colour (0xffff9f1c));
         assert (bar.getPreferredHeight() == 0);
 #endif
+
+        // Without the program flag the plugin keeps the single default program.
+#if ! SUITE_PRO_PRESETS_AS_PROGRAMS
+        {
+            Processor processor;
+            assert (processor.getNumPrograms() == 1);
+            assert (processor.getProgramName (0).isEmpty());
+        }
+#endif
         pass ("testPresetSeamUnavailable");
     }
 

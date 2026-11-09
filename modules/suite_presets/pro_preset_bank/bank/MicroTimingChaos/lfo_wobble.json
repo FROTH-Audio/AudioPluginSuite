@@ -1,0 +1,10 @@
+{
+  "_name": "LFO Wobble",
+  "_category": "Experimental",
+  "_description": "Synced LFO moves the chaos amount.",
+  "_plugin": "MicroTimingChaos",
+  "_pluginVersion": "1.0.0",
+  "lfo1Sync": 1,
+  "mod1Target": 1,
+  "mod1Amount": 60.0
+}

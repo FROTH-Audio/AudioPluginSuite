@@ -1,0 +1,10 @@
+{
+  "_name": "Wide Bloom",
+  "_category": "Wide",
+  "_description": "Wide stereo with a moderate depth.",
+  "_plugin": "SpectralDrift",
+  "_pluginVersion": "1.0.0",
+  "depth": 40.0,
+  "spread": 0.9,
+  "stereoPhase": 180.0
+}

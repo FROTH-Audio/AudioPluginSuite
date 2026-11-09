@@ -39,12 +39,13 @@ DynamicSaturationEditor::DynamicSaturationEditor (DynamicSaturationProcessor& p)
       processor (p)
 {
     setLookAndFeel (&lookAndFeel);
+
+    // The bar exists before setSize(), because setSize() runs resized(), which lays the bar out.
+    presetBar = std::make_unique<SuitePresets::PresetBar>(processor, juce::Colour(0xffff9f1c));
+
     setSize (editorWidth, editorHeight);
     setResizable (true, true);
     setResizeLimits (720, 656, 1400, 1000);
-
-    // Create preset bar after look and feel is set
-    presetBar = std::make_unique<SuitePresets::PresetBar>(processor, juce::Colour(0xffff9f1c));
 
     helpTracker.onMove = [this] (const juce::MouseEvent& e) { showHelp (e); };
     addMouseListener (&helpTracker, true);
@@ -136,7 +137,7 @@ DynamicSaturationEditor::DynamicSaturationEditor (DynamicSaturationProcessor& p)
     pageSelector.onChange = [this] (int index) { setPage (index); };
 
     if (presetBar->getPreferredHeight() > 0)
-        presetBar->addAndMakeVisible (*presetBar);
+        addAndMakeVisible (*presetBar);
     presetBar->onPresetLoaded = [this] { repaint(); };
 
     setPage (0);
@@ -233,7 +234,7 @@ void DynamicSaturationEditor::resized()
     // Reserve space for the preset bar, right-aligned in the header. The stub reports height 0, which
     // keeps the public build's layout identical to before the preset system.
     const int barWidth = 300;
-    const int barHeight = presetBar->getPreferredHeight();
+    const int barHeight = presetBar != nullptr ? presetBar->getPreferredHeight() : 0;
     if (barHeight > 0)
         presetBar->setBounds (area.removeFromRight (barWidth).withHeight (barHeight)
                                 .withY (area.getCentreY() - barHeight / 2));

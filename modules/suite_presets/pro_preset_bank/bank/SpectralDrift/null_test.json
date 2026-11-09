@@ -1,0 +1,8 @@
+{
+  "_name": "Null Test",
+  "_category": "Utility",
+  "_description": "No drift, no shaping: a transparent reference.",
+  "_plugin": "SpectralDrift",
+  "_pluginVersion": "1.0.0",
+  "depth": 0.0
+}

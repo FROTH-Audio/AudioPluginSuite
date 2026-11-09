@@ -1,0 +1,10 @@
+{
+  "_name": "Tape Stop",
+  "_category": "Character",
+  "_description": "Heavily saturated, dark tape.",
+  "_plugin": "DynamicSaturation",
+  "_pluginVersion": "1.0.0",
+  "drive": 14.0,
+  "mode": 1,
+  "tone": -1.0
+}
