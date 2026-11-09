@@ -36,8 +36,7 @@ namespace
 
 DynamicSaturationEditor::DynamicSaturationEditor (DynamicSaturationProcessor& p)
     : AudioProcessorEditor (&p),
-      processor (p),
-      presetBar { std::make_unique<SuitePresets::PresetBar>(processor, lookAndFeel.getAccent()) }
+      processor (p)
 {
     setLookAndFeel (&lookAndFeel);
     setSize (editorWidth, editorHeight);
@@ -136,7 +135,9 @@ DynamicSaturationEditor::DynamicSaturationEditor (DynamicSaturationProcessor& p)
     pageSelector.setOptions ({ "SOUND", "MOD" });
     pageSelector.onChange = [this] (int index) { setPage (index); };
 
-    presetBar->addAndMakeVisible (*presetBar);
+    if (presetBar->getPreferredHeight() > 0)
+        presetBar->addAndMakeVisible (*presetBar);
+    presetBar->onPresetLoaded = [this] { repaint(); };
 
     setPage (0);
     startTimerHz (SuiteUI::kRefreshHz);
@@ -229,11 +230,13 @@ void DynamicSaturationEditor::resized()
     auto area = getLocalBounds().reduced (16);
     area.removeFromTop (headerHeight);
 
-    // Reserve space for the preset bar, right-aligned in the header.
+    // Reserve space for the preset bar, right-aligned in the header. The stub reports height 0, which
+    // keeps the public build's layout identical to before the preset system.
     const int barWidth = 300;
-    const int barHeight = 30;
-    presetBar->setBounds (area.removeFromRight (barWidth).withHeight (barHeight)
-                            .withY (area.getCentreY() - barHeight / 2));
+    const int barHeight = presetBar->getPreferredHeight();
+    if (barHeight > 0)
+        presetBar->setBounds (area.removeFromRight (barWidth).withHeight (barHeight)
+                                .withY (area.getCentreY() - barHeight / 2));
 
     pageSelector.setBounds (area.removeFromTop (pageSelectorHeight).withWidth (240));
     area.removeFromTop (groupGap);

@@ -96,6 +96,38 @@ namespace
         pass ("testStateRoundTrip");
     }
 
+    // A preset is a full parameter state: apply it and the values must come back.
+    void testPresetStateRoundTrip()
+    {
+        Processor processor;
+        processor.prepareToPlay (sampleRate, blockSize);
+
+        setParameter (processor.apvts, Processor::depthId, 42.0f);
+        setParameter (processor.apvts, Processor::shiftId, -7.0f);
+        assert (std::abs (getParameter (processor.apvts, Processor::depthId) - 42.0f) < 1.0e-3f);
+
+        juce::ValueTree tree = processor.apvts.copyState();
+        processor.applyPresetState (tree);
+
+        assert (std::abs (getParameter (processor.apvts, Processor::depthId) - 42.0f) < 1.0e-3f);
+        assert (std::abs (getParameter (processor.apvts, Processor::shiftId) - -7.0f) < 1.0e-3f);
+
+        pass ("testPresetStateRoundTrip");
+    }
+
+    // The public build has no preset bank: the seam must report unavailable and the bar must be empty.
+    void testPresetSeamUnavailable()
+    {
+#if ! SUITE_PRO_PRESETS
+        assert (! SuitePresets::isAvailable());
+
+        Processor processor;
+        SuitePresets::PresetBar bar (processor, juce::Colour (0xff2de2ff));
+        assert (bar.getPreferredHeight() == 0);
+#endif
+        pass ("testPresetSeamUnavailable");
+    }
+
     void testLatencyReported()
     {
         SpectralDriftProcessor processor;
@@ -776,6 +808,8 @@ int main()
 
     testParameters();
     testStateRoundTrip();
+    testPresetStateRoundTrip();
+    testPresetSeamUnavailable();
     testStateRoundTripAllParameters();
     testStateRefusal();
     testLoadsPhase0Fixture();

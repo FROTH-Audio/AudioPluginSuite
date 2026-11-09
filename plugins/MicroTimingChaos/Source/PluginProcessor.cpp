@@ -692,11 +692,17 @@ void MicroTimingChaosProcessor::setStateInformation (const void* data, int sizeI
 
 void MicroTimingChaosProcessor::applyPresetState (const juce::ValueTree& tree)
 {
-    // Presets use resetMissing=true so absent parameters are set to default.
-    SuiteState::read (tree.createXml()->getFirstChildElement(), -1, apvts, stateVersion, migrations, {}, true);
+    // Presets use resetMissing=true so absent parameters are set to default. The tree is encoded into the
+    // binary state format first, so it goes through the same read path as a saved session: version check,
+    // migrations, replaceState, resetMissing. The lerp curve is not a parameter, so afterLoad reloads it.
+    const juce::MemoryBlock block = SuiteState::detail::encodeXml (*tree.createXml());
+    const auto result = SuiteState::read (block.getData(), (int) block.getSize(), apvts, stateVersion, migrations, [this] (const juce::ValueTree&) {
+        loadLerpCurveFromState();
+    }, true);
     
     // If this is a mid-playback preset load, clear the grid to prevent stuck notes.
-    panicRequested.store(true, std::memory_order_relaxed);
+    if (result == SuiteState::LoadResult::loaded)
+        panicRequested.store(true, std::memory_order_relaxed);
 }
 
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()

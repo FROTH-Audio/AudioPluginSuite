@@ -102,6 +102,25 @@ namespace
         pass ("testStateRoundTrip");
     }
 
+    // A preset is a full parameter state: apply it and the values must come back.
+    void testPresetStateRoundTrip()
+    {
+        Processor processor;
+        processor.prepareToPlay (sampleRate, blockSize);
+
+        setParameter (processor.apvts, Processor::driveId, 18.0f);
+        setParameter (processor.apvts, Processor::foldId, 50.0f);
+        assert (std::abs (getParameter (processor.apvts, Processor::driveId) - 18.0f) < 1.0e-3f);
+
+        juce::ValueTree tree = processor.apvts.copyState();
+        processor.applyPresetState (tree);
+
+        assert (std::abs (getParameter (processor.apvts, Processor::driveId) - 18.0f) < 1.0e-3f);
+        assert (std::abs (getParameter (processor.apvts, Processor::foldId) - 50.0f) < 1.0e-3f);
+
+        pass ("testPresetStateRoundTrip");
+    }
+
     // Every parameter moved off its default, saved, and read into a new processor. Each value must come back.
     void testStateRoundTripAllParameters()
     {
@@ -158,6 +177,19 @@ namespace
         assert (reader.apvts.getRawParameterValue (DynamicSaturationProcessor::driveId)->load() == before);
 
         pass ("testStateRefusal");
+    }
+
+    // The public build has no preset bank: the seam must report unavailable and the bar must be empty.
+    void testPresetSeamUnavailable()
+    {
+#if ! SUITE_PRO_PRESETS
+        assert (! SuitePresets::isAvailable());
+
+        Processor processor;
+        SuitePresets::PresetBar bar (processor, juce::Colour (0xffff9f1c));
+        assert (bar.getPreferredHeight() == 0);
+#endif
+        pass ("testPresetSeamUnavailable");
     }
 
     // Loads a state saved before the SuiteState change (a phase 0 fixture) and checks each recorded value.
@@ -643,6 +675,8 @@ int main()
 
     testParameters();
     testStateRoundTrip();
+    testPresetStateRoundTrip();
+    testPresetSeamUnavailable();
     testStateRoundTripAllParameters();
     testStateRefusal();
     testLoadsPhase0Fixture();

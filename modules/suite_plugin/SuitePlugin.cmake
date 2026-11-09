@@ -157,6 +157,7 @@ function(suite_add_plugin)
         if(SAP_MODULATION)
             suite_modulation_add_to_target(${SAP_NAME}Tests)
         endif()
+        suite_presets_add_to_target(${SAP_NAME}Tests)
 
         target_link_libraries(${SAP_NAME}Tests PRIVATE ${links})
 

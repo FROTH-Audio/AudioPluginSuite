@@ -792,6 +792,41 @@ namespace
         pass ("testLerpCurveSurvivesStateRoundTrip");
     }
 
+    // A preset is a full parameter state: apply it and the values must come back. The Lerp curve is not a
+    // parameter, so a preset load also reloads it from the state tree.
+    void testPresetStateRoundTrip()
+    {
+        Processor processor;
+        processor.prepareToPlay (sampleRate, blockSize);
+
+        setParameter (processor.apvts, Processor::lerpId, 80.0f);
+        processor.setLerpCurvePoint (2, { 0.6f, 0.4f });
+
+        juce::ValueTree tree = processor.apvts.copyState();
+        processor.applyPresetState (tree);
+
+        assert (std::abs (getParameter (processor.apvts, Processor::lerpId) - 80.0f) < 1.0e-3f);
+
+        const auto curve = processor.getLerpCurve();
+        assert (std::abs (curve[2].x - 0.6f) < 1.0e-4f);
+        assert (std::abs (curve[2].y - 0.4f) < 1.0e-4f);
+
+        pass ("testPresetStateRoundTrip");
+    }
+
+    // The public build has no preset bank: the seam must report unavailable and the bar must be empty.
+    void testPresetSeamUnavailable()
+    {
+#if ! SUITE_PRO_PRESETS
+        assert (! SuitePresets::isAvailable());
+
+        Processor processor;
+        SuitePresets::PresetBar bar (processor, juce::Colour (0xff7dff5a));
+        assert (bar.getPreferredHeight() == 0);
+#endif
+        pass ("testPresetSeamUnavailable");
+    }
+
     // Drift is curve(chaos) * multiplier, scaled by Lerp. At Lerp 0 nothing drifts, and a zero multiplier switches its axis off.
     void testLerpDriftIsHybrid()
     {
@@ -1452,6 +1487,8 @@ int main()
 
     testParameters();
     testStateRoundTrip();
+    testPresetStateRoundTrip();
+    testPresetSeamUnavailable();
     testStateRoundTripAllParameters();
     testStateRefusal();
     testLoadsPhase0Fixture();

@@ -295,8 +295,11 @@ void SpectralDriftProcessor::setStateInformation (const void* data, int sizeInBy
 
 void SpectralDriftProcessor::applyPresetState (const juce::ValueTree& tree)
 {
-    // Presets use resetMissing=true so absent parameters are set to default.
-    SuiteState::read (tree.createXml()->getFirstChildElement(), -1, apvts, stateVersion, migrations, {}, true);
+    // Presets use resetMissing=true so absent parameters are set to default. The tree is encoded into the
+    // binary state format first, so it goes through the same read path as a saved session: version check,
+    // migrations, replaceState, resetMissing.
+    const juce::MemoryBlock block = SuiteState::detail::encodeXml (*tree.createXml());
+    SuiteState::read (block.getData(), (int) block.getSize(), apvts, stateVersion, migrations, {}, true);
 }
 
 float SpectralDriftProcessor::getModulatedValue (ModTarget target) const

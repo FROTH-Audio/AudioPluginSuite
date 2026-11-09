@@ -18,7 +18,7 @@ namespace SuitePresets
     };
 
     /** True only in a Pro build. Lets tests and editors ask without #if. */
-    inline bool isAvailable() noexcept { return true; }
+    inline bool isAvailable() noexcept { return SUITE_PRO_PRESETS != 0; }
 
     /**
         Preset header bar. In a public build it is invisible and reports height 0,

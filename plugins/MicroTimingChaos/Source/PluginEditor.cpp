@@ -240,8 +240,7 @@ void StepGridView::paint (juce::Graphics& g)
 MicroTimingChaosEditor::MicroTimingChaosEditor (MicroTimingChaosProcessor& p)
     : AudioProcessorEditor (&p),
       processor (p),
-      curveEditor (p),
-      presetBar { std::make_unique<SuitePresets::PresetBar>(processor, lookAndFeel.getAccent()) }
+      curveEditor (p)
 {
     setLookAndFeel (&lookAndFeel);
     setSize (editorWidth, editorHeight);
@@ -346,7 +345,9 @@ MicroTimingChaosEditor::MicroTimingChaosEditor (MicroTimingChaosProcessor& p)
     scaleBox.addItemList ({ "Chromatic", "Major", "Minor", "Minor Pentatonic", "Dorian", "Whole Tone" }, 1);
     scaleBox.setTextWhenNothingSelected ("Scale");
 
-    presetBar->addAndMakeVisible (*presetBar);
+    if (presetBar->getPreferredHeight() > 0)
+        presetBar->addAndMakeVisible (*presetBar);
+    presetBar->onPresetLoaded = [this] { curveEditor.repaint(); };
 
     hostTempoLabel.setText ("FREE", juce::dontSendNotification);
 
@@ -493,17 +494,16 @@ void MicroTimingChaosEditor::resized()
 {
     groups.clear();
 
-    // Reserve space for the preset bar, right-aligned in the header.
+    // Reserve space for the preset bar, right-aligned in the header. The stub reports height 0, which
+    // keeps the public build's layout identical to before the preset system.
     const int barWidth = 300;
-    const int barHeight = 30;
-    presetBar->setBounds (getLocalBounds().removeFromTop (titleBandHeight).removeFromRight (barWidth).withHeight (barHeight)
-                            .withY ((getLocalBounds().removeFromTop (titleBandHeight).getCentreY() - barHeight / 2)));
-
-    auto area = getLocalBounds().reduced (16);
-    area.removeFromTop (titleBandHeight);
+    const int barHeight = presetBar->getPreferredHeight();
+    if (barHeight > 0)
+        presetBar->setBounds (getLocalBounds().removeFromTop (titleBandHeight).removeFromRight (barWidth).withHeight (barHeight)
+                                .withY ((getLocalBounds().removeFromTop (titleBandHeight).getCentreY() - barHeight / 2)));
 
     // Every gap is groupGap: the outer margin, and the space between groups in both directions.
-    auto content = area.withTrimmedTop (groupGap).reduced (groupGap);
+    auto content = getLocalBounds().withTrimmedTop (titleBandHeight).reduced (groupGap);
     helpLabel.setBounds (content.removeFromBottom (helpHeight));
     content.removeFromBottom (groupGap);
 

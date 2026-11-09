@@ -40,8 +40,7 @@ SpectralDriftEditor::SpectralDriftEditor (SpectralDriftProcessor& p)
     : AudioProcessorEditor (&p),
       processor (p),
       inputMagnitudes (CoreDSP::Spectral::numBins, 0.0f),
-      outputMagnitudes (CoreDSP::Spectral::numBins, 0.0f),
-      presetBar { std::make_unique<SuitePresets::PresetBar>(processor, juce::Colour(0xff2de2ff)) }
+      outputMagnitudes (CoreDSP::Spectral::numBins, 0.0f)
 {
     setLookAndFeel (&lookAndFeel);
     setSize (editorWidth, editorHeight);
@@ -151,7 +150,9 @@ SpectralDriftEditor::SpectralDriftEditor (SpectralDriftProcessor& p)
     pageSelector.setOptions ({ "SOUND", "MOD" });
     pageSelector.onChange = [this] (int index) { setPage (index); };
 
-    presetBar->addAndMakeVisible (*presetBar);
+    if (presetBar->getPreferredHeight() > 0)
+        presetBar->addAndMakeVisible (*presetBar);
+    presetBar->onPresetLoaded = [this] { repaint(); };
 
     setPage (0);
     startTimerHz (SuiteUI::kRefreshHz);
@@ -221,9 +222,9 @@ void SpectralDriftEditor::paint (juce::Graphics& g)
     SuiteUI::drawBrandLockup (g, getLocalBounds().reduced (16, 0).removeFromTop (headerHeight), brandLockup());
 
     g.setColour (SuiteUI::Colours::textDim);
-    g.setFont (juce::Font (juce::FontOptions (12.0f)));
+    g.setFont (juce::Font (juce::FontOptions (11.0f)));
     g.drawText ("FFT 2048 / 75 % overlap / 2048 samples latency",
-                getLocalBounds().reduced (16, 0).removeFromTop (headerHeight), juce::Justification::centredRight);
+                getLocalBounds().removeFromBottom (helpHeight).reduced (16), juce::Justification::centredLeft);
 
     if (page == 1)
     {
@@ -246,11 +247,13 @@ void SpectralDriftEditor::resized()
     auto area = getLocalBounds().reduced (16);
     area.removeFromTop (headerHeight);
 
-    // Reserve space for the preset bar, right-aligned in the header.
+    // Reserve space for the preset bar, right-aligned in the header. The stub reports height 0, which
+    // keeps the public build's layout identical to before the preset system.
     const int barWidth = 300;
-    const int barHeight = 30;
-    presetBar->setBounds (area.removeFromRight (barWidth).withHeight (barHeight)
-                            .withY (area.getCentreY() - barHeight / 2));
+    const int barHeight = presetBar->getPreferredHeight();
+    if (barHeight > 0)
+        presetBar->setBounds (area.removeFromRight (barWidth).withHeight (barHeight)
+                                .withY (area.getCentreY() - barHeight / 2));
 
     pageSelector.setBounds (area.removeFromTop (pageSelectorHeight).withWidth (240));
     area.removeFromTop (groupGap);
