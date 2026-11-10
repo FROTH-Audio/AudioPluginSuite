@@ -2,11 +2,33 @@
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_gui_basics/juce_gui_basics.h>
+#include <juce_core/juce_core.h>
 #include <memory>
 #include <vector>
+#include <string>
 
 namespace SuitePresets
 {
+    /** A single factory or user preset: its metadata and the state delta. */
+    struct PresetInfo
+    {
+        juce::String name;
+        juce::String category;
+        juce::String description;
+        juce::String plugin;          // getPresetPluginId() of the owning plugin
+        juce::ValueTree state;        // root <PARAMETERS>; may be empty (defaults)
+        bool isFactory = false;
+        juce::File file;              // user presets only; empty for factory
+    };
+
+    /** Result of a preset file read/write operation. */
+    struct Result
+    {
+        bool ok = false;
+        juce::String error;
+        PresetInfo preset;            // only valid when ok && reading
+    };
+
     /** Implemented by each processor. The one place preset state enters and leaves a plugin. */
     class StateHolder
     {
@@ -18,35 +40,39 @@ namespace SuitePresets
         virtual void applyPresetState (const juce::ValueTree&) = 0;         // message thread only
     };
 
-    /** The preset system ships in this build. The embedded factory bank is optional; ask
-        PresetBank::getNumFactoryPresets() whether this build carries it. */
-    inline bool isAvailable() noexcept { return true; }
+    /** True when the embedded factory bank is compiled in (SUITE_PRESET_BANK). Lets tests and
+        editors ask without #if. The bar itself ships in every build. */
+    inline bool isAvailable() noexcept { return SUITE_PRESET_BANK != 0; }
 
     /**
-        One preset, factory or user. `state` is a <PARAMETERS> tree. Absent parameters are reset to
-        their defaults by applyPresetState(), so a preset may carry only the parameters it changes.
+        Preset header bar. Shows factory and user presets, INIT, SAVE, and a right-click menu.
+        Ships in every build; with SUITE_PRESET_BANK=0 the factory list is empty.
     */
-    struct PresetInfo
+    class PresetBar : public juce::Component
     {
-        juce::String name;
-        juce::String category;
-        juce::String description;
-        juce::String plugin;          // getPresetPluginId() of the owning plugin
-        juce::ValueTree state;        // root <PARAMETERS>
-        bool isFactory = false;
-        juce::File file;              // user presets only; empty for factory
+    public:
+        PresetBar (StateHolder& holder, juce::Colour accent);
+        ~PresetBar() override;
+
+        int getPreferredHeight() const noexcept;      // 30
+        void paint (juce::Graphics&) override;
+        void resized() override;
+
+        /** Called on the message thread after a preset has been applied. */
+        std::function<void()> onPresetLoaded;
+
+        /** Message thread. Used by the host-program bridge and tests. */
+        void selectPreset (int factoryIndex);
+        int  getNumFactoryPresets() const noexcept;   // real bank size (0 without the bank)
+
+    private:
+        struct Impl;
+        std::unique_ptr<Impl> impl;
     };
 
     namespace PresetFile
     {
-        struct Result
-        {
-            bool ok = false;
-            juce::String error;
-            PresetInfo preset;        // read only
-        };
-
-        /** userDocuments/AudioSuite/<pluginId>/Presets on Windows, or the platform equivalent. */
+        /** %APPDATA%/FROTH Audio/<pluginId>/Presets on Windows, or the platform equivalent. */
         juce::File getUserPresetFolder (const juce::String& pluginId);
 
         /** Filesystem-safe file name stem. The display name is kept separately. */
@@ -86,32 +112,5 @@ namespace SuitePresets
 
         /** Command ids are flatIndex + 1. Factory and user are submenus; categories are submenus. */
         juce::PopupMenu createMenu() const;
-    };
-
-    /**
-        Preset header bar. Shows the factory bank (always embedded since plan 03.3, currently
-        INIT-only), the user presets, and INIT / SAVE. The bank is parsed in
-        modules/suite_presets/factory_bank.
-    */
-    class PresetBar : public juce::Component
-    {
-    public:
-        PresetBar (StateHolder& holder, juce::Colour accent);
-        ~PresetBar() override;
-
-        int getPreferredHeight() const noexcept;      // 30
-        void paint (juce::Graphics&) override;
-        void resized() override;
-
-        /** Called on the message thread after a preset has been applied. */
-        std::function<void()> onPresetLoaded;
-
-        /** Message thread. Used by the host-program bridge and tests. */
-        void selectPreset (int factoryIndex);
-        int  getNumFactoryPresets() const noexcept;   // real bank size (the INIT-only bank)
-
-    private:
-        struct Impl;
-        std::unique_ptr<Impl> impl;
     };
 }

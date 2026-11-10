@@ -16,8 +16,13 @@ endif()
 option(SUITE_BUILD_PLUGINS "Build the VST3 / AU / Standalone plugins" ON)
 option(SUITE_BUILD_TESTS "Build and register the unit tests" ON)
 
-# The preset bar, .ausp preset files and user presets ship in every build, and the free factory
-# bank (INIT-only since plan 03.3) is always embedded. The bank is parsed by modules/suite_presets.
+option(SUITE_PRESET_BANK "Embed the factory preset bank into the plugin binaries" OFF)
+option(SUITE_PRESET_BANK_AS_PROGRAMS "Expose the embedded factory bank as host programs" OFF)
+
+if(SUITE_PRESET_BANK_AS_PROGRAMS AND NOT SUITE_PRESET_BANK)
+    message(FATAL_ERROR "SUITE_PRESET_BANK_AS_PROGRAMS=ON needs SUITE_PRESET_BANK=ON")
+endif()
+
 include(${CMAKE_SOURCE_DIR}/modules/suite_presets/SuitePresets.cmake)
 
 # JUCE is pinned to a release tag so that builds are reproducible.
@@ -57,8 +62,10 @@ if(SUITE_BUILD_TESTS OR SUITE_BUILD_PLUGINS)
     add_subdirectory(modules/suite_state)
 endif()
 
-add_subdirectory(modules/suite_presets/factory_bank)  # embedded bank data target (INIT-only), adds first
-add_subdirectory(modules/suite_presets)  # PresetBar, .ausp I/O, menu model (ships in every build)
+add_subdirectory(modules/suite_presets)  # Public seam: StateHolder, PresetBar
+if(SUITE_PRESET_BANK)
+    add_subdirectory(modules/suite_presets/factory_bank)  # Embedded factory bank
+endif()
 
 if(SUITE_BUILD_PLUGINS)
     include(${CMAKE_SOURCE_DIR}/modules/suite_modulation/suite_modulation.cmake)

@@ -814,45 +814,29 @@ namespace
         pass ("testPresetStateRoundTrip");
     }
 
-    // A preset that carries no lerpCurve resets the curve to its default, the same rule the
-    // parameters follow. Without this an applied delta silently keeps the previous preset's curve.
-    void testPresetWithoutCurveResetsToDefault()
+    // The preset bar ships in every build. The factory bank is optional (SUITE_PRESET_BANK);
+    // without it the bar shows only user presets and INIT.
+    void testPresetSeamUnavailable()
     {
-        Processor processor;
-        processor.prepareToPlay (sampleRate, blockSize);
-
-        processor.setLerpCurvePoint (2, { 0.6f, 0.4f });
-        assert (std::abs (processor.getLerpCurve()[2].y - 0.4f) < 1.0e-4f);
-
-        juce::ValueTree tree ("PARAMETERS");
-        tree.setProperty (SuiteState::versionProperty, 1, nullptr);
-        processor.applyPresetState (tree);
-
-        const auto curve = processor.getLerpCurve();
-        assert (std::abs (curve[2].y - std::log10 (5.5f)) < 1.0e-5f);
-        assert (curve[0].x == 0.0f && curve[4].x == 1.0f);
-
-        pass ("testPresetWithoutCurveResetsToDefault");
-    }
-
-    // The preset bar ships in every build, with the free INIT-only factory bank (plan 03.3).
-    void testPresetBar()
-    {
-        assert (SuitePresets::isAvailable());
-
         Processor processor;
         SuitePresets::PresetBar bar (processor, juce::Colour (0xff7dff5a));
         assert (bar.getPreferredHeight() == 30);
-        assert (bar.getNumFactoryPresets() == 1);
 
-        // The program list is always compiled: Init + the one INIT preset.
+#if SUITE_PRESET_BANK
+        assert (bar.getNumFactoryPresets() > 0);
+#else
+        assert (bar.getNumFactoryPresets() == 0);
+#endif
+
+        // Without the program flag the plugin keeps the single default program.
+#if ! SUITE_PRESET_BANK_AS_PROGRAMS
         {
-            Processor processor2;
-            assert (processor2.getNumPrograms() == 2);
-            assert (processor2.getProgramName (0) == juce::String ("Init"));
-            assert (processor2.getProgramName (1) == juce::String ("INIT"));
+            Processor processor;
+            assert (processor.getNumPrograms() == 1);
+            assert (processor.getProgramName (0).isEmpty());
         }
-        pass ("testPresetBar");
+#endif
+        pass ("testPresetSeamUnavailable");
     }
 
     // Drift is curve(chaos) * multiplier, scaled by Lerp. At Lerp 0 nothing drifts, and a zero multiplier switches its axis off.
@@ -1516,8 +1500,7 @@ int main()
     testParameters();
     testStateRoundTrip();
     testPresetStateRoundTrip();
-    testPresetWithoutCurveResetsToDefault();
-    testPresetBar();
+    testPresetSeamUnavailable();
     testStateRoundTripAllParameters();
     testStateRefusal();
     testLoadsPhase0Fixture();

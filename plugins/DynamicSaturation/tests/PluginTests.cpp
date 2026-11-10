@@ -179,24 +179,29 @@ namespace
         pass ("testStateRefusal");
     }
 
-    // The preset bar ships in every build, with the free INIT-only factory bank (plan 03.3).
-    void testPresetBar()
+    // The preset bar ships in every build. The factory bank is optional (SUITE_PRESET_BANK);
+    // without it the bar shows only user presets and INIT.
+    void testPresetSeamUnavailable()
     {
-        assert (SuitePresets::isAvailable());
-
         Processor processor;
         SuitePresets::PresetBar bar (processor, juce::Colour (0xffff9f1c));
         assert (bar.getPreferredHeight() == 30);
-        assert (bar.getNumFactoryPresets() == 1);
 
-        // The program list is always compiled: Init + the one INIT preset.
+#if SUITE_PRESET_BANK
+        assert (bar.getNumFactoryPresets() > 0);
+#else
+        assert (bar.getNumFactoryPresets() == 0);
+#endif
+
+        // Without the program flag the plugin keeps the single default program.
+#if ! SUITE_PRESET_BANK_AS_PROGRAMS
         {
-            Processor processor2;
-            assert (processor2.getNumPrograms() == 2);
-            assert (processor2.getProgramName (0) == juce::String ("Init"));
-            assert (processor2.getProgramName (1) == juce::String ("INIT"));
+            Processor processor;
+            assert (processor.getNumPrograms() == 1);
+            assert (processor.getProgramName (0).isEmpty());
         }
-        pass ("testPresetBar");
+#endif
+        pass ("testPresetSeamUnavailable");
     }
 
     // Loads a state saved before the SuiteState change (a phase 0 fixture) and checks each recorded value.
@@ -683,7 +688,7 @@ int main()
     testParameters();
     testStateRoundTrip();
     testPresetStateRoundTrip();
-    testPresetBar();
+    testPresetSeamUnavailable();
     testStateRoundTripAllParameters();
     testStateRefusal();
     testLoadsPhase0Fixture();

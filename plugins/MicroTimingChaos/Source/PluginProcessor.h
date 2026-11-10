@@ -240,8 +240,6 @@ private:
     }
 
     void loadLerpCurveFromState();
-    /** Stores the natural (logarithmic) curve into the atomics and into the state property. */
-    void storeDefaultLerpCurve();
     void storeLerpCurveToState();
     /** The lerp curve as the "x,y;x,y;..." text stored in the state. */
     juce::String encodeLerpCurve() const;
@@ -324,7 +322,7 @@ private:
     std::atomic<int> playheadStep { -1 };
     std::atomic<int> patternLength { 8 };
 
-    // Host program list (embedded bank, now always compiled). -1 means a state that is not a
+    // Host program list (embedded bank + SUITE_PRESET_BANK_AS_PROGRAMS). -1 means a state that is not a
     // factory program, for example a user preset.
     std::atomic<int> currentProgramIndex { 0 };
 

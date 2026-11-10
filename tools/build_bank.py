@@ -1,4 +1,4 @@
-"""Generate the AudioSuite factory bank from `tools/preset_data.py`.
+"""Generate the factory bank from `tools/preset_data.py`.
 
 Writes, for every preset:
 

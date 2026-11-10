@@ -1,13 +1,15 @@
-# Module: suite_presets
+# Module: suite_presets (public seam)
 #
-# The preset bar, the .ausp file I/O and the menu model ship in every build, and the free factory
-# bank (INIT-only since plan 03.3) is always embedded. The bank is parsed by modules/suite_presets.
+# StateHolder is the only interface a plugin implements. PresetBar, PresetFile and PresetBank
+# are compiled into every consumer; SUITE_PRESET_BANK gates whether the embedded bank data
+# target is linked and SUITE_PRESET_BANK=1 is defined.
 #
 # suite_presets_add_to_target(<target>) is defined here and must be called by every consumer. It is
 # not a library target: like suite_ui and suite_modulation, the sources are compiled into each
 # consumer, because a static library that links JUCE modules produces duplicate symbols.
 #
-# PresetBank.cpp is always compiled: the free bank is embedded, so it always parses (the INIT bank).
+# PresetBank.cpp is always compiled: with SUITE_PRESET_BANK=0 it degrades to an empty bank, so the
+# bar, the file I/O and the tests build unchanged without it.
 
 function(suite_presets_add_to_target target)
     target_sources(${target} PRIVATE
@@ -19,10 +21,23 @@ function(suite_presets_add_to_target target)
         ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/include
         ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/factory_bank/include)
 
-    target_compile_definitions(${target} PRIVATE SUITE_PRESET_BANK=1)
-    target_link_libraries(${target} PRIVATE SuitePresetBankData)
+    if(SUITE_PRESET_BANK)
+        if(NOT TARGET SuitePresetBankData)
+            message(FATAL_ERROR "SUITE_PRESET_BANK=ON but the factory bank was not configured before ${target}")
+        endif()
 
-    # Host programs are index-cached by hosts, so they are compiled; bank order is append-only once
-    # the flag is on. Only meaningful with a bank; the bank is now always embedded.
-    target_compile_definitions(${target} PRIVATE SUITE_PRESET_BANK_AS_PROGRAMS=1)
+        target_compile_definitions(${target} PRIVATE SUITE_PRESET_BANK=1)
+        target_link_libraries(${target} PRIVATE SuitePresetBankData)
+    else()
+        target_compile_definitions(${target} PRIVATE SUITE_PRESET_BANK=0)
+    endif()
+
+    # Host programs are index-cached by hosts, so they stay behind their own flag and the bank order
+    # is append-only once it is on. Only meaningful with a bank; the root CMakeLists refuses the
+    # flag without one.
+    if(SUITE_PRESET_BANK_AS_PROGRAMS)
+        target_compile_definitions(${target} PRIVATE SUITE_PRESET_BANK_AS_PROGRAMS=1)
+    else()
+        target_compile_definitions(${target} PRIVATE SUITE_PRESET_BANK_AS_PROGRAMS=0)
+    endif()
 endfunction()

@@ -167,10 +167,10 @@ function(suite_add_plugin)
         add_test(NAME ${SAP_NAME}_PluginTests COMMAND ${SAP_NAME}Tests)
     endif()
 
-    #---- Per-plugin preset bank test executable ----
-    # Only when a factory bank is embedded. It compiles the plugin sources and one test file, so
-    # the bank is checked against the live APVTS ranges of this plugin.
-    if(SUITE_BUILD_TESTS)
+    #---- Pro preset test executable ----
+    # Only in a bank build. It compiles the plugin sources, the factory bank and one test file, so the
+    # bank is checked against the live APVTS ranges of this plugin.
+    if(SUITE_BUILD_TESTS AND SUITE_PRESET_BANK)
         set(presetTestSources ${CMAKE_SOURCE_DIR}/modules/suite_presets/factory_bank/tests/${SAP_NAME}PresetTests.cpp)
         foreach(src IN LISTS SAP_SOURCES)
             if("${src}" MATCHES "\\.cpp$")

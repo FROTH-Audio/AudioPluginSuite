@@ -166,13 +166,7 @@ void MicroTimingChaosProcessor::loadLerpCurveFromState()
     const auto pairs = juce::StringArray::fromTokens (encoded, ";", "");
 
     if (pairs.size() != curvePointCount)
-    {
-        // An applied preset that carries no lerpCurve resets the curve to its default, the same
-        // rule the parameters follow (resetMissing). Session states this version writes always
-        // carry the property, so this branch only serves the preset path and hand-made states.
-        storeDefaultLerpCurve();
         return;
-    }
 
     for (int i = 0; i < curvePointCount; ++i)
     {
@@ -198,18 +192,6 @@ juce::String MicroTimingChaosProcessor::encodeLerpCurve() const
 void MicroTimingChaosProcessor::storeLerpCurveToState()
 {
     apvts.state.setProperty ("lerpCurve", encodeLerpCurve(), nullptr);
-}
-
-void MicroTimingChaosProcessor::storeDefaultLerpCurve()
-{
-    for (int i = 0; i < curvePointCount; ++i)
-    {
-        const auto point = naturalCurvePoint (i);
-        curveX[(size_t) i].store (point.x);
-        curveY[(size_t) i].store (point.y);
-    }
-
-    storeLerpCurveToState();
 }
 
 MicroTimingChaosProcessor::DriftAmounts MicroTimingChaosProcessor::getDriftAmounts() const noexcept
@@ -725,33 +707,54 @@ void MicroTimingChaosProcessor::applyPresetState (const juce::ValueTree& tree)
     {
         panicRequested.store(true, std::memory_order_relaxed);
 
+#if SUITE_PRESET_BANK_AS_PROGRAMS
         // A preset applied from the bar or a file is no longer one of the host programs.
         currentProgramIndex.store (-1, std::memory_order_relaxed);
+#endif
     }
 }
 
 //==============================================================================
-// Host program list. Program 0 is Init; 1 to N are the factory presets in bank order.
+// Host program list. Program 0 is Init; 1 to N are the factory presets in bank order. The list only
+// exists in a Pro build with SUITE_PRESET_BANK_AS_PROGRAMS on; otherwise the plugin reports one
+// program, as it did before the preset system.
 
 int MicroTimingChaosProcessor::getNumPrograms()
 {
+#if SUITE_PRESET_BANK_AS_PROGRAMS
     return SuitePresets::PresetPrograms::getNumPrograms (getPresetPluginId());
+#else
+    return 1;
+#endif
 }
 
 int MicroTimingChaosProcessor::getCurrentProgram()
 {
+#if SUITE_PRESET_BANK_AS_PROGRAMS
     return currentProgramIndex.load (std::memory_order_relaxed);
+#else
+    return 0;
+#endif
 }
 
 void MicroTimingChaosProcessor::setCurrentProgram (int index)
 {
+#if SUITE_PRESET_BANK_AS_PROGRAMS
     if (SuitePresets::PresetPrograms::applyProgram (*this, index))
         currentProgramIndex.store (index, std::memory_order_relaxed);
+#else
+    juce::ignoreUnused (index);
+#endif
 }
 
 const juce::String MicroTimingChaosProcessor::getProgramName (int index)
 {
+#if SUITE_PRESET_BANK_AS_PROGRAMS
     return SuitePresets::PresetPrograms::getProgramName (getPresetPluginId(), index);
+#else
+    juce::ignoreUnused (index);
+    return {};
+#endif
 }
 
 void MicroTimingChaosProcessor::changeProgramName (int, const juce::String&)
@@ -768,7 +771,9 @@ void MicroTimingChaosProcessor::setCurrentProgramStateInformation (const void* d
 {
     setStateInformation (data, sizeInBytes);
 
+#if SUITE_PRESET_BANK_AS_PROGRAMS
     currentProgramIndex.store (-1, std::memory_order_relaxed);
+#endif
 }
 
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
