@@ -1,6 +1,7 @@
 #include "SuitePresets.h"
 #include "PresetBank.h"
 
+#include <algorithm>
 #include <cstring>
 
 namespace SuitePresets
@@ -166,6 +167,7 @@ namespace SuitePresets
 
             currentFlat = flatIndex;
             currentName = preset.name;
+            currentCategory = preset.category;
             snapshotHash = hashState (holder.getPresetStateTree());
             dirty = false;
             updateName();
@@ -182,6 +184,7 @@ namespace SuitePresets
 
             currentFlat = -1;
             currentName = "Init";
+            currentCategory = {};
             snapshotHash = hashState (holder.getPresetStateTree());
             dirty = false;
             updateName();
@@ -197,11 +200,42 @@ namespace SuitePresets
             if (total == 0)
                 return;
 
-            const int nextIndex = currentFlat < 0
-                                      ? (direction > 0 ? 0 : total - 1)
-                                      : (currentFlat + direction + total) % total;
+            // From Init there is no category yet: step to an end of the full list.
+            if (currentFlat < 0)
+            {
+                const int nextIndex = direction > 0 ? 0 : total - 1;
+                applyFlat (nextIndex);
+                return;
+            }
 
-            applyFlat (nextIndex);
+            // Step within the current group (factory or user) and the current category,
+            // wrapping around within that slice.
+            const bool inFactory = currentFlat < (int) factory.size();
+            const int groupStart = inFactory ? 0 : (int) factory.size();
+            const int groupEnd = inFactory ? (int) factory.size() : total;
+            const juce::String category = currentCategory;
+
+            std::vector<int> matches;
+            matches.reserve (groupEnd - groupStart);
+
+            for (int i = groupStart; i < groupEnd; ++i)
+                if (at (i).category == category)
+                    matches.push_back (i);
+
+            if (matches.empty())
+                return;
+
+            auto pos = std::find (matches.begin(), matches.end(), currentFlat);
+            if (pos == matches.end())
+            {
+                // Current preset is not in its own category slice (should not happen); fall back.
+                applyFlat (matches.front());
+                return;
+            }
+
+            const int index = (int) (pos - matches.begin());
+            const int nextIndex = (index + direction + (int) matches.size()) % (int) matches.size();
+            applyFlat (matches[nextIndex]);
         }
 
         void updateName()
@@ -413,7 +447,14 @@ namespace SuitePresets
                            && at (currentFlat).file == file) ? currentFlat : -1;
 
             if (currentFlat < 0)
+            {
                 currentName = "Init";
+                currentCategory = {};
+            }
+            else
+            {
+                currentCategory = at (currentFlat).category;
+            }
 
             snapshotHash = hashState (holder.getPresetStateTree());
             dirty = false;
@@ -542,6 +583,7 @@ namespace SuitePresets
 
         int currentFlat = -1;
         juce::String currentName { "Init" };
+        juce::String currentCategory;
         bool dirty = false;
         juce::uint64 snapshotHash = 0;
 

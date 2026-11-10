@@ -246,15 +246,15 @@ void SpectralDriftEditor::paint (juce::Graphics& g)
 void SpectralDriftEditor::resized()
 {
     auto area = getLocalBounds().reduced (16);
-    area.removeFromTop (headerHeight);
 
-    // Reserve space for the preset bar (300x30), right-aligned in the header. The bar ships in
-    // every build now.
+    // Reserve space for the preset bar (300x30), right-aligned in the header band. The bar ships
+    // in every build now.
+    auto headerArea = area.removeFromTop (headerHeight);
     const int barWidth = 300;
     const int barHeight = presetBar != nullptr ? presetBar->getPreferredHeight() : 0;
     if (barHeight > 0)
-        presetBar->setBounds (area.removeFromRight (barWidth).withHeight (barHeight)
-                                .withY (area.getCentreY() - barHeight / 2));
+        presetBar->setBounds (headerArea.removeFromRight (barWidth).withHeight (barHeight)
+                                .withY (headerArea.getCentreY() - barHeight / 2));
 
     pageSelector.setBounds (area.removeFromTop (pageSelectorHeight).withWidth (240));
     area.removeFromTop (groupGap);

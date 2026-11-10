@@ -1,9 +1,0 @@
-{
-  "_name": "Machine Pulse",
-  "_category": "Techno",
-  "_description": "Steady, loud and dense.",
-  "_plugin": "MicroTimingChaos",
-  "_pluginVersion": "1.0.0",
-  "density": 80.0,
-  "baseVelocity": 110
-}

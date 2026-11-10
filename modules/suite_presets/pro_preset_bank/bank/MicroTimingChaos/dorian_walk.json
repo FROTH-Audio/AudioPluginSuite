@@ -1,9 +1,0 @@
-{
-  "_name": "Dorian Walk",
-  "_category": "Melodic",
-  "_description": "Dorian melody around F#3.",
-  "_plugin": "MicroTimingChaos",
-  "_pluginVersion": "1.0.0",
-  "root": 50,
-  "scale": 4
-}

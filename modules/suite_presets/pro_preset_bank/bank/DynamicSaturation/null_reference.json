@@ -1,9 +1,0 @@
-{
-  "_name": "Null Reference",
-  "_category": "Utility",
-  "_description": "Fully dry: a null reference.",
-  "_plugin": "DynamicSaturation",
-  "_pluginVersion": "1.0.0",
-  "drive": 0.0,
-  "mix": 0.0
-}

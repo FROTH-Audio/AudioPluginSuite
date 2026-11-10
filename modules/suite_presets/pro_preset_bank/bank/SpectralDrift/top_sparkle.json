@@ -1,9 +1,0 @@
-{
-  "_name": "Top Sparkle",
-  "_category": "Bright",
-  "_description": "Bright tilt with a high gate.",
-  "_plugin": "SpectralDrift",
-  "_pluginVersion": "1.0.0",
-  "tilt": 1.0,
-  "gate": -70.0
-}

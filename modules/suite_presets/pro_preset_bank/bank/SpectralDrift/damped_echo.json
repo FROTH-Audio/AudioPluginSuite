@@ -1,9 +1,0 @@
-{
-  "_name": "Damped Echo",
-  "_category": "Character",
-  "_description": "Feedback with a heavy low-pass.",
-  "_plugin": "SpectralDrift",
-  "_pluginVersion": "1.0.0",
-  "feedback": 10.0,
-  "feedbackDamping": 90.0
-}

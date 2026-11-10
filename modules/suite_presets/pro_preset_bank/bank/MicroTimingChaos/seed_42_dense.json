@@ -1,8 +1,0 @@
-{
-  "_name": "Seed 42 Dense",
-  "_category": "Utility",
-  "_description": "The default seed, much denser.",
-  "_plugin": "MicroTimingChaos",
-  "_pluginVersion": "1.0.0",
-  "density": 90.0
-}

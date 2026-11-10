@@ -1,9 +1,0 @@
-{
-  "_name": "Detector Focus",
-  "_category": "Utility",
-  "_description": "High detector, unlinked.",
-  "_plugin": "DynamicSaturation",
-  "_pluginVersion": "1.0.0",
-  "detectHpf": 300.0,
-  "stereoLink": 0.0
-}

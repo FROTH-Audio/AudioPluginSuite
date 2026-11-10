@@ -1,9 +1,0 @@
-{
-  "_name": "Stereo Split",
-  "_category": "Utility",
-  "_description": "Unlinked envelopes with light drive.",
-  "_plugin": "DynamicSaturation",
-  "_pluginVersion": "1.0.0",
-  "drive": 7.0,
-  "stereoLink": 0.0
-}

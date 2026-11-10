@@ -1,9 +1,0 @@
-{
-  "_name": "Tube Glue",
-  "_category": "Mix bus",
-  "_description": "Gentle tube glue for a mix bus.",
-  "_plugin": "DynamicSaturation",
-  "_pluginVersion": "1.0.0",
-  "drive": 4.0,
-  "sensitivity": 0.4
-}

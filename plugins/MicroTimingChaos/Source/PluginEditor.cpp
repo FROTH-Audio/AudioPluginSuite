@@ -497,11 +497,12 @@ void MicroTimingChaosEditor::resized()
 
     // Reserve space for the preset bar (360x34 at design scale, right-aligned in the title band;
     // around 240x23 px at the window's 2/3 scale). The window height does not change.
+    auto titleBand = getLocalBounds().removeFromTop (titleBandHeight);
     const int barWidth = 360;
     const int barHeight = 34;
     if (presetBar != nullptr && presetBar->getPreferredHeight() > 0)
-        presetBar->setBounds (getLocalBounds().removeFromTop (titleBandHeight).removeFromRight (barWidth).withHeight (barHeight)
-                                .withY ((getLocalBounds().removeFromTop (titleBandHeight).getCentreY() - barHeight / 2)));
+        presetBar->setBounds (titleBand.removeFromRight (barWidth).withHeight (barHeight)
+                                .withY (titleBand.getCentreY() - barHeight / 2));
 
     // Every gap is groupGap: the outer margin, and the space between groups in both directions.
     auto content = getLocalBounds().withTrimmedTop (titleBandHeight).reduced (groupGap);

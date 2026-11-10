@@ -206,9 +206,9 @@ void DynamicSaturationEditor::paint (juce::Graphics& g)
     SuiteUI::drawBrandLockup (g, getLocalBounds().reduced (16, 0).removeFromTop (headerHeight), brandLockup());
 
     g.setColour (SuiteUI::Colours::textDim);
-    g.setFont (juce::Font (juce::FontOptions (12.0f)));
+    g.setFont (juce::Font (juce::FontOptions (11.0f)));
     g.drawText ("2x oversampled  |  transfer curve tracks the input level",
-                getLocalBounds().reduced (16, 0).removeFromTop (headerHeight), juce::Justification::centredRight);
+                getLocalBounds().removeFromBottom (helpHeight).reduced (16), juce::Justification::centredLeft);
 
     if (page == 1)
     {
@@ -229,15 +229,15 @@ void DynamicSaturationEditor::paint (juce::Graphics& g)
 void DynamicSaturationEditor::resized()
 {
     auto area = getLocalBounds().reduced (16);
-    area.removeFromTop (headerHeight);
 
-    // Reserve space for the preset bar (300x30), right-aligned in the header. The bar ships in
-    // every build now.
+    // Reserve space for the preset bar (300x30), right-aligned in the header band. The bar ships
+    // in every build now.
+    auto headerArea = area.removeFromTop (headerHeight);
     const int barWidth = 300;
     const int barHeight = presetBar != nullptr ? presetBar->getPreferredHeight() : 0;
     if (barHeight > 0)
-        presetBar->setBounds (area.removeFromRight (barWidth).withHeight (barHeight)
-                                .withY (area.getCentreY() - barHeight / 2));
+        presetBar->setBounds (headerArea.removeFromRight (barWidth).withHeight (barHeight)
+                                .withY (headerArea.getCentreY() - barHeight / 2));
 
     pageSelector.setBounds (area.removeFromTop (pageSelectorHeight).withWidth (240));
     area.removeFromTop (groupGap);

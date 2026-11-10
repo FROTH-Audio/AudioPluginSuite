@@ -1,9 +1,0 @@
-{
-  "_name": "Sub Rumble",
-  "_category": "Dark",
-  "_description": "Large downward shift, dark tilt.",
-  "_plugin": "SpectralDrift",
-  "_pluginVersion": "1.0.0",
-  "shift": -32.0,
-  "tilt": -1.5
-}

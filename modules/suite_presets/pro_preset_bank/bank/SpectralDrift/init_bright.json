@@ -1,8 +1,0 @@
-{
-  "_name": "Init Bright",
-  "_category": "Utility",
-  "_description": "Near-default with a little brightness.",
-  "_plugin": "SpectralDrift",
-  "_pluginVersion": "1.0.0",
-  "tilt": 0.5
-}

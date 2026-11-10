@@ -1,9 +1,0 @@
-{
-  "_name": "Off Grid",
-  "_category": "Glitch",
-  "_description": "Maximum swing and timing range.",
-  "_plugin": "MicroTimingChaos",
-  "_pluginVersion": "1.0.0",
-  "swing": 20.0,
-  "timingRange": 50.0
-}

@@ -1,9 +1,0 @@
-{
-  "_name": "Comb Weaver",
-  "_category": "Character",
-  "_description": "Maximum feedback, lightly damped.",
-  "_plugin": "SpectralDrift",
-  "_pluginVersion": "1.0.0",
-  "feedback": 12.0,
-  "feedbackDamping": 15.0
-}

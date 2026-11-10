@@ -1,9 +1,0 @@
-{
-  "_name": "Dark Matter",
-  "_category": "Dark",
-  "_description": "Dark tilt with a low gate.",
-  "_plugin": "SpectralDrift",
-  "_pluginVersion": "1.0.0",
-  "tilt": -2.0,
-  "gate": -80.0
-}
