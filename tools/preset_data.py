@@ -7,7 +7,7 @@ under `bank/<plugin>/` and the combined `bank/AudioSuitePresets.xml` are generat
 
 Keep the schema in step with `createParameterLayout()` in each processor and with AGENTS.md
 section 4. The C++ test `bankRanges` checks the same rules against the live APVTS, so a drift here
-is caught at build time in a Pro build.
+is caught at build time in a bank build.
 """
 
 

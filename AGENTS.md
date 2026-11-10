@@ -114,9 +114,9 @@ $CM = "C:\Program Files\Microsoft Visual Studio\18\Community\Common7\IDE\CommonE
 
 Last verified status (2026-11-09): JUCE 9.0.5. Full Release build succeeds on Windows with no errors and no new deprecation warnings (the `juce::Font` constructors were replaced by `juce::FontOptions`; the remaining `C4996 AudioParameterFloat` warnings pre-date this work). All CTest entries pass:
 
-- Public (`SUITE_PRO_PRESETS=OFF`): 10 entries — CoreDSPTests, SuiteState_Tests, SuiteModulation_Tests, SuiteUI_Tests, the three plugin test executables, and the three VST3 host-load tests.
-- Pro (`SUITE_PRO_PRESETS=ON`, `SUITE_PRO_PRESETS_AS_PROGRAMS=OFF`): 14 entries — the 10 public entries plus `SuitePresetsPro_Tests`, `SpectralDrift_PresetTests`, `DynamicSaturation_PresetTests`, `MicroTimingChaos_PresetTests`.
-- Pro with host program list (`SUITE_PRO_PRESETS_AS_PROGRAMS=ON`): still 14 entries; the program-list virtuals are exercised inside `MicroTimingChaos_PresetTests`/`SpectralDrift_PresetTests`/`DynamicSaturation_PresetTests` via `runProgramList`.
+- Default build (`SUITE_PRESET_BANK=OFF`): 10 entries — CoreDSPTests, SuiteState_Tests, SuiteModulation_Tests, SuiteUI_Tests, the three plugin test executables, and the three VST3 host-load tests.
+- Bank build (`SUITE_PRESET_BANK=ON`): 14 entries — the 10 public entries plus `SpectralDrift_PresetTests`, `DynamicSaturation_PresetTests`, `MicroTimingChaos_PresetTests`.
+- Bank with host program list (`SUITE_PRESET_BANK_AS_PROGRAMS=ON`): still 14 entries; the program-list virtuals are exercised inside `MicroTimingChaos_PresetTests`/`SpectralDrift_PresetTests`/`DynamicSaturation_PresetTests` via `runProgramList`.
 
 Before 2026-11-08 the list was 9 entries: CoreDSPTests, SuiteUI_Tests, SuiteModulation_Tests, the three plugin test executables, and the three VST3 host-load tests. SuiteUI_Tests also passed against JUCE 8.0.6, the previous pin, which is the version CI ran (last checked 2026-11-06, not re-run since). macOS is not verified on JUCE 9.
 
@@ -314,23 +314,23 @@ Audio: the stereo buffer passes through unchanged (tested).
 
 ---
 
-## 5.5 Presets (`SuitePresets`, Pro overlay)
+## 5.5 Presets (`SuitePresets`, optional factory bank)
 
-The public seam is `modules/suite_presets/include/SuitePresets.h`: a `StateHolder` interface (`getPresetPluginId`, `getPresetStateVersion`, `getPresetStateTree`, `applyPresetState`) each processor implements, plus an `isAvailable()` helper and a `PresetBar` whose public (stub) form reports height 0 so the public build's layout is unchanged.
+The public seam is `modules/suite_presets/include/SuitePresets.h`: a `StateHolder` interface (`getPresetPluginId`, `getPresetStateVersion`, `getPresetStateTree`, `applyPresetState`) each processor implements, plus an `isAvailable()` helper and a `PresetBar` whose public (stub) form reports height 0 so the default build's layout is unchanged.
 
 `applyPresetState()` runs through `SuiteState::read` with `resetMissing=true`: the preset tree (a `<PARAMETERS>` element) is encoded to binary, then `SuiteState::read` does the version check, migrations, `replaceState` and reset-to-default for absent IDs. Nothing changes if the state is `notXml`, `wrongRoot` or `newerThanPlugin`. So a preset carries only the parameters it changes — deltas that materialise into full state at load time.
 
-The Pro overlay (`modules/suite_presets/pro_preset_bank/`, gated by `SUITE_PRO_PRESETS`) adds:
+The factory bank (`modules/suite_presets/factory_bank/`, gated by `SUITE_PRESET_BANK`) adds:
 
 - `PresetBank`: parses the embedded factory bank (`bank/AudioSuitePresets.xml`, one `AudioSuitePreset` per preset), provides `getFactoryPresets()` / `getNumFactoryPresets()` / `getFactoryPreset(i)`, plus `parseDelta()` which merges a JSON delta onto the default state.
 - `PresetFile`: `.ausp` read/write (`<AudioSuitePreset formatVersion="1" plugin="..." pluginVersion="...">`, `<Meta>`, `<PARAMETERS suiteStateVersion="N">`), user presets stored under `userDocuments/AudioSuite/<plugin>/Presets`, sanitised file names, version check at read time.
 - `PresetBar`: header-bar UI (factory presets, INIT, SAVE, menu), `selectPreset(i)`, `getNumFactoryPresets()`.
 - `PresetMenuModel`: builds a `juce::PopupMenu` with Factory/User submenus grouped by category.
-- `PresetPrograms` (behind the separate `SUITE_PRO_PRESETS_AS_PROGRAMS` flag): host program list where program 0 is Init and programs 1..N are the factory presets in bank order. Bank order is append-only once hosts cache indices.
+- `PresetPrograms` (behind the separate `SUITE_PRESET_BANK_AS_PROGRAMS` flag): host program list where program 0 is Init and programs 1..N are the factory presets in bank order. Bank order is append-only once hosts cache indices.
 
-Factory presets are authored as JSON deltas in `tools/preset_data.py` (26 SD / 26 DS / 28 MTC = 80) and generated into `modules/suite_presets/pro_preset_bank/bank/` by `tools/build_bank.py`. `tools/audit_bank.py` enforces the rules: unique names per plugin, ≥3 categories, every value inside the parameter's `NormalisableRange`, no preset equal to the default state, SD `freeze` only in `Freeze`, DS `drive` 24+`fold` 50 only in `Extreme`, MTC host `sync` off and `bpm` 120 in every factory preset, and the base pattern must fire at least one step.
+Factory presets are authored as JSON deltas in `tools/preset_data.py` (26 SD / 26 DS / 28 MTC = 80) and generated into `modules/suite_presets/factory_bank/bank/` by `tools/build_bank.py`. `tools/audit_bank.py` enforces the rules: unique names per plugin, ≥3 categories, every value inside the parameter's `NormalisableRange`, no preset equal to the default state, SD `freeze` only in `Freeze`, DS `drive` 24+`fold` 50 only in `Extreme`, MTC host `sync` off and `bpm` 120 in every factory preset, and the base pattern must fire at least one step.
 
-`SUITE_PRO_PRESETS_AS_PROGRAMS=OFF` (public): plugins report `getNumPrograms() == 1`, `getProgramName() == ""`, exactly as before the preset system. With both flags on, the program virtuals map to `applyPresetState` / `getStateInformation`, and `currentProgramIndex` tracks the last applied program (-1 after any preset/state change that is not a factory program).
+`SUITE_PRESET_BANK_AS_PROGRAMS=OFF` (default build): plugins report `getNumPrograms() == 1`, `getProgramName() == ""`, exactly as before the preset system. With both flags on, the program virtuals map to `applyPresetState` / `getStateInformation`, and `currentProgramIndex` tracks the last applied program (-1 after any preset/state change that is not a factory program).
 
 The preset system adds no APVTS parameters; `numControls` and `checkParameterIds` are unchanged (48 / 47 / 54).
 
@@ -434,16 +434,16 @@ If you add a new consumer, use `suite_ui_add_to_target`. Do not add `SuiteUI` to
 
 **Changing a saved parameter or state layout:** bump `stateVersion`, add a migration, add a fixture test. Saved sessions carry a `suiteStateVersion` attribute; states without the attribute are version 1. Newer states than the plugin are refused and leave the current state unchanged.
 
-**Adding a factory preset** (Pro build)
+**Adding a factory preset** (bank build)
 1. Add a `_preset(...)` entry to `tools/preset_data.py` under the right plugin, using only IDs from that plugin's schema. Values must be inside the parameter's `NormalisableRange`.
 2. Run `python tools/build_bank.py` to regenerate `bank/AudioSuitePresets.xml` and the per-preset JSON files.
 3. Run `python tools/audit_bank.py` — it enforces unique names, ≥3 categories per plugin, in-range values, no preset equal to the default state, and the category/format rules.
 4. The `bankNotDefault` test in each plugin's `*_PresetTests` executable asserts every preset differs from the default state.
 
-**Host program list** (`SUITE_PRO_PRESETS_AS_PROGRAMS`)
+**Host program list** (`SUITE_PRESET_BANK_AS_PROGRAMS`)
 - Program 0 is Init; programs 1..N are the factory presets in bank order. The order is **append-only** once hosts cache indices — add new presets at the end of each plugin's list in `tools/preset_data.py`, never reorder or remove.
 - The virtuals map to `applyPresetState` / `getStateInformation`. `currentProgramIndex` tracks the last applied program (-1 after any non-factory state change).
-- This flag is separate from `SUITE_PRO_PRESETS` and is revertable.
+- This flag is separate from `SUITE_PRESET_BANK` and is revertable.
 
 **Changing a DSP engine**
 - Add a test in `DSPTests.cpp` first where possible. Keep the reconstruction test passing.
@@ -473,11 +473,11 @@ If you add a new consumer, use `suite_ui_add_to_target`. Do not add `SuiteUI` to
 ## 10. Open items and known risks
 
 - **MicroTiming DAW load:** the reported failure is not reproduced. JUCE's VST3 host loads and opens it, both before and after the stereo bus change. The remedy applied (stereo pass-through) is a best guess. If it still fails in a DAW, ask for the DAW name, its scanner log, and the exact error.
-- **Presets (Phase 7 done):** public build (`SUITE_PRO_PRESETS=OFF`) is visually and behaviourally unchanged — 10 CTest entries, all green. Pro build (`SUITE_PRO_PRESETS=ON`) adds 4 CTest entries, all green: `SuitePresetsPro_Tests` plus one `*_PresetTests` per plugin. `SUITE_PRO_PRESETS_AS_PROGRAMS` adds the host-program virtuals with no entry-count change.
+- **Presets (Phase 7 done):** default build (`SUITE_PRESET_BANK=OFF`) is visually and behaviourally unchanged — 10 CTest entries, all green. Bank build (`SUITE_PRESET_BANK=ON`) adds 4 CTest entries, all green: `SuitePresetsFile_Tests` plus one `*_PresetTests` per plugin. `SUITE_PRESET_BANK_AS_PROGRAMS` adds the host-program virtuals with no entry-count change.
 - **Preset licence (plan §11):** GPL vs commercial JUCE — owner decision pending. Not resolved by this work.
 - **macOS / AU / Standalone / DAW verification:** not performed for presets; same caveats as before.
 - **GUI tests on CI:** create editors, so CI needs a desktop session. Editor renders under `build/` are required before claiming "no visible change".
-- **Bank binary data namespace:** `SuiteProPresetBankData`, not `BinaryData`, so it does not collide with each plugin's `<Name>Assets` binary-data target.
+- **Bank binary data namespace:** `SuitePresetBankData`, not `BinaryData`, so it does not collide with each plugin's `<Name>Assets` binary-data target.
 - **PopupMenu recursion:** `containsCommandItem` does not recurse into submenus; tests use `MenuItemIterator(..., true)` instead.
 
 
@@ -549,9 +549,9 @@ The original brief (`coding_agent_prompt.md`) is no longer in the repository. Th
 ## 13. Quick reference
 
 - Build: `cmake -S . -B build -A x64`, then `cmake --build build --config Release`.
-- Public: `cmake -S . -B build -A x64 -DSUITE_PRO_PRESETS=OFF` → 10 CTest entries.
-- Pro: `cmake -S . -B build -A x64 -DSUITE_PRO_PRESETS=ON` → 14 CTest entries.
-- Pro + programs: add `-DSUITE_PRO_PRESETS_AS_PROGRAMS=ON` → still 14 entries, program-list virtuals exercised inside the plugin preset tests.
+- Default build: `cmake -S . -B build -A x64 -DSUITE_PRESET_BANK=OFF` → 10 CTest entries.
+- Bank build: `cmake -S . -B build -A x64 -DSUITE_PRESET_BANK=ON` → 14 CTest entries.
+- Bank + programs: add `-DSUITE_PRESET_BANK_AS_PROGRAMS=ON` → still 14 entries, program-list virtuals exercised inside the plugin preset tests.
 - Test: `ctest --test-dir build -C Release --output-on-failure`.
 - Bundles: `build/plugins/<Name>/<Name>_artefacts/Release/VST3/`.
 - Release: GitHub Actions → *Release* → *Run workflow* (version without `v`, draft on by default).
