@@ -60,15 +60,10 @@ juce::AudioProcessorValueTreeState::ParameterLayout SgraffitoProcessor::createPa
     juce::AudioProcessorValueTreeState::ParameterLayout layout;
 
     auto percent = [] (float v, int) { return juce::String (v, 0) + " %"; };
-    auto percentParse = [] (const juce::String& t) { return t.getFloatValue(); };
     auto ms = [] (float v, int) { return juce::String (v, 0) + " ms"; };
-    auto msParse = [] (const juce::String& t) { return t.getFloatValue(); };
     auto db = [] (float v, int) { return juce::String (v, 1) + " dB"; };
-    auto dbParse = [] (const juce::String& t) { return t.getFloatValue(); };
     auto hz = [] (float v, int) { return juce::String (v, 2); };
-    auto hzParse = [] (const juce::String& t) { return t.getFloatValue(); };
     auto cents = [] (float v, int) { return juce::String (v, 0) + " ct"; };
-    auto centsParse = [] (const juce::String& t) { return t.getFloatValue(); };
 
     // Mode: Scrub, Chop, Cloud, Swell
     layout.add (std::make_unique<juce::AudioParameterChoice> (
@@ -276,6 +271,75 @@ void SgraffitoProcessor::applyPresetState (const juce::ValueTree& tree)
     const auto result = SuiteState::read (block.getData(), (int) block.getSize(), apvts,
                                           stateVersion, migrations, {}, true);
     juce::ignoreUnused (result);
+}
+
+void SgraffitoProcessor::loadSample (const juce::File& file)
+{
+    if (! file.existsAsFile())
+        return;
+
+    const double targetRate = preparedSampleRate > 0.0 ? preparedSampleRate : 44100.0;
+
+    juce::AudioFormatManager formatManager;
+    formatManager.registerBasicFormats();
+
+    std::unique_ptr<juce::AudioFormatReader> reader (
+        formatManager.createReaderFor (file));
+
+    if (reader == nullptr)
+        return;
+
+    juce::AudioBuffer<float> fileBuffer ((int) reader->numChannels,
+                                         (int) reader->lengthInSamples);
+    reader->read (&fileBuffer,
+                  0,
+                  (int) reader->lengthInSamples,
+                  0,
+                  true,
+                  true);
+
+    // Resample to the target sample rate if needed.
+    if (std::abs (reader->sampleRate - targetRate) > 0.1)
+    {
+        juce::AudioBuffer<float> resampled ((int) reader->numChannels,
+                                            (int) (reader->lengthInSamples * targetRate / reader->sampleRate));
+
+        for (int ch = 0; ch < (int) reader->numChannels; ++ch)
+        {
+            const float* src = fileBuffer.getReadPointer (ch);
+            float* dst = resampled.getWritePointer (ch);
+
+            const double ratio = reader->sampleRate / targetRate;
+            for (int i = 0; i < resampled.getNumSamples(); ++i)
+            {
+                const double srcPos = i * ratio;
+                const int srcIdx = (int) srcPos;
+                const float frac = (float) (srcPos - srcIdx);
+
+                if (srcIdx + 1 < fileBuffer.getNumSamples())
+                    dst[i] = src[srcIdx] * (1.0f - frac) + src[srcIdx + 1] * frac;
+                else
+                    dst[i] = src[srcIdx];
+            }
+        }
+        fileBuffer = std::move (resampled);
+    }
+
+    // Atomic swap: release old pointer first, then install new sample.
+    sampleBuffer.store (nullptr, std::memory_order_release);
+    loadedSample = std::make_unique<LoadedSample>();
+    loadedSample->buffer = std::move (fileBuffer);
+    loadedSample->sourcePath = file.getFullPathName();
+    loadedSample->sourceSampleRate = reader->sampleRate;
+    sampleFile = file;
+    sampleBuffer.store (&loadedSample->buffer, std::memory_order_release);
+}
+
+void SgraffitoProcessor::clearSample()
+{
+    sampleFile = juce::File();
+    loadedSample.reset();
+    sampleBuffer.store (nullptr, std::memory_order_release);
 }
 
 void SgraffitoProcessor::getStateInformation (juce::MemoryBlock& destData)

@@ -4,10 +4,14 @@
 #include <juce_audio_utils/juce_audio_utils.h>
 
 #include <atomic>
+#include <cstddef>
+#include <memory>
 #include <vector>
 
 #include "SuiteState.h"
 #include "SuitePresets.h"
+
+#include "SampleLoader.h"
 
 #include <CoreDSP.h>
 
@@ -108,6 +112,15 @@ public:
         return sampleBuffer.load (std::memory_order_acquire);
     }
 
+    // Sample loading
+    void loadSample (const juce::File& file);
+    void clearSample();
+
+    juce::String getSamplePath() const noexcept { return sampleFile.getFullPathName(); }
+    bool hasSample() const noexcept { return sampleBuffer.load() != nullptr; }
+    size_t getEmbedLimitBytes() const noexcept { return embedLimitBytes; }
+    void setEmbedLimitBytes (size_t bytes) noexcept { embedLimitBytes = bytes; }
+
     // APVTS is public so the editor and tests can build attachments.
     juce::AudioProcessorValueTreeState apvts { *this, nullptr, "PARAMETERS", createParameterLayout() };
 
@@ -119,6 +132,15 @@ private:
 
     // The loaded sample, swapped atomically on load so the audio thread never locks.
     std::atomic<const juce::AudioBuffer<float>*> sampleBuffer { nullptr };
+
+    // The full loaded sample (buffer + flac data + path), owned by the processor.
+    std::unique_ptr<LoadedSample> loadedSample;
+
+    // The original file path (for path-based loading above the embed limit).
+    juce::File sampleFile;
+
+    // Maximum size for embedded samples (default 20 MB).
+    size_t embedLimitBytes = 20ull * 1024ull * 1024ull;
 
     // Per-sample-rate derived values.
     double preparedSampleRate = 44100.0;
