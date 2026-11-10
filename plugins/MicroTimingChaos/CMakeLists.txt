@@ -6,7 +6,7 @@ suite_add_plugin(
     DESCRIPTION     "MIDI step sequencer whose timing, pitch and velocity drift follows a Lorenz attractor."
     MANUFACTURER    Asui
     PLUGIN_CODE     Mtch
-    MIDI_EFFECT
+    IS_SYNTH IS_MIDI_EFFECT NEEDS_MIDI_INPUT NEEDS_MIDI_OUTPUT
     SOURCES         Source/PluginProcessor.cpp Source/PluginProcessor.h
                     Source/PluginEditor.cpp Source/PluginEditor.h
                     Source/LerpCurveEditor.cpp Source/LerpCurveEditor.h

@@ -76,6 +76,7 @@ if(SUITE_BUILD_PLUGINS)
     add_subdirectory(plugins/SpectralDrift)
     add_subdirectory(plugins/DynamicSaturation)
     add_subdirectory(plugins/MicroTimingChaos)
+    add_subdirectory(plugins/Sgraffito)
 
     if(SUITE_BUILD_TESTS)
         add_subdirectory(tests/host)

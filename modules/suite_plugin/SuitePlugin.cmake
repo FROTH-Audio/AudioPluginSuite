@@ -29,7 +29,11 @@
 #   LOCKUP        Brand lockup PNG, embedded as binary data.
 #   ASSETS        Other files embedded in the same binary data target as LOCKUP.
 #   MODULATION    Adds suite_modulation (LFOs and routing). Off by default.
-#   MIDI_EFFECT   Makes a MIDI effect: IS_SYNTH, IS_MIDI_EFFECT, NEEDS_MIDI_INPUT and NEEDS_MIDI_OUTPUT are set.
+#   IS_SYNTH        Marks the plugin as a synth/instrument (VST3 instrument category).
+#   IS_MIDI_EFFECT  Marks the plugin as a MIDI effect (AU MIDI processor type).
+#   NEEDS_MIDI_INPUT  Declares MIDI input capability.
+#   NEEDS_MIDI_OUTPUT Declares MIDI output capability.
+#   MODULATION    Adds suite_modulation (LFOs and routing). Off by default.
 #
 # Needs suite_ui_add_to_target (modules/suite_ui/SuiteUI.cmake) and, with MODULATION, suite_modulation_add_to_target.
 # Variables set inside the function do not leak out: everything the plugin needs is a target property.
@@ -37,7 +41,7 @@
 set_property(GLOBAL PROPERTY SUITE_PLUGIN_CODES "")
 
 function(suite_add_plugin)
-    set(options MODULATION MIDI_EFFECT)
+    set(options MODULATION IS_SYNTH IS_MIDI_EFFECT NEEDS_MIDI_INPUT NEEDS_MIDI_OUTPUT)
     set(oneValue NAME PRODUCT_NAME MANUFACTURER PLUGIN_CODE BUNDLE_ID COMPANY_NAME VERSION DESCRIPTION LOCKUP)
     set(multiValue SOURCES TEST_SOURCES ASSETS)
     cmake_parse_arguments(SAP "${options}" "${oneValue}" "${multiValue}" ${ARGN})
@@ -73,10 +77,26 @@ function(suite_add_plugin)
     if(NOT SAP_VERSION)
         set(SAP_VERSION "${PROJECT_VERSION}")
     endif()
-    if(SAP_MIDI_EFFECT)
-        set(midiFlag TRUE)
+    #---- JUCE plugin type flags (independent booleans) ----
+    if(SAP_IS_SYNTH)
+        set(isSynth TRUE)
     else()
-        set(midiFlag FALSE)
+        set(isSynth FALSE)
+    endif()
+    if(SAP_IS_MIDI_EFFECT)
+        set(isMidiEffect TRUE)
+    else()
+        set(isMidiEffect FALSE)
+    endif()
+    if(SAP_NEEDS_MIDI_INPUT)
+        set(needsMidiInput TRUE)
+    else()
+        set(needsMidiInput FALSE)
+    endif()
+    if(SAP_NEEDS_MIDI_OUTPUT)
+        set(needsMidiOutput TRUE)
+    else()
+        set(needsMidiOutput FALSE)
     endif()
 
     #---- Plugin target ----
@@ -89,10 +109,10 @@ function(suite_add_plugin)
         PRODUCT_NAME "${SAP_PRODUCT_NAME}"
         VERSION ${SAP_VERSION}
         FORMATS ${SUITE_PLUGIN_FORMATS}
-        IS_SYNTH ${midiFlag}
-        IS_MIDI_EFFECT ${midiFlag}
-        NEEDS_MIDI_INPUT ${midiFlag}
-        NEEDS_MIDI_OUTPUT ${midiFlag}
+        IS_SYNTH ${isSynth}
+        IS_MIDI_EFFECT ${isMidiEffect}
+        NEEDS_MIDI_INPUT ${needsMidiInput}
+        NEEDS_MIDI_OUTPUT ${needsMidiOutput}
         EDITOR_WANTS_KEYBOARD_FOCUS FALSE
         COPY_PLUGIN_AFTER_BUILD FALSE
     )
@@ -126,6 +146,7 @@ function(suite_add_plugin)
     endif()
     list(APPEND links
         SuiteState
+        juce::juce_audio_formats
         juce::juce_audio_utils
         juce::juce_audio_processors
         juce::juce_gui_basics

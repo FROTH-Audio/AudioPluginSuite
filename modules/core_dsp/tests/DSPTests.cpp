@@ -938,6 +938,208 @@ namespace
         std::puts ("[PASS] testModulationTiming");
     }
 
+    //==============================================================================
+    // Sampler rules (SamplerMaps.h, SamplerEngine.h)
+
+    void testKeyRegionMapping()
+    {
+        using namespace CoreDSP::Sampler;
+
+        // Full span: lowest key starts at 0, highest at end of sample.
+        const auto low = keyRegion (0, 60, 1.0, 0.1);
+        assert (low.start == 0.0);
+        assert (std::abs (low.length - 0.1) < 1e-9);
+
+        const auto high = keyRegion (127, 60, 1.0, 0.1);
+        assert (std::abs (high.start + high.length - 1.0) < 1e-9);
+
+        // Half span: the whole keyboard covers half the sample (start positions).
+        const auto half = keyRegion (0, 60, 0.5, 0.1);
+        assert (half.start == 0.0);
+
+        const auto halfHigh = keyRegion (127, 60, 0.5, 0.1);
+        assert (std::abs (halfHigh.start - 0.5) < 1e-9);
+
+        // Root key plays at natural pitch; its region position is in the middle.
+        const auto root = keyRegion (60, 60, 1.0, 0.1);
+        assert (root.start > 0.0 && root.start < 1.0);
+
+        std::puts ("[PASS] testKeyRegionMapping");
+    }
+
+    void testChopMap()
+    {
+        using namespace CoreDSP::Sampler;
+
+        // 16 slices cover the whole sample with no gaps or overlaps.
+        double covered = 0.0;
+        for (int i = 0; i < 16; ++i)
+        {
+            const auto r = chopRegion (i, 16);
+            assert (r.start >= 0.0 && r.length > 0.0);
+            assert (r.start + r.length <= 1.0 + 1e-9);
+            covered += r.length;
+        }
+        assert (std::abs (covered - 1.0) < 1e-9);
+
+        // Slices are adjacent: slice i starts where slice i-1 ended.
+        for (int i = 1; i < 16; ++i)
+        {
+            const auto prev = chopRegion (i - 1, 16);
+            const auto curr = chopRegion (i, 16);
+            assert (std::abs (curr.start - (prev.start + prev.length)) < 1e-9);
+        }
+
+        // Out-of-range count clamps to maxRegions.
+        const auto many = chopRegion (0, 1000);
+        assert (std::abs (many.length - (1.0 / (double) maxRegions)) < 1e-9);
+
+        std::puts ("[PASS] testChopMap");
+    }
+
+    void testShuffleRegions()
+    {
+        using namespace CoreDSP::Sampler;
+
+        // Same seed gives same map.
+        const auto a = shuffleRegions (42, 16);
+        const auto b = shuffleRegions (42, 16);
+        for (int i = 0; i < 16; ++i)
+            assert (a[(size_t) i] == b[(size_t) i]);
+
+        // Different seeds give different maps.
+        const auto c = shuffleRegions (43, 16);
+        int differences = 0;
+        for (int i = 0; i < 16; ++i)
+            differences += a[(size_t) i] != c[(size_t) i] ? 1 : 0;
+        assert (differences > 0);
+
+        // Every region is used exactly once.
+        bool seen[maxRegions] = {};
+        for (int i = 0; i < 16; ++i)
+            seen[(size_t) a[(size_t) i]] = true;
+        for (int i = 0; i < 16; ++i)
+            assert (seen[i]);
+
+        // Out-of-range count clamps.
+        const auto clamped = shuffleRegions (42, 1000);
+        bool seenClamped[maxRegions] = {};
+        for (int i = 0; i < maxRegions; ++i)
+            seenClamped[(size_t) clamped[(size_t) i]] = true;
+        for (int i = 0; i < maxRegions; ++i)
+            assert (seenClamped[i]);
+
+        std::puts ("[PASS] testShuffleRegions");
+    }
+
+    void testScaleLock()
+    {
+        using namespace CoreDSP::Sampler;
+
+        // Minor scale: C (root), D, D#, F, G, G#, A#.
+        assert (degreeToNote (60, 2, 0) == 60);   // root
+        assert (degreeToNote (60, 2, 2) == 63);   // minor third
+        assert (degreeToNote (60, 2, 7) == 72);   // one octave up
+        assert (degreeToNote (120, 0, 12) == 127); // chromatic clamped to MIDI max
+
+        // Degree count for 2 octaves of minor pentatonic = 10.
+        assert (degreeCount (3, 2) == 10);
+
+        // Out-of-range scale clamps.
+        assert (scaleDefinition (42).size == 6); // whole tone
+
+        std::puts ("[PASS] testScaleLock");
+    }
+
+    void testMemoryTrace()
+    {
+        using namespace CoreDSP::Sampler;
+
+        RegionTrace trace {};
+
+        // Silence: trace stays at clean defaults.
+        trace = updateTrace (trace, 0.0f, 0.0f, 1.0f, 1.0f);
+        assert (std::abs (trace.gainOffset) < 1e-6f);
+        assert (std::abs (trace.toneOffset) < 1e-6f);
+
+        // A note moves the trace toward its values.
+        trace = updateTrace (trace, -6.0f, 0.5f, 1.0f, 0.0f);
+        assert (std::abs (trace.gainOffset - (-6.0f)) < 1e-6f);
+        assert (std::abs (trace.toneOffset - 0.5f) < 1e-6f);
+
+        // Repeated notes move further toward the same target but stay clamped.
+        trace = updateTrace (trace, -12.0f, 1.0f, 1.0f, 0.0f);
+        assert (trace.gainOffset == -12.0f);   // clamped
+        assert (trace.toneOffset == 1.0f);     // clamped
+
+        // Decay fades the trace back toward clean.
+        trace = updateTrace (trace, 0.0f, 0.0f, 0.0f, 1.0f);
+        assert (std::abs (trace.gainOffset) < 1e-6f);
+        assert (std::abs (trace.toneOffset) < 1e-6f);
+
+        std::puts ("[PASS] testMemoryTrace");
+    }
+
+    void testTapeStopRamp()
+    {
+        using namespace CoreDSP::Sampler;
+
+        TapeStopRamp ramp;
+        ramp.start (1000.0, TapeStopRamp::Curve::linear); // 1 second stop
+
+        // At 48 kHz, one second is 48000 samples.
+        float rate = 1.0f;
+        for (int n = 0; n < 48000; ++n)
+            rate = ramp.tick (48000.0);
+
+        assert (rate < 0.01f);   // essentially stopped
+        assert (! ramp.active());
+
+        // Exponential curve: rate never quite hits zero but gets very close.
+        TapeStopRamp expRamp;
+        expRamp.start (1000.0, TapeStopRamp::Curve::exponential);
+        float expRate = 1.0f;
+        for (int n = 0; n < 48000; ++n)
+            expRate = expRamp.tick (48000.0);
+        assert (expRate < 0.1f);
+
+        // Negative time is ignored.
+        TapeStopRamp negRamp;
+        negRamp.start (-100.0, TapeStopRamp::Curve::linear);
+        assert (! negRamp.active());
+
+        std::puts ("[PASS] testTapeStopRamp");
+    }
+
+    void testVoicePool()
+    {
+        using namespace CoreDSP::Sampler;
+
+        VoicePool pool;
+
+        // Allocate 32 voices fills the pool.
+        for (int i = 0; i < maxVoices; ++i)
+            assert (pool.allocateVoice (60 + i, 100) >= 0);
+        assert (pool.countActive() == maxVoices);
+
+        // The 33rd voice steals the oldest.
+        const int stolen = pool.allocateVoice (72, 80);
+        assert (stolen >= 0);
+        assert (stolen < maxVoices);
+        assert (pool.countActive() == maxVoices);
+
+        // Release a voice.
+        pool.releaseVoice (0, 1000.0);
+        assert (pool.countActive() == maxVoices - 1);
+
+        // Re-allocating reuses the freed voice.
+        const int reused = pool.allocateVoice (48, 90);
+        assert (reused >= 0);
+        assert (pool.countActive() == maxVoices);
+
+        std::puts ("[PASS] testVoicePool");
+    }
+
 int main()
 {
     std::puts ("Running CoreDSP unit tests...");
@@ -971,6 +1173,13 @@ int main()
     testModulationShapes();
     testSampleAndHold();
     testModulationTiming();
+    testKeyRegionMapping();
+    testChopMap();
+    testShuffleRegions();
+    testScaleLock();
+    testMemoryTrace();
+    testTapeStopRamp();
+    testVoicePool();
 
     std::puts ("All CoreDSP unit tests passed.");
     return 0;

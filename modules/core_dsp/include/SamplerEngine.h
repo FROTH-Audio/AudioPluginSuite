@@ -1,0 +1,207 @@
+#pragma once
+
+#include <algorithm>
+#include <array>
+#include <cmath>
+#include <cstdint>
+
+#include "ChaosEngine.h"
+#include "SamplerMaps.h"
+
+/**
+    Sampler engine helpers for Sgraffito: memory traces, tape-stop ramps, voices.
+
+    Everything here is deterministic and testable in isolation. The plugin owns the
+    audio buffer, the voice pool lifetime and the per-block processing loop.
+*/
+namespace CoreDSP::Sampler
+{
+    constexpr int maxVoices = 32;
+
+    /** Per-region memory trace: how a region was played the last time it sounded.
+
+        gainOffset is in dB (-12 to 0), toneOffset and noiseOffset are normalised
+        (-1 to 1, 0 to 1). Traces live in plugin state so a session remembers its
+        history.
+    */
+    struct RegionTrace
+    {
+        float gainOffset = 0.0f;    // -12 to 0 dB
+        float toneOffset = 0.0f;    // -1 to 1
+        float noiseOffset = 0.0f;   // 0 to 1
+    };
+
+    /** Move a trace a fraction toward the current note's values, then apply decay.
+
+        `amount` (0 to 1) sets how far each note moves the trace; `decay` (0 to 1)
+        sets how fast the trace fades toward clean when nothing is played. All values
+        are clamped to fixed ranges so traces cannot grow without bound.
+    */
+    inline RegionTrace updateTrace (RegionTrace trace, float currentGainDb,
+                                    float currentTone, float amount, float decay) noexcept
+    {
+        const float t = std::clamp (amount, 0.0f, 1.0f);
+        const float d = std::clamp (decay, 0.0f, 1.0f);
+
+        trace.gainOffset = std::clamp (trace.gainOffset * (1.0f - d) + currentGainDb * t,
+                                       -12.0f, 0.0f);
+        trace.toneOffset = std::clamp (trace.toneOffset * (1.0f - d) + currentTone * t,
+                                       -1.0f, 1.0f);
+        trace.noiseOffset = std::clamp (trace.noiseOffset * (1.0f - d) + currentTone * t,
+                                        0.0f, 1.0f);
+
+        return trace;
+    }
+
+    /** Tape-stop ramp: playback rate falls toward zero over a set time.
+
+        Call tick() once per sample while stopping; it returns the rate in [0, 1].
+        active() is false once the ramp has finished.
+    */
+    class TapeStopRamp
+    {
+    public:
+        enum class Curve { linear, exponential, slowThenFast };
+
+        void start (double timeMs, Curve curve) noexcept
+        {
+            startMs = std::max (timeMs, 0.0);
+            remainingMs = startMs;
+            this->curve = curve;
+        }
+
+        float tick (double sampleRate) noexcept
+        {
+            if (remainingMs <= 0.0)
+                return 0.0f;
+
+            remainingMs -= 1000.0 / sampleRate;
+            const double progress = remainingMs <= 0.0 ? 1.0
+                                                       : (1.0 - remainingMs / startMs);
+            const double clamped = std::clamp (progress, 0.0, 1.0);
+
+            double factor;
+            switch (curve)
+            {
+                case Curve::linear:      factor = 1.0 - clamped; break;
+                case Curve::exponential: factor = std::exp (-3.0 * clamped); break;
+                case Curve::slowThenFast: factor = std::pow (1.0 - clamped, 2.0); break;
+            }
+
+            return static_cast<float> (std::clamp (factor, 0.0, 1.0));
+        }
+
+        bool active() const noexcept { return remainingMs > 0.0; }
+
+    private:
+        double remainingMs = 0.0;
+        double startMs = 0.0;
+        Curve curve = Curve::exponential;
+    };
+
+    /** Per-voice playback state. */
+    struct Voice
+    {
+        bool active = false;
+        int key = 60;
+        float velocity = 1.0f;
+        double position = 0.0;      // read position inside the region (samples)
+        double rate = 1.0;          // playback rate (1.0 = normal speed)
+        float gain = 1.0f;          // current gain, includes memory trace
+        double releaseStart = 0.0;  // sample index when note-off happened
+        bool tapeStopping = false;  // voice is in a tape-stop fade-out
+        TapeStopRamp tapeStop;
+    };
+
+    /** Voice pool: 32 voices. Stealing takes the oldest voice in release first,
+        then the oldest voice overall. Tape-stopping voices are stolen first since
+        they are already fading.
+    */
+    class VoicePool
+    {
+    public:
+        Voice voices[maxVoices];
+
+        VoicePool() = default;
+
+        /** Mark a voice as playing a note. Returns the voice index. */
+        int allocateVoice (int key, float velocity) noexcept
+        {
+            // First, find a free voice.
+            for (int i = 0; i < maxVoices; ++i)
+            {
+                if (! voices[i].active)
+                {
+                    voices[i] = Voice {};
+                    voices[i].active = true;
+                    voices[i].key = key;
+                    voices[i].velocity = velocity;
+                    return i;
+                }
+            }
+
+            // Steal: tape-stopping voices first, then oldest in release, then oldest overall.
+            int stealIndex = -1;
+            double oldestRelease = -1.0;
+
+            for (int i = 0; i < maxVoices; ++i)
+            {
+                if (! voices[i].active)
+                    continue;
+
+                if (voices[i].tapeStopping)
+                {
+                    stealIndex = i;
+                    break;
+                }
+
+                if (voices[i].releaseStart > oldestRelease)
+                {
+                    oldestRelease = voices[i].releaseStart;
+                    stealIndex = i;
+                }
+            }
+
+            if (stealIndex >= 0)
+            {
+                voices[stealIndex] = Voice {};
+                voices[stealIndex].active = true;
+                voices[stealIndex].key = key;
+                voices[stealIndex].velocity = velocity;
+            }
+
+            return stealIndex;
+        }
+
+        /** Mark a voice as released (note-off). */
+        void releaseVoice (int index, double sampleIndex) noexcept
+        {
+            if (index < 0 || index >= maxVoices || ! voices[index].active)
+                return;
+
+            voices[index].active = false;
+            voices[index].releaseStart = sampleIndex;
+        }
+
+        int countActive() const noexcept
+        {
+            int count = 0;
+            for (int i = 0; i < maxVoices; ++i)
+                if (voices[i].active)
+                    ++count;
+            return count;
+        }
+    };
+
+    /** Ghost note: a quieter, delayed copy of a note. */
+    struct Ghost
+    {
+        bool active = false;
+        int key = 60;
+        float velocity = 1.0f;
+        double position = 0.0;
+        double rate = 1.0;
+        float gain = 1.0f;
+        double delayRemainingMs = 0.0;
+    };
+}
