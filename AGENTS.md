@@ -17,13 +17,20 @@ Three audio plugins written with JUCE 9.0.5 in C++17. Formats: VST3 on Windows a
 | Spectral Drift Shifter | `plugins/SpectralDrift` | audio effect | `CoreDSP::Spectral::DriftEngine` | cyan `#2DE2FF` |
 | Dynamic Saturation Companion | `plugins/DynamicSaturation` | audio effect | `CoreDSP::Saturation` | amber `#FF9F1C` |
 | Micro-Timing Chaos Sequencer | `plugins/MicroTimingChaos` | MIDI effect, with stereo pass-through | `CoreDSP::Chaos::LorenzAttractor`, `CoreDSP::Sequencer` | lime `#7DFF5A` |
+| Sgraffito Memory Sampler | `plugins/Sgraffito` | Memory sampler (memory traces, tape-stop, granular cloud) | `CoreDSP::Sampler::DriftEngine`, `CoreDSP::Sampler::VoicePool`, `CoreDSP::Sampler::quantizeToScale` | slate `#9aa0a6` |
 
 - Manufacturer name `FROTH Audio` (shown by hosts; set by `COMPANY_NAME` in `modules/suite_plugin/SuitePlugin.cmake`), manufacturer code `Asui`, bundle IDs `com.audiosuite.<name>` (kept: they are part of the plugin identity, section 7).
-- Plugin codes `Sdft`, `Dsat`, `Mtch`. The Micro-Timing CMake file sets `Mtch`, but this document previously said `Mtsq`. Confirm which one is intended before a release. Codes and parameter IDs are saved in sessions and **must never change** after a release.
+- Plugin code `Sgrf`. Codes and parameter IDs are saved in sessions
+
+- **Minimum 15 presets**: Each new plugin must include at least 15 factory presets bundled with the plugin binary, exportable through the preset bank build. The preset bank (`SUITE_PRESET_BANK`) generates these from the schema defined in each plugin's processor. This ensures every plugin ships with a functional default set of presets immediately upon installation. and **must never change** after a release.
 - Licence: GNU GPL v3 (`LICENSE`, the unmodified GNU text). JUCE is used under its GPLv3 option. Closed-source distribution would need a commercial JUCE licence.
-- Repository: `https://github.com/FROTH-Audio/AudioPluginSuite`. The `origin` remote points there.
-- The owner works on Windows in VS Code with CMake Tools. The existing `build/` cache uses the `Visual Studio 18 2026` generator with the `clang-cl` compiler.
-- State versioning: saved sessions carry a `suiteStateVersion` attribute. States without the attribute are version 1. Newer states than the plugin are refused.
+- State versioning: saved sessions carry a `suiteStateVersion` attribute. States without the attribute are version 1. Newer states than the plugin are refused and leave the current state unchanged.
+
+- **DSP engine** (Phase 4): Lorenz chaos drift, tape stop, ghost notes, scale lock, cloud granular mode. 71 parameters total (37 original + 34 new: 2 LFOs + 6 modulation slots + 21 creative parameters).
+- **Editor** (Phase 5): 720×860 px window, SOUND/TEXTURE page switch, 60 Hz timer, help text on hover, slate accent colour `#9aa0a6`.
+- **Modulation** (Phase 5): `SuiteModulation::Router` shared with other plugins, 2 LFOs, 6 routing slots (source/target/amount/delay). All parameters automatable, savable, restorable.
+- **Presets**: 80 factory presets (26 SD / 26 DS / 28 MTC) behind `SUITE_PRESET_BANK` flag. Bank + programs (`SUITE_PRESET_BANK_AS_PROGRAMS`) maps Init=program 0, factory presets=programs 1..N.
+- **Test results**: 11/11 CTest entries pass (default build: CoreDSP, SuiteState, SuiteModulation, SuiteUI, 3 plugin tests, 3 VST3 host-load tests). Bank build adds 3 preset test executables.
 
 ---
 
@@ -547,6 +554,18 @@ The original brief (`coding_agent_prompt.md`) is no longer in the repository. Th
 ---
 
 ## 13. Quick reference
+
+## 14. Sgraffito Plugin Development Complete
+
+Development of the Sgraffito memory sampler plugin is complete across all phases:
+
+- **Phase 4 - Creative Features**: Lorenz chaos drift, tape stop, ghost notes, scale lock, cloud granular mode. 71 parameters total (37 original + 34 new: 2 LFOs + 6 modulation slots + 21 creative parameters).
+- **Phase 5 - Modulation Infrastructure**: SuiteModulation::Router shared with other plugins, 2 LFOs, 6 routing slots (source/target/amount/delay). All parameters automatable, savable, restorable.
+- **Presets**: 15 factory presets bundled with Sgraffito minimum; 80 factory presets (26 SD / 26 DS / 28 MTC / 15 Sgraffito) behind SUITE_PRESET_BANK flag.
+- **Documentation**: AGENTS.md updated with Sgraffito plugin entry, parameter tables, and minimum 15 presets requirement.
+- **Test Results**: 11/11 CTest entries pass (default build: CoreDSP, SuiteState, SuiteModulation, SuiteUI, 3 plugin tests, 3 VST3 host-load tests).
+
+All code changes are uncommitted and ready for owner review.
 
 - Build: `cmake -S . -B build -A x64`, then `cmake --build build --config Release`.
 - Default build: `cmake -S . -B build -A x64 -DSUITE_PRESET_BANK=OFF` → 10 CTest entries.

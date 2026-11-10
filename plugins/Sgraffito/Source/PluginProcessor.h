@@ -66,7 +66,61 @@ public:
     static constexpr const char* flutterId = "flutter";
     static constexpr const char* shuffleSeedId = "shuffleSeed";
 
-    static constexpr int numControls = 37;
+    // LFO 1 and LFO 2
+    static constexpr const char* lfo1RateId = "lfo1Rate";
+    static constexpr const char* lfo1ShapeId = "lfo1Shape";
+    static constexpr const char* lfo1SyncId = "lfo1Sync";
+    static constexpr const char* lfo1DivisionId = "lfo1Division";
+    static constexpr const char* lfo1OffsetId = "lfo1Offset";
+    static constexpr const char* lfo2RateId = "lfo2Rate";
+    static constexpr const char* lfo2ShapeId = "lfo2Shape";
+    static constexpr const char* lfo2SyncId = "lfo2Sync";
+    static constexpr const char* lfo2DivisionId = "lfo2Division";
+    static constexpr const char* lfo2OffsetId = "lfo2Offset";
+
+    // Modulation routing: six slots, each with a source, a target, an amount and a delay
+    static constexpr const char* modSourceIds[6] = { "mod1Source", "mod2Source", "mod3Source", "mod4Source", "mod5Source", "mod6Source" };
+    static constexpr const char* modTargetIds[6] = { "mod1Target", "mod2Target", "mod3Target", "mod4Target", "mod5Target", "mod6Target" };
+    static constexpr const char* modAmountIds[6] = { "mod1Amount", "mod2Amount", "mod3Amount", "mod4Amount", "mod5Amount", "mod6Amount" };
+    static constexpr const char* modDelayIds[6] = { "mod1Delay", "mod2Delay", "mod3Delay", "mod4Delay", "mod5Delay", "mod6Delay" };
+
+    static constexpr int numControls = 71;
+    static constexpr int lfoCount = 2;
+    static constexpr int slotCount = 6;
+
+    /** The parameters that an LFO can move. The order is part of the saved session: append new
+        targets at the end, and never reorder or remove existing ones. Names come from modTargetNames(). */
+    enum class ModTarget
+    {
+        None = 0,
+        RegionSpan,
+        RegionLength,
+        RootKey,
+        PitchFine,
+        Glide,
+        Level,
+        Attack,
+        Release,
+        MemoryAmount,
+        DriftAmount,
+        DriftSpeed,
+        LayBack,
+        Swing,
+        Humanise,
+        GhostThreshold,
+        GhostLevel,
+        GrainSize,
+        GrainDensity,
+        SwellTime,
+        Dust,
+        Crackle,
+        Wow,
+        Flutter,
+        ShuffleSeed,
+        count
+    };
+
+    static juce::StringArray modTargetNames();
 
     //==============================================================================
     SgraffitoProcessor();
@@ -121,6 +175,12 @@ public:
     size_t getEmbedLimitBytes() const noexcept { return embedLimitBytes; }
     void setEmbedLimitBytes (size_t bytes) noexcept { embedLimitBytes = bytes; }
 
+    /** The LFOs and routing, for the editor's panel and control display. */
+    SuiteModulation::Router& getRouter() noexcept { return modulation; }
+
+    /** The value a control shows right now: its base value, moved by the offset currently published for its target. */
+    float getModulatedValue (ModTarget target, const char* parameterId) const;
+
     // APVTS is public so the editor and tests can build attachments.
     juce::AudioProcessorValueTreeState apvts { *this, nullptr, "PARAMETERS", createParameterLayout() };
 
@@ -129,6 +189,10 @@ public:
 
     // Lorenz attractor for chaos drift.
     CoreDSP::Chaos::LorenzAttractor lorenz;
+
+    // The two LFOs and the six routing slots, shared with the other plugins (modules/suite_modulation).
+    // Declared after apvts, which it reads from.
+    SuiteModulation::Router modulation;
 
     // Ghost note state: ghost notes are quieter, delayed copies of notes played below
     // the ghost threshold.
@@ -165,6 +229,12 @@ public:
 
 private:
     static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
+
+    /** Applies an offset to a parameter's base value, in the parameter's own normalised range. Exact when the offset is zero. */
+    float modulatedValue (ModTarget target, float base, const SuiteModulation::Router::Offsets& offsets) const
+    {
+        return modulation.modulate ((int) target, base, offsets);
+    }
 
     // Parameter pointers, cached for the audio thread.
     std::atomic<float>* modeParam = nullptr;
@@ -204,6 +274,22 @@ private:
     std::atomic<float>* wowParam = nullptr;
     std::atomic<float>* flutterParam = nullptr;
     std::atomic<float>* shuffleSeedParam = nullptr;
+
+    // LFO and routing parameter pointers, cached for the audio thread.
+    std::atomic<float>* lfo1RateParam = nullptr;
+    std::atomic<float>* lfo1ShapeParam = nullptr;
+    std::atomic<float>* lfo1SyncParam = nullptr;
+    std::atomic<float>* lfo1DivisionParam = nullptr;
+    std::atomic<float>* lfo1OffsetParam = nullptr;
+    std::atomic<float>* lfo2RateParam = nullptr;
+    std::atomic<float>* lfo2ShapeParam = nullptr;
+    std::atomic<float>* lfo2SyncParam = nullptr;
+    std::atomic<float>* lfo2DivisionParam = nullptr;
+    std::atomic<float>* lfo2OffsetParam = nullptr;
+    std::atomic<float>* modSourceParam[6] = { nullptr, nullptr, nullptr, nullptr, nullptr, nullptr };
+    std::atomic<float>* modTargetParam[6] = { nullptr, nullptr, nullptr, nullptr, nullptr, nullptr };
+    std::atomic<float>* modAmountParam[6] = { nullptr, nullptr, nullptr, nullptr, nullptr, nullptr };
+    std::atomic<float>* modDelayParam[6] = { nullptr, nullptr, nullptr, nullptr, nullptr, nullptr };
 
     int stateVersion = 1;
     std::vector<SuiteState::Migration> migrations;

@@ -12,7 +12,8 @@
 SgraffitoProcessor::SgraffitoProcessor()
     : AudioProcessor (BusesProperties()
                           .withOutput ("Output", juce::AudioChannelSet::stereo(), true)),
-      apvts (*this, nullptr, "PARAMETERS", createParameterLayout())
+      apvts (*this, nullptr, "PARAMETERS", createParameterLayout()),
+      modulation (apvts, modulationTargets, (int) std::size (modulationTargets), nullptr)
 {
     // Cache raw parameter pointers for the audio thread (lock-free reads).
     modeParam = apvts.getRawParameterValue (modeId);
@@ -23,7 +24,34 @@ SgraffitoProcessor::SgraffitoProcessor()
     scaleLockParam = apvts.getRawParameterValue (scaleLockId);
     scaleParam = apvts.getRawParameterValue (scaleId);
     glideParam = apvts.getRawParameterValue (glideId);
-    levelParam = apvts.getRawParameterValue (levelId);
+
+    // Modulation routing targets (append-only, saved in sessions).
+    const SuiteModulation::TargetInfo modulationTargets[] {
+        { SgraffitoProcessor::regionSpanId,     "Region Span" },
+        { SgraffitoProcessor::regionLengthId,   "Region Length" },
+        { SgraffitoProcessor::rootKeyId,        "Root Key",   true },
+        { SgraffitoProcessor::pitchFineId,      "Pitch Fine" },
+        { SgraffitoProcessor::glideId,          "Glide" },
+        { SgraffitoProcessor::levelId,          "Level" },
+        { SgraffitoProcessor::attackId,         "Attack" },
+        { SgraffitoProcessor::releaseId,        "Release" },
+        { SgraffitoProcessor::memoryAmountId,   "Memory Amount" },
+        { SgraffitoProcessor::driftAmountId,    "Drift Amount" },
+        { SgraffitoProcessor::driftSpeedId,     "Drift Speed" },
+        { SgraffitoProcessor::layBackId,        "Lay Back" },
+        { SgraffitoProcessor::swingId,          "Swing" },
+        { SgraffitoProcessor::humaniseId,       "Humanise" },
+        { SgraffitoProcessor::ghostThresholdId, "Ghost Threshold" },
+        { SgraffitoProcessor::ghostLevelId,     "Ghost Level" },
+        { SgraffitoProcessor::grainSizeId,      "Grain Size" },
+        { SgraffitoProcessor::grainDensityId,   "Grain Density" },
+        { SgraffitoProcessor::swellTimeId,      "Swell Time" },
+        { SgraffitoProcessor::dustId,           "Dust" },
+        { SgraffitoProcessor::crackleId,        "Crackle" },
+        { SgraffitoProcessor::wowId,            "Wow" },
+        { SgraffitoProcessor::flutterId,        "Flutter" },
+        { SgraffitoProcessor::shuffleSeedId,    "Shuffle Seed", true },
+    };    levelParam = apvts.getRawParameterValue (levelId);
     velocityCurveParam = apvts.getRawParameterValue (velocityCurveId);
     attackParam = apvts.getRawParameterValue (attackId);
     releaseParam = apvts.getRawParameterValue (releaseId);

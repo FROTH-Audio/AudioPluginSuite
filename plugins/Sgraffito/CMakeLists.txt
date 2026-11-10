@@ -8,5 +8,5 @@ suite_add_plugin(
     SOURCES         Source/PluginProcessor.cpp Source/PluginProcessor.h
                     Source/PluginEditor.cpp Source/PluginEditor.h
     TEST_SOURCES    tests/PluginTests.cpp
-    IS_SYNTH NEEDS_MIDI_INPUT
+    IS_SYNTH NEEDS_MIDI_INPUT MODULATION
 )
