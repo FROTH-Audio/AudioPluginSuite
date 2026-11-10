@@ -127,6 +127,9 @@ public:
     // Voice pool (public for tests).
     CoreDSP::Sampler::VoicePool voicePool;
 
+    // Lorenz attractor for chaos drift.
+    CoreDSP::Chaos::LorenzAttractor lorenz;
+
     // The loaded sample (public for tests).
     std::unique_ptr<LoadedSample> loadedSample;
 

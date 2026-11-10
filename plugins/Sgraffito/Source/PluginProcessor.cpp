@@ -250,7 +250,7 @@ void SgraffitoProcessor::processBlock (juce::AudioBuffer<float>& buffer,
             {
                 if (voicePool.voices[i].active && voicePool.voices[i].key == key)
                 {
-                    voicePool.releaseVoice (i, metadata.samplePosition);
+                    voicePool.releaseVoice (i, metadata.samplePosition, tapeStopTimeParam->load(), tapeStopCurveParam->load());
                     break;
                 }
             }
@@ -270,6 +270,13 @@ void SgraffitoProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     const float releaseMs = releaseParam->load();
     const double blockStartSample = static_cast<double> (buffer.getNumSamples()) - static_cast<double> (numSamples);
 
+    // Advance Lorenz attractor by driftSpeed * seconds in this block.
+    const float driftSpeed = driftSpeedParam->load();
+    const double advanceSeconds = static_cast<double> (numSamples) / preparedSampleRate;
+    lorenz.advance (driftSpeed * advanceSeconds);
+
+    const float driftAmountPercent = driftAmountParam->load() / 100.0f;
+
     for (int i = 0; i < CoreDSP::Sampler::maxVoices; ++i)
     {
         auto& voice = voicePool.voices[i];
@@ -283,17 +290,17 @@ void SgraffitoProcessor::processBlock (juce::AudioBuffer<float>& buffer,
             voice.position = voice.regionStart * sample->getNumSamples();
         }
 
-        // Initialize envStart and region on first sample.
-        if (voice.envStart < 0.0)
-        {
-            voice.envStart = blockStartSample;
-            voice.position = voice.regionStart * sample->getNumSamples();
-        }
-
         // Apply tape-stop rate reduction.
         float rate = voice.rate;
+        float rateFactor = 1.0f;
         if (voice.tapeStopping)
-            rate *= voice.tapeStop.tick (preparedSampleRate);
+            rateFactor = voice.tapeStop.tick (preparedSampleRate);
+
+        // Apply chaos drift: chaos * driftAmount cents, converted to rate multiplier.
+        const float chaos = lorenz.normalisedX();
+        const float driftCents = driftAmountPercent * chaos;
+        const float driftRatio = std::pow (2.0f, driftCents / 1200.0f);
+        rate *= driftRatio * rateFactor;
 
         // Process each sample in the block.
         for (int s = 0; s < numSamples; ++s)
@@ -301,7 +308,7 @@ void SgraffitoProcessor::processBlock (juce::AudioBuffer<float>& buffer,
             const double sampleIndex = blockStartSample + static_cast<double> (s);
 
             // Envelope value.
-            const float env = voice.envelope (sampleIndex, attackMs, releaseMs, preparedSampleRate);
+            const float env = voice.envelope (sampleIndex, attackMs, releaseMs, preparedSampleRate) * rateFactor;
 
             // Read sample with linear interpolation.
             const double pos = voice.position;
@@ -323,15 +330,30 @@ void SgraffitoProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                 }
             }
 
-            // Advance position by rate samples per sample.
+            // Advance position.
             voice.position += rate;
 
-            // Release voice if past region end (both in samples).
+            // Release voice if past region end.
             if (voice.position >= voice.regionEnd * sample->getNumSamples())
             {
                 voice.active = false;
                 break;
             }
+
+            // Release voice if tape stop complete.
+            if (voice.tapeStopping && rateFactor < 0.001f)
+            {
+                voice.active = false;
+                voice.tapeStopping = false;
+                break;
+            }
+        }
+
+        // Release voice if tape stop complete after full block.
+        if (voice.tapeStopping && ! voice.tapeStop.active())
+        {
+            voice.active = false;
+            voice.tapeStopping = false;
         }
     }
 }

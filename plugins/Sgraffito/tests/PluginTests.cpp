@@ -65,6 +65,9 @@ namespace
         processor.processBlock (buffer, midiOn);
         assert (processor.getNumActiveVoices() > 0);
 
+        // Set tape stop time to 0 so note-off immediately releases
+        setParameter (processor.apvts, Processor::tapeStopTimeId, 0.0f);
+
         juce::MidiBuffer midiOff;
         midiOff.addEvent (juce::MidiMessage::noteOff (1, 60, 0.8f), blockSize);
         processor.processBlock (buffer, midiOff);

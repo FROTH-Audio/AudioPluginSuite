@@ -1129,7 +1129,7 @@ namespace
         assert (pool.countActive() == maxVoices);
 
         // Release a voice.
-        pool.releaseVoice (0, 1000.0);
+        pool.releaseVoice (0, 1000.0, 0.0, 0);
         assert (pool.countActive() == maxVoices - 1);
 
         // Re-allocating reuses the freed voice.

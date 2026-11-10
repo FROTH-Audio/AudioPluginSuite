@@ -255,14 +255,22 @@ namespace CoreDSP::Sampler
         }
 
         /** Mark a voice as released (note-off). */
-        void releaseVoice (int index, double sampleIndex) noexcept
+        void releaseVoice (int index, double sampleIndex, double tapeStopTimeMs, int tapeStopCurve) noexcept
         {
             if (index < 0 || index >= maxVoices || ! voices[index].active)
                 return;
 
-            voices[index].active = false;
-            voices[index].releaseStart = sampleIndex;
-            voices[index].envEnd = sampleIndex;
+            if (tapeStopTimeMs > 0.0)
+            {
+                voices[index].tapeStopping = true;
+                voices[index].tapeStop.start (tapeStopTimeMs, static_cast<TapeStopRamp::Curve> (tapeStopCurve));
+            }
+            else
+            {
+                voices[index].active = false;
+                voices[index].releaseStart = sampleIndex;
+                voices[index].envEnd = sampleIndex;
+            }
         }
 
         int countActive() const noexcept
