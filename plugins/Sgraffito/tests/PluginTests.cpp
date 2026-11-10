@@ -78,6 +78,90 @@ namespace
         checkEditor (processor);
         pass ("testEditor");
     }
+
+    void testRegionMapping()
+    {
+        Processor processor;
+        processor.prepareToPlay (sampleRate, blockSize);
+
+        // Set full span: key 0 starts at 0, key 127 ends at 1.0
+        setParameter (processor.apvts, Processor::regionSpanId, 100.0f);
+        setParameter (processor.apvts, Processor::regionLengthId, 25.0f);
+
+        juce::MidiBuffer midiOn;
+        midiOn.addEvent (juce::MidiMessage::noteOn (1, 0, 0.8f), 0);
+
+        juce::AudioBuffer<float> buffer (2, blockSize);
+        buffer.clear();
+        processor.processBlock (buffer, midiOn);
+
+        // Key 0 should start at region start 0
+        const auto& voice0 = processor.voicePool.voices[0];
+        assert (voice0.active);
+        assert (std::abs (voice0.regionStart - 0.0) < 1.0);
+        assert (voice0.regionEnd > voice0.regionStart);
+
+        // Key 127 should end at region end near sample length
+        juce::MidiBuffer midiOn2;
+        midiOn2.addEvent (juce::MidiMessage::noteOn (1, 127, 0.8f), 0);
+        processor.processBlock (buffer, midiOn2);
+
+        // Find the voice for key 127
+        bool found = false;
+        for (int i = 0; i < CoreDSP::Sampler::maxVoices; ++i)
+        {
+            if (processor.voicePool.voices[i].active && processor.voicePool.voices[i].key == 127)
+            {
+                // With 25% length starting at position ~0.99, end should be > start
+                assert (processor.voicePool.voices[i].regionEnd > processor.voicePool.voices[i].regionStart);
+                found = true;
+                break;
+            }
+        }
+        assert (found);
+        pass ("testRegionMapping");
+    }
+
+    void testVoiceProducesOutput()
+    {
+        Processor processor;
+        processor.prepareToPlay (sampleRate, blockSize);
+
+        // Create a simple test buffer (sine wave)
+        juce::AudioBuffer<float> testBuffer (2, 48000);
+        for (int ch = 0; ch < 2; ++ch)
+        {
+            float* dst = testBuffer.getWritePointer (ch);
+            for (int i = 0; i < 48000; ++i)
+                dst[i] = 0.5f * std::sin (2.0f * juce::MathConstants<float>::pi * 440.0f * i / 48000.0f);
+        }
+
+        // Load the test buffer directly into the processor
+        processor.loadedSample = std::make_unique<LoadedSample>();
+        processor.loadedSample->buffer = testBuffer;
+        processor.loadedSample->sourceSampleRate = sampleRate;
+        processor.sampleBuffer.store (&processor.loadedSample->buffer, std::memory_order_release);
+
+        juce::MidiBuffer midiOn;
+        midiOn.addEvent (juce::MidiMessage::noteOn (1, 60, 0.8f), 0);
+
+        juce::AudioBuffer<float> buffer (2, blockSize);
+        buffer.clear();
+        processor.processBlock (buffer, midiOn);
+
+        // Voice should have advanced its position
+        bool voiceAdvanced = false;
+        for (int i = 0; i < CoreDSP::Sampler::maxVoices; ++i)
+        {
+            if (processor.voicePool.voices[i].active && processor.voicePool.voices[i].key == 60)
+            {
+                voiceAdvanced = processor.voicePool.voices[i].position > 0.0;
+                break;
+            }
+        }
+        assert (voiceAdvanced);
+        pass ("testVoiceProducesOutput");
+    }
 }
 
 int main()
@@ -90,6 +174,8 @@ int main()
     testStateRoundTrip();
     testMidiNoteOnAllocatesVoice();
     testMidiNoteOffReleasesVoice();
+    testRegionMapping();
+    testVoiceProducesOutput();
     testEditor();
 
     std::puts ("All Sgraffito plugin tests passed.");

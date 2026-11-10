@@ -1119,11 +1119,11 @@ namespace
 
         // Allocate 32 voices fills the pool.
         for (int i = 0; i < maxVoices; ++i)
-            assert (pool.allocateVoice (60 + i, 100) >= 0);
+            assert (pool.allocateVoice (60 + i, 100, 100.0f, 25.0f) >= 0);
         assert (pool.countActive() == maxVoices);
 
         // The 33rd voice steals the oldest.
-        const int stolen = pool.allocateVoice (72, 80);
+        const int stolen = pool.allocateVoice (72, 80, 100.0f, 25.0f);
         assert (stolen >= 0);
         assert (stolen < maxVoices);
         assert (pool.countActive() == maxVoices);
@@ -1133,7 +1133,7 @@ namespace
         assert (pool.countActive() == maxVoices - 1);
 
         // Re-allocating reuses the freed voice.
-        const int reused = pool.allocateVoice (48, 90);
+        const int reused = pool.allocateVoice (48, 90, 100.0f, 25.0f);
         assert (reused >= 0);
         assert (pool.countActive() == maxVoices);
 

@@ -124,17 +124,14 @@ public:
     // APVTS is public so the editor and tests can build attachments.
     juce::AudioProcessorValueTreeState apvts { *this, nullptr, "PARAMETERS", createParameterLayout() };
 
-private:
-    static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
-
-    // The shared voice pool (32 voices max).
+    // Voice pool (public for tests).
     CoreDSP::Sampler::VoicePool voicePool;
 
-    // The loaded sample, swapped atomically on load so the audio thread never locks.
-    std::atomic<const juce::AudioBuffer<float>*> sampleBuffer { nullptr };
-
-    // The full loaded sample (buffer + flac data + path), owned by the processor.
+    // The loaded sample (public for tests).
     std::unique_ptr<LoadedSample> loadedSample;
+
+    // The loaded sample buffer (atomic swap for thread safety).
+    std::atomic<const juce::AudioBuffer<float>*> sampleBuffer { nullptr };
 
     // The original file path (for path-based loading above the embed limit).
     juce::File sampleFile;
@@ -144,6 +141,9 @@ private:
 
     // Per-sample-rate derived values.
     double preparedSampleRate = 44100.0;
+
+private:
+    static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
 
     // Parameter pointers, cached for the audio thread.
     std::atomic<float>* modeParam = nullptr;

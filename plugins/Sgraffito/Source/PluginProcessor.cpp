@@ -240,7 +240,7 @@ void SgraffitoProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         {
             const int key = msg.getNoteNumber();
             const float velocity = msg.getVelocity() / 127.0f;
-            voicePool.allocateVoice (key, velocity);
+            voicePool.allocateVoice (key, velocity, regionSpanParam->load(), regionLengthParam->load());
         }
         else if (msg.isNoteOff())
         {
@@ -262,6 +262,70 @@ void SgraffitoProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     const auto* sample = getSampleBuffer();
     if (sample == nullptr || sample->getNumSamples() == 0)
         return;
+
+    const int numChannels = buffer.getNumChannels();
+    const float level = juce::Decibels::decibelsToGain (levelParam->load());
+    const float attackMs = attackParam->load();
+    const float releaseMs = releaseParam->load();
+    const double blockStartSample = static_cast<double> (buffer.getNumSamples()) - static_cast<double> (numSamples);
+
+    for (int i = 0; i < CoreDSP::Sampler::maxVoices; ++i)
+    {
+        auto& voice = voicePool.voices[i];
+        if (! voice.active)
+            continue;
+
+        // Initialize envStart on first sample.
+        if (voice.envStart < 0.0)
+        {
+            voice.envStart = blockStartSample;
+            voice.position = voice.regionStart * sample->getNumSamples();
+        }
+
+        // Apply tape-stop rate reduction.
+        float rate = voice.rate;
+        if (voice.tapeStopping)
+            rate *= voice.tapeStop.tick (preparedSampleRate);
+
+        // Process each sample in the block.
+        for (int s = 0; s < numSamples; ++s)
+        {
+            const double sampleIndex = blockStartSample + static_cast<double> (s);
+
+            // Envelope value.
+            const float env = voice.envelope (sampleIndex, attackMs, releaseMs, preparedSampleRate);
+
+            // Read sample with linear interpolation.
+            const double pos = voice.position;
+            const int idx0 = (int) std::floor (pos);
+            const int idx1 = idx0 + 1;
+            const float frac = static_cast<float> (pos - idx0);
+
+            float sampleValue = 0.0f;
+            if (idx0 >= 0 && idx1 < sample->getNumSamples())
+            {
+                for (int ch = 0; ch < numChannels; ++ch)
+                {
+                    const float* src = sample->getReadPointer (ch);
+                    const float s0 = src[std::clamp (idx0, 0, sample->getNumSamples() - 1)];
+                    const float s1 = src[std::clamp (idx1, 0, sample->getNumSamples() - 1)];
+                    const float v = s0 * (1.0f - frac) + s1 * frac;
+
+                    buffer.addSample (ch, i, v * voice.gain * voice.velocity * level * env);
+                }
+            }
+
+            // Advance position.
+            voice.position += rate;
+
+            // Release voice if past region end.
+            if (voice.position / sample->getNumSamples() >= voice.regionEnd)
+            {
+                voice.active = false;
+                break;
+            }
+        }
+    }
 }
 
 void SgraffitoProcessor::applyPresetState (const juce::ValueTree& tree)

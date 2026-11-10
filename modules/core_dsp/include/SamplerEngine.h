@@ -108,9 +108,46 @@ namespace CoreDSP::Sampler
         double position = 0.0;      // read position inside the region (samples)
         double rate = 1.0;          // playback rate (1.0 = normal speed)
         float gain = 1.0f;          // current gain, includes memory trace
+        double regionStart = 0.0;   // region start in samples
+        double regionEnd = 0.0;     // region end in samples
         double releaseStart = 0.0;  // sample index when note-off happened
         bool tapeStopping = false;  // voice is in a tape-stop fade-out
         TapeStopRamp tapeStop;
+
+        // Envelope state
+        double envStart = 0.0;      // sample index when note-on happened
+        double envEnd = 0.0;        // sample index when note-off happened (release start)
+        float envValue = 0.0f;      // current envelope value [0, 1]
+        bool envSustain = false;    // true if sustain pedal is held
+
+        /** Envelope value at the given sample index. */
+        float envelope (double sampleIndex, double attackMs, double releaseMs, double sampleRate) const noexcept;
+    };
+
+    inline float Voice::envelope (double sampleIndex, double attackMs, double releaseMs, double sampleRate) const noexcept
+    {
+        if (envStart < 0.0)
+            return 0.0f;
+
+        const double attackSamples = attackMs * sampleRate / 1000.0;
+        const double releaseSamples = releaseMs * sampleRate / 1000.0;
+
+        if (sampleIndex <= envStart)
+            return 0.0f;
+
+        const double age = sampleIndex - envStart;
+
+        if (envEnd > 0.0 && sampleIndex >= envEnd)
+        {
+            // Release phase
+            const double releaseAge = sampleIndex - envEnd;
+            const float releaseProgress = static_cast<float> (releaseAge / releaseSamples);
+            return envValue * std::max (0.0f, 1.0f - releaseProgress);
+        }
+
+        // Attack phase
+        const float attackProgress = static_cast<float> (age / attackSamples);
+        return envValue * std::min (1.0f, attackProgress);
     };
 
     /** Voice pool: 32 voices. Stealing takes the oldest voice in release first,
@@ -125,7 +162,7 @@ namespace CoreDSP::Sampler
         VoicePool() = default;
 
         /** Mark a voice as playing a note. Returns the voice index. */
-        int allocateVoice (int key, float velocity) noexcept
+        int allocateVoice (int key, float velocity, double regionSpan, double regionLength) noexcept
         {
             // First, find a free voice.
             for (int i = 0; i < maxVoices; ++i)
@@ -136,6 +173,16 @@ namespace CoreDSP::Sampler
                     voices[i].active = true;
                     voices[i].key = key;
                     voices[i].velocity = velocity;
+
+                    // Compute region for this key.
+                    const double keyPos = (double) key / 127.0;
+                    const double maxStart = 1.0 - std::clamp (regionLength, 0.0, 1.0);
+                    const double start = std::clamp (keyPos * std::clamp (regionSpan, 0.0, 1.0), 0.0, maxStart);
+                    const double end = std::clamp (start + std::clamp (regionLength, 0.0, 1.0), 0.0, 1.0);
+                    voices[i].regionStart = start;
+                    voices[i].regionEnd = end;
+                    voices[i].position = voices[i].regionStart;
+                    voices[i].envStart = -1.0;  // not started yet
                     return i;
                 }
             }
@@ -168,6 +215,16 @@ namespace CoreDSP::Sampler
                 voices[stealIndex].active = true;
                 voices[stealIndex].key = key;
                 voices[stealIndex].velocity = velocity;
+
+                // Compute region for this key.
+                const double keyPos = (double) key / 127.0;
+                const double maxStart = 1.0 - std::clamp (regionLength, 0.0, 1.0);
+                const double start = std::clamp (keyPos * std::clamp (regionSpan, 0.0, 1.0), 0.0, maxStart);
+                const double end = std::clamp (start + std::clamp (regionLength, 0.0, 1.0), 0.0, 1.0);
+                voices[stealIndex].regionStart = start;
+                voices[stealIndex].regionEnd = end;
+                voices[stealIndex].position = voices[stealIndex].regionStart;
+                voices[stealIndex].envStart = -1.0;  // not started yet
             }
 
             return stealIndex;
@@ -181,6 +238,7 @@ namespace CoreDSP::Sampler
 
             voices[index].active = false;
             voices[index].releaseStart = sampleIndex;
+            voices[index].envEnd = sampleIndex;
         }
 
         int countActive() const noexcept
