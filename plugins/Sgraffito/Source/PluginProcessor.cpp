@@ -240,7 +240,8 @@ void SgraffitoProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         {
             const int key = msg.getNoteNumber();
             const float velocity = msg.getVelocity() / 127.0f;
-            voicePool.allocateVoice (key, velocity, regionSpanParam->load(), regionLengthParam->load());
+            voicePool.allocateVoice (key, velocity, regionSpanParam->load(), regionLengthParam->load(),
+                                     modeParam->load(), sliceCountParam->load());
         }
         else if (msg.isNoteOff())
         {
@@ -282,6 +283,13 @@ void SgraffitoProcessor::processBlock (juce::AudioBuffer<float>& buffer,
             voice.position = voice.regionStart * sample->getNumSamples();
         }
 
+        // Initialize envStart and region on first sample.
+        if (voice.envStart < 0.0)
+        {
+            voice.envStart = blockStartSample;
+            voice.position = voice.regionStart * sample->getNumSamples();
+        }
+
         // Apply tape-stop rate reduction.
         float rate = voice.rate;
         if (voice.tapeStopping)
@@ -315,11 +323,11 @@ void SgraffitoProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                 }
             }
 
-            // Advance position.
+            // Advance position by rate samples per sample.
             voice.position += rate;
 
-            // Release voice if past region end.
-            if (voice.position / sample->getNumSamples() >= voice.regionEnd)
+            // Release voice if past region end (both in samples).
+            if (voice.position >= voice.regionEnd * sample->getNumSamples())
             {
                 voice.active = false;
                 break;

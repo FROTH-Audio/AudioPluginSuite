@@ -149,18 +149,95 @@ namespace
         buffer.clear();
         processor.processBlock (buffer, midiOn);
 
-        // Voice should have advanced its position
-        bool voiceAdvanced = false;
+        // Output should be non-zero (voice is playing)
+        float peak = 0.0f;
+        for (int ch = 0; ch < 2; ++ch)
+        {
+            for (int i = 0; i < blockSize; ++i)
+                peak = std::max (peak, std::abs (buffer.getSample (ch, i)));
+        }
+
+        assert (peak > 0.01f);
+        pass ("testVoiceProducesOutput");
+    }
+
+    void testChopModeRegionMapping()
+    {
+        Processor processor;
+        processor.prepareToPlay (sampleRate, blockSize);
+
+        // Set Chop mode (mode 1) with 4 slices
+        setParameter (processor.apvts, Processor::modeId, 1.0f);
+        setParameter (processor.apvts, Processor::sliceCountId, 4.0f);
+        setParameter (processor.apvts, Processor::regionSpanId, 100.0f);
+
+        // Key 0 should map to slice 0 (first quarter)
+        juce::AudioBuffer<float> buffer (2, blockSize);
+        buffer.clear();
+
+        juce::MidiBuffer midi0;
+        midi0.addEvent (juce::MidiMessage::noteOn (1, 0, 0.8f), 0);
+        processor.processBlock (buffer, midi0);
+        
+        // Find voice for key 0
+        bool found0 = false;
         for (int i = 0; i < CoreDSP::Sampler::maxVoices; ++i)
         {
-            if (processor.voicePool.voices[i].active && processor.voicePool.voices[i].key == 60)
+            if (processor.voicePool.voices[i].active && processor.voicePool.voices[i].key == 0)
             {
-                voiceAdvanced = processor.voicePool.voices[i].position > 0.0;
+                // Slice 0 should start at 0.0
+                assert (std::abs (processor.voicePool.voices[i].regionStart - 0.0) < 1e-6);
+                // Slice 0 should end at 0.25 of sample length
+                assert (std::abs (processor.voicePool.voices[i].regionEnd - 0.25) < 1e-6);
+                found0 = true;
                 break;
             }
         }
-        assert (voiceAdvanced);
-        pass ("testVoiceProducesOutput");
+        assert (found0);
+        pass ("testChopModeRegionMapping");
+    }
+
+    void testChopModeSliceCoverage()
+    {
+        Processor processor;
+        processor.prepareToPlay (sampleRate, blockSize);
+
+        // Set Chop mode with 8 slices
+        setParameter (processor.apvts, Processor::modeId, 1.0f);
+        setParameter (processor.apvts, Processor::sliceCountId, 8.0f);
+        setParameter (processor.apvts, Processor::regionSpanId, 100.0f);
+
+        // Each key should map to a different slice
+        juce::AudioBuffer<float> buffer (2, blockSize);
+        buffer.clear();
+
+        double prevRegionStart = -1.0;
+        bool slicesCovered = true;
+
+        for (int key = 0; key < 128; key += 16)
+        {
+            juce::MidiBuffer midi;
+            midi.addEvent (juce::MidiMessage::noteOn (1, key, 0.8f), 0);
+            processor.processBlock (buffer, midi);
+
+            bool foundKey = false;
+            for (int i = 0; i < CoreDSP::Sampler::maxVoices; ++i)
+            {
+                if (processor.voicePool.voices[i].active && processor.voicePool.voices[i].key == key)
+                {
+                    foundKey = true;
+                    if (processor.voicePool.voices[i].regionStart < prevRegionStart - 1e-6)
+                    {
+                        slicesCovered = false;
+                    }
+                    prevRegionStart = processor.voicePool.voices[i].regionStart;
+                    break;
+                }
+            }
+            assert (foundKey);
+        }
+        assert (slicesCovered);
+        pass ("testChopModeSliceCoverage");
     }
 }
 
@@ -175,6 +252,8 @@ int main()
     testMidiNoteOnAllocatesVoice();
     testMidiNoteOffReleasesVoice();
     testRegionMapping();
+    testChopModeRegionMapping();
+    testChopModeSliceCoverage();
     testVoiceProducesOutput();
     testEditor();
 

@@ -162,7 +162,7 @@ namespace CoreDSP::Sampler
         VoicePool() = default;
 
         /** Mark a voice as playing a note. Returns the voice index. */
-        int allocateVoice (int key, float velocity, double regionSpan, double regionLength) noexcept
+        int allocateVoice (int key, float velocity, double regionSpan, double regionLength, int mode, int sliceCount) noexcept
         {
             // First, find a free voice.
             for (int i = 0; i < maxVoices; ++i)
@@ -173,14 +173,26 @@ namespace CoreDSP::Sampler
                     voices[i].active = true;
                     voices[i].key = key;
                     voices[i].velocity = velocity;
+                    voices[i].envValue = 1.0f;  // Start at full envelope value
 
-                    // Compute region for this key.
+                    // Compute region based on mode.
                     const double keyPos = (double) key / 127.0;
-                    const double maxStart = 1.0 - std::clamp (regionLength, 0.0, 1.0);
-                    const double start = std::clamp (keyPos * std::clamp (regionSpan, 0.0, 1.0), 0.0, maxStart);
-                    const double end = std::clamp (start + std::clamp (regionLength, 0.0, 1.0), 0.0, 1.0);
-                    voices[i].regionStart = start;
-                    voices[i].regionEnd = end;
+                    if (mode == 1)  // Chop mode: slice-based
+                    {
+                        const int sliceCountClamped = std::clamp (sliceCount, 2, maxRegions);
+                        const int sliceIndex = std::clamp ((int) (keyPos * sliceCountClamped), 0, sliceCountClamped - 1);
+                        const double sliceLen = 1.0 / sliceCountClamped;
+                        voices[i].regionStart = sliceIndex * sliceLen;
+                        voices[i].regionEnd = (sliceIndex + 1) * sliceLen;
+                    }
+                    else  // Scrub, Cloud, Swell: linear mapping
+                    {
+                        const double maxStart = 1.0 - std::clamp (regionLength, 0.0, 1.0);
+                        const double start = std::clamp (keyPos * std::clamp (regionSpan, 0.0, 1.0), 0.0, maxStart);
+                        const double end = std::clamp (start + std::clamp (regionLength, 0.0, 1.0), 0.0, 1.0);
+                        voices[i].regionStart = start;
+                        voices[i].regionEnd = end;
+                    }
                     voices[i].position = voices[i].regionStart;
                     voices[i].envStart = -1.0;  // not started yet
                     return i;
@@ -215,14 +227,26 @@ namespace CoreDSP::Sampler
                 voices[stealIndex].active = true;
                 voices[stealIndex].key = key;
                 voices[stealIndex].velocity = velocity;
+                voices[stealIndex].envValue = 1.0f;  // Start at full envelope value
 
-                // Compute region for this key.
+                // Compute region based on mode.
                 const double keyPos = (double) key / 127.0;
-                const double maxStart = 1.0 - std::clamp (regionLength, 0.0, 1.0);
-                const double start = std::clamp (keyPos * std::clamp (regionSpan, 0.0, 1.0), 0.0, maxStart);
-                const double end = std::clamp (start + std::clamp (regionLength, 0.0, 1.0), 0.0, 1.0);
-                voices[stealIndex].regionStart = start;
-                voices[stealIndex].regionEnd = end;
+                if (mode == 1)  // Chop mode: slice-based
+                {
+                    const int sliceCountClamped = std::clamp (sliceCount, 2, maxRegions);
+                    const int sliceIndex = std::clamp ((int) (keyPos * sliceCountClamped), 0, sliceCountClamped - 1);
+                    const double sliceLen = 1.0 / sliceCountClamped;
+                    voices[stealIndex].regionStart = sliceIndex * sliceLen;
+                    voices[stealIndex].regionEnd = (sliceIndex + 1) * sliceLen;
+                }
+                else  // Scrub, Cloud, Swell: linear mapping
+                {
+                    const double maxStart = 1.0 - std::clamp (regionLength, 0.0, 1.0);
+                    const double start = std::clamp (keyPos * std::clamp (regionSpan, 0.0, 1.0), 0.0, maxStart);
+                    const double end = std::clamp (start + std::clamp (regionLength, 0.0, 1.0), 0.0, 1.0);
+                    voices[stealIndex].regionStart = start;
+                    voices[stealIndex].regionEnd = end;
+                }
                 voices[stealIndex].position = voices[stealIndex].regionStart;
                 voices[stealIndex].envStart = -1.0;  // not started yet
             }
