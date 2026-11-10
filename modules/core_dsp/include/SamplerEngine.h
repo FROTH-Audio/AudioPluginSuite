@@ -161,97 +161,111 @@ namespace CoreDSP::Sampler
 
         VoicePool() = default;
 
-        /** Mark a voice as playing a note. Returns the voice index. */
+        /** Mark a voice as playing a note. Returns the voice index.
+
+            For Cloud mode (mode == 2), spawns multiple grains spread across the
+            region with slight detune, creating a granular cloud texture.
+        */
         int allocateVoice (int key, float velocity, double regionSpan, double regionLength, int mode, int sliceCount) noexcept
         {
-            // First, find a free voice.
-            for (int i = 0; i < maxVoices; ++i)
-            {
-                if (! voices[i].active)
-                {
-                    voices[i] = Voice {};
-                    voices[i].active = true;
-                    voices[i].key = key;
-                    voices[i].velocity = velocity;
-                    voices[i].envValue = 1.0f;  // Start at full envelope value
+            // Compute region based on mode (shared by all grains in a cloud).
+            const double keyPos = (double) key / 127.0;
+            double regionStart = 0.0, regionEnd = 1.0;
 
-                    // Compute region based on mode.
-                    const double keyPos = (double) key / 127.0;
-                    if (mode == 1)  // Chop mode: slice-based
+            if (mode == 1)  // Chop mode: slice-based
+            {
+                const int sliceCountClamped = std::clamp (sliceCount, 2, maxRegions);
+                const int sliceIndex = std::clamp ((int) (keyPos * sliceCountClamped), 0, sliceCountClamped - 1);
+                const double sliceLen = 1.0 / sliceCountClamped;
+                regionStart = sliceIndex * sliceLen;
+                regionEnd = (sliceIndex + 1) * sliceLen;
+            }
+            else  // Scrub, Cloud, Swell: linear mapping
+            {
+                const double maxStart = 1.0 - std::clamp (regionLength, 0.0, 1.0);
+                const double start = std::clamp (keyPos * std::clamp (regionSpan, 0.0, 1.0), 0.0, maxStart);
+                const double end = std::clamp (start + std::clamp (regionLength, 0.0, 1.0), 0.0, 1.0);
+                regionStart = start;
+                regionEnd = end;
+            }
+
+            // Number of grains for Cloud mode; single voice otherwise.
+            const int numGrains = (mode == 2) ? 4 : 1;
+            const double cloudSpread = 0.4;   // fraction of region over which grains spread
+            const double cloudDetune = 0.003; // rate detune per grain step (fractional)
+
+            auto initVoice = [&] (int idx, int g) noexcept
+            {
+                voices[idx] = Voice {};
+                voices[idx].active = true;
+                voices[idx].key = key;
+                voices[idx].velocity = velocity;
+                voices[idx].envValue = 1.0f;  // Start at full envelope value
+                voices[idx].regionStart = regionStart;
+                voices[idx].regionEnd = regionEnd;
+
+                // Stagger position within region for Cloud mode.
+                double posOffset = 0.0;
+                if (mode == 2 && numGrains > 1)
+                    posOffset = ((double) g / (double) (numGrains - 1) - 0.5) * cloudSpread * (regionEnd - regionStart);
+
+                voices[idx].position = regionStart + posOffset;
+                voices[idx].envStart = -1.0;  // not started yet
+
+                // Slight detune per grain for Cloud mode.
+                if (mode == 2 && numGrains > 1)
+                    voices[idx].rate = 1.0 + ((double) g - (double) (numGrains - 1) / 2.0) * cloudDetune;
+            };
+
+            int firstAllocated = -1;
+
+            for (int g = 0; g < numGrains; ++g)
+            {
+                int idx = -1;
+
+                // Find a free voice.
+                for (int i = 0; i < maxVoices; ++i)
+                {
+                    if (! voices[i].active)
                     {
-                        const int sliceCountClamped = std::clamp (sliceCount, 2, maxRegions);
-                        const int sliceIndex = std::clamp ((int) (keyPos * sliceCountClamped), 0, sliceCountClamped - 1);
-                        const double sliceLen = 1.0 / sliceCountClamped;
-                        voices[i].regionStart = sliceIndex * sliceLen;
-                        voices[i].regionEnd = (sliceIndex + 1) * sliceLen;
+                        idx = i;
+                        break;
                     }
-                    else  // Scrub, Cloud, Swell: linear mapping
+                }
+
+                // Steal: tape-stopping voices first, then oldest in release, then oldest overall.
+                if (idx < 0)
+                {
+                    double oldestRelease = -1.0;
+                    for (int i = 0; i < maxVoices; ++i)
                     {
-                        const double maxStart = 1.0 - std::clamp (regionLength, 0.0, 1.0);
-                        const double start = std::clamp (keyPos * std::clamp (regionSpan, 0.0, 1.0), 0.0, maxStart);
-                        const double end = std::clamp (start + std::clamp (regionLength, 0.0, 1.0), 0.0, 1.0);
-                        voices[i].regionStart = start;
-                        voices[i].regionEnd = end;
+                        if (! voices[i].active)
+                            continue;
+
+                        if (voices[i].tapeStopping)
+                        {
+                            idx = i;
+                            break;
+                        }
+
+                        if (voices[i].releaseStart > oldestRelease)
+                        {
+                            oldestRelease = voices[i].releaseStart;
+                            idx = i;
+                        }
                     }
-                    voices[i].position = voices[i].regionStart;
-                    voices[i].envStart = -1.0;  // not started yet
-                    return i;
                 }
+
+                if (idx < 0)
+                    break;  // no voices available
+
+                initVoice (idx, g);
+
+                if (firstAllocated < 0)
+                    firstAllocated = idx;
             }
 
-            // Steal: tape-stopping voices first, then oldest in release, then oldest overall.
-            int stealIndex = -1;
-            double oldestRelease = -1.0;
-
-            for (int i = 0; i < maxVoices; ++i)
-            {
-                if (! voices[i].active)
-                    continue;
-
-                if (voices[i].tapeStopping)
-                {
-                    stealIndex = i;
-                    break;
-                }
-
-                if (voices[i].releaseStart > oldestRelease)
-                {
-                    oldestRelease = voices[i].releaseStart;
-                    stealIndex = i;
-                }
-            }
-
-            if (stealIndex >= 0)
-            {
-                voices[stealIndex] = Voice {};
-                voices[stealIndex].active = true;
-                voices[stealIndex].key = key;
-                voices[stealIndex].velocity = velocity;
-                voices[stealIndex].envValue = 1.0f;  // Start at full envelope value
-
-                // Compute region based on mode.
-                const double keyPos = (double) key / 127.0;
-                if (mode == 1)  // Chop mode: slice-based
-                {
-                    const int sliceCountClamped = std::clamp (sliceCount, 2, maxRegions);
-                    const int sliceIndex = std::clamp ((int) (keyPos * sliceCountClamped), 0, sliceCountClamped - 1);
-                    const double sliceLen = 1.0 / sliceCountClamped;
-                    voices[stealIndex].regionStart = sliceIndex * sliceLen;
-                    voices[stealIndex].regionEnd = (sliceIndex + 1) * sliceLen;
-                }
-                else  // Scrub, Cloud, Swell: linear mapping
-                {
-                    const double maxStart = 1.0 - std::clamp (regionLength, 0.0, 1.0);
-                    const double start = std::clamp (keyPos * std::clamp (regionSpan, 0.0, 1.0), 0.0, maxStart);
-                    const double end = std::clamp (start + std::clamp (regionLength, 0.0, 1.0), 0.0, 1.0);
-                    voices[stealIndex].regionStart = start;
-                    voices[stealIndex].regionEnd = end;
-                }
-                voices[stealIndex].position = voices[stealIndex].regionStart;
-                voices[stealIndex].envStart = -1.0;  // not started yet
-            }
-
-            return stealIndex;
+            return firstAllocated;
         }
 
         /** Mark a voice as released (note-off). */

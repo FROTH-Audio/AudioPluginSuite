@@ -238,7 +238,16 @@ void SgraffitoProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 
         if (msg.isNoteOn())
         {
-            const int key = msg.getNoteNumber();
+            int key = msg.getNoteNumber();
+
+            // Scale Lock: quantize the played key to the nearest scale degree.
+            if (scaleLockParam->load() > 0.5f)
+            {
+                const int rootKey = (int) std::lround (rootKeyParam->load());
+                const int scaleIndex = (int) std::lround (scaleParam->load());
+                key = CoreDSP::Sampler::quantizeToScale (key, rootKey, scaleIndex);
+            }
+
             const float velocity = msg.getVelocity() / 127.0f;
             voicePool.allocateVoice (key, velocity, regionSpanParam->load(), regionLengthParam->load(),
                                      modeParam->load(), sliceCountParam->load());

@@ -84,6 +84,44 @@ namespace CoreDSP::Sampler
         return std::clamp (note, 0, 127);
     }
 
+    /** Quantize a MIDI key to the nearest note in the given scale, relative to rootKey.
+
+        Searches scale degrees across several octaves around rootKey and returns the
+        closest matching MIDI note (0-127). When the scale is chromatic, the key is
+        returned unchanged.
+    */
+    inline int quantizeToScale (int key, int rootKey, int scaleIndex) noexcept
+    {
+        const auto& scale = scaleDefinition (scaleIndex);
+        const int size = scale.size;
+
+        // Chromatic scale: every note is in the scale.
+        if (size == 12)
+            return std::clamp (key, 0, 127);
+
+        int bestNote = rootKey;
+        int bestDiff = std::abs (key - bestNote);
+
+        // Search degrees across 4 octaves below to 3 octaves above rootKey.
+        for (int octave = -4; octave <= 3; ++octave)
+        {
+            for (int d = 0; d < size; ++d)
+            {
+                const int note = rootKey + scale.intervals[(size_t) d] + 12 * octave;
+                if (note < 0 || note > 127)
+                    continue;
+                const int diff = std::abs (key - note);
+                if (diff < bestDiff)
+                {
+                    bestDiff = diff;
+                    bestNote = note;
+                }
+            }
+        }
+
+        return bestNote;
+    }
+
     /** Seeded permutation of region indices: same seed gives same map, every region used once. */
     inline std::array<int, maxRegions> shuffleRegions (std::uint32_t seed, int count) noexcept
     {
