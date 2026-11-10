@@ -130,6 +130,24 @@ public:
     // Lorenz attractor for chaos drift.
     CoreDSP::Chaos::LorenzAttractor lorenz;
 
+    // Ghost note state: ghost notes are quieter, delayed copies of notes played below
+    // the ghost threshold.
+    struct GhostNote
+    {
+        bool active = false;
+        int key = 60;
+        float velocity = 1.0f;      // ghost velocity (amount * original)
+        double position = 0.0;      // read position in the sample
+        double rate = 1.0f;         // playback rate
+        double delayRemaining = 0.0; // samples remaining before ghost starts
+        double regionStart = 0.0;   // region start (fraction of sample length)
+        double regionEnd = 0.0;     // region end (fraction of sample length)
+    };
+
+    // Ghost notes waiting to trigger.
+    static constexpr int maxGhostVoices = 8;
+    std::array<GhostNote, maxGhostVoices> ghostNotes;
+
     // The loaded sample (public for tests).
     std::unique_ptr<LoadedSample> loadedSample;
 
