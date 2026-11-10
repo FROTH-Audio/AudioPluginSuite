@@ -130,9 +130,9 @@ Spectral Drift, Dynamic Saturation and Micro-Timing Chaos all ship a preset bar 
 
 **Preset bar.** The header bar shows `<` / the current preset name / `>`. The name opens a menu (Factory and User submenus grouped by category, the current preset ticked); `<` and `>` step through the list. INIT resets every control to its default, and right-clicking the name opens Save As / Rename / Delete / Reveal in Explorer/Finder (user presets only; factory entries are greyed). SAVE opens a name-and-category dialog and writes a user preset. A `*` after the name marks edits that differ from the loaded preset.
 
-**Factory bank.** The build may embed a factory preset bank behind the `SUITE_PRESET_BANK` CMake option; without the flag the bar shows only user presets and INIT. In a bank build, each preset is a delta from the default state, so absent parameters are set to their defaults at load time. The bank is checked by `tools/audit_bank.py` (unique names, in-range values, no preset equal to the default, category rules, and Micro-Timing Chaos base patterns that fire at least one step).
+**Factory bank.** Every build embeds the free factory bank (`factory_bank/bank/AudioSuitePresets.xml`), which carries exactly one `INIT` preset per plugin (the default state). Each preset is a delta from the default state, so absent parameters are set to their defaults at load time. The bank is checked by `tools/audit_bank.py` (unique names, in-range values, the INIT preset exempt from the not-default rule, Micro-Timing Chaos base patterns that fire at least one step).
 
-**Host program list** (separate `SUITE_PRESET_BANK_AS_PROGRAMS` flag, needs the bank): with both flags on, program 0 is "Init" and programs 1..N are the factory presets in bank order; `setCurrentProgram(i)` applies preset i and `getCurrentProgram()` tracks the last applied index. Bank order is append-only once hosts cache indices, so this step is behind its own flag.
+**Host program list.** Program 0 is "Init" and program 1 is the plugin's `INIT` preset; `setCurrentProgram(i)` applies preset i and `getCurrentProgram()` tracks the last applied index. Bank order is append-only once hosts cache indices, so new presets are always added at the end of a plugin's list.
 
 Spectral Drift's `freeze` is on only in the `Freeze` factory category; Dynamic Saturation's `drive` 24 + `fold` 50 appears only in `Extreme`; and Micro-Timing Chaos keeps host sync off and `bpm` at 120 in every factory preset. Micro-Timing Chaos's `lerpCurve` state property (not a parameter) round-trips through presets and the factory bank.
 
@@ -335,8 +335,6 @@ Plugin bundles are written to `build/plugins/<Name>/<Name>_artefacts/Release/`.
 |---|---|---|
 | `SUITE_BUILD_PLUGINS` | `ON` | Build the plugins, their editors and the host-level tests. Set to `OFF` to build only the DSP core and its tests, which is faster. |
 | `SUITE_BUILD_TESTS` | `ON` | Build and register the unit tests. |
-| `SUITE_PRESET_BANK` | `OFF` | Embed the factory preset bank into the plugin binaries (`factory_bank/bank/AudioSuitePresets.xml`). The preset bar, `.ausp` files and user presets ship in every build; this flag only adds the embedded bank. |
-| `SUITE_PRESET_BANK_AS_PROGRAMS` | `OFF` | With `SUITE_PRESET_BANK=ON`, expose the factory bank as host programs (program 0 = Init, then one per preset). Bank order is append-only once hosts cache indices. |
 
 Example, DSP tests only:
 
@@ -353,7 +351,7 @@ Plugin formats are chosen automatically: VST3 and Standalone everywhere, plus AU
 ctest --test-dir build -C Release --output-on-failure
 ```
 
-**Public build** (`SUITE_PRESET_BANK=OFF`): eleven CTest entries run eight test executables:
+**Tests**: fourteen CTest entries run nine test executables:
 
 | Executable | Scope | Tests |
 |---|---|---|
@@ -363,11 +361,12 @@ ctest --test-dir build -C Release --output-on-failure
 | `SuiteState_Tests` | Versioned saved state in `modules/suite_state` | 9 |
 | `SuitePresetsFileTests` | Preset `.ausp` format, sanitising, delta parser, user folder | 5 |
 | `SpectralDriftTests` | Spectral Drift processor and editor | 22 |
+| `SpectralDrift_PresetTests` | Embedded factory bank against the live APVTS | preset shape/ranges/apply |
 | `DynamicSaturationTests` | Dynamic Saturation processor and editor | 19 |
+| `DynamicSaturation_PresetTests` | Embedded factory bank against the live APVTS | preset shape/ranges/apply |
 | `MicroTimingChaosTests` | Micro-Timing Chaos processor and editor | 41 |
+| `MicroTimingChaos_PresetTests` | Embedded factory bank against the live APVTS | preset shape/ranges/apply |
 | `PluginHostTests` (×3) | Each built VST3 bundle, loaded through JUCE's own plugin host | 1 per plugin |
-
-**Bank build** (`SUITE_PRESET_BANK=ON`): fourteen CTest entries — the eleven public entries plus one `*_PresetTests` executable per plugin (bank shape and ranges, apply/reset, editor with bar, menu model, audio/MIDI sanity). With `SUITE_PRESET_BANK_AS_PROGRAMS=ON` the entry count is unchanged; the program-list virtuals are exercised inside the plugin preset tests.
 
 The tests use `assert` with `NDEBUG` undefined, so they also check in Release builds. Without that, every check would be compiled out.
 
@@ -495,7 +494,7 @@ Key decisions:
 3. Runs `ctest`, which includes the plugin editor tests and the VST3 host-load tests.
 4. Uploads the VST3 bundles as build artifacts.
 
-A second job, `preset-bank`, runs on the same events with `SUITE_PRESET_BANK=ON` and `SUITE_PRESET_BANK_AS_PROGRAMS=ON`: the full test suite again, plus `python tools/audit_bank.py`, so a bank change reaches `main` only with all 14 CTest entries green and the bank audit passing.
+A second job, `preset-bank`, runs on the same events: it builds the same configuration as the public build (the free factory bank is always embedded, INIT-only), runs `ctest` — including the plugin editor tests and the VST3 host-load tests — plus `python tools/audit_bank.py`, so a bank change reaches `main` only with all 14 CTest entries green and the bank audit passing.
 
 The build runs before the tests, since CTest needs the test executables to exist.
 

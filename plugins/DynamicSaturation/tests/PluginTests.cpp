@@ -179,7 +179,7 @@ namespace
         pass ("testStateRefusal");
     }
 
-    // The preset bar ships in every build. Without the bank it shows only user presets and INIT.
+    // The preset bar ships in every build, with the free INIT-only factory bank (plan 03.3).
     void testPresetBar()
     {
         assert (SuitePresets::isAvailable());
@@ -187,21 +187,15 @@ namespace
         Processor processor;
         SuitePresets::PresetBar bar (processor, juce::Colour (0xffff9f1c));
         assert (bar.getPreferredHeight() == 30);
+        assert (bar.getNumFactoryPresets() == 1);
 
-#if SUITE_PRESET_BANK
-        assert (bar.getNumFactoryPresets() > 0);
-#else
-        assert (bar.getNumFactoryPresets() == 0);
-#endif
-
-        // Without the program flag the plugin keeps the single default program.
-#if ! SUITE_PRESET_BANK_AS_PROGRAMS
+        // The program list is always compiled: Init + the one INIT preset.
         {
             Processor processor2;
-            assert (processor2.getNumPrograms() == 1);
-            assert (processor2.getProgramName (0).isEmpty());
+            assert (processor2.getNumPrograms() == 2);
+            assert (processor2.getProgramName (0) == juce::String ("Init"));
+            assert (processor2.getProgramName (1) == juce::String ("INIT"));
         }
-#endif
         pass ("testPresetBar");
     }
 

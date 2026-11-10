@@ -27,12 +27,10 @@ int main()
         PresetTest::runEditorWithBar (processor);
     }
 
-#if SUITE_PRESET_BANK_AS_PROGRAMS
     {
         SpectralDriftProcessor processor;
         PresetTest::runProgramList (processor);
     }
-#endif
 
     PresetTest::runMenuModel ("SpectralDrift");
 

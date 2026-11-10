@@ -155,24 +155,16 @@ namespace PresetTest
     {
         const auto presets = presetsFor (pluginId);
 
-        assert (presets.size() >= 25);
+        // The free factory bank ships exactly one INIT preset per plugin (plan 03.3).
+        assert (presets.size() == 1);
 
-        std::set<juce::String> names;
-        std::set<juce::String> categories;
-
-        for (const auto& preset : presets)
-        {
-            assert (preset.plugin == pluginId);
-            assert (! preset.name.isEmpty());
-            assert (! preset.category.isEmpty());
-            assert (! preset.description.isEmpty());
-            assert (preset.state.isValid());
-            assert (preset.state.hasType ("PARAMETERS"));
-            assert (names.insert (preset.name).second);
-            categories.insert (preset.category);
-        }
-
-        assert (categories.size() >= 3);
+        const auto& preset = presets.front();
+        assert (preset.plugin == pluginId);
+        assert (preset.name == "INIT");
+        assert (! preset.category.isEmpty());
+        assert (! preset.description.isEmpty());
+        assert (preset.state.isValid());
+        assert (preset.state.hasType ("PARAMETERS"));
 
         pass ("bankShape");
     }
@@ -197,6 +189,10 @@ namespace PresetTest
 
         for (const auto& preset : presets)
         {
+            // The INIT preset is the default state and is exempt (plan 03.3).
+            if (preset.name == "INIT")
+                continue;
+
             processor.applyPresetState (preset.state);
             assert (! isDefaultState (processor));
         }
@@ -226,18 +222,26 @@ namespace PresetTest
         assert (! presets.empty());
 
         const auto& preset = presets.front();
-        assert (preset.state.getNumChildren() > 0);
 
-        const auto id = preset.state.getChild (0).getProperty ("id").toString();
-        processor.applyPresetState (preset.state);
-        assert (std::abs (processor.apvts.getRawParameterValue (id)->load()
-                          - treeValue (preset.state, id)) < 1.0e-3f);
+        // The INIT preset carries no parameters: an empty <PARAMETERS> tree means every parameter
+        // stays at its default. Skip the id-specific check for that case.
+        if (preset.state.getNumChildren() > 0)
+        {
+            const auto id = preset.state.getChild (0).getProperty ("id").toString();
+            processor.applyPresetState (preset.state);
+            assert (std::abs (processor.apvts.getRawParameterValue (id)->load()
+                              - treeValue (preset.state, id)) < 1.0e-3f);
+        }
 
         // An empty <PARAMETERS> tree means "every parameter at its default".
         processor.applyPresetState (juce::ValueTree ("PARAMETERS"));
 
-        assert (std::abs (processor.apvts.getRawParameterValue (id)->load()
-                          - defaultOf (processor.apvts, id)) < 1.0e-3f);
+        if (preset.state.getNumChildren() > 0)
+        {
+            const auto id = preset.state.getChild (0).getProperty ("id").toString();
+            assert (std::abs (processor.apvts.getRawParameterValue (id)->load()
+                              - defaultOf (processor.apvts, id)) < 1.0e-3f);
+        }
 
         pass ("applyResetsMissing");
     }
@@ -328,7 +332,6 @@ namespace PresetTest
         return false;
     }
 
-#if SUITE_PRESET_BANK_AS_PROGRAMS
     template <typename Processor>
     void runProgramList (Processor& processor)
     {
@@ -368,11 +371,9 @@ namespace PresetTest
 
         processor.setCurrentProgram (0);
         processor.setCurrentProgramStateInformation (programState.getData(), (int) programState.getSize());
-        checkPresetApplied (processor.apvts, presets[1]);
-
+        checkPresetApplied (processor.apvts, presets.front());
         pass ("programList");
     }
-#endif
 
     inline void runMenuModel (const juce::String& pluginId)
     {

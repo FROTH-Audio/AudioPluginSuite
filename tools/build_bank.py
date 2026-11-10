@@ -1,9 +1,9 @@
-"""Generate the Pro factory bank from `tools/preset_data.py`.
+"""Generate the AudioSuite factory bank from `tools/preset_data.py`.
 
 Writes, for every preset:
 
-    modules/suite_presets/pro_preset_bank/bank/<plugin>/<slug>.json
-    modules/suite_presets/pro_preset_bank/bank/AudioSuitePresets.xml
+    modules/suite_presets/factory_bank/bank/<plugin>/<slug>.json
+    modules/suite_presets/factory_bank/bank/AudioSuitePresets.xml
 
 Each preset is stored as a delta from the default state, both in the JSON files and in the
 `<PARAMETERS>` element of the bank XML. `applyPresetState()` resets every absent ID to its
@@ -31,7 +31,7 @@ STATE_VERSION = 1
 AUTHOR = "FROTH Audio"
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_OUT = REPO_ROOT / "modules" / "suite_presets" / "pro_preset_bank" / "bank"
+DEFAULT_OUT = REPO_ROOT / "modules" / "suite_presets" / "factory_bank" / "bank"
 
 
 def slugify(name):

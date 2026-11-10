@@ -29,27 +29,35 @@ namespace
         }
     };
 
-    // A preset with a non-default Lerp curve must reach the curve atomics on load.
+    // An applied preset that carries no lerpCurve resets the curve to its default.
+    // The INIT preset carries no lerpCurve attribute, so applying it restores the natural curve.
     void testMtcCurveRestored()
     {
         Processor processor;
-        const auto presets = presetsFor ("MicroTimingChaos");
 
-        const SuitePresets::PresetInfo* storm = nullptr;
-
-        for (const auto& preset : presets)
-            if (preset.name == "Lorenz Storm")
-                storm = &preset;
-
-        assert (storm != nullptr);
+        // Move the curve away from its default.
+        processor.setLerpCurvePoint (1, { 0.25f, 0.5f });
+        processor.setLerpCurvePoint (3, { 0.75f, 0.5f });
 
         const auto before = processor.getLerpCurve();
-        processor.applyPresetState (storm->state);
+        assert (std::abs (before[1].y - 0.5f) < 1.0e-4f);
+        assert (std::abs (before[3].y - 0.5f) < 1.0e-4f);
+
+        // The INIT preset carries no lerpCurve attribute.
+        const auto presets = presetsFor ("MicroTimingChaos");
+        assert (! presets.empty());
+        assert (presets.front().name == "INIT");
+
+        processor.applyPresetState (presets.front().state);
         const auto after = processor.getLerpCurve();
 
-        assert (std::abs (after[1].y - 0.2f) < 1.0e-4f);
-        assert (std::abs (after[3].y - 0.8f) < 1.0e-4f);
-        assert (std::abs (after[1].y - before[1].y) > 1.0e-3f);
+        // Back to the natural default curve: y = log10(1 + 9x), sampled at x = 0, 0.25, 0.5, 0.75, 1.
+        for (int i = 0; i < Processor::curvePointCount; ++i)
+        {
+            const auto expected = Processor::naturalCurvePoint (i);
+            assert (std::abs (after[(size_t) i].x - expected.x) < 1.0e-4f);
+            assert (std::abs (after[(size_t) i].y - expected.y) < 1.0e-4f);
+        }
 
         pass ("mtcCurveRestored");
     }
@@ -167,12 +175,10 @@ int main()
         runEditorWithBar (processor);
     }
 
-#if SUITE_PRESET_BANK_AS_PROGRAMS
     {
         Processor processor;
-        runProgramList (processor);
+        PresetTest::runProgramList (processor);
     }
-#endif
 
     runMenuModel ("MicroTimingChaos");
 

@@ -3,9 +3,7 @@
 #include "SuiteState.h"
 #include "PluginEditor.h"
 
-#if SUITE_PRESET_BANK_AS_PROGRAMS
- #include "PresetBank.h"
-#endif
+#include "PresetBank.h"
 
 #include <algorithm>
 #include <cmath>
@@ -727,54 +725,33 @@ void MicroTimingChaosProcessor::applyPresetState (const juce::ValueTree& tree)
     {
         panicRequested.store(true, std::memory_order_relaxed);
 
-#if SUITE_PRESET_BANK_AS_PROGRAMS
         // A preset applied from the bar or a file is no longer one of the host programs.
         currentProgramIndex.store (-1, std::memory_order_relaxed);
-#endif
     }
 }
 
 //==============================================================================
-// Host program list. Program 0 is Init; 1 to N are the factory presets in bank order. The list only
-// exists in a build with SUITE_PRESET_BANK_AS_PROGRAMS on; otherwise the plugin reports one
-// program, as it did before the preset system.
+// Host program list. Program 0 is Init; 1 to N are the factory presets in bank order.
 
 int MicroTimingChaosProcessor::getNumPrograms()
 {
-#if SUITE_PRESET_BANK_AS_PROGRAMS
     return SuitePresets::PresetPrograms::getNumPrograms (getPresetPluginId());
-#else
-    return 1;
-#endif
 }
 
 int MicroTimingChaosProcessor::getCurrentProgram()
 {
-#if SUITE_PRESET_BANK_AS_PROGRAMS
     return currentProgramIndex.load (std::memory_order_relaxed);
-#else
-    return 0;
-#endif
 }
 
 void MicroTimingChaosProcessor::setCurrentProgram (int index)
 {
-#if SUITE_PRESET_BANK_AS_PROGRAMS
     if (SuitePresets::PresetPrograms::applyProgram (*this, index))
         currentProgramIndex.store (index, std::memory_order_relaxed);
-#else
-    juce::ignoreUnused (index);
-#endif
 }
 
 const juce::String MicroTimingChaosProcessor::getProgramName (int index)
 {
-#if SUITE_PRESET_BANK_AS_PROGRAMS
     return SuitePresets::PresetPrograms::getProgramName (getPresetPluginId(), index);
-#else
-    juce::ignoreUnused (index);
-    return {};
-#endif
 }
 
 void MicroTimingChaosProcessor::changeProgramName (int, const juce::String&)
@@ -791,9 +768,7 @@ void MicroTimingChaosProcessor::setCurrentProgramStateInformation (const void* d
 {
     setStateInformation (data, sizeInBytes);
 
-#if SUITE_PRESET_BANK_AS_PROGRAMS
     currentProgramIndex.store (-1, std::memory_order_relaxed);
-#endif
 }
 
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()

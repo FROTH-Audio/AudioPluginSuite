@@ -2,9 +2,7 @@
 
 #include <juce_core/juce_core.h>
 
-#if SUITE_PRESET_BANK
- #include <SuitePresetBankData.h>
-#endif
+#include <SuitePresetBankData.h>
 
 namespace SuitePresets
 {
@@ -49,15 +47,11 @@ namespace SuitePresets
 
         std::vector<PresetInfo> embeddedBank()
         {
-#if SUITE_PRESET_BANK
             const auto xmlText = juce::String::fromUTF8 (SuitePresetBankData::AudioSuitePresets_xml,
                                                          SuitePresetBankData::AudioSuitePresets_xmlSize);
 
             std::vector<PresetInfo> bank;
             return readBank (xmlText, bank);
-#else
-            return {};
-#endif
         }
     }
 

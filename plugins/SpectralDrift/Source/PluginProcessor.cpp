@@ -3,9 +3,7 @@
 #include "SuiteState.h"
 #include "PluginEditor.h"
 
-#if SUITE_PRESET_BANK_AS_PROGRAMS
- #include "PresetBank.h"
-#endif
+#include "PresetBank.h"
 
 #include <iterator>
 
@@ -306,56 +304,33 @@ void SpectralDriftProcessor::applyPresetState (const juce::ValueTree& tree)
     const auto result = SuiteState::read (block.getData(), (int) block.getSize(), apvts, stateVersion,
                                           migrations, {}, true);
 
-#if SUITE_PRESET_BANK_AS_PROGRAMS
     // A preset applied from the bar or a file is no longer one of the host programs.
     if (result == SuiteState::LoadResult::loaded)
         currentProgramIndex.store (-1, std::memory_order_relaxed);
-#else
-    juce::ignoreUnused (result);
-#endif
 }
 
 //==============================================================================
-// Host program list. Program 0 is Init; 1 to N are the factory presets in bank order. The list only
-// exists in a build with SUITE_PRESET_BANK_AS_PROGRAMS on; otherwise the plugin reports one
-// program, as it did before the preset system.
+// Host program list. Program 0 is Init; 1 to N are the factory presets in bank order.
 
 int SpectralDriftProcessor::getNumPrograms()
 {
-#if SUITE_PRESET_BANK_AS_PROGRAMS
     return SuitePresets::PresetPrograms::getNumPrograms (getPresetPluginId());
-#else
-    return 1;
-#endif
 }
 
 int SpectralDriftProcessor::getCurrentProgram()
 {
-#if SUITE_PRESET_BANK_AS_PROGRAMS
     return currentProgramIndex.load (std::memory_order_relaxed);
-#else
-    return 0;
-#endif
 }
 
 void SpectralDriftProcessor::setCurrentProgram (int index)
 {
-#if SUITE_PRESET_BANK_AS_PROGRAMS
     if (SuitePresets::PresetPrograms::applyProgram (*this, index))
         currentProgramIndex.store (index, std::memory_order_relaxed);
-#else
-    juce::ignoreUnused (index);
-#endif
 }
 
 const juce::String SpectralDriftProcessor::getProgramName (int index)
 {
-#if SUITE_PRESET_BANK_AS_PROGRAMS
     return SuitePresets::PresetPrograms::getProgramName (getPresetPluginId(), index);
-#else
-    juce::ignoreUnused (index);
-    return {};
-#endif
 }
 
 void SpectralDriftProcessor::changeProgramName (int, const juce::String&)
@@ -372,9 +347,7 @@ void SpectralDriftProcessor::setCurrentProgramStateInformation (const void* data
 {
     setStateInformation (data, sizeInBytes);
 
-#if SUITE_PRESET_BANK_AS_PROGRAMS
     currentProgramIndex.store (-1, std::memory_order_relaxed);
-#endif
 }
 
 float SpectralDriftProcessor::getModulatedValue (ModTarget target) const

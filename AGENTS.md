@@ -58,11 +58,11 @@ modules/
     Source/PresetBar.cpp          Bar implementation (< >, name menu, right-click menu, INIT, SAVE, dirty marker)
     Source/PresetFile.cpp         .ausp read/write, user folder, scan; PresetMenuModel implementation
     tests/PresetFileTests.cpp     SuitePresetsFileTests (5 test functions), registered in every build
-    SuitePresets.cmake            suite_presets_add_to_target(<target>): adds sources + include dirs. Does NOT link the bank data target when SUITE_PRESET_BANK is off
-    factory_bank/                 Optional embedded bank, added only when SUITE_PRESET_BANK is on
+    SuitePresets.cmake            suite_presets_add_to_target(<target>): adds sources + include dirs. Always links the bank data target (bank always embedded).
+    factory_bank/                 Embedded factory bank (INIT-only since plan 03.3), always compiled.
       include/PresetBank.h        PresetBank (getFactoryPresets, parseDelta) and PresetPrograms
-      Source/PresetBank.cpp       Bank parse (empty bank under SUITE_PRESET_BANK=0) and program list
-      bank/AudioSuitePresets.xml  The embedded bank payload: 80 deltas (26 SD / 26 DS / 28 MTC)
+      Source/PresetBank.cpp       Bank parse (INIT-only bank) and program list
+      bank/AudioSuitePresets.xml  The embedded bank payload: 3 INIT deltas (1 per plugin)
       bank/<plugin>/<slug>.json   One delta JSON per factory preset (authoring source)
       tests/PresetTestUtils.h     Shared runBank*/runApply*/runProgramList/runMenuModel helpers
       tests/<Name>PresetTests.cpp Per-plugin bank tests, registered by suite_add_plugin
@@ -99,7 +99,7 @@ tests/
 tools/new_plugin/
   new_plugin.py                   Creates plugins/<Name>/ from the skeleton, and refuses a plugin code already in use
   skeleton/                       CMakeLists.txt, Source/Plugin{Processor,Editor}.{h,cpp}, tests/PluginTests.cpp, with __NAME__, __PRODUCT__ and __CODE__ placeholders
-.github/workflows/build.yml       CI: Windows (windows-latest) + macOS (macos-15, default Xcode). Build job (public) + preset-bank job (SUITE_PRESET_BANK=ON + programs), ctest, upload VST3
+.github/workflows/build.yml       CI: Windows (windows-latest) + macOS (macos-15, default Xcode). Build job (public) + preset-bank job (bank always built), ctest, upload VST3
 .github/workflows/release.yml     Manual release (workflow_dispatch): build, test, package zips, gh release create
 ```
 
@@ -127,9 +127,7 @@ $CM = "C:\Program Files\Microsoft Visual Studio\18\Community\Common7\IDE\CommonE
 
 Last verified status (2026-11-09): JUCE 9.0.5. Full Release build succeeds on Windows with no errors and no new deprecation warnings (the `juce::Font` constructors were replaced by `juce::FontOptions`; the remaining `C4996 AudioParameterFloat` warnings pre-date this work). All CTest entries pass:
 
-- Public (`SUITE_PRESET_BANK=OFF`): 11 entries — CoreDSPTests, SuiteState_Tests, SuiteModulation_Tests, SuiteUI_Tests, `SuitePresetsFile_Tests`, the three plugin test executables, and the three VST3 host-load tests.
-- Bank (`SUITE_PRESET_BANK=ON`, `SUITE_PRESET_BANK_AS_PROGRAMS=OFF`): 14 entries — the 11 public entries plus `SpectralDrift_PresetTests`, `DynamicSaturation_PresetTests`, `MicroTimingChaos_PresetTests`.
-- Bank with host program list (`SUITE_PRESET_BANK_AS_PROGRAMS=ON`): still 14 entries; the program-list virtuals are exercised inside `MicroTimingChaos_PresetTests`/`SpectralDrift_PresetTests`/`DynamicSaturation_PresetTests` via `runProgramList`.
+- Default build: 14 entries — CoreDSPTests, SuiteState_Tests, SuitePresetsFile_Tests, SuiteModulation_Tests, SuiteUI_Tests, the three plugin test executables, the three `*_PresetTests` executables, and the three VST3 host-load tests. The factory bank (INIT-only) is always embedded, so there is no separate public/bank split.
 
 Before 2026-11-08 the list was 9 entries: CoreDSPTests, SuiteUI_Tests, SuiteModulation_Tests, the three plugin test executables, and the three VST3 host-load tests. SuiteUI_Tests also passed against JUCE 8.0.6, the previous pin, which is the version CI ran (last checked 2026-11-06, not re-run since). macOS is not verified on JUCE 9.
 
@@ -354,28 +352,25 @@ migrations, `replaceState` and reset-to-default for absent IDs. Nothing changes 
 `notXml`, `wrongRoot` or `newerThanPlugin`. So a preset carries only the parameters it changes —
 deltas that materialise into full state at load time.
 
-The embedded factory bank is **optional** (`modules/suite_presets/factory_bank/`, added only when
-`SUITE_PRESET_BANK` is on; without it `PresetBank.cpp` compiles as an empty bank):
+The embedded factory bank is **always compiled** (`modules/suite_presets/factory_bank/`); it carries the free factory content — exactly one `INIT` preset per plugin (plan 03.3). `PresetBank.cpp` always parses the bank:
 
 - `PresetBank` (`factory_bank/include/PresetBank.h`): parses the embedded bank
   (`bank/AudioSuitePresets.xml`, one `AudioSuitePreset` per preset, into a `SuitePresetBankData`
   binary-data target), `getFactoryPresets()` / `getNumFactoryPresets()` / `getFactoryPreset(i)`,
   and `parseDelta()` which merges a JSON delta onto the default state.
-- `PresetPrograms` (behind the separate `SUITE_PRESET_BANK_AS_PROGRAMS` flag, which the root
-  CMakeLists refuses without the bank): host program list where program 0 is Init and programs
-  1..N are the factory presets in bank order. Bank order is append-only once hosts cache indices.
-- Delivery is hybrid (owner decision 2026-11-09): the embedded bank is a free subset, and the full
-  set is sold as `.ausp` data files. The subset selection is still open.
+- `PresetPrograms`: host program list where program 0 is Init and programs
+  1..N are the factory presets in bank order. The list is always compiled; bank order is
+  append-only once hosts cache indices.
 
-Factory presets are authored as JSON deltas in `tools/preset_data.py` (26 SD / 26 DS / 28 MTC = 80)
+Factory presets are authored as JSON deltas in `tools/preset_data.py` (one INIT per plugin)
 and generated into `modules/suite_presets/factory_bank/bank/` by `tools/build_bank.py`.
-`tools/audit_bank.py` enforces the rules: unique names per plugin, ≥3 categories, every value
-inside the parameter's `NormalisableRange`, no preset equal to the default state, SD `freeze` only
-in `Freeze`, DS `drive` 24+`fold` 50 only in `Extreme`, MTC host `sync` off and `bpm` 120 in every
-factory preset, and the base pattern must fire at least one step.
+`tools/audit_bank.py` enforces the rules: unique names per plugin, at least one category,
+every value inside the parameter's `NormalisableRange`, no preset equal to the default state
+(the INIT preset is explicitly exempt), MTC host `sync` off and `bpm` 120 in every factory
+preset, and the base pattern must fire at least one step.
 
-With `SUITE_PRESET_BANK_AS_PROGRAMS=OFF`, plugins report `getNumPrograms() == 1` and
-`getProgramName() == ""`. With both flags on, the program virtuals map to `applyPresetState` /
+Plugins report `getNumPrograms() == 2`, `getProgramName(0) == "Init"` and
+`getProgramName(1) == "INIT"`. The program virtuals map to `applyPresetState` /
 `getStateInformation`, and `currentProgramIndex` tracks the last applied program (-1 after any
 preset/state change that is not a factory program).
 
@@ -389,12 +384,11 @@ curve to its default, the same rule the parameters follow (`storeDefaultLerpCurv
 `loadLerpCurveFromState()`); bank presets other than `Lorenz Storm` rely on this.
 
 Tests: `SuitePresetsFileTests` (file format, sanitising, delta parser, user folder) runs in every
-build through `modules/suite_presets/CMakeLists.txt`; when the bank is embedded, `suite_add_plugin`
-also registers one `<Name>PresetTests` executable per plugin (`bankShape`, `bankRanges`,
-`bankNotDefault`, `applyMatchesFile`, `applyResetsMissing`, `applyTwiceIdempotent`,
-`mtcCurveRestored`, `audioSanity`, `midiSanity`, `editorWithBar`, `menuModel`, `runProgramList`).
-CTest entries: 11 without the bank (the 10 pre-preset entries plus `SuitePresetsFile_Tests`), 14
-with the bank.
+build through `modules/suite_presets/CMakeLists.txt`; `suite_add_plugin` registers one
+`<Name>PresetTests` executable per plugin (`bankShape`, `bankRanges`, `bankNotDefault`,
+`applyMatchesFile`, `applyResetsMissing`, `applyTwiceIdempotent`, `mtcCurveRestored`,
+`audioSanity`, `midiSanity`, `editorWithBar`, `menuModel`, `runProgramList`). CTest entries: 14 —
+the 11 public entries plus the three `*_PresetTests` executables.
 
 ---
 
@@ -499,12 +493,11 @@ If you add a new consumer, use `suite_ui_add_to_target`. Do not add `SuiteUI` to
 2. Run `python tools/build_bank.py` to regenerate `factory_bank/bank/AudioSuitePresets.xml` and the per-preset JSON files.
 3. Run `python tools/audit_bank.py` — it enforces unique names, ≥3 categories per plugin, in-range values, no preset equal to the default state, and the category/format rules.
 4. The `bankNotDefault` test in each plugin's `*_PresetTests` executable asserts every preset differs from the default state.
-5. Bank order is append-only once `SUITE_PRESET_BANK_AS_PROGRAMS` ever shipped (see below).
+5. Bank order is append-only once hosts cache indices — add new presets at the end of each plugin's list in `tools/preset_data.py`, never reorder or remove.
 
-**Host program list** (`SUITE_PRESET_BANK_AS_PROGRAMS`)
-- Program 0 is Init; programs 1..N are the factory presets in bank order. The order is **append-only** once hosts cache indices — add new presets at the end of each plugin's list in `tools/preset_data.py`, never reorder or remove.
+**Host program list** (always compiled)
+- Program 0 is Init; programs 1..N are the factory presets in bank order. The order is **append-only** once hosts cache indices.
 - The virtuals map to `applyPresetState` / `getStateInformation`. `currentProgramIndex` tracks the last applied program (-1 after any non-factory state change).
-- This flag is separate from `SUITE_PRESET_BANK` and is revertable; the root CMakeLists refuses it without the bank.
 
 **Changing a DSP engine**
 - Add a test in `DSPTests.cpp` first where possible. Keep the reconstruction test passing.
@@ -534,7 +527,9 @@ If you add a new consumer, use `suite_ui_add_to_target`. Do not add `SuiteUI` to
 ## 10. Open items and known risks
 
 - **MicroTiming DAW load:** the reported failure is not reproduced. JUCE's VST3 host loads and opens it, both before and after the stereo bus change. The remedy applied (stereo pass-through) is a best guess. If it still fails in a DAW, ask for the DAW name, its scanner log, and the exact error.
-- **Presets restructuring (2026-11-09):** bar/file/menu ship in every build; `SUITE_PRO_PRESETS` was renamed `SUITE_PRESET_BANK`, gating only the embedded bank and the program list. Delivery is hybrid: free embedded subset + paid `.ausp` data files. See the plan's decision record (private).
+- **Presets restructuring (2026-11-09):** bar/file/menu ship in every build; the factory bank is
+  always embedded (INIT-only since plan 03.3) and the host program list is always compiled. No Pro
+  overlay, no private repository, no paid gating remains.
 - **Preset licence (plan §11):** owner chose 2026-11-08 option (a), commercial JUCE licence plus relicensing. Still open: terms/cost, copyright holders (`tfroehlich82` 52 commits vs `Thorsten Fröhlich` 12 commits), JUCE-licence restrictions on the paid preset data.
 - **macOS / AU / Standalone / DAW verification:** not performed for presets; same caveats as before.
 - **GUI tests on CI:** create editors, so CI needs a desktop session. Preset-bar renders are stored under `build/renders/` (2026-11-09, bank-on configuration, all six views).
@@ -620,9 +615,7 @@ The original brief (`coding_agent_prompt.md`) is no longer in the repository. Th
 ## 13. Quick reference
 
 - Build: `cmake -S . -B build -A x64`, then `cmake --build build --config Release`.
-- Public: `cmake -S . -B build -A x64 -DSUITE_PRESET_BANK=OFF` → 11 CTest entries.
-- Bank: `cmake -S . -B build -A x64 -DSUITE_PRESET_BANK=ON` → 14 CTest entries.
-- Bank + programs: add `-DSUITE_PRESET_BANK_AS_PROGRAMS=ON` → still 14 entries, program-list virtuals exercised inside the plugin preset tests.
+- Default build: 14 CTest entries — the 11 public entries plus `SpectralDrift_PresetTests`, `DynamicSaturation_PresetTests`, `MicroTimingChaos_PresetTests`. The factory bank (INIT-only) is always embedded, so there is no separate public/bank flag.
 - Test: `ctest --test-dir build -C Release --output-on-failure`.
 - Bundles: `build/plugins/<Name>/<Name>_artefacts/Release/VST3/`.
 - Release: GitHub Actions → *Release* → *Run workflow* (version without `v`, draft on by default).

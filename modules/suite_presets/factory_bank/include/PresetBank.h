@@ -8,9 +8,8 @@ namespace SuitePresets
 {
     /** The embedded factory bank, parsed once from AudioSuitePresets.xml.
 
-        The bank is optional: it is compiled in only under SUITE_PRESET_BANK, and adds one CTest
-        entry per plugin on top of the always-present file tests. Without it every accessor sees
-        an empty bank, so the same sources build with or without it. */
+        The free factory bank is always embedded (INIT-only since plan 03.3), so every accessor sees
+        it. The build embeds the bank unconditionally; the bar shows the factory presets it parses. */
     class PresetBank
     {
     public:
@@ -29,8 +28,8 @@ namespace SuitePresets
     /**
         Host program list over the factory bank. Index 0 is Init (every parameter at its default);
         1 to N are the plugin's factory presets in bank order. The order is append-only, because
-        hosts cache the program index in sessions. Only meaningful when a bank is embedded
-        (SUITE_PRESET_BANK); otherwise there are no programs.
+        hosts cache the program index in sessions. The bank is always embedded now, so the list is
+        always compiled; with the INIT-only free bank there is always Init + one INIT preset.
     */
     namespace PresetPrograms
     {

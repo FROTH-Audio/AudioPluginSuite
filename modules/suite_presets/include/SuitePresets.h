@@ -89,8 +89,8 @@ namespace SuitePresets
     };
 
     /**
-        Preset header bar. Shows the factory bank (if the build embeds one), the user presets, and
-        INIT / SAVE. The embedded factory bank itself is optional (SUITE_PRESET_BANK) and parsed in
+        Preset header bar. Shows the factory bank (always embedded since plan 03.3, currently
+        INIT-only), the user presets, and INIT / SAVE. The bank is parsed in
         modules/suite_presets/factory_bank.
     */
     class PresetBar : public juce::Component
@@ -108,7 +108,7 @@ namespace SuitePresets
 
         /** Message thread. Used by the host-program bridge and tests. */
         void selectPreset (int factoryIndex);
-        int  getNumFactoryPresets() const noexcept;   // real bank size, or 0 without the bank
+        int  getNumFactoryPresets() const noexcept;   // real bank size (the INIT-only bank)
 
     private:
         struct Impl;

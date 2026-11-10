@@ -1,15 +1,16 @@
 """Audit the factory bank against the rules in `docs/plans/03_presets.md` section 5.
 
 Checks the authoring data in `tools/preset_data.py` and, when they exist, the generated files
-under `modules/suite_presets/pro_preset_bank/bank/`. Exits non-zero on the first rule that is
+under `modules/suite_presets/factory_bank/bank/`. Exits non-zero on the first rule that is
 broken, so it can be used in CI.
 
 Rules:
 
-- 26 / 26 / 28 presets (80 total).
-- Unique names per plugin, at least 3 categories per plugin, non-empty category and description.
+- One INIT preset per plugin (3 total); the free factory bank ships no other content.
+- Unique names per plugin, at least one category per plugin, non-empty category and description.
 - Every ID exists, every value is inside its `NormalisableRange`, values have the right type.
-- No preset equals the default state.
+- The INIT preset is the default state and is exempt from the not-default rule; presets other than INIT
+  must not equal the default state.
 - Spectral Drift: `freeze` only in the `Freeze` category.
 - Dynamic Saturation: no `drive` 24 + `fold` 50 outside the `Extreme` category.
 - Micro-Timing Chaos: host `sync` off in every factory preset and `bpm` left at 120, and the base
@@ -26,11 +27,12 @@ from pathlib import Path
 
 from preset_data import PRESETS, SCHEMA
 
-EXPECTED_COUNTS = {"SpectralDrift": 26, "DynamicSaturation": 26, "MicroTimingChaos": 28}
-EXPECTED_TOTAL = 80
+# The free factory bank ships one INIT preset per plugin (plan 03.3); the paid factory sets are gone.
+EXPECTED_COUNTS = {"SpectralDrift": 1, "DynamicSaturation": 1, "MicroTimingChaos": 1}
+EXPECTED_TOTAL = 3
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_BANK = REPO_ROOT / "modules" / "suite_presets" / "pro_preset_bank" / "bank"
+DEFAULT_BANK = REPO_ROOT / "modules" / "suite_presets" / "factory_bank" / "bank"
 
 
 class Audit:
@@ -120,7 +122,9 @@ def check_authoring(audit):
                 categories.add(category)
 
             params = preset.get("params", {})
-            audit.check(bool(params), f"{label}: empty delta (equals the default state)")
+            # The INIT preset is the free default state; an empty delta is its whole content.
+            if preset.get("name") != "INIT":
+                audit.check(bool(params), f"{label}: empty delta (equals the default state)")
 
             if "lerpCurve" in preset:
                 audit.check(plugin == "MicroTimingChaos",
@@ -162,8 +166,9 @@ def check_authoring(audit):
                 audit.check(mtc_preset_fires(params),
                             f"{label}: the base pattern fires no steps (raise density or change the seed)")
 
-        audit.check(len(categories) >= 3,
-                    f"{plugin}: needs at least 3 categories, found {len(categories)}")
+        # The free bank ships one preset per plugin, so a single category each is enough.
+        audit.check(len(categories) >= 1,
+                    f"{plugin}: needs at least one category, found {len(categories)}")
 
     audit.check(total == EXPECTED_TOTAL, f"expected {EXPECTED_TOTAL} presets, found {total}")
 
