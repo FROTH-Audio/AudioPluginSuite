@@ -1,0 +1,8 @@
+{
+  "_name": "Frozen Pattern",
+  "_category": "Utility",
+  "_description": "The pattern without any drift.",
+  "_plugin": "MicroTimingChaos",
+  "_pluginVersion": "1.0.0",
+  "lerp": 0.0
+}

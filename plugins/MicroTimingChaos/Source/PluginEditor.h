@@ -23,7 +23,7 @@ public:
     explicit StepGridView (juce::Colour accentColour);
 
     void setState (int patternLength, int playhead, float timingRangeMs, std::vector<bool> fires,
-                   std::vector<MicroTimingChaosProcessor::StepEvent> events);
+                    std::vector<MicroTimingChaosProcessor::StepEvent> events);
 
     void paint (juce::Graphics&) override;
 
@@ -37,10 +37,13 @@ private:
 };
 
 class MicroTimingChaosEditor : public juce::AudioProcessorEditor,
-                                private juce::Timer
+                                 private juce::Timer
 {
 public:
     explicit MicroTimingChaosEditor (MicroTimingChaosProcessor&);
+
+    /** Switches between the curve editor (0) and the live preview (1). The tests use it too. */
+    void setLerpView (int index);
     ~MicroTimingChaosEditor() override;
 
     void paint (juce::Graphics&) override;
@@ -94,7 +97,7 @@ private:
     // Melody
     SuiteUI::LabelledSlider rootSlider { "ROOT", juce::Slider::RotaryVerticalDrag };
     SuiteUI::LabelledSlider octavesSlider { "OCTAVES", juce::Slider::RotaryVerticalDrag };
-juce::Label scaleCaption;
+    juce::Label scaleCaption;
     juce::ComboBox scaleBox;
 
     // Chaos
@@ -111,6 +114,7 @@ juce::Label scaleCaption;
     SuiteModulation::ModulationPanel modulation { processor.getRouter(), modulationStyle() };
     std::unique_ptr<SuiteModulation::ControlDisplay> controls;  // built in the constructor, once the sliders exist
     SuiteUI::LabelledSlider lerpSlider { "LERP", juce::Slider::RotaryVerticalDrag };
+
     SuiteUI::LabelledSlider lerpXMultSlider { "X MULT", juce::Slider::RotaryVerticalDrag };
     SuiteUI::LabelledSlider lerpYMultSlider { "Y MULT", juce::Slider::RotaryVerticalDrag };
     SuiteUI::LabelledSlider lerpZMultSlider { "Z MULT", juce::Slider::RotaryVerticalDrag };
@@ -126,6 +130,9 @@ juce::Label scaleCaption;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> syncAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> scaleAttachment;
     std::unique_ptr<juce::ParameterAttachment> rateAttachment;
+
+    // Preset bar (Pro builds: visible, public build: height 0 so layout unchanged)
+    std::unique_ptr<SuitePresets::PresetBar> presetBar;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MicroTimingChaosEditor)
 };

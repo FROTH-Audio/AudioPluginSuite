@@ -13,3 +13,14 @@ This file holds only Claude Code specifics.
 - **Git.** Do not commit or push unless the owner asks.
 - **Test expectations.** Run the full CTest suite before reporting a change as working. Editor tests need a desktop session, so a headless run can fail for reasons that are not code bugs.
 - **Prefer the existing helpers.** `tests/common/PluginTestUtils.h` and the DSP tests already cover most patterns. Reuse them before writing new ones.
+
+## Working notes for Claude Code
+
+- The PowerShell working directory persists between calls in one session. Earlier a Bash `cd` moved it into `docs/plans`, and a search then ran in the wrong folder. Use absolute paths in every command.
+- In PowerShell, `bash` starts WSL on this machine, not Git Bash. Use the Bash tool for `git archive`, `sed` and `grep`.
+- Edit files with the Edit tool. If a script must edit a UTF-8 file, write bytes and keep the BOM. `Set-Content` writes ANSI and corrupts non-ASCII text.
+- Auto mode refused a command that would stop running CMake processes. The IDE may own them. Do not look for another way to stop them; report what is running and let the owner decide.
+- Keep build logs in `build/logs/`, not in `%TEMP%`. Keep baselines and throwaway builds in `build/`.
+- Stop before `git commit` and `git push`. The owner commits between steps.
+- Run the post-change checks in `AGENTS.md` section 15 before you report any change as working.
+- Write PowerShell edits in single-quoted here-strings or single-quoted strings. In double-quoted text, a backtick is an escape character, and it silently removed the backticks from this file once.

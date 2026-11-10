@@ -1,5 +1,9 @@
 #include "PluginProcessor.h"
+
+#include "SuiteState.h"
 #include "PluginEditor.h"
+
+#include "PresetBank.h"
 
 #include <algorithm>
 #include <cmath>
@@ -35,6 +39,8 @@ MicroTimingChaosProcessor::MicroTimingChaosProcessor()
       apvts (*this, nullptr, "PARAMETERS", createParameterLayout()),
       modulation (apvts, modulationTargets, (int) std::size (modulationTargets), syncId)
 {
+    stateVersion = 1;
+    migrations = {};
     rate = apvts.getRawParameterValue (rateId);
     length = apvts.getRawParameterValue (lengthId);
     density = apvts.getRawParameterValue (densityId);
@@ -173,14 +179,19 @@ void MicroTimingChaosProcessor::loadLerpCurveFromState()
     }
 }
 
-void MicroTimingChaosProcessor::storeLerpCurveToState()
+juce::String MicroTimingChaosProcessor::encodeLerpCurve() const
 {
     juce::StringArray pairs;
 
     for (int i = 0; i < curvePointCount; ++i)
         pairs.add (juce::String (curveX[(size_t) i].load(), 4) + "," + juce::String (curveY[(size_t) i].load(), 4));
 
-    apvts.state.setProperty ("lerpCurve", pairs.joinIntoString (";"), nullptr);
+    return pairs.joinIntoString (";");
+}
+
+void MicroTimingChaosProcessor::storeLerpCurveToState()
+{
+    apvts.state.setProperty ("lerpCurve", encodeLerpCurve(), nullptr);
 }
 
 MicroTimingChaosProcessor::DriftAmounts MicroTimingChaosProcessor::getDriftAmounts() const noexcept
@@ -580,6 +591,16 @@ void MicroTimingChaosProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
     }
     else
     {
+        // Panic flag from preset load: clear the grid to prevent stuck notes.
+        if (panicRequested.load(std::memory_order_relaxed))
+        {
+            panicRequested.store(false, std::memory_order_relaxed);
+            stopAllNotes();
+            pending.clear();
+            sounding.clear();
+            nextStep = 0;
+        }
+
         // Delays count from the start of playback
         if (! wasRunning)
             modulation.restartDelayClock();
@@ -654,23 +675,111 @@ juce::AudioProcessorEditor* MicroTimingChaosProcessor::createEditor()
 
 void MicroTimingChaosProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
-    const auto state = apvts.copyState();
-    std::unique_ptr<juce::XmlElement> xml (state.createXml());
-    copyXmlToBinary (*xml, destData);
+    // The Lerp curve is not a parameter, so it is written into the copy that SuiteState::write saves.
+    destData = SuiteState::write (apvts, stateVersion, [this] (juce::ValueTree& state) {
+        state.setProperty ("lerpCurve", encodeLerpCurve(), nullptr);
+    });
 }
 
 void MicroTimingChaosProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
-    std::unique_ptr<juce::XmlElement> xml (getXmlFromBinary (data, sizeInBytes));
-
-    if (xml != nullptr && xml->hasTagName (apvts.state.getType()))
-    {
-        apvts.replaceState (juce::ValueTree::fromXml (*xml));
+    // Reads the curve back once the parameters are in place. Nothing changes if the state is refused.
+    SuiteState::read (data, sizeInBytes, apvts, stateVersion, migrations, [this] (const juce::ValueTree&) {
         loadLerpCurveFromState();
+        // If new state was loaded, clear any pending panic from a previous preset load.
+        if (panicRequested.load(std::memory_order_relaxed))
+            panicRequested.store(false, std::memory_order_relaxed);
+    });
+}
+
+void MicroTimingChaosProcessor::applyPresetState (const juce::ValueTree& tree)
+{
+    // Presets use resetMissing=true so absent parameters are set to default. The tree is encoded into the
+    // binary state format first, so it goes through the same read path as a saved session: version check,
+    // migrations, replaceState, resetMissing. The lerp curve is not a parameter, so afterLoad reloads it.
+    const juce::MemoryBlock block = SuiteState::detail::encodeXml (*tree.createXml());
+    const auto result = SuiteState::read (block.getData(), (int) block.getSize(), apvts, stateVersion, migrations, [this] (const juce::ValueTree&) {
+        loadLerpCurveFromState();
+    }, true);
+    
+    // If this is a mid-playback preset load, clear the grid to prevent stuck notes.
+    if (result == SuiteState::LoadResult::loaded)
+    {
+        panicRequested.store(true, std::memory_order_relaxed);
+
+#if SUITE_PRESET_BANK_AS_PROGRAMS
+        // A preset applied from the bar or a file is no longer one of the host programs.
+        currentProgramIndex.store (-1, std::memory_order_relaxed);
+#endif
     }
+}
+
+//==============================================================================
+// Host program list. Program 0 is Init; 1 to N are the factory presets in bank order. The list only
+// exists in a Pro build with SUITE_PRESET_BANK_AS_PROGRAMS on; otherwise the plugin reports one
+// program, as it did before the preset system.
+
+int MicroTimingChaosProcessor::getNumPrograms()
+{
+#if SUITE_PRESET_BANK_AS_PROGRAMS
+    return SuitePresets::PresetPrograms::getNumPrograms (getPresetPluginId());
+#else
+    return 1;
+#endif
+}
+
+int MicroTimingChaosProcessor::getCurrentProgram()
+{
+#if SUITE_PRESET_BANK_AS_PROGRAMS
+    return currentProgramIndex.load (std::memory_order_relaxed);
+#else
+    return 0;
+#endif
+}
+
+void MicroTimingChaosProcessor::setCurrentProgram (int index)
+{
+#if SUITE_PRESET_BANK_AS_PROGRAMS
+    if (SuitePresets::PresetPrograms::applyProgram (*this, index))
+        currentProgramIndex.store (index, std::memory_order_relaxed);
+#else
+    juce::ignoreUnused (index);
+#endif
+}
+
+const juce::String MicroTimingChaosProcessor::getProgramName (int index)
+{
+#if SUITE_PRESET_BANK_AS_PROGRAMS
+    return SuitePresets::PresetPrograms::getProgramName (getPresetPluginId(), index);
+#else
+    juce::ignoreUnused (index);
+    return {};
+#endif
+}
+
+void MicroTimingChaosProcessor::changeProgramName (int, const juce::String&)
+{
+    // The factory programs are read-only.
+}
+
+void MicroTimingChaosProcessor::getCurrentProgramStateInformation (juce::MemoryBlock& destData)
+{
+    getStateInformation (destData);
+}
+
+void MicroTimingChaosProcessor::setCurrentProgramStateInformation (const void* data, int sizeInBytes)
+{
+    setStateInformation (data, sizeInBytes);
+
+#if SUITE_PRESET_BANK_AS_PROGRAMS
+    currentProgramIndex.store (-1, std::memory_order_relaxed);
+#endif
 }
 
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 {
     return new MicroTimingChaosProcessor();
 }
+
+
+

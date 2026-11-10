@@ -1,0 +1,11 @@
+{
+  "_name": "Deep Space",
+  "_category": "Ambient",
+  "_description": "The slowest drift, full depth, wide stereo.",
+  "_plugin": "SpectralDrift",
+  "_pluginVersion": "1.0.0",
+  "driftRate": 0.1,
+  "depth": 100.0,
+  "stereoPhase": 180.0,
+  "feedback": 6.0
+}

@@ -16,6 +16,15 @@ endif()
 option(SUITE_BUILD_PLUGINS "Build the VST3 / AU / Standalone plugins" ON)
 option(SUITE_BUILD_TESTS "Build and register the unit tests" ON)
 
+option(SUITE_PRESET_BANK "Embed the factory preset bank into the plugin binaries" OFF)
+option(SUITE_PRESET_BANK_AS_PROGRAMS "Expose the embedded factory bank as host programs" OFF)
+
+if(SUITE_PRESET_BANK_AS_PROGRAMS AND NOT SUITE_PRESET_BANK)
+    message(FATAL_ERROR "SUITE_PRESET_BANK_AS_PROGRAMS=ON needs SUITE_PRESET_BANK=ON")
+endif()
+
+include(${CMAKE_SOURCE_DIR}/modules/suite_presets/SuitePresets.cmake)
+
 # JUCE is pinned to a release tag so that builds are reproducible.
 include(FetchContent)
 set(JUCE_BUILD_EXTRAS OFF CACHE BOOL "" FORCE)
@@ -27,6 +36,10 @@ FetchContent_Declare(
     GIT_SHALLOW    TRUE
 )
 FetchContent_MakeAvailable(JUCE)
+
+# Metadata written into the VST3 and AU bundles, and shown by hosts. The e-mail is left empty on purpose.
+set_property (GLOBAL PROPERTY JUCE_COMPANY_WEBSITE "https://github.com/FROTH-Audio/AudioPluginSuite")
+set_property (GLOBAL PROPERTY JUCE_COMPANY_COPYRIGHT "Copyright (C) 2026 FROTH Audio. Licensed under the GNU GPL v3.")
 
 # Applied to every target, including JUCE's own modules.
 add_compile_definitions(
@@ -46,11 +59,18 @@ enable_testing()
 
 if(SUITE_BUILD_TESTS OR SUITE_BUILD_PLUGINS)
     add_subdirectory(modules/core_dsp)
+    add_subdirectory(modules/suite_state)
+endif()
+
+add_subdirectory(modules/suite_presets)  # Public seam: StateHolder, PresetBar
+if(SUITE_PRESET_BANK)
+    add_subdirectory(modules/suite_presets/factory_bank)  # Embedded factory bank
 endif()
 
 if(SUITE_BUILD_PLUGINS)
     include(${CMAKE_SOURCE_DIR}/modules/suite_modulation/suite_modulation.cmake)
     include(${CMAKE_SOURCE_DIR}/modules/suite_ui/SuiteUI.cmake)
+    include(${CMAKE_SOURCE_DIR}/modules/suite_plugin/SuitePlugin.cmake)
     add_subdirectory(modules/suite_modulation)
     add_subdirectory(modules/suite_ui)
     add_subdirectory(plugins/SpectralDrift)

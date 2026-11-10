@@ -1,0 +1,10 @@
+{
+  "_name": "Warehouse",
+  "_category": "Techno",
+  "_description": "Low pentatonic with more chaos.",
+  "_plugin": "MicroTimingChaos",
+  "_pluginVersion": "1.0.0",
+  "root": 36,
+  "scale": 3,
+  "chaos": 70.0
+}

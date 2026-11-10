@@ -1,0 +1,10 @@
+{
+  "_name": "Air Shifter",
+  "_category": "Bright",
+  "_description": "Large upward shift, partly wet.",
+  "_plugin": "SpectralDrift",
+  "_pluginVersion": "1.0.0",
+  "shift": 24.0,
+  "tilt": 0.8,
+  "mix": 60.0
+}

@@ -1,0 +1,10 @@
+{
+  "_name": "Glass Rain",
+  "_category": "Melodic",
+  "_description": "High whole-tone notes with short gates.",
+  "_plugin": "MicroTimingChaos",
+  "_pluginVersion": "1.0.0",
+  "gate": 40.0,
+  "root": 60,
+  "scale": 5
+}

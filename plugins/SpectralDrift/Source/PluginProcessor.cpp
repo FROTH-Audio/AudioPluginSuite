@@ -1,5 +1,11 @@
 #include "PluginProcessor.h"
+
+#include "SuiteState.h"
 #include "PluginEditor.h"
+
+#if SUITE_PRESET_BANK_AS_PROGRAMS
+ #include "PresetBank.h"
+#endif
 
 #include <iterator>
 
@@ -32,6 +38,8 @@ SpectralDriftProcessor::SpectralDriftProcessor()
       apvts (*this, nullptr, "PARAMETERS", createParameterLayout()),
       modulation (apvts, modulationTargets, (int) std::size (modulationTargets), nullptr)
 {
+    stateVersion = 1;
+    migrations = {};
     driftRate = apvts.getRawParameterValue (driftRateId);
     depth = apvts.getRawParameterValue (depthId);
     spread = apvts.getRawParameterValue (spreadId);
@@ -281,17 +289,92 @@ juce::AudioProcessorEditor* SpectralDriftProcessor::createEditor()
 
 void SpectralDriftProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
-    const auto state = apvts.copyState();
-    std::unique_ptr<juce::XmlElement> xml (state.createXml());
-    copyXmlToBinary (*xml, destData);
+    destData = SuiteState::write (apvts, stateVersion);
 }
 
 void SpectralDriftProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
-    std::unique_ptr<juce::XmlElement> xml (getXmlFromBinary (data, sizeInBytes));
+    SuiteState::read (data, sizeInBytes, apvts, stateVersion, migrations);
+}
 
-    if (xml != nullptr && xml->hasTagName (apvts.state.getType()))
-        apvts.replaceState (juce::ValueTree::fromXml (*xml));
+void SpectralDriftProcessor::applyPresetState (const juce::ValueTree& tree)
+{
+    // Presets use resetMissing=true so absent parameters are set to default. The tree is encoded into the
+    // binary state format first, so it goes through the same read path as a saved session: version check,
+    // migrations, replaceState, resetMissing.
+    const juce::MemoryBlock block = SuiteState::detail::encodeXml (*tree.createXml());
+    const auto result = SuiteState::read (block.getData(), (int) block.getSize(), apvts, stateVersion,
+                                          migrations, {}, true);
+
+#if SUITE_PRESET_BANK_AS_PROGRAMS
+    // A preset applied from the bar or a file is no longer one of the host programs.
+    if (result == SuiteState::LoadResult::loaded)
+        currentProgramIndex.store (-1, std::memory_order_relaxed);
+#else
+    juce::ignoreUnused (result);
+#endif
+}
+
+//==============================================================================
+// Host program list. Program 0 is Init; 1 to N are the factory presets in bank order. The list only
+// exists in a Pro build with SUITE_PRESET_BANK_AS_PROGRAMS on; otherwise the plugin reports one
+// program, as it did before the preset system.
+
+int SpectralDriftProcessor::getNumPrograms()
+{
+#if SUITE_PRESET_BANK_AS_PROGRAMS
+    return SuitePresets::PresetPrograms::getNumPrograms (getPresetPluginId());
+#else
+    return 1;
+#endif
+}
+
+int SpectralDriftProcessor::getCurrentProgram()
+{
+#if SUITE_PRESET_BANK_AS_PROGRAMS
+    return currentProgramIndex.load (std::memory_order_relaxed);
+#else
+    return 0;
+#endif
+}
+
+void SpectralDriftProcessor::setCurrentProgram (int index)
+{
+#if SUITE_PRESET_BANK_AS_PROGRAMS
+    if (SuitePresets::PresetPrograms::applyProgram (*this, index))
+        currentProgramIndex.store (index, std::memory_order_relaxed);
+#else
+    juce::ignoreUnused (index);
+#endif
+}
+
+const juce::String SpectralDriftProcessor::getProgramName (int index)
+{
+#if SUITE_PRESET_BANK_AS_PROGRAMS
+    return SuitePresets::PresetPrograms::getProgramName (getPresetPluginId(), index);
+#else
+    juce::ignoreUnused (index);
+    return {};
+#endif
+}
+
+void SpectralDriftProcessor::changeProgramName (int, const juce::String&)
+{
+    // The factory programs are read-only.
+}
+
+void SpectralDriftProcessor::getCurrentProgramStateInformation (juce::MemoryBlock& destData)
+{
+    getStateInformation (destData);
+}
+
+void SpectralDriftProcessor::setCurrentProgramStateInformation (const void* data, int sizeInBytes)
+{
+    setStateInformation (data, sizeInBytes);
+
+#if SUITE_PRESET_BANK_AS_PROGRAMS
+    currentProgramIndex.store (-1, std::memory_order_relaxed);
+#endif
 }
 
 float SpectralDriftProcessor::getModulatedValue (ModTarget target) const
@@ -304,3 +387,5 @@ juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 {
     return new SpectralDriftProcessor();
 }
+
+

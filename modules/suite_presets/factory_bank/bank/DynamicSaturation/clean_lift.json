@@ -1,0 +1,9 @@
+{
+  "_name": "Clean Lift",
+  "_category": "Subtle",
+  "_description": "Clean tape lift at full mix.",
+  "_plugin": "DynamicSaturation",
+  "_pluginVersion": "1.0.0",
+  "drive": 2.0,
+  "mode": 1
+}

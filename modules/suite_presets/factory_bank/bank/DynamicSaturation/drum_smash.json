@@ -1,0 +1,11 @@
+{
+  "_name": "Drum Smash",
+  "_category": "Drums",
+  "_description": "Fast, heavy drum saturation.",
+  "_plugin": "DynamicSaturation",
+  "_pluginVersion": "1.0.0",
+  "drive": 18.0,
+  "mix": 70.0,
+  "attack": 1.0,
+  "release": 60.0
+}

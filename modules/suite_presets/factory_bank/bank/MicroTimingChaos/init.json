@@ -1,0 +1,7 @@
+{
+  "_name": "INIT",
+  "_category": "Utility",
+  "_description": "The default state.",
+  "_plugin": "MicroTimingChaos",
+  "_pluginVersion": "1.0.0"
+}

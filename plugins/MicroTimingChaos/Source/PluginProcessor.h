@@ -11,6 +11,8 @@
 
 #include "CoreDSP.h"
 #include "SuiteModulationRouter.h"
+#include "SuiteState.h"
+#include "SuitePresets.h"  // StateHolder interface for presets
 
 /**
     Micro-Timing Chaos.
@@ -21,7 +23,7 @@
 
     Incoming MIDI notes pass through with the same latency. Audio passes through unchanged.
 */
-class MicroTimingChaosProcessor : public juce::AudioProcessor
+class MicroTimingChaosProcessor : public juce::AudioProcessor, public SuitePresets::StateHolder
 {
 public:
     // Pattern
@@ -137,16 +139,31 @@ public:
     bool producesMidi() const override { return true; }
     double getTailLengthSeconds() const override { return 0.0; }
 
-    int getNumPrograms() override { return 1; }
-    int getCurrentProgram() override { return 0; }
-    void setCurrentProgram (int) override {}
-    const juce::String getProgramName (int) override { return {}; }
-    void changeProgramName (int, const juce::String&) override {}
+    int getNumPrograms() override;
+    int getCurrentProgram() override;
+    void setCurrentProgram (int) override;
+    const juce::String getProgramName (int) override;
+    void changeProgramName (int, const juce::String&) override;
+    void getCurrentProgramStateInformation (juce::MemoryBlock&) override;
+    void setCurrentProgramStateInformation (const void*, int) override;
 
     void getStateInformation (juce::MemoryBlock&) override;
     void setStateInformation (const void*, int) override;
 
+    // Preset system: StateHolder interface
+    juce::String getPresetPluginId() const { return "MicroTimingChaos"; }
+    int getPresetStateVersion() const override { return stateVersion; }
+    juce::AudioProcessorValueTreeState& getPresetStateTree() { return apvts; }
+    void applyPresetState (const juce::ValueTree&);
+
     juce::AudioProcessorValueTreeState apvts;
+
+    /** Saved-state version and its migrations (see SuiteState). Bump stateVersion when the saved layout changes. */
+    int stateVersion = 1;
+    std::vector<SuiteState::Migration> migrations;
+
+    /** Panic flag: set by applyPresetState to clear grid mid-playback. */
+    std::atomic<bool> panicRequested { false };
 
     /** Oldest-to-newest (x, y) attractor points in [-1, 1], for the phase-space plot. */
     std::vector<juce::Point<float>> getTrail() const;
@@ -224,6 +241,8 @@ private:
 
     void loadLerpCurveFromState();
     void storeLerpCurveToState();
+    /** The lerp curve as the "x,y;x,y;..." text stored in the state. */
+    juce::String encodeLerpCurve() const;
 
     struct TrailSnapshot
     {
@@ -302,6 +321,10 @@ private:
     std::atomic<int> logHead { 0 };
     std::atomic<int> playheadStep { -1 };
     std::atomic<int> patternLength { 8 };
+
+    // Host program list (embedded bank + SUITE_PRESET_BANK_AS_PROGRAMS). -1 means a state that is not a
+    // factory program, for example a user preset.
+    std::atomic<int> currentProgramIndex { 0 };
 
     std::array<std::atomic<float>, curvePointCount> curveX {};
     std::array<std::atomic<float>, curvePointCount> curveY {};

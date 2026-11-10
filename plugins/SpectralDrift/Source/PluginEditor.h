@@ -21,7 +21,6 @@ public:
     ~SpectralDriftEditor() override;
 
     void paint (juce::Graphics&) override;
-    void resized() override;
 
     /** Switches between the sound controls (0) and the modulation page (1). The tests use it too. */
     void setPage (int page);
@@ -86,6 +85,11 @@ private:
 
     std::vector<float> inputMagnitudes;
     std::vector<float> outputMagnitudes;
+
+    // Preset bar (Pro builds: visible, public build: height 0 so layout unchanged)
+    std::unique_ptr<SuitePresets::PresetBar> presetBar;
+
+    void resized() override;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (SpectralDriftEditor)
 };

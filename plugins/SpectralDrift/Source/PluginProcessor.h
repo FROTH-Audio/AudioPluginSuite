@@ -9,6 +9,8 @@
 
 #include "SpectralEngine.h"
 #include "SuiteModulationRouter.h"
+#include "SuiteState.h"
+#include "SuitePresets.h"  // StateHolder interface for presets
 
 /**
     Spectral Drift Shifter.
@@ -17,7 +19,7 @@
     shaping (shift, tilt, gate). The channels run on LFOs offset by the Stereo Phase control,
     which decorrelates them and widens the image.
 */
-class SpectralDriftProcessor : public juce::AudioProcessor
+class SpectralDriftProcessor : public juce::AudioProcessor, public SuitePresets::StateHolder
 {
 public:
     static constexpr int numBins = CoreDSP::Spectral::numBins;
@@ -105,6 +107,9 @@ public:
 
     juce::AudioProcessorValueTreeState apvts;
 
+    int stateVersion = 1;
+    std::vector<SuiteState::Migration> migrations;
+
     SpectralDriftProcessor();
     ~SpectralDriftProcessor() override = default;
 
@@ -121,14 +126,22 @@ public:
     bool producesMidi() const override { return false; }
     double getTailLengthSeconds() const override { return 0.0; }
 
-    int getNumPrograms() override { return 1; }
-    int getCurrentProgram() override { return 0; }
-    void setCurrentProgram (int) override {}
-    const juce::String getProgramName (int) override { return {}; }
-    void changeProgramName (int, const juce::String&) override {}
+    int getNumPrograms() override;
+    int getCurrentProgram() override;
+    void setCurrentProgram (int) override;
+    const juce::String getProgramName (int) override;
+    void changeProgramName (int, const juce::String&) override;
+    void getCurrentProgramStateInformation (juce::MemoryBlock&) override;
+    void setCurrentProgramStateInformation (const void*, int) override;
 
     void getStateInformation (juce::MemoryBlock&) override;
     void setStateInformation (const void*, int) override;
+
+    // Preset system: StateHolder interface
+    juce::String getPresetPluginId() const { return "SpectralDrift"; }
+    int getPresetStateVersion() const override { return stateVersion; }
+    juce::AudioProcessorValueTreeState& getPresetStateTree() { return apvts; }
+    void applyPresetState (const juce::ValueTree&);
 
     const SpectrumSnapshot& getSpectrumSnapshot() const noexcept { return snapshot; }
 
@@ -142,6 +155,10 @@ private:
 
     // The rate is the one prepareToPlay was given: getSampleRate() is 0 in a bare test harness.
     double preparedSampleRate = 44100.0;
+
+    // Host program list (embedded bank + SUITE_PRESET_BANK_AS_PROGRAMS). -1 means a state that is not a
+    // factory program, for example a user preset.
+    std::atomic<int> currentProgramIndex { 0 };
 
     std::array<CoreDSP::Spectral::DriftEngine, 2> engines;
 

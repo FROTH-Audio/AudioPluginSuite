@@ -10,6 +10,8 @@
 
 #include "CoreDSP.h"
 #include "SuiteModulationRouter.h"
+#include "SuiteState.h"
+#include "SuitePresets.h"  // StateHolder interface for presets
 
 /**
     Dynamic Saturation Companion.
@@ -18,7 +20,7 @@
     the harder the stage is pushed, scaled by Sensitivity. The shaping runs at 2x
     oversampling to reduce aliasing. Its latency is reported to the host.
 */
-class DynamicSaturationProcessor : public juce::AudioProcessor
+class DynamicSaturationProcessor : public juce::AudioProcessor, public SuitePresets::StateHolder
 {
 public:
     // Core controls
@@ -100,16 +102,27 @@ public:
     bool producesMidi() const override { return false; }
     double getTailLengthSeconds() const override { return 0.0; }
 
-    int getNumPrograms() override { return 1; }
-    int getCurrentProgram() override { return 0; }
-    void setCurrentProgram (int) override {}
-    const juce::String getProgramName (int) override { return {}; }
-    void changeProgramName (int, const juce::String&) override {}
+    int getNumPrograms() override;
+    int getCurrentProgram() override;
+    void setCurrentProgram (int) override;
+    const juce::String getProgramName (int) override;
+    void changeProgramName (int, const juce::String&) override;
+    void getCurrentProgramStateInformation (juce::MemoryBlock&) override;
+    void setCurrentProgramStateInformation (const void*, int) override;
 
     void getStateInformation (juce::MemoryBlock&) override;
     void setStateInformation (const void*, int) override;
 
+    // Preset system: StateHolder interface
+    juce::String getPresetPluginId() const { return "DynamicSaturation"; }
+    int getPresetStateVersion() const override { return stateVersion; }
+    juce::AudioProcessorValueTreeState& getPresetStateTree() { return apvts; }
+    void applyPresetState (const juce::ValueTree&);
+
     juce::AudioProcessorValueTreeState apvts;
+
+    int stateVersion = 1;
+    std::vector<SuiteState::Migration> migrations;
 
     /** Linked detector level (linear), published for the editor's meter. */
     float getEnvelopeLevel() const noexcept { return envelopeLevel.load (std::memory_order_relaxed); }
@@ -174,6 +187,10 @@ private:
     // The block clock the LFOs run on. An effect has no sequencer, so the beat is counted here.
     // The rate is the one prepareToPlay was given: getSampleRate() is 0 in a bare test harness.
     double preparedSampleRate = 44100.0;
+
+    // Host program list (embedded bank + SUITE_PRESET_BANK_AS_PROGRAMS). -1 means a state that is not a
+    // factory program, for example a user preset.
+    std::atomic<int> currentProgramIndex { 0 };
     std::int64_t streamSample = 0;
     double beatClock = 0.0;
 

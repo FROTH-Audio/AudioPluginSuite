@@ -69,10 +69,10 @@ int main (int argc, char** argv)
 
     if (instance->hasEditor())
     {
-        std::unique_ptr<juce::AudioProcessorEditor> editor (instance->createEditorIfNeeded());
+        std::unique_ptr<juce::AudioProcessorEditor> editor (instance->createEditorAndMakeActive());
 
         if (editor == nullptr)
-            return fail ("editor", "createEditorIfNeeded returned nullptr");
+            return fail ("editor", "createEditorAndMakeActive returned nullptr");
 
         std::printf ("[INFO] editor created: %d x %d\n", editor->getWidth(), editor->getHeight());
     }

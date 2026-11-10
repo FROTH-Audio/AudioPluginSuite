@@ -123,7 +123,7 @@ namespace SuiteUI
 
         const float brightness = shouldDrawButtonAsDown ? 0.8f : (shouldDrawButtonAsHighlighted ? 1.0f : 0.9f);
         g.setColour ((on ? accent : Colours::textDim).withMultipliedBrightness (brightness));
-        g.setFont (juce::Font (14.0f, juce::Font::bold));
+        g.setFont (juce::Font (juce::FontOptions (14.0f, juce::Font::bold)));
         g.drawText (button.getButtonText(), bounds, juce::Justification::centred);
     }
 }

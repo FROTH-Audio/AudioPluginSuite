@@ -1,0 +1,9 @@
+{
+  "_name": "Low Anchor",
+  "_category": "Mix",
+  "_description": "Only the upper part of the spectrum drifts.",
+  "_plugin": "SpectralDrift",
+  "_pluginVersion": "1.0.0",
+  "shift": -12.0,
+  "driftStart": 60.0
+}

@@ -49,7 +49,7 @@ namespace
     /** Emphasised caption above a knob: bold and centred. */
     void emphasiseCaption (juce::Label& label)
     {
-        label.setFont (juce::Font (13.0f, juce::Font::bold));
+        label.setFont (juce::Font (juce::FontOptions (13.0f, juce::Font::bold)));
         label.setJustificationType (juce::Justification::centred);
     }
 
@@ -95,7 +95,7 @@ namespace
     void styleCaption (juce::Label& label, const juce::String& text)
     {
         label.setText (text, juce::dontSendNotification);
-        label.setFont (juce::Font (13.0f, juce::Font::bold));
+        label.setFont (juce::Font (juce::FontOptions (13.0f, juce::Font::bold)));
         label.setColour (juce::Label::textColourId, SuiteUI::Colours::textDim);
         label.setJustificationType (juce::Justification::centred);
     }
@@ -138,7 +138,7 @@ void StepGridView::paint (juce::Graphics& g)
     auto yFor = [=] (float offsetMs) { return centreY - juce::jlimit (-1.0f, 1.0f, offsetMs / range) * halfHeight; };
 
     // Timing guides, with labels on the left: +range, 0 and -range
-    g.setFont (juce::Font (13.0f));
+    g.setFont (juce::Font (juce::FontOptions (13.0f)));
     const float guides[] = { range, 0.0f, -range };
     for (const float value : guides)
     {
@@ -193,7 +193,7 @@ void StepGridView::paint (juce::Graphics& g)
         }
 
         g.setColour (isPlayhead ? accent : SuiteUI::Colours::textDim);
-        g.setFont (juce::Font (14.0f, isPlayhead ? juce::Font::bold : juce::Font::plain));
+        g.setFont (juce::Font (juce::FontOptions (14.0f, isPlayhead ? juce::Font::bold : juce::Font::plain)));
         g.drawText (juce::String (step + 1),
                     juce::Rectangle<float> (column.getX(), bounds.getBottom() - numberHeight, column.getWidth(), numberHeight),
                     juce::Justification::centred);
@@ -243,6 +243,10 @@ MicroTimingChaosEditor::MicroTimingChaosEditor (MicroTimingChaosProcessor& p)
       curveEditor (p)
 {
     setLookAndFeel (&lookAndFeel);
+
+    // The bar exists before setSize(), because setSize() runs resized(), which lays the bar out.
+    presetBar = std::make_unique<SuitePresets::PresetBar>(processor, juce::Colour(0xff7dff5a));
+
     setSize (editorWidth, editorHeight);
     setScaleFactor (1.0f);   // applies designScale, as the host's scale is 1 at start
     setResizable (true, true);
@@ -253,15 +257,15 @@ MicroTimingChaosEditor::MicroTimingChaosEditor (MicroTimingChaosProcessor& p)
     helpTracker.onMove = [this] (const juce::MouseEvent& e) { showHelp (e); };
     addMouseListener (&helpTracker, true);
 
-    helpLabel.setFont (juce::Font (14.0f));
+    helpLabel.setFont (juce::Font (juce::FontOptions (14.0f)));
     helpLabel.setColour (juce::Label::textColourId, SuiteUI::Colours::text);
     helpLabel.setText ("Hover a control to see what it does.", juce::dontSendNotification);
 
     readout.setJustificationType (juce::Justification::centredLeft);
     readout.setColour (juce::Label::textColourId, SuiteUI::Colours::text);
-    readout.setFont (juce::Font (14.0f, juce::Font::bold));
+    readout.setFont (juce::Font (juce::FontOptions (14.0f, juce::Font::bold)));
 
-    hostTempoLabel.setFont (juce::Font (13.0f, juce::Font::bold));
+    hostTempoLabel.setFont (juce::Font (juce::FontOptions (13.0f, juce::Font::bold)));
     hostTempoLabel.setColour (juce::Label::textColourId, SuiteUI::Colours::textDim);
     hostTempoLabel.setJustificationType (juce::Justification::centred);
 
@@ -342,6 +346,10 @@ MicroTimingChaosEditor::MicroTimingChaosEditor (MicroTimingChaosProcessor& p)
     scaleBox.addItemList ({ "Chromatic", "Major", "Minor", "Minor Pentatonic", "Dorian", "Whole Tone" }, 1);
     scaleBox.setTextWhenNothingSelected ("Scale");
 
+    if (presetBar->getPreferredHeight() > 0)
+        addAndMakeVisible (*presetBar);
+    presetBar->onPresetLoaded = [this] { curveEditor.repaint(); };
+
     hostTempoLabel.setText ("FREE", juce::dontSendNotification);
 
     // Units and formatting
@@ -411,7 +419,7 @@ MicroTimingChaosEditor::MicroTimingChaosEditor (MicroTimingChaosProcessor& p)
             { seedSlider.slider,          (int) Target::Seed },
         });
 
-    startTimerHz (60);
+    startTimerHz (SuiteUI::kRefreshHz);
 }
 
 MicroTimingChaosEditor::~MicroTimingChaosEditor()
@@ -447,6 +455,13 @@ namespace
     }
 }
 
+void MicroTimingChaosEditor::setLerpView (int index)
+{
+    lerpViewSelector.setSelectedIndex (index);
+    curveEditor.setVisible (index == 0);
+    lerpPreview.setVisible (index == 1);
+}
+
 void MicroTimingChaosEditor::paint (juce::Graphics& g)
 {
     lookAndFeel.paint (g, *this);
@@ -470,7 +485,7 @@ void MicroTimingChaosEditor::paint (juce::Graphics& g)
         g.drawRoundedRectangle (bounds, 8.0f, 1.0f);
 
         g.setColour (lookAndFeel.getAccent());
-        g.setFont (juce::Font (15.0f, juce::Font::bold));
+        g.setFont (juce::Font (juce::FontOptions (15.0f, juce::Font::bold)));
         g.drawText (group.title, group.bounds.withHeight (groupTitleHeight).translated (0, 4).reduced (12, 0),
                     juce::Justification::centredLeft);
     }
@@ -479,6 +494,15 @@ void MicroTimingChaosEditor::paint (juce::Graphics& g)
 void MicroTimingChaosEditor::resized()
 {
     groups.clear();
+
+    // Reserve space for the preset bar (360x34 at design scale, right-aligned in the title band;
+    // around 240x23 px at the window's 2/3 scale). The window height does not change.
+    auto titleBand = getLocalBounds().removeFromTop (titleBandHeight);
+    const int barWidth = 360;
+    const int barHeight = 34;
+    if (presetBar != nullptr && presetBar->getPreferredHeight() > 0)
+        presetBar->setBounds (titleBand.removeFromRight (barWidth).withHeight (barHeight)
+                                .withY (titleBand.getCentreY() - barHeight / 2));
 
     // Every gap is groupGap: the outer margin, and the space between groups in both directions.
     auto content = getLocalBounds().withTrimmedTop (titleBandHeight).reduced (groupGap);

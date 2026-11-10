@@ -78,7 +78,7 @@ namespace SuiteModulation
 
             offsetLabel.setText ("OFFSET", juce::dontSendNotification);
             offsetLabel.setColour (juce::Label::textColourId, style.textDim);
-            offsetLabel.setFont (juce::Font (12.0f, juce::Font::bold));
+            offsetLabel.setFont (juce::Font (juce::FontOptions (12.0f, juce::Font::bold)));
             offset.setComponentID (lfoOffsetIds[i]);
             offset.setWantsKeyboardFocus (true);   // arrow keys nudge the value once the control has focus
             offset.setTextBoxStyle (juce::Slider::TextBoxRight, false, offsetTextWidth, controlHeight);
@@ -288,7 +288,7 @@ namespace SuiteModulation
         const int delayX = amountX + columns.amount + gap;
 
         g.setColour (style.textDim);
-        g.setFont (juce::Font (12.0f, juce::Font::bold));
+        g.setFont (juce::Font (juce::FontOptions (12.0f, juce::Font::bold)));
 
         g.drawText ("SOURCE", juce::Rectangle<int> (0, headingY, columns.source, headingHeight), juce::Justification::centredLeft);
         g.drawText ("TARGET", juce::Rectangle<int> (targetX, headingY, columns.target, headingHeight), juce::Justification::centredLeft);

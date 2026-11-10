@@ -1,0 +1,10 @@
+{
+  "_name": "Diode Edge",
+  "_category": "Mix bus",
+  "_description": "A little diode edge on the mix.",
+  "_plugin": "DynamicSaturation",
+  "_pluginVersion": "1.0.0",
+  "drive": 5.0,
+  "mode": 2,
+  "tone": 0.2
+}

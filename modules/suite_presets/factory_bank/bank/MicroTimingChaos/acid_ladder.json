@@ -1,0 +1,9 @@
+{
+  "_name": "Acid Ladder",
+  "_category": "Techno",
+  "_description": "One octave, short gates.",
+  "_plugin": "MicroTimingChaos",
+  "_pluginVersion": "1.0.0",
+  "gate": 30.0,
+  "octaves": 1
+}

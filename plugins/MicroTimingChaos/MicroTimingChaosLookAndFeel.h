@@ -17,8 +17,11 @@ namespace MicroTimingChaos
         inline const juce::Colour lfo2       { 0xffff9f1c };  // amber: LFO 2
     }
 
-    /** Look and feel for Micro-Timing Chaos. Textures and icons come from BinaryData (see CMakeLists.txt). */
-    class LookAndFeel : public juce::LookAndFeel_V4
+    /**
+        Look and feel for Micro-Timing Chaos. It derives from the suite look and feel for the shared setup and colours.
+        It keeps its own knob, toggle, combo box, linear slider and fonts, so the window looks as it did before.
+    */
+    class LookAndFeel : public SuiteUI::SuiteLookAndFeel
     {
     public:
         explicit LookAndFeel (juce::Colour accentColour);
@@ -36,6 +39,11 @@ namespace MicroTimingChaos
         void drawToggleButton (juce::Graphics&, juce::ToggleButton&,
                                bool shouldDrawButtonAsHighlighted,
                                bool shouldDrawButtonAsDown) override;
+
+        /** The modulation rows use linear sliders. This keeps the LookAndFeel_V4 drawing they had before. */
+        void drawLinearSlider (juce::Graphics&, int x, int y, int width, int height,
+                               float sliderPos, float minSliderPos, float maxSliderPos,
+                               juce::Slider::SliderStyle, juce::Slider&) override;
 
         void drawComboBox (juce::Graphics&, int width, int height, bool isButtonDown,
                            int buttonX, int buttonY, int buttonW, int buttonH,

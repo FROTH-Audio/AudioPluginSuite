@@ -62,7 +62,7 @@ namespace MicroTimingChaos
     }
 
     LookAndFeel::LookAndFeel (juce::Colour accentColour)
-        : accent (accentColour)
+        : SuiteLookAndFeel (accentColour), accent (accentColour)
     {
         setColour (juce::Label::textColourId, SuiteUI::Colours::text);
         setColour (juce::Slider::textBoxTextColourId, SuiteUI::Colours::text);
@@ -73,6 +73,20 @@ namespace MicroTimingChaos
         setColour (juce::PopupMenu::textColourId, SuiteUI::Colours::text);
         setColour (juce::PopupMenu::highlightedBackgroundColourId, accent.withAlpha (0.25f));
         setColour (juce::PopupMenu::highlightedTextColourId, SuiteUI::Colours::text);
+
+        // The shared look sets these for its own sliders and toggles. Put back the LookAndFeel_V4 values, which
+        // the modulation sliders and the toggles here were drawn with before the shared base class.
+        const juce::LookAndFeel_V4 defaults;
+        setColour (juce::Slider::thumbColourId, defaults.findColour (juce::Slider::thumbColourId));
+        setColour (juce::ToggleButton::textColourId, defaults.findColour (juce::ToggleButton::textColourId));
+    }
+
+    void LookAndFeel::drawLinearSlider (juce::Graphics& g, int x, int y, int width, int height,
+                                        float sliderPos, float minSliderPos, float maxSliderPos,
+                                        juce::Slider::SliderStyle style, juce::Slider& slider)
+    {
+        // The modulation rows use linear sliders. Keep the LookAndFeel_V4 drawing they had before.
+        juce::LookAndFeel_V4::drawLinearSlider (g, x, y, width, height, sliderPos, minSliderPos, maxSliderPos, style, slider);
     }
 
     void LookAndFeel::paint (juce::Graphics& g, juce::Component& component)
@@ -167,11 +181,11 @@ namespace MicroTimingChaos
         auto textArea = bounds.reduced (6.0f, 0.0f);
 
         g.setColour (active ? SuiteUI::Colours::text : SuiteUI::Colours::textDim);
-        g.setFont (juce::Font (14.0f, juce::Font::bold));
+        g.setFont (juce::Font (juce::FontOptions (14.0f, juce::Font::bold)));
         g.drawText (button.getButtonText(), textArea.withTrimmedRight (34.0f), juce::Justification::centredLeft);
 
         g.setColour (colour);
-        g.setFont (juce::Font (13.0f, juce::Font::bold));
+        g.setFont (juce::Font (juce::FontOptions (13.0f, juce::Font::bold)));
         g.drawText (active ? "ON" : "OFF", textArea.removeFromRight (30.0f), juce::Justification::centredRight);
     }
 
@@ -204,16 +218,16 @@ namespace MicroTimingChaos
 
     juce::Font LookAndFeel::getLabelFont (juce::Label&)
     {
-        return juce::Font (14.0f);
+        return juce::Font (juce::FontOptions (14.0f));
     }
 
     juce::Font LookAndFeel::getComboBoxFont (juce::ComboBox&)
     {
-        return juce::Font (14.0f);
+        return juce::Font (juce::FontOptions (14.0f));
     }
 
     juce::Font LookAndFeel::getPopupMenuFont()
     {
-        return juce::Font (14.0f);
+        return juce::Font (juce::FontOptions (14.0f));
     }
 }

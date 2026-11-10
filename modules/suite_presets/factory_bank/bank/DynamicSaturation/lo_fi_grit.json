@@ -1,0 +1,10 @@
+{
+  "_name": "Lo-Fi Grit",
+  "_category": "Lo-Fi",
+  "_description": "Folded and darkened.",
+  "_plugin": "DynamicSaturation",
+  "_pluginVersion": "1.0.0",
+  "drive": 15.0,
+  "fold": 25.0,
+  "tone": -0.6
+}
