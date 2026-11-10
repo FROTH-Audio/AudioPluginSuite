@@ -40,7 +40,8 @@ namespace CoreDSP::Sampler
         return { start, end - start };
     }
 
-    /** Chop map: divide the sample into `count` equal slices. Returns start and length for slice index. */
+    /** Chop map: divide the sample into `count` equal slices. Returns start and length for slice index.
+        Slice 0 starts at position 0, slice 1 at 1/count, etc. Each slice has length 1/count. */
     inline Region chopRegion (int sliceIndex, int count) noexcept
     {
         const int n = std::clamp (count, 1, maxRegions);

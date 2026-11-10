@@ -664,3 +664,5 @@ Then check each function you touched is defined once: `Select-String -Pattern 'P
 - **Test expectations** Run the full CTest suite before reporting a change as working. Editor tests need a desktop session, so a headless run can fail for reasons that are not code bugs.
 
 - **Prefer the existing helpers** tests/common/PluginTestUtils.h and the DSP tests already cover most patterns. Reuse them before writing new ones.
+
+- **Refactoring and scalability** Always check whether there is something that could be refactored or simplified. If so, make a plan with detailed topics found. Always keep scalability in mind.

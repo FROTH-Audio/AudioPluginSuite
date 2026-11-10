@@ -120,6 +120,13 @@ namespace CoreDSP::Sampler
         float envValue = 0.0f;      // current envelope value [0, 1]
         bool envSustain = false;    // true if sustain pedal is held
 
+            // Cloud mode: per-grain information
+            double grainPosition = 0.0; // where to read from (samples within region)
+            double grainRate = 1.0;    // rate for this specific grain
+
+            // Swell mode: reverse playback
+            bool reversing = false;    // true if playing backwards
+
         /** Envelope value at the given sample index. */
         float envelope (double sampleIndex, double attackMs, double releaseMs, double sampleRate) const noexcept;
     };
@@ -172,7 +179,7 @@ namespace CoreDSP::Sampler
             const double keyPos = (double) key / 127.0;
             double regionStart = 0.0, regionEnd = 1.0;
 
-            if (mode == 1)  // Chop mode: slice-based
+            if (mode == 1)  // Chop mode: slice-based - divides sample into N equal slices and picks one based on key position
             {
                 const int sliceCountClamped = std::clamp (sliceCount, 2, maxRegions);
                 const int sliceIndex = std::clamp ((int) (keyPos * sliceCountClamped), 0, sliceCountClamped - 1);
@@ -180,7 +187,7 @@ namespace CoreDSP::Sampler
                 regionStart = sliceIndex * sliceLen;
                 regionEnd = (sliceIndex + 1) * sliceLen;
             }
-            else  // Scrub, Cloud, Swell: linear mapping
+            else if (mode == 3)  // Swell mode: reverse playback
             {
                 const double maxStart = 1.0 - std::clamp (regionLength, 0.0, 1.0);
                 const double start = std::clamp (keyPos * std::clamp (regionSpan, 0.0, 1.0), 0.0, maxStart);
@@ -215,6 +222,20 @@ namespace CoreDSP::Sampler
                 // Slight detune per grain for Cloud mode.
                 if (mode == 2 && numGrains > 1)
                     voices[idx].rate = 1.0 + ((double) g - (double) (numGrains - 1) / 2.0) * cloudDetune;
+
+                // Initialize cloud-specific fields for each grain.
+                if (mode == 2)
+                {
+                    // Each grain reads from a different position within the region.
+                    const double numSamples = regionEnd - regionStart;
+                    voices[idx].grainPosition = regionStart + posOffset * numSamples;
+                    // Grain rate starts at the base rate, detuned per grain
+                    voices[idx].grainRate = voices[idx].rate;
+                }
+
+                // Swell mode: mark as reversing.
+                if (mode == 3)
+                    voices[idx].reversing = true;
             };
 
             int firstAllocated = -1;

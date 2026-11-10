@@ -15,6 +15,8 @@
 
 #include <CoreDSP.h>
 
+#include "SuiteModulationRouter.h"
+
 /**
     Sgraffito - a memory sampler.
 
@@ -122,6 +124,36 @@ public:
 
     static juce::StringArray modTargetNames();
 
+    /** Modulation routing targets - declared here so they're available in the constructor initializer. */
+    static constexpr SuiteModulation::TargetInfo modulationTargets[] = {
+        { "regionSpan",     "Region Span" },
+        { "regionLength",   "Region Length" },
+        { "rootKey",        "Root Key",   true },
+        { "pitchFine",      "Pitch Fine" },
+        { "glide",          "Glide" },
+        { "level",          "Level" },
+        { "attack",         "Attack" },
+        { "release",        "Release" },
+        { "memoryAmount",   "Memory Amount" },
+        { "driftAmount",    "Drift Amount" },
+        { "driftSpeed",     "Drift Speed" },
+        { "layBack",        "Lay Back" },
+        { "swing",          "Swing" },
+        { "humanise",       "Humanise" },
+        { "ghostThreshold", "Ghost Threshold" },
+        { "ghostLevel",     "Ghost Level" },
+        { "grainSize",      "Grain Size" },
+        { "grainDensity",   "Grain Density" },
+        { "swellTime",      "Swell Time" },
+        { "dust",           "Dust" },
+        { "crackle",        "Crackle" },
+        { "wow",            "Wow" },
+        { "flutter",        "Flutter" },
+        { "shuffleSeed",    "Shuffle Seed", true },
+    };
+
+    static constexpr int numModulationTargets = sizeof(modulationTargets) / sizeof(SuiteModulation::TargetInfo);
+
     //==============================================================================
     SgraffitoProcessor();
     ~SgraffitoProcessor() override = default;
@@ -158,13 +190,8 @@ public:
 
     //==============================================================================
     // Voice access for the editor and modulation
-    int getNumActiveVoices() const noexcept { return voicePool.countActive(); }
-
-    // The current sample buffer (atomic swap for thread safety).
-    const juce::AudioBuffer<float>* getSampleBuffer() const noexcept
-    {
-        return sampleBuffer.load (std::memory_order_acquire);
-    }
+    // const juce::AudioBuffer<float>* getSampleBuffer() const noexcept;  // inline below
+    // int getNumActiveVoices() const noexcept;                           // inline below
 
     // Sample loading
     void loadSample (const juce::File& file);
@@ -184,15 +211,16 @@ public:
     // APVTS is public so the editor and tests can build attachments.
     juce::AudioProcessorValueTreeState apvts { *this, nullptr, "PARAMETERS", createParameterLayout() };
 
+    // The two LFOs and the six routing slots, shared with the other plugins (modules/suite_modulation).
+    SuiteModulation::Router modulation;
+
     // Voice pool (public for tests).
     CoreDSP::Sampler::VoicePool voicePool;
 
     // Lorenz attractor for chaos drift.
     CoreDSP::Chaos::LorenzAttractor lorenz;
 
-    // The two LFOs and the six routing slots, shared with the other plugins (modules/suite_modulation).
-    // Declared after apvts, which it reads from.
-    SuiteModulation::Router modulation;
+    friend class SgraffitoEditor;  // Allow editor to access private members
 
     // Ghost note state: ghost notes are quieter, delayed copies of notes played below
     // the ghost threshold.
@@ -224,16 +252,32 @@ public:
     // Maximum size for embedded samples (default 20 MB).
     size_t embedLimitBytes = 20ull * 1024ull * 1024ull;
 
+    // Pending note-ons for lay back delay.
+    struct PendingNote
+    {
+        int key = 60;
+        float velocity = 1.0f;
+        double samplePosition = 0.0;
+    };
+    std::vector<PendingNote> pendingNotes;
+
     // Per-sample-rate derived values.
     double preparedSampleRate = 44100.0;
 
 private:
+    /** The current sample buffer (atomic swap for thread safety). */
+    const juce::AudioBuffer<float>* getSampleBuffer() const noexcept
+    {
+        return sampleBuffer.load(std::memory_order_acquire);
+    }
+    
+    int getNumActiveVoices() const noexcept { return voicePool.countActive(); }
     static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
 
     /** Applies an offset to a parameter's base value, in the parameter's own normalised range. Exact when the offset is zero. */
     float modulatedValue (ModTarget target, float base, const SuiteModulation::Router::Offsets& offsets) const
     {
-        return modulation.modulate ((int) target, base, offsets);
+        return modulation.modulate ((int)target, base, offsets);
     }
 
     // Parameter pointers, cached for the audio thread.
