@@ -195,6 +195,7 @@ public:
 
     // Sample loading
     void loadSample (const juce::File& file);
+    void loadEmbeddedSample (const juce::String& embeddedPath);  // e.g., "embedded:grain_4k.wav"
     void clearSample();
 
     juce::String getSamplePath() const noexcept { return sampleFile.getFullPathName(); }
@@ -202,11 +203,19 @@ public:
     size_t getEmbedLimitBytes() const noexcept { return embedLimitBytes; }
     void setEmbedLimitBytes (size_t bytes) noexcept { embedLimitBytes = bytes; }
 
+    /** The raw value of a parameter, for the editor's visual widgets (waveform, key map). */
+    float getParamValue (const char* id) const
+    {
+        if (auto* parameter = apvts.getRawParameterValue (id))
+            return parameter->load();
+        return 0.0f;
+    }
+
     /** The LFOs and routing, for the editor's panel and control display. */
     SuiteModulation::Router& getRouter() noexcept { return modulation; }
 
-    /** The value a control shows right now: its base value, moved by the offset currently published for its target. */
-    float getModulatedValue (ModTarget target, const char* parameterId) const;
+    /** The value a control shows right now: its base value moved by the offset currently published for its target. */
+    float getModulatedValue (ModTarget target) const { return modulation.getModulatedValue ((int) target); }
 
     // APVTS is public so the editor and tests can build attachments.
     juce::AudioProcessorValueTreeState apvts { *this, nullptr, "PARAMETERS", createParameterLayout() };
@@ -263,6 +272,10 @@ public:
 
     // Per-sample-rate derived values.
     double preparedSampleRate = 44100.0;
+
+    // Free-LFO clock: stream position in samples and a tempo-locked beat clock (see SuiteModulation).
+    std::int64_t streamSample = 0;
+    double beatClock = 0.0;
 
 private:
     /** The current sample buffer (atomic swap for thread safety). */

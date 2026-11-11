@@ -6,6 +6,10 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- Sgraffito Memory Sampler: a fourth plugin. The keyboard is a timeline through the sample (Scrub), Chop divides the sample into slices, Cloud plays grains that wrap around their region, and Swell plays in reverse with a crossfade. Scale Lock quantises played notes. Two LFOs and six modulation routing slots move 24 controls. The editor's SOUND page shows the sample waveform with the region and Chop slice lines, and a key map strip with the root key, the locked scale and the active voices. A mode banner shows the active mode. Factory sample embedded (WAV), so the plugin makes sound out of the box.
+- Sgraffito factory presets (15) behind `SUITE_PRESET_BANK`.
+
 ### Changed
 - Plugin metadata: each VST3 and AU bundle now has a description, the company website (the repository) and a copyright line (GPL v3). The Windows version resource shows the copyright. No e-mail is set. The manufacturer name hosts show is now FROTH Audio (was AudioSuite). The bundle IDs and plugin codes are unchanged, so sessions still load. Hosts may show the new name and description after a rescan.
 - Micro-Timing Chaos: its look and feel now derives from the suite's shared look and feel for the shared setup. The window is unchanged. Editor timers use one refresh constant, 60 Hz. No visible change.
@@ -19,6 +23,7 @@ All notable changes to this project are documented here. The format follows
 
 ### Fixed
 - The macOS build's tests failed on `testOffsetControlIsUsable`, because Apple clang fused a multiply and an add on arm64 and left the LFO Offset default at 1.5e-6. Apple clang is now built with `-ffp-contract=off`, so macOS arithmetic matches Windows.
+- Sgraffito: the sample region maths treated the per-cent Region Span and Region Length values as fractions, so every note played the whole sample. The lay-back path now uses the same `CoreDSP::Sampler` maps as the direct path, and the waveform display mirrors them. Cloud mode advanced grains with a nonexistent field and wrapped at the wrong scale, and wrote into the wrong buffer positions; the memory-trace decay ran per sample with the block length as exponent, which silenced the output almost immediately. A mono sample no longer reads a second channel that does not exist.
 
 ### Added
 - `tools/new_plugin/new_plugin.py`: creates a new plugin from a skeleton, and refuses a plugin code that is already in use. Developer tool; no change to the plugins.

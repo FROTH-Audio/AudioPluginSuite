@@ -1128,11 +1128,15 @@ namespace
         assert (stolen < maxVoices);
         assert (pool.countActive() == maxVoices);
 
-        // Release a voice.
+        // A normal release starts the release tail; the voice stays active until it finishes,
+        // and noteHeld marks it as released.
         pool.releaseVoice (0, 1000.0, 0.0, 0);
-        assert (pool.countActive() == maxVoices - 1);
+        assert (! pool.voices[0].noteHeld);
+        assert (pool.voices[0].releaseStart == 1000.0);
+        assert (pool.voices[0].envEnd == 1000.0);
+        assert (pool.countActive() == maxVoices);
 
-        // Re-allocating reuses the freed voice.
+        // Re-allocating with a full pool steals the oldest voice again.
         const int reused = pool.allocateVoice (48, 90, 100.0f, 25.0f, 0, 16);
         assert (reused >= 0);
         assert (pool.countActive() == maxVoices);

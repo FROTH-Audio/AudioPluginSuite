@@ -4,26 +4,23 @@
 #include <array>
 #include <cmath>
 #include <cstdint>
+#include <limits>
 
 #include "ChaosEngine.h"
 #include "SamplerMaps.h"
 
 /**
-    Sampler engine helpers for Sgraffito: memory traces, tape-stop ramps, voices.
+    Sampler engine helpers for Sgraffito: memory traces, tape-stop ramps and voices.
 
-    Everything here is deterministic and testable in isolation. The plugin owns the
-    audio buffer, the voice pool lifetime and the per-block processing loop.
+    Everything here is deterministic and allocation-free after construction. Region boundaries are
+    normalised (0 to 1); playback positions are absolute frames in the loaded audio buffer.
 */
 namespace CoreDSP::Sampler
 {
     constexpr int maxVoices = 32;
+    constexpr int cloudLanesPerNote = 4;
 
-    /** Per-region memory trace: how a region was played the last time it sounded.
-
-        gainOffset is in dB (-12 to 0), toneOffset and noiseOffset are normalised
-        (-1 to 1, 0 to 1). Traces live in plugin state so a session remembers its
-        history.
-    */
+    /** Per-region memory trace. Values are bounded so repeated playback cannot grow without limit. */
     struct RegionTrace
     {
         float gainOffset = 0.0f;    // -12 to 0 dB
@@ -31,12 +28,7 @@ namespace CoreDSP::Sampler
         float noiseOffset = 0.0f;   // 0 to 1
     };
 
-    /** Move a trace a fraction toward the current note's values, then apply decay.
-
-        `amount` (0 to 1) sets how far each note moves the trace; `decay` (0 to 1)
-        sets how fast the trace fades toward clean when nothing is played. All values
-        are clamped to fixed ranges so traces cannot grow without bound.
-    */
+    /** Move a trace toward the current note, then apply a direct decay fraction in [0, 1]. */
     inline RegionTrace updateTrace (RegionTrace trace, float currentGainDb,
                                     float currentTone, float amount, float decay) noexcept
     {
@@ -47,17 +39,22 @@ namespace CoreDSP::Sampler
                                        -12.0f, 0.0f);
         trace.toneOffset = std::clamp (trace.toneOffset * (1.0f - d) + currentTone * t,
                                        -1.0f, 1.0f);
-        trace.noiseOffset = std::clamp (trace.noiseOffset * (1.0f - d) + currentTone * t,
-                                        0.0f, 1.0f);
-
+        trace.noiseOffset = std::clamp (trace.noiseOffset * (1.0f - d)
+                                        + std::abs (currentTone) * t, 0.0f, 1.0f);
         return trace;
     }
 
-    /** Tape-stop ramp: playback rate falls toward zero over a set time.
+    /** Decay a trace toward clean after elapsedSeconds. A decay time of zero disables time decay. */
+    inline RegionTrace decayTrace (RegionTrace trace, double elapsedSeconds, double decaySeconds) noexcept
+    {
+        if (elapsedSeconds <= 0.0 || decaySeconds <= 0.0)
+            return trace;
 
-        Call tick() once per sample while stopping; it returns the rate in [0, 1].
-        active() is false once the ramp has finished.
-    */
+        const double decay = 1.0 - std::exp (-elapsedSeconds / decaySeconds);
+        return updateTrace (trace, 0.0f, 0.0f, 0.0f, static_cast<float> (decay));
+    }
+
+    /** Tape-stop ramp: playback rate and level fall toward zero over a set time. */
     class TapeStopRamp
     {
     public:
@@ -72,20 +69,25 @@ namespace CoreDSP::Sampler
 
         float tick (double sampleRate) noexcept
         {
-            if (remainingMs <= 0.0)
+            if (remainingMs <= 0.0 || sampleRate <= 0.0)
                 return 0.0f;
 
             remainingMs -= 1000.0 / sampleRate;
-            const double progress = remainingMs <= 0.0 ? 1.0
-                                                       : (1.0 - remainingMs / startMs);
-            const double clamped = std::clamp (progress, 0.0, 1.0);
 
-            double factor;
+            if (remainingMs <= 0.0)
+            {
+                remainingMs = 0.0;
+                return 0.0f;
+            }
+
+            const double progress = std::clamp (1.0 - remainingMs / startMs, 0.0, 1.0);
+            double factor = 1.0;
+
             switch (curve)
             {
-                case Curve::linear:      factor = 1.0 - clamped; break;
-                case Curve::exponential: factor = std::exp (-3.0 * clamped); break;
-                case Curve::slowThenFast: factor = std::pow (1.0 - clamped, 2.0); break;
+                case Curve::linear:       factor = 1.0 - progress; break;
+                case Curve::exponential:  factor = std::exp (-3.0 * progress); break;
+                case Curve::slowThenFast: factor = (1.0 - progress) * (1.0 - progress); break;
             }
 
             return static_cast<float> (std::clamp (factor, 0.0, 1.0));
@@ -99,68 +101,68 @@ namespace CoreDSP::Sampler
         Curve curve = Curve::exponential;
     };
 
-    /** Per-voice playback state. */
+    /** Per-voice playback state. Cloud notes occupy four lanes from this same fixed pool. */
     struct Voice
     {
         bool active = false;
-        int key = 60;
+        int key = 60;                       // quantised key, used for pitch
+        int inputKey = 60;                  // original key, used for region and note-off matching
+        int mode = 0;
+        int traceIndex = 0;
         float velocity = 1.0f;
-        double position = 0.0;      // read position inside the region (samples)
-        double rate = 1.0;          // playback rate (1.0 = normal speed)
-        float gain = 1.0f;          // current gain, includes memory trace
-        double regionStart = 0.0;   // region start in samples
-        double regionEnd = 0.0;     // region end in samples
-        double releaseStart = 0.0;  // sample index when note-off happened
-        bool tapeStopping = false;  // voice is in a tape-stop fade-out
+
+        double regionStart = 0.0;           // normalised sample position
+        double regionEnd = 1.0;             // normalised sample position
+        double position = 0.0;              // absolute buffer frame
+        double forwardPosition = 0.0;       // Swell's forward crossfade reader
+        bool positionInitialised = false;
+
+        double rate = 1.0;                  // target playback rate before tape stop
+        double currentRate = 1.0;           // smoothed toward rate for glide
+        float gain = 1.0f;                  // memory-trace gain
+        float tone = 0.0f;                  // memory-trace tone; negative is darker
+        std::array<float, 2> toneState {};
+
+        double envStart = -1.0;
+        double envEnd = -1.0;
+        double releaseStart = -1.0;
+        float envValue = 0.0f;
+        float releaseLevel = 1.0f;
+        bool noteHeld = true;
+        bool tapeStopping = false;
         TapeStopRamp tapeStop;
 
-        // Envelope state
-        double envStart = 0.0;      // sample index when note-on happened
-        double envEnd = 0.0;        // sample index when note-off happened (release start)
-        float envValue = 0.0f;      // current envelope value [0, 1]
-        bool envSustain = false;    // true if sustain pedal is held
+        std::uint32_t noteId = 0;           // shared by all four lanes of a cloud note
+        std::uint32_t startOrder = 0;       // monotonic, used by oldest-voice stealing
 
-            // Cloud mode: per-grain information
-            double grainPosition = 0.0; // where to read from (samples within region)
-            double grainRate = 1.0;    // rate for this specific grain
+        int cloudLane = -1;
+        std::uint32_t grainIndex = 0;
+        bool grainActive = false;
+        double grainPosition = 0.0;
+        double grainStartSample = 0.0;
+        double grainDurationSamples = 1.0;
+        double nextGrainSample = 0.0;
 
-            // Swell mode: reverse playback
-            bool reversing = false;    // true if playing backwards
-
-        /** Envelope value at the given sample index. */
-        float envelope (double sampleIndex, double attackMs, double releaseMs, double sampleRate) const noexcept;
-    };
-
-    inline float Voice::envelope (double sampleIndex, double attackMs, double releaseMs, double sampleRate) const noexcept
-    {
-        if (envStart < 0.0)
-            return 0.0f;
-
-        const double attackSamples = attackMs * sampleRate / 1000.0;
-        const double releaseSamples = releaseMs * sampleRate / 1000.0;
-
-        if (sampleIndex <= envStart)
-            return 0.0f;
-
-        const double age = sampleIndex - envStart;
-
-        if (envEnd > 0.0 && sampleIndex >= envEnd)
+        /** Envelope value at an absolute sample index. Release starts from releaseLevel without a jump. */
+        float envelope (double sampleIndex, double attackMs, double releaseMs, double sampleRate) const noexcept
         {
-            // Release phase
-            const double releaseAge = sampleIndex - envEnd;
-            const float releaseProgress = static_cast<float> (releaseAge / releaseSamples);
-            return envValue * std::max (0.0f, 1.0f - releaseProgress);
-        }
+            if (envStart < 0.0 || sampleIndex <= envStart || sampleRate <= 0.0)
+                return 0.0f;
 
-        // Attack phase
-        const float attackProgress = static_cast<float> (age / attackSamples);
-        return envValue * std::min (1.0f, attackProgress);
+            if (envEnd >= 0.0 && sampleIndex >= envEnd)
+            {
+                const double releaseSamples = std::max (1.0, releaseMs * sampleRate / 1000.0);
+                const float progress = static_cast<float> ((sampleIndex - envEnd) / releaseSamples);
+                return releaseLevel * std::max (0.0f, 1.0f - progress);
+            }
+
+            const double attackSamples = std::max (1.0, attackMs * sampleRate / 1000.0);
+            const float progress = static_cast<float> ((sampleIndex - envStart) / attackSamples);
+            return std::clamp (progress, 0.0f, 1.0f);
+        }
     };
 
-    /** Voice pool: 32 voices. Stealing takes the oldest voice in release first,
-        then the oldest voice overall. Tape-stopping voices are stolen first since
-        they are already fading.
-    */
+    /** Fixed 32-voice pool. Stealing order: tape stop, oldest release, then oldest active voice. */
     class VoicePool
     {
     public:
@@ -168,157 +170,207 @@ namespace CoreDSP::Sampler
 
         VoicePool() = default;
 
-        /** Mark a voice as playing a note. Returns the voice index.
-
-            For Cloud mode (mode == 2), spawns multiple grains spread across the
-            region with slight detune, creating a granular cloud texture.
-        */
-        int allocateVoice (int key, float velocity, double regionSpan, double regionLength, int mode, int sliceCount) noexcept
+        void reset() noexcept
         {
-            // Compute region based on mode (shared by all grains in a cloud).
-            const double keyPos = (double) key / 127.0;
-            double regionStart = 0.0, regionEnd = 1.0;
+            for (auto& voice : voices)
+                voice = Voice {};
 
-            if (mode == 1)  // Chop mode: slice-based - divides sample into N equal slices and picks one based on key position
-            {
-                const int sliceCountClamped = std::clamp (sliceCount, 2, maxRegions);
-                const int sliceIndex = std::clamp ((int) (keyPos * sliceCountClamped), 0, sliceCountClamped - 1);
-                const double sliceLen = 1.0 / sliceCountClamped;
-                regionStart = sliceIndex * sliceLen;
-                regionEnd = (sliceIndex + 1) * sliceLen;
-            }
-            else if (mode == 3)  // Swell mode: reverse playback
-            {
-                const double maxStart = 1.0 - std::clamp (regionLength, 0.0, 1.0);
-                const double start = std::clamp (keyPos * std::clamp (regionSpan, 0.0, 1.0), 0.0, maxStart);
-                const double end = std::clamp (start + std::clamp (regionLength, 0.0, 1.0), 0.0, 1.0);
-                regionStart = start;
-                regionEnd = end;
-            }
+            nextNoteId = 1;
+            nextStartOrder = 1;
+        }
 
-            // Number of grains for Cloud mode; single voice otherwise.
-            const int numGrains = (mode == 2) ? 4 : 1;
-            const double cloudSpread = 0.4;   // fraction of region over which grains spread
-            const double cloudDetune = 0.003; // rate detune per grain step (fractional)
-
-            auto initVoice = [&] (int idx, int g) noexcept
-            {
-                voices[idx] = Voice {};
-                voices[idx].active = true;
-                voices[idx].key = key;
-                voices[idx].velocity = velocity;
-                voices[idx].envValue = 1.0f;  // Start at full envelope value
-                voices[idx].regionStart = regionStart;
-                voices[idx].regionEnd = regionEnd;
-
-                // Stagger position within region for Cloud mode.
-                double posOffset = 0.0;
-                if (mode == 2 && numGrains > 1)
-                    posOffset = ((double) g / (double) (numGrains - 1) - 0.5) * cloudSpread * (regionEnd - regionStart);
-
-                voices[idx].position = regionStart + posOffset;
-                voices[idx].envStart = -1.0;  // not started yet
-
-                // Slight detune per grain for Cloud mode.
-                if (mode == 2 && numGrains > 1)
-                    voices[idx].rate = 1.0 + ((double) g - (double) (numGrains - 1) / 2.0) * cloudDetune;
-
-                // Initialize cloud-specific fields for each grain.
-                if (mode == 2)
-                {
-                    // Each grain reads from a different position within the region.
-                    const double numSamples = regionEnd - regionStart;
-                    voices[idx].grainPosition = regionStart + posOffset * numSamples;
-                    // Grain rate starts at the base rate, detuned per grain
-                    voices[idx].grainRate = voices[idx].rate;
-                }
-
-                // Swell mode: mark as reversing.
-                if (mode == 3)
-                    voices[idx].reversing = true;
-            };
-
+        /** Allocate one voice, or four lanes in Cloud mode. Span and length are percentages. */
+        int allocateVoice (int key, float velocity, double regionSpan, double regionLength,
+                           int mode, int sliceCount, double startSample = 0.0, int regionKey = -1) noexcept
+        {
+            const int originalKey = regionKey >= 0 ? regionKey : key;
+            const auto region = makeRegion (originalKey, regionSpan, regionLength, mode, sliceCount);
+            const int count = mode == 2 ? cloudLanesPerNote : 1;
+            const std::uint32_t noteId = nextNoteId++;
             int firstAllocated = -1;
 
-            for (int g = 0; g < numGrains; ++g)
+            for (int lane = 0; lane < count; ++lane)
             {
-                int idx = -1;
+                const int index = findVoiceToAllocate();
 
-                // Find a free voice.
-                for (int i = 0; i < maxVoices; ++i)
-                {
-                    if (! voices[i].active)
-                    {
-                        idx = i;
-                        break;
-                    }
-                }
+                if (index < 0)
+                    break;
 
-                // Steal: tape-stopping voices first, then oldest in release, then oldest overall.
-                if (idx < 0)
-                {
-                    double oldestRelease = -1.0;
-                    for (int i = 0; i < maxVoices; ++i)
-                    {
-                        if (! voices[i].active)
-                            continue;
-
-                        if (voices[i].tapeStopping)
-                        {
-                            idx = i;
-                            break;
-                        }
-
-                        if (voices[i].releaseStart > oldestRelease)
-                        {
-                            oldestRelease = voices[i].releaseStart;
-                            idx = i;
-                        }
-                    }
-                }
-
-                if (idx < 0)
-                    break;  // no voices available
-
-                initVoice (idx, g);
+                auto& voice = voices[index];
+                voice = Voice {};
+                voice.active = true;
+                voice.key = std::clamp (key, 0, 127);
+                voice.inputKey = std::clamp (originalKey, 0, 127);
+                voice.mode = std::clamp (mode, 0, 3);
+                voice.velocity = std::clamp (velocity, 0.0f, 1.0f);
+                voice.regionStart = region.start;
+                voice.regionEnd = region.start + region.length;
+                voice.envStart = startSample;
+                voice.nextGrainSample = startSample;
+                voice.noteId = noteId;
+                voice.startOrder = nextStartOrder++;
+                voice.cloudLane = mode == 2 ? lane : -1;
 
                 if (firstAllocated < 0)
-                    firstAllocated = idx;
+                    firstAllocated = index;
             }
 
             return firstAllocated;
         }
 
-        /** Mark a voice as released (note-off). */
+        /** Start release for one voice. Normal releases remain active until their envelope finishes. */
         void releaseVoice (int index, double sampleIndex, double tapeStopTimeMs, int tapeStopCurve) noexcept
         {
-            if (index < 0 || index >= maxVoices || ! voices[index].active)
+            if (index < 0 || index >= maxVoices)
                 return;
+
+            auto& voice = voices[index];
+
+            if (! voice.active)
+                return;
+
+            voice.noteHeld = false;
+            voice.releaseStart = sampleIndex;
 
             if (tapeStopTimeMs > 0.0)
             {
-                voices[index].tapeStopping = true;
-                voices[index].tapeStop.start (tapeStopTimeMs, static_cast<TapeStopRamp::Curve> (tapeStopCurve));
+                voice.tapeStopping = true;
+                const auto curve = static_cast<TapeStopRamp::Curve> (
+                    std::clamp (tapeStopCurve, 0, static_cast<int> (TapeStopRamp::Curve::slowThenFast)));
+                voice.tapeStop.start (tapeStopTimeMs, curve);
             }
-            else
+            else if (voice.envEnd < 0.0)
             {
-                voices[index].active = false;
-                voices[index].releaseStart = sampleIndex;
-                voices[index].envEnd = sampleIndex;
+                voice.releaseLevel = voice.envValue;
+                voice.envEnd = sampleIndex;
             }
+        }
+
+        /** Release every lane/voice matching the original, unquantised input key. */
+        void releaseKey (int inputKey, double sampleIndex, double tapeStopTimeMs, int tapeStopCurve) noexcept
+        {
+            for (int i = 0; i < maxVoices; ++i)
+                if (voices[i].active && voices[i].inputKey == inputKey)
+                    releaseVoice (i, sampleIndex, tapeStopTimeMs, tapeStopCurve);
         }
 
         int countActive() const noexcept
         {
             int count = 0;
-            for (int i = 0; i < maxVoices; ++i)
-                if (voices[i].active)
+
+            for (const auto& voice : voices)
+                if (voice.active)
                     ++count;
+
             return count;
+        }
+
+    private:
+        std::uint32_t nextNoteId = 1;
+        std::uint32_t nextStartOrder = 1;
+
+        static Region makeRegion (int key, double spanPercent, double lengthPercent,
+                                  int mode, int sliceCount) noexcept
+        {
+            if (mode == 1)
+            {
+                const int count = std::clamp (sliceCount, 2, maxRegions);
+                const int slice = std::clamp (key * count / maxKeys, 0, count - 1);
+                return chopRegion (slice, count);
+            }
+
+            return keyRegion (key, 60, spanPercent / 100.0, lengthPercent / 100.0);
+        }
+
+        int findVoiceToAllocate() noexcept
+        {
+            for (int i = 0; i < maxVoices; ++i)
+                if (! voices[i].active)
+                    return i;
+
+            int candidate = -1;
+            std::uint32_t oldest = std::numeric_limits<std::uint32_t>::max();
+
+            for (int i = 0; i < maxVoices; ++i)
+                if (voices[i].tapeStopping && voices[i].startOrder < oldest)
+                {
+                    candidate = i;
+                    oldest = voices[i].startOrder;
+                }
+
+            if (candidate >= 0)
+                return candidate;
+
+            double oldestRelease = std::numeric_limits<double>::infinity();
+
+            for (int i = 0; i < maxVoices; ++i)
+                if (voices[i].releaseStart >= 0.0 && voices[i].releaseStart < oldestRelease)
+                {
+                    candidate = i;
+                    oldestRelease = voices[i].releaseStart;
+                }
+
+            if (candidate >= 0)
+                return candidate;
+
+            oldest = std::numeric_limits<std::uint32_t>::max();
+
+            for (int i = 0; i < maxVoices; ++i)
+                if (voices[i].startOrder < oldest)
+                {
+                    candidate = i;
+                    oldest = voices[i].startOrder;
+                }
+
+            return candidate;
         }
     };
 
-    /** Ghost note: a quieter, delayed copy of a note. */
+    /** Linear interpolation with safe endpoints and no out-of-bounds reads. */
+    inline float readLinear (const float* samples, int numSamples, double position) noexcept
+    {
+        if (samples == nullptr || numSamples <= 0 || position < 0.0 || position > numSamples - 1)
+            return 0.0f;
+
+        const int index = static_cast<int> (position);
+        const int next = std::min (index + 1, numSamples - 1);
+        const float fraction = static_cast<float> (position - index);
+        return samples[index] + fraction * (samples[next] - samples[index]);
+    }
+
+    inline double wrapPosition (double position, double start, double end) noexcept
+    {
+        const double length = end - start;
+
+        if (length <= 0.0)
+            return start;
+
+        while (position >= end)
+            position -= length;
+
+        while (position < start)
+            position += length;
+
+        return position;
+    }
+
+    /** Deterministic cloud-grain position. Spread zero still gives four distinct lane centres. */
+    inline double cloudGrainPosition (std::uint32_t noteId, std::uint32_t grainIndex, int lane,
+                                      double regionStart, double regionEnd, double spread,
+                                      int numSamples) noexcept
+    {
+        const double centre = (static_cast<double> (lane) + 0.5) / cloudLanesPerNote;
+        const double jitter = CoreDSP::Sequencer::hashUnit (noteId, grainIndex * 2u + 1u) - 0.5;
+        const double normalised = std::clamp (centre + jitter * std::clamp (spread, 0.0, 1.0), 0.0, 1.0);
+        return (regionStart + (regionEnd - regionStart) * normalised) * numSamples;
+    }
+
+    inline double cloudLaneDetune (int lane) noexcept
+    {
+        return 1.0 + (static_cast<double> (lane) - 1.5) * 0.003;
+    }
+
+    /** Ghost note description retained for CoreDSP users; the processor owns its fixed pending queue. */
     struct Ghost
     {
         bool active = false;

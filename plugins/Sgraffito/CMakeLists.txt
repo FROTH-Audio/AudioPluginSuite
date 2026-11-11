@@ -9,4 +9,6 @@ suite_add_plugin(
                     Source/PluginEditor.cpp Source/PluginEditor.h
     TEST_SOURCES    tests/PluginTests.cpp
     IS_SYNTH NEEDS_MIDI_INPUT MODULATION
+    ASSETS          Resources/samples/grain_4k.wav
+                    Resources/samples/cloud_4k.wav
 )

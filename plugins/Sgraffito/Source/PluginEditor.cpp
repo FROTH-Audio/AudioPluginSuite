@@ -5,12 +5,14 @@
 namespace
 {
     constexpr int editorWidth = 720;
-    constexpr int editorHeight = 860;
+    constexpr int editorHeight = 1200;
     constexpr int headerHeight = 40;
     constexpr int pageSelectorHeight = 28;
     constexpr int groupGap = 8;
     constexpr int groupTitleHeight = 20;
     constexpr int helpHeight = 26;
+    constexpr int waveformHeight = 130;
+    constexpr int keyStripHeight = 52;
 
     // Places components side by side in equal-width cells.
     void layoutRow (juce::Rectangle<int> row, std::initializer_list<juce::Component*> cells)
@@ -30,7 +32,7 @@ SgraffitoEditor::SgraffitoEditor (SgraffitoProcessor& p)
 
     setSize (editorWidth, editorHeight);
     setResizable (true, true);
-    setResizeLimits (600, 700, 1200, 1200);
+    setResizeLimits (600, 900, 1440, 1440);
 
     helpTracker.onMove = [this] (const juce::MouseEvent& e) { showHelp (e); };
     addMouseListener (&helpTracker, true);
@@ -179,6 +181,9 @@ SgraffitoEditor::SgraffitoEditor (SgraffitoProcessor& p)
 
     for (auto* component : { static_cast<juce::Component*> (&modeCaption),
                              static_cast<juce::Component*> (&modeSelector),
+                             static_cast<juce::Component*> (&modeBanner),
+                             static_cast<juce::Component*> (&waveformView),
+                             static_cast<juce::Component*> (&keyStrip),
                              static_cast<juce::Component*> (&regionSpanSlider),
                              static_cast<juce::Component*> (&regionLengthSlider),
                              static_cast<juce::Component*> (&rootKeySlider),
@@ -249,6 +254,10 @@ void SgraffitoEditor::setPage (int newPage)
 
     bool soundPage = (page == 0);
 
+    modeBanner.setVisible (soundPage);
+    waveformView.setVisible (soundPage);
+    keyStrip.setVisible (soundPage);
+
     for (auto* component : { static_cast<juce::Component*> (&modeCaption),
                              static_cast<juce::Component*> (&modeSelector),
                              static_cast<juce::Component*> (&regionSpanSlider),
@@ -304,103 +313,6 @@ void SgraffitoEditor::paint (juce::Graphics& g)
     g.setGradientFill (background);
     g.fillAll();
 
-    // Draw waveform on SOUND page
-    if (page == 0)
-    {
-        const auto& processorRef = processor;
-        
-        // Get the loaded sample buffer
-        const auto* sample = processorRef.getSampleBuffer();
-        if (sample != nullptr && sample->getNumSamples() > 0)
-        {
-            const int numChannels = sample->getNumChannels();
-            const double levelDb = static_cast<double>(processorRef.levelParam->load());
-            const float level = juce::Decibels::decibelsToGain(levelDb);
-            
-            // Draw waveform in the left column
-            auto bounds = getLocalBounds().removeFromTop (headerHeight).reduced (16);
-            constexpr int waveWidth = 400;
-            const float waveHeight = std::min(static_cast<float>(bounds.getHeight()), 250.0f);
-            
-            g.setColour (lookAndFeel.getAccent());
-            g.setFont (juce::Font (juce::FontOptions (10.0f, juce::Font::bold)));
-            g.drawText ("SOUND", bounds.withHeight (groupTitleHeight).translated (0, 4).reduced (12, 0),
-                        juce::Justification::centredLeft);
-            
-            // Waveform area below the title
-            const int waveY = groupTitleHeight + 8;
-            const int waveX = bounds.getX();
-            const int waveW = waveWidth;
-            const int waveH = waveHeight - 16;
-            
-            g.setColour (SuiteUI::Colours::track);
-            g.drawRoundedRectangle (bounds.withWidth (waveW + 4).withY (waveY).toFloat(), 4.0f, 1.0f);
-            
-            // Draw the waveform with region markers and slice lines
-            const double keyPos = static_cast<double>(processorRef.rootKeyParam->load()) / 127.0;
-            const double regionLength = static_cast<double>(processorRef.regionLengthParam->load());
-            const double regionSpan = static_cast<double>(processorRef.regionSpanParam->load());
-            
-            const double maxStart = 1.0 - std::clamp(regionLength, 0.0, 1.0);
-            const double start = std::clamp(keyPos * std::clamp(regionSpan, 0.0, 1.0), 0.0, maxStart);
-            const double end = std::clamp(start + std::clamp(regionLength, 0.0, 1.0), 0.0, 1.0);
-            
-            const float sampleRate = processorRef.preparedSampleRate;
-            const int numSamples = std::min((int)sample->getNumSamples(), waveH * 2); // Limit to visible range
-            
-            for (int ch = 0; ch < numChannels; ++ch)
-            {
-                const float* src = sample->getReadPointer (ch);
-                
-                // Draw waveform segments
-                for (int i = 0; i < numSamples - 1; ++i)
-                {
-                    const int idx0 = std::clamp (i, 0, numSamples - 2);
-                    const int idx1 = std::clamp (idx0 + 1, 0, numSamples - 1);
-                    
-                    const float s0 = src[idx0];
-                    const float s1 = src[idx1];
-                    
-                    // Draw a small line segment
-                    const float x0 = (float) i / numSamples * waveW;
-                    const float x1 = (float) (idx0 + 1) / numSamples * waveW;
-                    const float y0 = waveH - s0 * waveH;
-                    const float y1 = waveH - s1 * waveH;
-                    
-                    g.drawLine (x0, y0, x1, y1);
-                }
-            }
-            
-            // Draw region markers (vertical lines at region start and end)
-            g.setColour (lookAndFeel.getAccent().withAlpha(0.5f));
-            const float regionStartX = (float) start * waveW;
-            const float regionEndX = (float) end * waveW;
-            
-            g.drawLine (regionStartX, 0, regionStartX, waveH);
-            g.drawLine (regionEndX, 0, regionEndX, waveH);
-            
-            // Draw slice lines for Chop mode
-            if (static_cast<float>(processorRef.sliceCountParam->load()) > 1.0f)
-            {
-                const int sliceCountClamped = std::clamp(static_cast<int>(processorRef.sliceCountParam->load()), 2, 64);
-                const double sliceLen = end - start;
-                
-                for (int i = 0; i < sliceCountClamped; ++i)
-                {
-                    const float sliceX = (float) (start + sliceLen * (i + 0.5)) * waveW;
-                    g.drawLine (sliceX, 0, sliceX, waveH);
-                }
-            }
-            
-            // Draw region labels
-            g.setColour (SuiteUI::Colours::textDim.withAlpha (0.7f));
-            const float labelY = waveY + waveH - 24;
-            g.drawText ("Region: " + juce::String (start * 100, 0) + "% -> " + juce::String (end * 100, 0) + "%",
-                        bounds.withWidth (waveW).withY (labelY - 18).toFloat(),
-                        juce::Justification::centredBottom);
-        }
-    }
-
     g.setColour (lookAndFeel.getAccent());
     g.setFont (juce::Font (juce::FontOptions (20.0f, juce::Font::bold)));
     g.drawText ("SGRAFFITO", getLocalBounds().removeFromTop (headerHeight).reduced (16),
@@ -408,7 +320,8 @@ void SgraffitoEditor::paint (juce::Graphics& g)
 
     g.setColour (SuiteUI::Colours::textDim);
     g.setFont (juce::Font (juce::FontOptions (11.0f)));
-    g.drawText ("Memory sampler  |  Scrub / Chop / Cloud / Swell  |  " + juce::String (processor.getNumActiveVoices()) + " voices",
+    g.drawText ("Memory sampler  |  Scrub / Chop / Cloud / Swell  |  "
+                    + juce::String (processor.voicePool.countActive()) + " voices",
                 getLocalBounds().removeFromBottom (helpHeight).reduced (16), juce::Justification::centredLeft);
 
     if (page == 1)
@@ -431,7 +344,8 @@ void SgraffitoEditor::resized()
 {
     auto area = getLocalBounds().reduced (16);
 
-    auto headerArea = area.removeFromTop (headerHeight);
+    helpLabel.setBounds (area.removeFromBottom (helpHeight).reduced (16, 0));
+    area.removeFromTop (headerHeight);
 
     pageSelector.setBounds (area.removeFromTop (pageSelectorHeight).withWidth (240));
     area.removeFromTop (groupGap);
@@ -444,13 +358,23 @@ void SgraffitoEditor::resized()
 
 void SgraffitoEditor::layoutSoundPage (juce::Rectangle<int> area)
 {
-    constexpr int knobSize = 104;
     constexpr int rowHeight = 140;
 
-    // Mode: full width selector.
+    // Mode: caption, selector, and the mode banner.
     auto modeRow = area.removeFromTop (rowHeight);
     modeCaption.setBounds (modeRow.removeFromTop (18));
-    modeSelector.setBounds (modeRow.reduced (8));
+    modeSelector.setBounds (modeRow.removeFromTop (44).reduced (8, 2));
+    modeBanner.setBounds (modeRow.removeFromTop (32).reduced (8, 0));
+
+    area.removeFromTop (groupGap);
+
+    // Visual row: sample waveform.
+    waveformView.setBounds (area.removeFromTop (waveformHeight));
+
+    area.removeFromTop (groupGap);
+
+    // Visual row: key map strip.
+    keyStrip.setBounds (area.removeFromTop (keyStripHeight));
 
     area.removeFromTop (groupGap);
 
@@ -488,7 +412,6 @@ void SgraffitoEditor::layoutSoundPage (juce::Rectangle<int> area)
 
 void SgraffitoEditor::layoutTexturePage (juce::Rectangle<int> area)
 {
-    constexpr int knobSize = 104;
     constexpr int rowHeight = 140;
 
     textureGroupBounds = area;
@@ -540,7 +463,6 @@ void SgraffitoEditor::layoutTexturePage (juce::Rectangle<int> area)
     sustainHoldButton.setBounds (row7.removeFromLeft (quarter).reduced (8));
     swellTimeSlider.setBounds (row7.removeFromLeft (quarter).reduced (8));
     swellCrossfadeSlider.setBounds (row7.removeFromLeft (quarter).reduced (8));
-    row7.removeFromLeft (quarter); // empty cell for balance
 
     area.removeFromTop (groupGap);
 
