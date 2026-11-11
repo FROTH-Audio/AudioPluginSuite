@@ -11,7 +11,7 @@
 #include "SuiteState.h"
 #include "SuitePresets.h"
 
-#include "SampleLoader.h"
+#include "LoadedSample.h"
 
 #include <CoreDSP.h>
 
@@ -200,8 +200,6 @@ public:
 
     juce::String getSamplePath() const noexcept { return sampleFile.getFullPathName(); }
     bool hasSample() const noexcept { return sampleBuffer.load() != nullptr; }
-    size_t getEmbedLimitBytes() const noexcept { return embedLimitBytes; }
-    void setEmbedLimitBytes (size_t bytes) noexcept { embedLimitBytes = bytes; }
 
     /** The raw value of a parameter, for the editor's visual widgets (waveform, key map). */
     float getParamValue (const char* id) const
@@ -255,11 +253,8 @@ public:
     // The loaded sample buffer (atomic swap for thread safety).
     std::atomic<const juce::AudioBuffer<float>*> sampleBuffer { nullptr };
 
-    // The original file path (for path-based loading above the embed limit).
+    // The original file path (empty for embedded samples).
     juce::File sampleFile;
-
-    // Maximum size for embedded samples (default 20 MB).
-    size_t embedLimitBytes = 20ull * 1024ull * 1024ull;
 
     // Pending note-ons for lay back delay.
     struct PendingNote

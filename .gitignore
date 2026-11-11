@@ -29,3 +29,6 @@ Thumbs.db
 .vscode/
 
 tools/brand/
+# Python bytecode
+__pycache__/
+*.pyc
