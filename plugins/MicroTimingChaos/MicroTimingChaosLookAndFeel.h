@@ -31,10 +31,6 @@ namespace MicroTimingChaos
         /** Paints the background and grid texture behind the editor. */
         void paint (juce::Graphics& g, juce::Component& component);
 
-        void drawRotarySlider (juce::Graphics&, int x, int y, int width, int height,
-                               float sliderPosProportional, float rotaryStartAngle,
-                               float rotaryEndAngle, juce::Slider&) override;
-
         /** The BPM Sync button: an icon, a texture overlay when active, and an ON or OFF state. */
         void drawToggleButton (juce::Graphics&, juce::ToggleButton&,
                                bool shouldDrawButtonAsHighlighted,

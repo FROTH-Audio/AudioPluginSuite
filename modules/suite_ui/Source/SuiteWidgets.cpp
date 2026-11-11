@@ -297,9 +297,9 @@ namespace SuiteUI
         const float segmentWidth = area.getWidth() / (float) juce::jmax (1, options.size());
 
         g.setColour (Colours::panel);
-        g.fillRoundedRectangle (area, area.getHeight() * 0.5f);
+        g.fillRoundedRectangle (area, SuiteUI::controlRadius);
         g.setColour (Colours::panelEdge);
-        g.drawRoundedRectangle (area, area.getHeight() * 0.5f, 1.0f);
+        g.drawRoundedRectangle (area, SuiteUI::controlRadius, 1.0f);
 
         for (int i = 0; i < options.size(); ++i)
         {
@@ -307,15 +307,16 @@ namespace SuiteUI
                                                   segmentWidth, area.getHeight());
             const bool isSelected = i == selected;
 
+            // The selected segment is a tinted fill with accent text; no glow (plan 05 R3).
             if (isSelected)
             {
-                juce::DropShadow (accent.withAlpha (0.7f), 10, {}).drawForRectangle (g, segment.toNearestInt());
-                g.setColour (accent.withAlpha (0.22f));
-                g.fillRoundedRectangle (segment.reduced (3.0f), (area.getHeight() - 6.0f) * 0.5f);
+                g.setColour (accent.withAlpha (0.20f));
+                g.fillRoundedRectangle (segment.reduced (2.0f),
+                                        juce::jmax (2.0f, SuiteUI::controlRadius - 2.0f));
             }
 
             g.setColour (isSelected ? accent : Colours::textDim);
-            g.setFont (juce::Font (juce::FontOptions (fontHeight, isSelected ? juce::Font::bold : juce::Font::plain)));
+            g.setFont (SuiteUI::uiFont (fontHeight, isSelected));
             g.drawText (options[i], segment, juce::Justification::centred);
         }
     }
@@ -346,11 +347,12 @@ namespace SuiteUI
 
         slider.setSliderStyle (style);
         slider.setTextBoxStyle (rotary ? juce::Slider::TextBoxBelow : juce::Slider::TextBoxRight,
-                                false, 84, 18);
+                                false, SuiteUI::valueBoxWidth, SuiteUI::valueBoxHeight);
 
         label.setText (caption, juce::dontSendNotification);
         label.setJustificationType (juce::Justification::centred);
-        label.setFont (juce::Font (juce::FontOptions (12.0f, juce::Font::bold)));
+        label.setFont (SuiteUI::uiFont (13.0f, true));
+        label.setColour (juce::Label::textColourId, SuiteUI::Colours::textDim);
 
         addAndMakeVisible (label);
         addAndMakeVisible (slider);
@@ -359,7 +361,21 @@ namespace SuiteUI
     void LabelledSlider::resized()
     {
         auto area = getLocalBounds();
-        label.setBounds (area.removeFromTop (18));
-        slider.setBounds (area);
+        label.setBounds (area.removeFromTop (SuiteUI::captionHeight));
+
+        if (! slider.isRotary())
+        {
+            slider.setBounds (area);
+            return;
+        }
+
+        // One knob size for the whole suite (plan 05 R1): the slider is centred and sized
+        // so drawRotarySlider receives exactly knobDiameter. The drawable rect is the
+        // slider bounds minus the value box (18 px below), reduced 3 px per side in the
+        // look and feel; 84x84 bounds produce a 60 px knob.
+        constexpr int sliderBounds = SuiteUI::knobDiameter + 6 + SuiteUI::valueBoxHeight;
+        const int h = juce::jmin (sliderBounds, area.getHeight());
+        const int w = juce::jmin (sliderBounds, juce::jmax (SuiteUI::valueBoxWidth, area.getWidth()));
+        slider.setBounds (area.withSizeKeepingCentre (w, h));
     }
 }

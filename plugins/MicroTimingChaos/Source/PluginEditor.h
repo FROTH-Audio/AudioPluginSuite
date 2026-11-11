@@ -49,8 +49,9 @@ public:
     void paint (juce::Graphics&) override;
     void resized() override;
 
-    /** The host's scale, multiplied by the design scale below, so the window is two thirds of the design size. */
-    void setScaleFactor (float newScale) override;
+    /** Switches between the three pages: 0 sequence, 1 drift, 2 mod. The tests use setPage too. */
+    void setPage (int newPage);
+    int getPage() const noexcept { return page; }
 
 private:
     void timerCallback() override;
@@ -70,6 +71,7 @@ private:
     {
         juce::String title;
         juce::Rectangle<int> bounds;
+        int page = 0;   // the page the group belongs to; paint skips groups on other pages
     };
 
     MicroTimingChaosProcessor& processor;
@@ -78,6 +80,8 @@ private:
     MicroTimingChaos::LookAndFeel lookAndFeel { MicroTimingChaos::Palette::velocity };
     HelpTracker helpTracker;
     std::vector<Group> groups;
+    SuiteUI::SegmentedSelector pageSelector { MicroTimingChaos::Palette::velocity };
+    int page = 0;
 
     juce::Label helpLabel;
 

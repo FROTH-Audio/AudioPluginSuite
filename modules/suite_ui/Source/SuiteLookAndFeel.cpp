@@ -26,11 +26,17 @@ namespace SuiteUI
         const float diameter = juce::jmin (area.getWidth(), area.getHeight());
         const auto centre = area.getCentre();
         const float ledRadius = diameter * 0.5f;
+        const float radius = diameter * 0.5f;
+
+        // Ring-to-arc and arc-to-body gaps shrink with the 60 px knob, with fixed floors
+        // so the drawing stays legible at the suite size (plan 05).
+        const float arcGap = juce::jmax (4.0f, radius * 0.15f);
+        const float bodyGap = juce::jmax (3.0f, radius * 0.10f);
 
         const float angle = startAngle + sliderPos * (endAngle - startAngle);
-        const auto pointOn = [&] (float radius, float a)
+        const auto pointOn = [&] (float r, float a)
         {
-            return centre + juce::Point<float> (std::sin (a), -std::cos (a)) * radius;
+            return centre + juce::Point<float> (std::sin (a), -std::cos (a)) * r;
         };
 
         // LED ring: lit up to the current value, dim beyond it.
@@ -44,7 +50,7 @@ namespace SuiteUI
         }
 
         // Track and value arc, with a soft glow under the value arc.
-        const float arcRadius = ledRadius - 9.0f;
+        const float arcRadius = ledRadius - arcGap;
         juce::Path trackArc, valueArc;
         trackArc.addCentredArc (centre.x, centre.y, arcRadius, arcRadius, 0.0f, startAngle, endAngle, true);
         valueArc.addCentredArc (centre.x, centre.y, arcRadius, arcRadius, 0.0f, startAngle, angle, true);
@@ -53,13 +59,14 @@ namespace SuiteUI
         g.strokePath (trackArc, juce::PathStrokeType (3.0f));
 
         g.setColour (accent.withAlpha (0.25f));
-        g.strokePath (valueArc, juce::PathStrokeType (8.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+        g.strokePath (valueArc, juce::PathStrokeType (juce::jmax (6.0f, arcGap * 1.8f),
+                                                      juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
 
         g.setColour (accent);
         g.strokePath (valueArc, juce::PathStrokeType (3.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
 
         // Knob body and pointer.
-        const float bodyRadius = arcRadius - 6.0f;
+        const float bodyRadius = arcRadius - bodyGap;
         juce::ColourGradient body (Colours::panelLight, centre.x, centre.y - bodyRadius,
                                    Colours::panel, centre.x, centre.y + bodyRadius, false);
         g.setGradientFill (body);
@@ -105,25 +112,36 @@ namespace SuiteUI
                                              bool shouldDrawButtonAsHighlighted, bool shouldDrawButtonAsDown)
     {
         const auto bounds = button.getLocalBounds().toFloat().reduced (2.0f);
-        const float radius = bounds.getHeight() * 0.5f;
+        const float radius = juce::jmin (SuiteUI::controlRadius, bounds.getHeight() * 0.5f);
         const bool on = button.getToggleState();
 
-        juce::Path pill;
-        pill.addRoundedRectangle (bounds, radius);
-
-        // Glow only while on, so an active toggle reads as lit.
-        if (on)
-            juce::DropShadow (accent.withAlpha (0.85f), 14, {}).drawForPath (g, pill);
-
-        g.setColour (on ? accent.withAlpha (0.2f) : Colours::panel);
-        g.fillPath (pill);
+        // On: accent border, tinted fill, accent text. Off: hairline border, dim text.
+        // Colour never carries the state alone (plan 05 R6): the dot is filled when on,
+        // hollow when off.
+        g.setColour (on ? accent.withAlpha (0.18f) : Colours::panel);
+        g.fillRoundedRectangle (bounds, radius);
 
         g.setColour (on ? accent : Colours::panelEdge);
-        g.strokePath (pill, juce::PathStrokeType (1.5f));
+        g.drawRoundedRectangle (bounds, radius, on ? 1.5f : 1.0f);
 
-        const float brightness = shouldDrawButtonAsDown ? 0.8f : (shouldDrawButtonAsHighlighted ? 1.0f : 0.9f);
+        const float dotRadius = juce::jmin (4.0f, bounds.getHeight() * 0.14f);
+        const auto dotCentre = juce::Point<float> (bounds.getX() + bounds.getHeight() * 0.5f,
+                                                   bounds.getCentreY());
+
+        if (bounds.getWidth() > 110.0f)
+        {
+            if (on)
+                g.fillEllipse (dotCentre.x - dotRadius, dotCentre.y - dotRadius, dotRadius * 2.0f, dotRadius * 2.0f);
+            else
+                g.drawEllipse (dotCentre.x - dotRadius, dotCentre.y - dotRadius, dotRadius * 2.0f, dotRadius * 2.0f, 1.2f);
+        }
+
+        const auto textBounds = bounds.getWidth() > 110.0f
+                                    ? bounds.withTrimmedLeft (bounds.getHeight() * 1.1f)
+                                    : bounds;
+        const float brightness = shouldDrawButtonAsDown ? 0.85f : (shouldDrawButtonAsHighlighted ? 1.0f : 0.92f);
         g.setColour ((on ? accent : Colours::textDim).withMultipliedBrightness (brightness));
-        g.setFont (juce::Font (juce::FontOptions (14.0f, juce::Font::bold)));
-        g.drawText (button.getButtonText(), bounds, juce::Justification::centred);
+        g.setFont (SuiteUI::uiFont (14.0f, true));
+        g.drawText (button.getButtonText(), textBounds, juce::Justification::centred);
     }
 }

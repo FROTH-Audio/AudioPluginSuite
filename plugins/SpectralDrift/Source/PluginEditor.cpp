@@ -1,4 +1,4 @@
-#include "PluginEditor.h"
+﻿#include "PluginEditor.h"
 
 #include "BinaryData.h"
 #include "SuiteBrand.h"
@@ -15,15 +15,15 @@ namespace
 
 namespace
 {
-    constexpr int editorWidth = 780;
-    constexpr int editorHeight = 776;
+    constexpr int editorWidth = 720;
+    constexpr int editorHeight = 660;
     constexpr double fallbackSampleRate = 48000.0;
     constexpr float signalThreshold = 1.0e-4f;
 
     constexpr int headerHeight = 40;
     constexpr int pageSelectorHeight = 28;
     constexpr int groupGap = 8;
-    constexpr int groupTitleHeight = 26;
+    constexpr int groupTitleHeight = SuiteUI::groupTitleHeight;
     constexpr int helpHeight = 26;
 
     // Places components side by side in equal-width cells.
@@ -49,7 +49,7 @@ SpectralDriftEditor::SpectralDriftEditor (SpectralDriftProcessor& p)
 
     setSize (editorWidth, editorHeight);
     setResizable (true, true);
-    setResizeLimits (640, 656, 1400, 1100);
+    setResizeLimits (620, 660, 1200, 1200);
 
     helpTracker.onMove = [this] (const juce::MouseEvent& e) { showHelp (e); };
     addMouseListener (&helpTracker, true);
@@ -78,8 +78,7 @@ SpectralDriftEditor::SpectralDriftEditor (SpectralDriftProcessor& p)
                              static_cast<juce::Component*> (&modulation) })
         addAndMakeVisible (component);
 
-    rateSlider.slider.setTextValueSuffix (" Hz");
-    rateSlider.slider.setNumDecimalPlacesToDisplay (2);
+    // Drift Rate's value text comes from the parameter's stringFromValue (includes the unit).
     depthSlider.slider.setTextValueSuffix (" %");
     spreadSlider.slider.setNumDecimalPlacesToDisplay (3);
     stereoSlider.slider.setTextValueSuffix (" deg");
@@ -267,34 +266,27 @@ void SpectralDriftEditor::resized()
 
 void SpectralDriftEditor::layoutSoundPage (juce::Rectangle<int> area)
 {
-    spectrum.setBounds (area.removeFromTop ((int) ((float) area.getHeight() * 0.34f)));
+    spectrum.setBounds (area.removeFromTop (juce::jmax (150, area.getHeight() - 3 * (SuiteUI::knobRowHeight + groupGap)
+                                                                        - (SuiteUI::pillHeight + groupGap))));
     area.removeFromTop (groupGap);
 
-    const int rowHeight = area.getHeight() / 4;
+    // Three rows of four, then a pill row: twelve rotaries plus the shape selector and freeze.
+    layoutRow (area.removeFromTop (SuiteUI::knobRowHeight), { &rateSlider, &depthSlider, &spreadSlider, &stereoSlider });
+    area.removeFromTop (groupGap);
+    layoutRow (area.removeFromTop (SuiteUI::knobRowHeight), { &shiftSlider, &tiltSlider, &gateSlider, &mixSlider });
+    area.removeFromTop (groupGap);
+    layoutRow (area.removeFromTop (SuiteUI::knobRowHeight),
+               { &feedbackSlider, &dampingSlider, &driftStartSlider, &outputSlider });
 
-    // Drift
-    layoutRow (area.removeFromTop (rowHeight), { &rateSlider, &depthSlider, &spreadSlider, &stereoSlider });
+    area.removeFromTop (groupGap);
 
-    // Spectral shaping: the last cell holds the LFO shape caption and switch.
-    auto shapingRow = area.removeFromTop (rowHeight);
-    const int cellWidth = shapingRow.getWidth() / 4;
-    shiftSlider.setBounds (shapingRow.removeFromLeft (cellWidth).reduced (4));
-    tiltSlider.setBounds (shapingRow.removeFromLeft (cellWidth).reduced (4));
-    gateSlider.setBounds (shapingRow.removeFromLeft (cellWidth).reduced (4));
-
-    auto shapeCell = shapingRow.reduced (8, 4);
-    shapeCaption.setBounds (shapeCell.removeFromTop (20));
-    shapeCell.removeFromTop (12);
-    shapeSelector.setBounds (shapeCell.withSizeKeepingCentre (shapeCell.getWidth(), juce::jmin (30, shapeCell.getHeight())));
-
-    // Feedback, damping, mix and freeze.
-    auto feedbackRow = area.removeFromTop (rowHeight);
-    auto freezeCell = feedbackRow.removeFromRight (feedbackRow.getWidth() / 4);
-    layoutRow (feedbackRow, { &feedbackSlider, &dampingSlider, &mixSlider });
-    freezeButton.setBounds (freezeCell.withSizeKeepingCentre (juce::jmin (180, freezeCell.getWidth()), 44));
-
-    // Drift start and output gain.
-    layoutRow (area, { &driftStartSlider, &outputSlider });
+    // Pill row: the LFO shape caption and selector on the left, the freeze switch on the right.
+    auto pillRow = area.removeFromTop (SuiteUI::pillHeight);
+    auto shapeArea = pillRow.removeFromLeft (pillRow.getWidth() / 2).reduced (8, 0);
+    shapeCaption.setBounds (shapeArea.removeFromLeft (90).withSizeKeepingCentre (90, 18));
+    shapeSelector.setBounds (shapeArea.withSizeKeepingCentre (shapeArea.getWidth(), SuiteUI::pillHeight));
+    freezeButton.setBounds (pillRow.removeFromRight (196).reduced (8, 0)
+                                .withSizeKeepingCentre (180, SuiteUI::pillHeight));
 }
 
 void SpectralDriftEditor::layoutModPage (juce::Rectangle<int> area)

@@ -104,49 +104,6 @@ namespace MicroTimingChaos
             g.drawImage (grid, area);
     }
 
-    void LookAndFeel::drawRotarySlider (juce::Graphics& g, int x, int y, int width, int height,
-                                        float sliderPosProportional, float rotaryStartAngle,
-                                        float rotaryEndAngle, juce::Slider& slider)
-    {
-        const auto bounds = juce::Rectangle<float> ((float) x, (float) y, (float) width, (float) height).reduced (5.0f);
-        const auto centre = bounds.getCentre();
-        const float radius = juce::jmin (bounds.getWidth(), bounds.getHeight()) * 0.5f;
-        const float thickness = juce::jmax (2.0f, radius * 0.12f);
-        const float arcRadius = radius - thickness * 0.5f;
-        const float angle = rotaryStartAngle + (rotaryEndAngle - rotaryStartAngle) * sliderPosProportional;
-
-        const auto stroke = juce::PathStrokeType (thickness, juce::PathStrokeType::curved, juce::PathStrokeType::rounded);
-
-        juce::Path trackPath;
-        trackPath.addCentredArc (centre.x, centre.y, arcRadius, arcRadius, 0.0f, rotaryStartAngle, rotaryEndAngle, true);
-        g.setColour (SuiteUI::Colours::track);
-        g.strokePath (trackPath, stroke);
-
-        juce::Path valuePath;
-        valuePath.addCentredArc (centre.x, centre.y, arcRadius, arcRadius, 0.0f, rotaryStartAngle, angle, true);
-
-        // Neon value arc with a soft glow underneath
-        g.setColour (accent.withAlpha (slider.isEnabled() ? 0.22f : 0.08f));
-        g.strokePath (valuePath, juce::PathStrokeType (thickness * 3.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
-        g.setColour (slider.isEnabled() ? accent : SuiteUI::Colours::textDim);
-        g.strokePath (valuePath, stroke);
-
-        // Knob body
-        const float bodyRadius = radius * 0.64f;
-        juce::ColourGradient body (SuiteUI::Colours::panelLight, centre.x, centre.y - bodyRadius,
-                                   SuiteUI::Colours::panel, centre.x, centre.y + bodyRadius, false);
-        g.setGradientFill (body);
-        g.fillEllipse (centre.x - bodyRadius, centre.y - bodyRadius, bodyRadius * 2.0f, bodyRadius * 2.0f);
-
-        // Pointer
-        const float dirX = std::sin (angle);
-        const float dirY = -std::cos (angle);
-        g.setColour (slider.isEnabled() ? accent : SuiteUI::Colours::textDim);
-        g.drawLine (centre.x + dirX * bodyRadius * 0.25f, centre.y + dirY * bodyRadius * 0.25f,
-                    centre.x + dirX * bodyRadius * 0.85f, centre.y + dirY * bodyRadius * 0.85f,
-                    juce::jmax (2.0f, thickness * 0.8f));
-    }
-
     void LookAndFeel::drawToggleButton (juce::Graphics& g, juce::ToggleButton& button,
                                         bool shouldDrawButtonAsHighlighted, bool shouldDrawButtonAsDown)
     {
@@ -181,11 +138,11 @@ namespace MicroTimingChaos
         auto textArea = bounds.reduced (6.0f, 0.0f);
 
         g.setColour (active ? SuiteUI::Colours::text : SuiteUI::Colours::textDim);
-        g.setFont (juce::Font (juce::FontOptions (14.0f, juce::Font::bold)));
+        g.setFont (SuiteUI::uiFont (14.0f, true));
         g.drawText (button.getButtonText(), textArea.withTrimmedRight (34.0f), juce::Justification::centredLeft);
 
         g.setColour (colour);
-        g.setFont (juce::Font (juce::FontOptions (13.0f, juce::Font::bold)));
+        g.setFont (SuiteUI::uiFont (13.0f, true));
         g.drawText (active ? "ON" : "OFF", textArea.removeFromRight (30.0f), juce::Justification::centredRight);
     }
 
@@ -218,16 +175,16 @@ namespace MicroTimingChaos
 
     juce::Font LookAndFeel::getLabelFont (juce::Label&)
     {
-        return juce::Font (juce::FontOptions (14.0f));
+        return SuiteUI::uiFont (14.0f);
     }
 
     juce::Font LookAndFeel::getComboBoxFont (juce::ComboBox&)
     {
-        return juce::Font (juce::FontOptions (14.0f));
+        return SuiteUI::uiFont (14.0f);
     }
 
     juce::Font LookAndFeel::getPopupMenuFont()
     {
-        return juce::Font (juce::FontOptions (14.0f));
+        return SuiteUI::uiFont (14.0f);
     }
 }

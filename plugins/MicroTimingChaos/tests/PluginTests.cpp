@@ -1056,7 +1056,9 @@ namespace
         assert (getParameter (processor.apvts, Processor::lfo1OffsetId) == 0.0f);
 
         // Not in a window, so the editor is made visible by hand; hit testing ignores hidden components.
+        // The LFO panel lives on the MOD page (plan 05), so the test switches there first.
         editor->setVisible (true);
+        static_cast<MicroTimingChaosEditor*> (editor.get())->setPage (2);
         editor->setSize (editor->getWidth(), editor->getHeight());
         editor->resized();
         assert (getParameter (processor.apvts, Processor::lfo1OffsetId) == 0.0f);
@@ -1457,12 +1459,19 @@ namespace
         MicroTimingChaosProcessor processor;
         processor.prepareToPlay (sampleRate, blockSize);
 
-        for (int view = 0; view < 2; ++view)
+        for (int renderPage = 0; renderPage < 3; ++renderPage)
         {
             std::unique_ptr<juce::AudioProcessorEditor> editor (processor.createEditor());
-            static_cast<MicroTimingChaosEditor*> (editor.get())->setLerpView (view);
+            auto* mtcEditor = static_cast<MicroTimingChaosEditor*> (editor.get());
+            mtcEditor->setPage (renderPage);
 
-            const juce::File file (juce::File (folder).getChildFile (view == 0 ? "microtimingchaos-curve.png" : "microtimingchaos-preview.png"));
+            // On the drift page both lerp views are rendered (plan 05 R9).
+            if (renderPage == 1)
+                mtcEditor->setLerpView (1);
+
+            const juce::File file (juce::File (folder).getChildFile (
+                renderPage == 0 ? "microtimingchaos-sequence.png"
+                                : renderPage == 1 ? "microtimingchaos-drift.png" : "microtimingchaos-mod.png"));
             assert (PluginTest::writeDeterministicPng (*editor, file));
             processor.editorBeingDeleted (editor.get());
         }
@@ -1475,16 +1484,10 @@ namespace
         processor.prepareToPlay (sampleRate, blockSize);
         checkEditor (processor);
 
-        checkEditor (processor);
-
-        checkEditor (processor);
-
-        checkEditor (processor);
-
-        // The window shows at two thirds of the design size, and the layout keeps its design size.
+        // The native design size: the window is the design (plan 05 dropped the scale factor).
         std::unique_ptr<juce::AudioProcessorEditor> editor (processor.createEditorAndMakeActive());
-        assert (editor->getWidth() == 1695 && editor->getHeight() == 1400);
-        assert (std::abs (editor->getTransform().mat00 - 2.0f / 3.0f) < 1e-4f);
+        assert (editor->getWidth() == 980 && editor->getHeight() == 700);
+        assert (std::abs (editor->getTransform().mat00 - 1.0f) < 1e-4f);
         processor.editorBeingDeleted (editor.get());
 
         pass ("testEditor");

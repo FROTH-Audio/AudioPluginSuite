@@ -66,8 +66,15 @@ juce::AudioProcessorValueTreeState::ParameterLayout SpectralDriftProcessor::crea
         [] (float start, float end, float normalised) { return start * std::pow (end / start, normalised); },
         [] (float start, float end, float value) { return std::log (value / start) / std::log (end / start); });
 
+    // The value box shows this parameter: stringFromValue on the parameter, because
+    // formatting set on the slider after the attachment exists does not refresh (AGENTS 11).
+    juce::AudioParameterFloatAttributes rateAttributes;
+    rateAttributes = rateAttributes.withStringFromValueFunction (
+        [] (float value, int) { return juce::String (value, 2) + " Hz"; });
+    rateAttributes = rateAttributes.withLabel ("Hz");
+
     params.push_back (std::make_unique<juce::AudioParameterFloat> (
-        juce::ParameterID { driftRateId, 1 }, "Drift Rate", rateRange, 1.0f, "Hz"));
+        juce::ParameterID { driftRateId, 1 }, "Drift Rate", rateRange, 1.0f, rateAttributes));
 
     params.push_back (std::make_unique<juce::AudioParameterFloat> (
         juce::ParameterID { depthId, 1 }, "Drift Depth", juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), defaultDepthPercent, "%"));

@@ -1,4 +1,4 @@
-#include "PluginEditor.h"
+﻿#include "PluginEditor.h"
 
 #include "BinaryData.h"
 #include "SuiteBrand.h"
@@ -15,13 +15,13 @@ namespace
 
 namespace
 {
-    constexpr int editorWidth = 880;
-    constexpr int editorHeight = 660;
+    constexpr int editorWidth = 780;
+    constexpr int editorHeight = 640;
 
     constexpr int headerHeight = 40;
     constexpr int pageSelectorHeight = 28;
     constexpr int groupGap = 8;
-    constexpr int groupTitleHeight = 26;
+    constexpr int groupTitleHeight = SuiteUI::groupTitleHeight;
     constexpr int helpHeight = 26;
 
     // Places components side by side in equal-width cells.
@@ -45,7 +45,7 @@ DynamicSaturationEditor::DynamicSaturationEditor (DynamicSaturationProcessor& p)
 
     setSize (editorWidth, editorHeight);
     setResizable (true, true);
-    setResizeLimits (720, 656, 1400, 1000);
+    setResizeLimits (700, 640, 1200, 1200);
 
     helpTracker.onMove = [this] (const juce::MouseEvent& e) { showHelp (e); };
     addMouseListener (&helpTracker, true);
@@ -80,7 +80,7 @@ DynamicSaturationEditor::DynamicSaturationEditor (DynamicSaturationProcessor& p)
     attackSlider.slider.setTextValueSuffix (" ms");
     releaseSlider.slider.setTextValueSuffix (" ms");
     mixSlider.slider.setTextValueSuffix (" %");
-    detectHpfSlider.slider.setTextValueSuffix (" Hz");
+    // Detect HPF's value text comes from the parameter's stringFromValue (includes the unit).
     stereoLinkSlider.slider.setTextValueSuffix (" %");
     biasSlider.slider.setNumDecimalPlacesToDisplay (2);
     foldSlider.slider.setTextValueSuffix (" %");
@@ -250,17 +250,17 @@ void DynamicSaturationEditor::resized()
 
 void DynamicSaturationEditor::layoutSoundPage (juce::Rectangle<int> area)
 {
-    auto curveRow = area.removeFromTop ((int) ((float) area.getHeight() * 0.42f));
+    auto curveRow = area.removeFromTop (juce::jmax (140, area.getHeight() - 2 * (SuiteUI::knobRowHeight + groupGap)
+                                                                        - (SuiteUI::pillHeight + groupGap)));
     inputMeter.setBounds (curveRow.removeFromRight (28).reduced (4, 6));
     transferCurve.setBounds (curveRow.reduced (4, 0));
 
     area.removeFromTop (groupGap);
-    modeSelector.setBounds (area.removeFromTop (30).reduced (120, 0));
+    modeSelector.setBounds (area.removeFromTop (SuiteUI::pillHeight).reduced (120, 0));
     area.removeFromTop (groupGap);
 
-    const int rowHeight = area.getHeight() / 2;
-
-    layoutRow (area.removeFromTop (rowHeight),
+    // Two rows of six at the suite knob size (plan 05 R1).
+    layoutRow (area.removeFromTop (SuiteUI::knobRowHeight),
                { &driveSlider, &sensitivitySlider, &curveSlider, &attackSlider, &releaseSlider, &mixSlider });
 
     layoutRow (area,

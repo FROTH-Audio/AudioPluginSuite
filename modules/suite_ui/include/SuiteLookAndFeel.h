@@ -7,6 +7,39 @@ namespace SuiteUI
     /** Editor refresh rate in Hz. Every plugin editor's timer uses it, so the three stay in step. */
     inline constexpr int kRefreshHz = 60;
 
+    //==============================================================================
+    // Mandatory suite UI tokens (plan 05). Every editor reads these; no plugin keeps
+    // its own sizes. AGENTS.md section 7 documents them.
+
+    /** The one rotary knob diameter, in px, identical in every plugin (plan 05 R1). */
+    inline constexpr int knobDiameter = 60;
+
+    /** Height of a row that holds one rotary knob: caption + knob + value box + padding (plan 05 R2). */
+    inline constexpr int knobRowHeight = 112;
+
+    /** Height of every toggle button and selector pill; layouts centre them in their cell (plan 05 R3). */
+    inline constexpr int pillHeight = 36;
+
+    /** Corner radius of every rounded control (plan 05 R3). */
+    inline constexpr float controlRadius = 6.0f;
+
+    /** Caption row height inside a LabelledSlider (plan 05 R5). */
+    inline constexpr int captionHeight = 18;
+
+    /** Group title band height, and the corner radius of every rounded control (plan 05 R3/R7). */
+    inline constexpr int groupTitleHeight = 20;
+
+    /** Rotary value box size, shared by every knob (plan 05 R5). */
+    inline constexpr int valueBoxWidth = 84;
+    inline constexpr int valueBoxHeight = 18;
+
+    /** The suite font. Bahnschrift is the brand font (docs/brand.md); when it is missing
+        (macOS), JUCE falls back to its default sans automatically. */
+    inline juce::Font uiFont (float height, bool bold = false)
+    {
+        return juce::Font (juce::FontOptions ("Bahnschrift", height, bold ? juce::Font::bold : juce::Font::plain));
+    }
+
     /** Palette shared by every plugin in the suite. Each plugin supplies only its own accent colour. */
     namespace Colours
     {

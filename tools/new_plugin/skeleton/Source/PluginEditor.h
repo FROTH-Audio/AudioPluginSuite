@@ -20,7 +20,7 @@ private:
     __NAME__Processor& processor;
 
     // Declared first so it is destroyed last, after every component that uses it.
-    SuiteUI::SuiteLookAndFeel lookAndFeel { juce::Colour (0xff7f8c9a) };
+    SuiteUI::SuiteLookAndFeel lookAndFeel { juce::Colour (0xff9aa0a6) };
 
     SuiteUI::LabelledSlider gainSlider { "GAIN", juce::Slider::RotaryVerticalDrag };
     juce::AudioProcessorValueTreeState::SliderAttachment gainAttachment;

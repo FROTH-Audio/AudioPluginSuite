@@ -89,8 +89,13 @@ juce::AudioProcessorValueTreeState::ParameterLayout DynamicSaturationProcessor::
         [] (float start, float end, float normalised) { return start * std::pow (end / start, normalised); },
         [] (float start, float end, float value) { return std::log (value / start) / std::log (end / start); });
 
+    juce::AudioParameterFloatAttributes hpfAttributes;
+    hpfAttributes = hpfAttributes.withStringFromValueFunction (
+        [] (float value, int) { return juce::String (value, 1) + " Hz"; });
+    hpfAttributes = hpfAttributes.withLabel ("Hz");
+
     params.push_back (std::make_unique<juce::AudioParameterFloat> (
-        juce::ParameterID { detectHpfId, 1 }, "Detect HPF", hpfRange, detectorDefaultHz, "Hz"));
+        juce::ParameterID { detectHpfId, 1 }, "Detect HPF", hpfRange, detectorDefaultHz, hpfAttributes));
 
     params.push_back (std::make_unique<juce::AudioParameterFloat> (
         juce::ParameterID { stereoLinkId, 1 }, "Stereo Link", juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 100.0f, "%"));
