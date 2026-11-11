@@ -11,11 +11,11 @@ namespace SuiteUI
     // Mandatory suite UI tokens (plan 05). Every editor reads these; no plugin keeps
     // its own sizes. AGENTS.md section 7 documents them.
 
-    /** The one rotary knob diameter, in px, identical in every plugin (plan 05 R1). */
-    inline constexpr int knobDiameter = 60;
+    /** The one rotary knob diameter, in px, identical in every plugin (plan 05 R1; 05.1 pass 2). */
+    inline constexpr int knobDiameter = 40;
 
     /** Height of a row that holds one rotary knob: caption + knob + value box + padding (plan 05 R2). */
-    inline constexpr int knobRowHeight = 112;
+    inline constexpr int knobRowHeight = 92;
 
     /** Height of every toggle button and selector pill; layouts centre them in their cell (plan 05 R3). */
     inline constexpr int pillHeight = 36;

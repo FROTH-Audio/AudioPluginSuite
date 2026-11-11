@@ -265,6 +265,35 @@ public:
     };
     std::vector<PendingNote> pendingNotes;
 
+    //==============================================================================
+    // Notes played from the editor's keyboard strip. A single-producer/single-consumer
+    // ring: the message thread writes, the audio thread drains at the top of processBlock
+    // and runs the notes through the normal note handling. No locks, no allocations.
+    struct UiNote
+    {
+        int key = 60;
+        float velocity = 1.0f;
+        bool on = true;
+    };
+
+    static constexpr int uiNoteCapacity = 32;
+
+    void pushUiNote (int key, bool on, float velocity = 0.8f)
+    {
+        const int write = uiNoteWrite.load (std::memory_order_relaxed);
+        const int next = (write + 1) % uiNoteCapacity;
+
+        if (next == uiNoteRead.load (std::memory_order_acquire))
+            return;   // full: drop the oldest would need a second index; a full ring drops this note
+
+        uiNoteRing[(size_t) write] = { key, velocity, on };
+        uiNoteWrite.store (next, std::memory_order_release);
+    }
+
+    UiNote uiNoteRing[(size_t) uiNoteCapacity];
+    std::atomic<int> uiNoteRead { 0 };
+    std::atomic<int> uiNoteWrite { 0 };
+
     // Per-sample-rate derived values.
     double preparedSampleRate = 44100.0;
 
@@ -282,11 +311,16 @@ private:
     int getNumActiveVoices() const noexcept { return voicePool.countActive(); }
     static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
 
-    /** Applies an offset to a parameter's base value, in the parameter's own normalised range. Exact when the offset is zero. */
+    // Applies an offset to a parameter's base value, in the parameter's own normalised range. Exact when the offset is zero. */
     float modulatedValue (ModTarget target, float base, const SuiteModulation::Router::Offsets& offsets) const
     {
         return modulation.modulate ((int)target, base, offsets);
     }
+
+    /** Note handling shared by host MIDI and the editor keyboard (plan 05.1). */
+    void handleNoteOn (int key, float velocity, int samplePosition,
+                       float rootKeyMod, float layBackMod, float spanMod, float lengthMod);
+    void handleNoteOff (int key, int samplePosition);
 
     // Parameter pointers, cached for the audio thread.
     std::atomic<float>* modeParam = nullptr;

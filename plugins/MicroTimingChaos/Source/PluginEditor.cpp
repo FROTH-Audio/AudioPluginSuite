@@ -434,6 +434,11 @@ void MicroTimingChaosEditor::setPage (int newPage)
     const bool driftPage = page == 1;
     const bool modPage = page == 2;
 
+    // The lerp view state decides which of the two views shows on the DRIFT page, so the
+    // first open shows the curve, not whichever view sits on top (plan 05.1 bug fix).
+    const bool showCurve = driftPage && lerpViewSelector.getSelectedIndex() == 0;
+    const bool showPreview = driftPage && lerpViewSelector.getSelectedIndex() == 1;
+
     for (auto* component : { static_cast<juce::Component*> (&lengthSlider), static_cast<juce::Component*> (&densitySlider),
                               static_cast<juce::Component*> (&seedSlider), static_cast<juce::Component*> (&gateSlider),
                               static_cast<juce::Component*> (&swingSlider), static_cast<juce::Component*> (&velocitySlider),
@@ -448,6 +453,9 @@ void MicroTimingChaosEditor::setPage (int newPage)
                               static_cast<juce::Component*> (&chaosSlider), static_cast<juce::Component*> (&timingRangeSlider),
                               static_cast<juce::Component*> (&velocityChaosSlider) })
         component->setVisible (driftPage);
+
+    curveEditor.setVisible (showCurve);
+    lerpPreview.setVisible (showPreview);
 
     for (auto* component : { static_cast<juce::Component*> (&rootSlider), static_cast<juce::Component*> (&octavesSlider),
                               static_cast<juce::Component*> (&scaleCaption), static_cast<juce::Component*> (&scaleBox),
@@ -556,15 +564,21 @@ void MicroTimingChaosEditor::resized()
         return;
     }
 
-    // Page 1 (DRIFT): the lerp curve and its knobs beside the attractor, chaos underneath.
+    // Page 1 (DRIFT): the lerp group fills the full height on the left (curve or preview on
+    // top, the four lerp knobs below it); the attractor and the chaos group share the right
+    // column, sized to the attractor's width (plan 05.1 owner sketch).
     if (page == 1)
     {
-        const int row1Height = content.getHeight() - (groupTitleHeight + SuiteUI::knobRowHeight + 10) - groupGap;
-        const juce::Rectangle<int> lerpGroup (x0, content.getY(), juce::roundToInt (width * 0.58f), row1Height);
+        const int rightWidth = juce::roundToInt (content.getWidth() * 0.40f);
+        const int leftWidth = content.getWidth() - rightWidth - groupGap;
+        const int attractorHeight = juce::roundToInt ((content.getHeight() - groupGap) * 0.58f);
+        const int chaosHeight = content.getHeight() - attractorHeight - groupGap;
+
+        const juce::Rectangle<int> lerpGroup (x0, content.getY(), leftWidth, content.getHeight());
         const juce::Rectangle<int> attractorGroup (lerpGroup.getRight() + groupGap, content.getY(),
-                                                   width - lerpGroup.getWidth() - groupGap, row1Height);
-        const juce::Rectangle<int> chaosGroup (x0, lerpGroup.getBottom() + groupGap, width,
-                                               groupTitleHeight + SuiteUI::knobRowHeight + 10);
+                                                   rightWidth, attractorHeight);
+        const juce::Rectangle<int> chaosGroup (lerpGroup.getRight() + groupGap, attractorGroup.getBottom() + groupGap,
+                                               rightWidth, chaosHeight);
 
         groups.push_back ({ "LERP CURVE", lerpGroup, 1 });
         groups.push_back ({ "ATTRACTOR VISUALIZATION", attractorGroup, 1 });
@@ -574,15 +588,16 @@ void MicroTimingChaosEditor::resized()
         readout.setBounds (attractorInner.removeFromBottom (readoutHeight));
         attractor.setBounds (attractorInner);
 
-        // Lerp curve: the tabbed view on the left, the four knobs on the right.
+        // Lerp curve: the tabbed view spans the group width; the four knobs sit in one row
+        // below it.
         auto lerpInner = innerOf (lerpGroup);
-        auto lerpKnobs = lerpInner.removeFromRight (juce::roundToInt ((float) lerpInner.getWidth() * 0.40f));
         lerpViewSelector.setBounds (lerpInner.removeFromTop (SuiteUI::pillHeight).withWidth (240));
         lerpInner.removeFromTop (groupGap);
+        auto lerpKnobs = lerpInner.removeFromBottom (SuiteUI::knobRowHeight);
         curveEditor.setBounds (lerpInner);
         lerpPreview.setBounds (lerpInner);
 
-        const auto lerpCells = gridCells (lerpKnobs, 4, 2);
+        const auto lerpCells = gridCells (lerpKnobs, 4, 4);
         placeKnob (lerpSlider, lerpCells[0]);
         placeKnob (lerpXMultSlider, lerpCells[1]);
         placeKnob (lerpYMultSlider, lerpCells[2]);

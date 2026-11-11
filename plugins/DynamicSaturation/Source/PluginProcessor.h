@@ -39,6 +39,7 @@ public:
     static constexpr const char* foldId = "fold";
     static constexpr const char* toneId = "tone";
     static constexpr const char* curveId = "curve";
+    static constexpr const char* panId = "pan";
 
     // LFO 1 and LFO 2. The IDs are fixed by suite_modulation, so every plugin saves them the same way.
     static constexpr const char* lfo1RateId = "lfo1Rate";
@@ -58,7 +59,7 @@ public:
     static constexpr const char* modAmountIds[6] = { "mod1Amount", "mod2Amount", "mod3Amount", "mod4Amount", "mod5Amount", "mod6Amount" };
     static constexpr const char* modDelayIds[6] = { "mod1Delay", "mod2Delay", "mod3Delay", "mod4Delay", "mod5Delay", "mod6Delay" };
 
-    static constexpr int numControls = 47;
+    static constexpr int numControls = 48;
     static constexpr int lfoCount = 2;
     static constexpr int slotCount = 6;
 
@@ -127,6 +128,13 @@ public:
     /** Linked detector level (linear), published for the editor's meter. */
     float getEnvelopeLevel() const noexcept { return envelopeLevel.load (std::memory_order_relaxed); }
 
+    /** The per-channel output peak of the last block, for the editor's stereo output bar (plan 05.1). */
+    float getOutputPeak (int channel) const noexcept
+    {
+        return channel == 0 ? outputPeakL.load (std::memory_order_relaxed)
+                            : outputPeakR.load (std::memory_order_relaxed);
+    }
+
     /** Latency added by the oversampler, in samples. */
     int getOversamplingLatency() const noexcept { return latencySamples; }
 
@@ -178,8 +186,13 @@ private:
     std::atomic<float>* fold = nullptr;
     std::atomic<float>* tone = nullptr;
     std::atomic<float>* curve = nullptr;
+    std::atomic<float>* pan = nullptr;
 
     std::atomic<float> envelopeLevel { 0.0f };
+
+    // The editor's stereo output bar reads the block peaks (plan 05.1); written in processBlock.
+    std::atomic<float> outputPeakL { 0.0f };
+    std::atomic<float> outputPeakR { 0.0f };
 
     // Declared after apvts, so the router can read the parameters it belongs to.
     SuiteModulation::Router modulation;

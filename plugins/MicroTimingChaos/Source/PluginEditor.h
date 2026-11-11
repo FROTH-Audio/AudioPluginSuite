@@ -119,9 +119,10 @@ private:
     std::unique_ptr<SuiteModulation::ControlDisplay> controls;  // built in the constructor, once the sliders exist
     SuiteUI::LabelledSlider lerpSlider { "LERP", juce::Slider::RotaryVerticalDrag };
 
-    SuiteUI::LabelledSlider lerpXMultSlider { "X MULT", juce::Slider::RotaryVerticalDrag };
-    SuiteUI::LabelledSlider lerpYMultSlider { "Y MULT", juce::Slider::RotaryVerticalDrag };
-    SuiteUI::LabelledSlider lerpZMultSlider { "Z MULT", juce::Slider::RotaryVerticalDrag };
+    // The multiplier captions carry the axis meaning; the preview's colour legend is gone (plan 05.1).
+    SuiteUI::LabelledSlider lerpXMultSlider { "TIMING (X)", juce::Slider::RotaryVerticalDrag };
+    SuiteUI::LabelledSlider lerpYMultSlider { "PITCH (Y)", juce::Slider::RotaryVerticalDrag };
+    SuiteUI::LabelledSlider lerpZMultSlider { "VELOCITY (Z)", juce::Slider::RotaryVerticalDrag };
 
     // Transport
     SuiteUI::LabelledSlider tempoSlider { "TEMPO", juce::Slider::RotaryVerticalDrag };

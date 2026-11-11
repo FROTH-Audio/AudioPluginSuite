@@ -116,14 +116,15 @@ namespace
         Processor processor;
         processor.prepareToPlay (sampleRate, blockSize);
 
-        for (int renderPage = 0; renderPage < 2; ++renderPage)
+        for (int renderPage = 0; renderPage < 3; ++renderPage)
         {
             std::unique_ptr<juce::AudioProcessorEditor> editor (processor.createEditor());
             assert (editor != nullptr);
             static_cast<SgraffitoEditor*> (editor.get())->setPage (renderPage);
 
             const juce::File file (juce::File (folder).getChildFile (
-                renderPage == 0 ? "sgraffito-sound.png" : "sgraffito-texture.png"));
+                renderPage == 0 ? "sgraffito-sound.png"
+                                : renderPage == 1 ? "sgraffito-texture.png" : "sgraffito-mod.png"));
             assert (PluginTest::writeDeterministicPng (*editor, file));
             processor.editorBeingDeleted (editor.get());
         }
@@ -165,7 +166,7 @@ namespace
     };
 
     /** Runs the processor with a held note over a one-second sine sample and returns the left output. */
-    std::vector<float> renderNote (Processor& processor, int blocks)
+    std::vector<float> renderNote (Processor& processor, int blocks, int key = 60)
     {
         juce::AudioBuffer<float> testBuffer (2, 48000);
 
@@ -193,7 +194,7 @@ namespace
             juce::MidiBuffer midi;
 
             if (block == 0)
-                midi.addEvent (juce::MidiMessage::noteOn (1, 60, 0.8f), 0);
+                midi.addEvent (juce::MidiMessage::noteOn (1, key, 0.8f), 0);
 
             processor.processBlock (audio, midi);
 
@@ -358,11 +359,12 @@ namespace
         midiOn2.addEvent (juce::MidiMessage::noteOn (1, 127, 0.8f), 0);
         processor.processBlock (buffer, midiOn2);
 
-        // Find the voice for key 127
+        // Find the voice for key 127. It may already have finished (key 127 plays at ~48x
+        // rate since plan 05.1), but its region fields persist in the slot.
         bool found = false;
         for (int i = 0; i < CoreDSP::Sampler::maxVoices; ++i)
         {
-            if (processor.voicePool.voices[i].active && processor.voicePool.voices[i].key == 127)
+            if (processor.voicePool.voices[i].key == 127)
             {
                 // With 25% length starting at position ~0.99, end should be > start
                 assert (processor.voicePool.voices[i].regionEnd > processor.voicePool.voices[i].regionStart);
@@ -475,7 +477,9 @@ namespace
             bool foundKey = false;
             for (int i = 0; i < CoreDSP::Sampler::maxVoices; ++i)
             {
-                if (processor.voicePool.voices[i].active && processor.voicePool.voices[i].key == key)
+                // The voice may already have finished (high keys play at high rates), but
+                // its region fields persist in the slot.
+                if (processor.voicePool.voices[i].key == key)
                 {
                     foundKey = true;
                     if (processor.voicePool.voices[i].regionStart < prevRegionStart - 1e-6)
@@ -490,6 +494,140 @@ namespace
         }
         assert (slicesCovered);
         pass ("testChopModeSliceCoverage");
+    }
+
+    void testModesProduceDifferentAudio()
+    {
+        // The owner reported "nearly always the same" sound: the four modes must produce
+        // different output (plan 05.1).
+        const int key = 60;
+
+        std::vector<float> outputs[4];
+
+        for (int mode = 0; mode < 4; ++mode)
+        {
+            Processor processor;
+            processor.prepareToPlay (sampleRate, blockSize);
+            setParameter (processor.apvts, Processor::modeId, (float) mode);
+
+            // A plain sine, so every mode's region reads loud audio (a decaying sample
+            // would make Swell's backwards read start near silence).
+            juce::AudioBuffer<float> testBuffer (2, 48000);
+            for (int ch = 0; ch < 2; ++ch)
+                for (int i = 0; i < 48000; ++i)
+                    testBuffer.setSample (ch, i,
+                        0.5f * (float) std::sin (2.0 * juce::MathConstants<double>::pi * 440.0 * i / sampleRate));
+
+            processor.loadedSample = std::make_unique<LoadedSample>();
+            processor.loadedSample->buffer = testBuffer;
+            processor.loadedSample->sourceSampleRate = sampleRate;
+            processor.sampleBuffer.store (&processor.loadedSample->buffer, std::memory_order_release);
+
+            outputs[mode] = renderNote (processor, 24);
+
+            for (int i = 0; i < CoreDSP::Sampler::maxVoices; ++i)
+                if (processor.voicePool.voices[i].key == key)
+                {
+                    std::printf ("mode %d: region %.4f - %.4f, rate %.3f, pos %.1f, envStart %.1f, gain %.4f, vel %.3f\n",
+                                 mode,
+                                 processor.voicePool.voices[i].regionStart,
+                                 processor.voicePool.voices[i].regionEnd,
+                                 processor.voicePool.voices[i].rate,
+                                 processor.voicePool.voices[i].position,
+                                 processor.voicePool.voices[i].envStart,
+                                 processor.voicePool.voices[i].gain,
+                                 processor.voicePool.voices[i].velocity);
+                }
+        }
+
+        for (int a = 0; a < 4; ++a)
+        {
+            double energy = 0.0;
+            for (float v : outputs[a])
+                energy += std::abs (v);
+            std::printf ("mode %d: total |x| = %.3f, at2000:", a, energy);
+            for (int n = 0; n < 8; ++n)
+                std::printf (" %.4f", outputs[a][(size_t) 2000 + n]);
+            std::printf ("\n");
+        }
+
+        // What is actually in the processor's sample buffer?
+        {
+            Processor probe;
+            probe.prepareToPlay (sampleRate, blockSize);
+            juce::AudioBuffer<float> testBuffer (2, 48000);
+            for (int ch = 0; ch < 2; ++ch)
+                for (int i = 0; i < 48000; ++i)
+                    testBuffer.setSample (ch, i,
+                        0.5f * (float) std::sin (2.0 * juce::MathConstants<double>::pi * 440.0 * i / sampleRate));
+            probe.loadedSample = std::make_unique<LoadedSample>();
+            probe.loadedSample->buffer = testBuffer;
+            probe.loadedSample->sourceSampleRate = sampleRate;
+            probe.sampleBuffer.store (&probe.loadedSample->buffer, std::memory_order_release);
+            std::printf ("probe buffer: numSamples %d, at2000:", probe.loadedSample->buffer.getNumSamples());
+            for (int n = 0; n < 6; ++n)
+                std::printf (" %.4f", probe.loadedSample->buffer.getSample (0, 2000 + n));
+            std::printf ("\n");
+        }
+
+        for (int a = 0; a < 4; ++a)
+            for (int b = a + 1; b < 4; ++b)
+            {
+                double difference = 0.0;
+                for (size_t n = 0; n < outputs[a].size(); ++n)
+                    difference += std::abs (outputs[a][n] - outputs[b][n]);
+
+                const double average = difference / (double) outputs[a].size();
+                std::printf ("modes %d vs %d: avg diff %.6f\n", a, b, average);
+                assert (average > 1.0e-3);
+            }
+
+        pass ("testModesProduceDifferentAudio");
+    }
+
+    void testKeyChangesPitch()
+    {
+        // The key's distance from middle C must change the playback rate (plan 05.1):
+        // a note an octave up reads the sample at twice the rate.
+        auto renderAtKey = [] (int key)
+        {
+            Processor processor;
+            processor.prepareToPlay (sampleRate, blockSize);
+
+            juce::AudioBuffer<float> testBuffer (2, 48000);
+            for (int ch = 0; ch < 2; ++ch)
+                for (int i = 0; i < 48000; ++i)
+                    testBuffer.setSample (ch, i,
+                        0.5f * (float) std::sin (2.0 * juce::MathConstants<double>::pi * 440.0 * i / sampleRate));
+
+            processor.loadedSample = std::make_unique<LoadedSample>();
+            processor.loadedSample->buffer = testBuffer;
+            processor.loadedSample->sourceSampleRate = sampleRate;
+            processor.sampleBuffer.store (&processor.loadedSample->buffer, std::memory_order_release);
+
+            setParameter (processor.apvts, Processor::regionLengthId, 100.0f);
+            return renderNote (processor, 40, key);
+        };
+
+        const auto low = renderAtKey (48);
+        const auto high = renderAtKey (72);
+
+        // The octave-up note reads the sample at twice the rate: twice the apparent
+        // frequency. Count positive-going zero crossings in the first 2048 samples.
+        auto crossings = [] (const std::vector<float>& output)
+        {
+            int count = 0;
+            for (size_t n = 1; n < output.size() && n < 2048; ++n)
+                if (output[n - 1] <= 0.0f && output[n] > 0.0f)
+                    ++count;
+            return count;
+        };
+
+        const int lowCrossings = crossings (low);
+        const int highCrossings = crossings (high);
+        std::printf ("pitch: crossings low %d, high %d\n", lowCrossings, highCrossings);
+        assert (highCrossings > lowCrossings + 2);
+        pass ("testKeyChangesPitch");
     }
 }
 
@@ -514,6 +652,8 @@ int main()
     testDefaultRoutingIsSilent();
     testModulationReachesAudio();
     testModulationStaysInRange();
+    testModesProduceDifferentAudio();
+    testKeyChangesPitch();
 
     std::puts ("All Sgraffito plugin tests passed.");
     return 0;

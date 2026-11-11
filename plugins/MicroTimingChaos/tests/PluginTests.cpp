@@ -1490,6 +1490,26 @@ namespace
         assert (std::abs (editor->getTransform().mat00 - 1.0f) < 1e-4f);
         processor.editorBeingDeleted (editor.get());
 
+        // The first open of the DRIFT page must show the curve, not the preview that sits
+        // on top (plan 05.1 bug fix).
+        std::unique_ptr<juce::AudioProcessorEditor> driftEditor (processor.createEditorAndMakeActive());
+        auto* mtcEditor = static_cast<MicroTimingChaosEditor*> (driftEditor.get());
+        mtcEditor->setPage (1);
+
+        // Reach the two views through the page's children: the curve editor is visible and
+        // the preview is not, until the user switches the tab.
+        bool curveVisible = false, previewVisible = false;
+        for (auto* child : mtcEditor->getChildren())
+        {
+            if (dynamic_cast<LerpCurveEditor*> (child) != nullptr)
+                curveVisible = child->isVisible();
+            if (dynamic_cast<LerpPreview*> (child) != nullptr)
+                previewVisible = child->isVisible();
+        }
+        assert (curveVisible);
+        assert (! previewVisible);
+        processor.editorBeingDeleted (driftEditor.get());
+
         pass ("testEditor");
     }
 }

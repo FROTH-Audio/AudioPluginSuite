@@ -16,7 +16,7 @@ namespace
 namespace
 {
     constexpr int editorWidth = 780;
-    constexpr int editorHeight = 640;
+    constexpr int editorHeight = 680;
 
     constexpr int headerHeight = 40;
     constexpr int pageSelectorHeight = 28;
@@ -45,7 +45,7 @@ DynamicSaturationEditor::DynamicSaturationEditor (DynamicSaturationProcessor& p)
 
     setSize (editorWidth, editorHeight);
     setResizable (true, true);
-    setResizeLimits (700, 640, 1200, 1200);
+    setResizeLimits (700, 680, 1200, 1200);
 
     helpTracker.onMove = [this] (const juce::MouseEvent& e) { showHelp (e); };
     addMouseListener (&helpTracker, true);
@@ -57,6 +57,8 @@ DynamicSaturationEditor::DynamicSaturationEditor (DynamicSaturationProcessor& p)
     for (auto* component : { static_cast<juce::Component*> (&helpLabel),
                              static_cast<juce::Component*> (&transferCurve),
                              static_cast<juce::Component*> (&inputMeter),
+    static_cast<juce::Component*> (&outputMeterL),
+    static_cast<juce::Component*> (&outputMeterR),
                              static_cast<juce::Component*> (&modeSelector),
                              static_cast<juce::Component*> (&driveSlider),
                              static_cast<juce::Component*> (&sensitivitySlider),
@@ -86,6 +88,8 @@ DynamicSaturationEditor::DynamicSaturationEditor (DynamicSaturationProcessor& p)
     foldSlider.slider.setTextValueSuffix (" %");
     toneSlider.slider.setNumDecimalPlacesToDisplay (2);
     outputSlider.slider.setTextValueSuffix (" dB");
+    panSlider.slider.setTextValueSuffix (" %");
+    panSlider.slider.setNumDecimalPlacesToDisplay (0);
 
     auto& apvts = processor.apvts;
 
@@ -106,6 +110,8 @@ DynamicSaturationEditor::DynamicSaturationEditor (DynamicSaturationProcessor& p)
     bind (DynamicSaturationProcessor::foldId, foldSlider.slider);
     bind (DynamicSaturationProcessor::toneId, toneSlider.slider);
     bind (DynamicSaturationProcessor::outputLevelId, outputSlider.slider);
+    bind (DynamicSaturationProcessor::panId, panSlider.slider);
+    panSlider.slider.setDoubleClickReturnValue (true, 0.0f);
 
     // The mode switch mirrors a choice parameter: the segment index equals the choice index.
     modeSelector.setOptions ({ "TUBE", "TAPE", "DIODE" });
@@ -153,7 +159,7 @@ DynamicSaturationEditor::~DynamicSaturationEditor()
 
 SuiteModulation::ModulationPanel::Style DynamicSaturationEditor::modulationStyle()
 {
-    return { { juce::Colour (0xffff9f1c), juce::Colour (0xff4fd1c5) },
+    return { { juce::Colour (0xff4fd1c5), juce::Colour (0xff4fd1c5) },   // both LFOs in LFO 2's teal (plan 05.1)
              SuiteUI::Colours::text, SuiteUI::Colours::textDim,
              SuiteUI::Colours::panel, SuiteUI::Colours::track };
 }
@@ -186,7 +192,10 @@ void DynamicSaturationEditor::setPage (int newPage)
                              static_cast<juce::Component*> (&biasSlider),
                              static_cast<juce::Component*> (&foldSlider),
                              static_cast<juce::Component*> (&toneSlider),
-                             static_cast<juce::Component*> (&outputSlider) })
+                             static_cast<juce::Component*> (&outputSlider),
+                             static_cast<juce::Component*> (&panSlider),
+                             static_cast<juce::Component*> (&outputMeterL),
+                             static_cast<juce::Component*> (&outputMeterR) })
         component->setVisible (page == 0);
 
     modulation.setVisible (page == 1);
@@ -250,21 +259,29 @@ void DynamicSaturationEditor::resized()
 
 void DynamicSaturationEditor::layoutSoundPage (juce::Rectangle<int> area)
 {
-    auto curveRow = area.removeFromTop (juce::jmax (140, area.getHeight() - 2 * (SuiteUI::knobRowHeight + groupGap)
+    // Curve row with the input meter and the stereo output bar (plan 05.1).
+    auto curveRow = area.removeFromTop (juce::jmax (140, area.getHeight() - 4 * (SuiteUI::knobRowHeight + groupGap)
                                                                         - (SuiteUI::pillHeight + groupGap)));
     inputMeter.setBounds (curveRow.removeFromRight (28).reduced (4, 6));
+    outputMeterR.setBounds (curveRow.removeFromRight (28).reduced (4, 6));
+    outputMeterL.setBounds (curveRow.removeFromRight (28).reduced (4, 6));
     transferCurve.setBounds (curveRow.reduced (4, 0));
 
     area.removeFromTop (groupGap);
     modeSelector.setBounds (area.removeFromTop (SuiteUI::pillHeight).reduced (120, 0));
     area.removeFromTop (groupGap);
 
-    // Two rows of six at the suite knob size (plan 05 R1).
+    // Four grouped rows of four (plan 05.1): drive, dynamics, character, output.
     layoutRow (area.removeFromTop (SuiteUI::knobRowHeight),
-               { &driveSlider, &sensitivitySlider, &curveSlider, &attackSlider, &releaseSlider, &mixSlider });
-
-    layoutRow (area,
-               { &detectHpfSlider, &stereoLinkSlider, &biasSlider, &foldSlider, &toneSlider, &outputSlider });
+               { &driveSlider, &sensitivitySlider, &curveSlider, &mixSlider });
+    area.removeFromTop (groupGap);
+    layoutRow (area.removeFromTop (SuiteUI::knobRowHeight),
+               { &attackSlider, &releaseSlider, &detectHpfSlider, &stereoLinkSlider });
+    area.removeFromTop (groupGap);
+    layoutRow (area.removeFromTop (SuiteUI::knobRowHeight),
+               { &biasSlider, &foldSlider, &toneSlider, &panSlider });
+    area.removeFromTop (groupGap);
+    layoutRow (area, { &outputSlider });
 }
 
 void DynamicSaturationEditor::layoutModPage (juce::Rectangle<int> area)
@@ -302,6 +319,8 @@ void DynamicSaturationEditor::timerCallback()
                                                              CoreDSP::Saturation::shapeEnvelope (env, curveValue));
 
     inputMeter.setLevel (env);
+    outputMeterL.setLevel (processor.getOutputPeak (0));
+    outputMeterR.setLevel (processor.getOutputPeak (1));
     transferCurve.setCurve ([preGain, shaping, biasValue, foldAmount] (float x)
                             {
                                 const float shaped = CoreDSP::Saturation::shape (x * preGain, shaping, biasValue);

@@ -6,18 +6,22 @@
 namespace
 {
     constexpr int editorWidth = 880;
-    constexpr int editorHeight = 640;
+    constexpr int editorHeight = 700;
     constexpr int headerHeight = 44;
     constexpr int pageSelectorHeight = 26;
     constexpr int pageSelectorWidth = 240;
     constexpr int groupGap = 8;
-    constexpr int groupTitleHeight = 20;
     constexpr int helpHeight = 26;
-    constexpr int waveformHeight = 110;
-    constexpr int keyStripHeight = 42;
+    constexpr int keyboardHeight = 48;
 
-    // The suite widget enforces the knob size and pill height (plan 05 R1/R3); rows use
-    // SuiteUI::knobRowHeight. A pill control sits centred in its cell.
+    const juce::Image& brandLockup()
+    {
+        static const juce::Image image = juce::ImageCache::getFromMemory (BinaryData::lockup_sgraffito_png,
+                                                                         BinaryData::lockup_sgraffito_pngSize);
+        return image;
+    }
+
+    // A pill control sits centred in its cell at the suite height.
     void layoutPill (juce::Rectangle<int> cell, juce::Component& component, int width)
     {
         component.setBounds (cell.reduced (4).withSizeKeepingCentre (juce::jmin (width, cell.getWidth() - 8),
@@ -32,13 +36,6 @@ namespace
         for (auto* knob : knobs)
             knob->setBounds (row.removeFromLeft (width).reduced (4));
     }
-
-    const juce::Image& brandLockup()
-    {
-        static const juce::Image image = juce::ImageCache::getFromMemory (BinaryData::lockup_sgraffito_png,
-                                                                         BinaryData::lockup_sgraffito_pngSize);
-        return image;
-    }
 }
 
 SgraffitoEditor::SgraffitoEditor (SgraffitoProcessor& p)
@@ -47,20 +44,19 @@ SgraffitoEditor::SgraffitoEditor (SgraffitoProcessor& p)
 {
     setLookAndFeel (&lookAndFeel);
 
+    // The bar exists before setSize(), because setSize() runs resized().
+    presetBar = std::make_unique<SuitePresets::PresetBar> (processor, juce::Colour (0xff9aa0a6));
+
     setSize (editorWidth, editorHeight);
     setResizable (true, true);
-    setResizeLimits (720, 600, 1200, 1200);
+    setResizeLimits (editorWidth - 40, editorHeight - 40, 1200, 1200);
 
     helpTracker.onMove = [this] (const juce::MouseEvent& e) { showHelp (e); };
     addMouseListener (&helpTracker, true);
 
-    helpLabel.setFont (juce::Font (juce::FontOptions (14.0f)));
+    helpLabel.setFont (SuiteUI::uiFont (14.0f));
     helpLabel.setColour (juce::Label::textColourId, SuiteUI::Colours::text);
     helpLabel.setText ("Hover a control to see what it does.", juce::dontSendNotification);
-
-    modeCaption.setText ("MODE", juce::dontSendNotification);
-    modeCaption.setJustificationType (juce::Justification::centred);
-    modeCaption.setFont (juce::Font (juce::FontOptions (11.0f, juce::Font::bold)));
 
     modeSelector.setOptions ({ "SCRUB", "CHOP", "CLOUD", "SWELL" });
     modeSelector.setFontHeight (12.0f);
@@ -193,54 +189,85 @@ SgraffitoEditor::SgraffitoEditor (SgraffitoProcessor& p)
     scaleSelector.setOptions ({ "Chromatic", "Major", "Minor", "Minor Pent.", "Dorian", "Whole Tone" });
     scaleSelector.setFontHeight (12.0f);
 
-    pageSelector.setOptions ({ "SOUND", "TEXTURE" });
+    pageSelector.setOptions ({ "SOUND", "TEXTURE", "MOD" });
     pageSelector.onChange = [this] (int index) { setPage (index); };
 
-    for (auto* component : { static_cast<juce::Component*> (&modeCaption),
-                             static_cast<juce::Component*> (&modeSelector),
-                             static_cast<juce::Component*> (&modeBanner),
-                             static_cast<juce::Component*> (&waveformView),
-                             static_cast<juce::Component*> (&keyStrip),
-                             static_cast<juce::Component*> (&regionSpanSlider),
-                             static_cast<juce::Component*> (&regionLengthSlider),
-                             static_cast<juce::Component*> (&rootKeySlider),
-                             static_cast<juce::Component*> (&pitchFineSlider),
-                             static_cast<juce::Component*> (&scaleLockButton),
-                             static_cast<juce::Component*> (&scaleSelector),
-                             static_cast<juce::Component*> (&glideSlider),
-                             static_cast<juce::Component*> (&levelSlider),
-                             static_cast<juce::Component*> (&velocityCurveSlider),
-                             static_cast<juce::Component*> (&attackSlider),
-                             static_cast<juce::Component*> (&releaseSlider),
-                             static_cast<juce::Component*> (&tapeStopTimeSlider),
-                             static_cast<juce::Component*> (&tapeStopCurveSelector),
-                             static_cast<juce::Component*> (&memoryAmountSlider),
-                             static_cast<juce::Component*> (&memoryDecaySlider),
-                             static_cast<juce::Component*> (&driftAmountSlider),
-                             static_cast<juce::Component*> (&driftSpeedSlider),
-                             static_cast<juce::Component*> (&layBackSlider),
-                             static_cast<juce::Component*> (&swingSlider),
-                             static_cast<juce::Component*> (&humaniseSlider),
-                             static_cast<juce::Component*> (&ghostOnButton),
-                             static_cast<juce::Component*> (&ghostThresholdSlider),
-                             static_cast<juce::Component*> (&ghostLevelSlider),
-                             static_cast<juce::Component*> (&ghostDelaySlider),
-                             static_cast<juce::Component*> (&sliceCountSlider),
-                             static_cast<juce::Component*> (&grainSizeSlider),
-                             static_cast<juce::Component*> (&grainDensitySlider),
-                             static_cast<juce::Component*> (&grainSpreadSlider),
-                             static_cast<juce::Component*> (&sustainHoldButton),
-                             static_cast<juce::Component*> (&swellTimeSlider),
-                             static_cast<juce::Component*> (&swellCrossfadeSlider),
-                             static_cast<juce::Component*> (&dustSlider),
-                             static_cast<juce::Component*> (&crackleSlider),
-                             static_cast<juce::Component*> (&wowSlider),
-                             static_cast<juce::Component*> (&flutterSlider),
-                             static_cast<juce::Component*> (&shuffleSeedSlider),
-                             static_cast<juce::Component*> (&pageSelector) })
-        addAndMakeVisible (component);
+    // The keyboard plays through the processor's SPSC note queue (plan 05.1).
+    keyboard.onNoteOn = [this] (int note, float velocity) { processor.pushUiNote (note, true, velocity); };
+    keyboard.onNoteOff = [this] (int note) { processor.pushUiNote (note, false); };
 
-    addAndMakeVisible (helpLabel);
+    // The control display shows the modulated value of every routable control on the MOD page.
+    using Target = SgraffitoProcessor::ModTarget;
+    controls = std::make_unique<SuiteModulation::ControlDisplay> (processor.getRouter(), std::vector<SuiteModulation::ControlDisplay::Entry> {
+        { regionSpanSlider.slider,     (int) Target::RegionSpan },
+        { regionLengthSlider.slider,   (int) Target::RegionLength },
+        { rootKeySlider.slider,        (int) Target::RootKey },
+        { pitchFineSlider.slider,      (int) Target::PitchFine },
+        { glideSlider.slider,          (int) Target::Glide },
+        { levelSlider.slider,          (int) Target::Level },
+        { attackSlider.slider,         (int) Target::Attack },
+        { releaseSlider.slider,        (int) Target::Release },
+        { memoryAmountSlider.slider,   (int) Target::MemoryAmount },
+        { driftAmountSlider.slider,    (int) Target::DriftAmount },
+        { driftSpeedSlider.slider,     (int) Target::DriftSpeed },
+        { layBackSlider.slider,        (int) Target::LayBack },
+        { swingSlider.slider,          (int) Target::Swing },
+        { humaniseSlider.slider,       (int) Target::Humanise },
+        { ghostThresholdSlider.slider, (int) Target::GhostThreshold },
+        { ghostLevelSlider.slider,     (int) Target::GhostLevel },
+        { grainSizeSlider.slider,      (int) Target::GrainSize },
+        { grainDensitySlider.slider,   (int) Target::GrainDensity },
+        { swellTimeSlider.slider,      (int) Target::SwellTime },
+        { dustSlider.slider,           (int) Target::Dust },
+        { crackleSlider.slider,        (int) Target::Crackle },
+        { wowSlider.slider,            (int) Target::Wow },
+        { flutterSlider.slider,        (int) Target::Flutter },
+        { shuffleSeedSlider.slider,    (int) Target::ShuffleSeed },
+    });
+
+    for (auto* component : { static_cast<juce::Component*> (&helpLabel),
+                              static_cast<juce::Component*> (&modeSelector),
+                              static_cast<juce::Component*> (&waveformView),
+                              static_cast<juce::Component*> (&keyboard),
+                              static_cast<juce::Component*> (&regionSpanSlider),
+                              static_cast<juce::Component*> (&regionLengthSlider),
+                              static_cast<juce::Component*> (&rootKeySlider),
+                              static_cast<juce::Component*> (&pitchFineSlider),
+                              static_cast<juce::Component*> (&scaleLockButton),
+                              static_cast<juce::Component*> (&scaleSelector),
+                              static_cast<juce::Component*> (&glideSlider),
+                              static_cast<juce::Component*> (&levelSlider),
+                              static_cast<juce::Component*> (&velocityCurveSlider),
+                              static_cast<juce::Component*> (&attackSlider),
+                              static_cast<juce::Component*> (&releaseSlider),
+                              static_cast<juce::Component*> (&tapeStopTimeSlider),
+                              static_cast<juce::Component*> (&tapeStopCurveSelector),
+                              static_cast<juce::Component*> (&memoryAmountSlider),
+                              static_cast<juce::Component*> (&memoryDecaySlider),
+                              static_cast<juce::Component*> (&driftAmountSlider),
+                              static_cast<juce::Component*> (&driftSpeedSlider),
+                              static_cast<juce::Component*> (&layBackSlider),
+                              static_cast<juce::Component*> (&swingSlider),
+                              static_cast<juce::Component*> (&humaniseSlider),
+                              static_cast<juce::Component*> (&ghostOnButton),
+                              static_cast<juce::Component*> (&ghostThresholdSlider),
+                              static_cast<juce::Component*> (&ghostLevelSlider),
+                              static_cast<juce::Component*> (&ghostDelaySlider),
+                              static_cast<juce::Component*> (&sliceCountSlider),
+                              static_cast<juce::Component*> (&grainSizeSlider),
+                              static_cast<juce::Component*> (&grainDensitySlider),
+                              static_cast<juce::Component*> (&grainSpreadSlider),
+                              static_cast<juce::Component*> (&sustainHoldButton),
+                              static_cast<juce::Component*> (&swellTimeSlider),
+                              static_cast<juce::Component*> (&swellCrossfadeSlider),
+                              static_cast<juce::Component*> (&dustSlider),
+                              static_cast<juce::Component*> (&crackleSlider),
+                              static_cast<juce::Component*> (&wowSlider),
+                              static_cast<juce::Component*> (&flutterSlider),
+                              static_cast<juce::Component*> (&shuffleSeedSlider),
+                              static_cast<juce::Component*> (&modulation),
+                              static_cast<juce::Component*> (&pageSelector) })
+        addAndMakeVisible (component);
 
     setPage (0);
     startTimerHz (SuiteUI::kRefreshHz);
@@ -266,58 +293,56 @@ void SgraffitoEditor::showHelp (const juce::MouseEvent& e)
 
 void SgraffitoEditor::setPage (int newPage)
 {
-    page = juce::jlimit (0, 1, newPage);
+    page = juce::jlimit (0, 2, newPage);
     pageSelector.setSelectedIndex (page);
 
-    bool soundPage = (page == 0);
+    const bool soundPage = page == 0;
+    const bool texturePage = page == 1;
+    const bool modPage = page == 2;
 
-    modeBanner.setVisible (soundPage);
-    waveformView.setVisible (soundPage);
-    keyStrip.setVisible (soundPage);
-
-    for (auto* component : { static_cast<juce::Component*> (&modeCaption),
-                             static_cast<juce::Component*> (&modeSelector),
-                             static_cast<juce::Component*> (&regionSpanSlider),
-                             static_cast<juce::Component*> (&regionLengthSlider),
-                             static_cast<juce::Component*> (&rootKeySlider),
-                             static_cast<juce::Component*> (&pitchFineSlider),
-                             static_cast<juce::Component*> (&scaleLockButton),
-                             static_cast<juce::Component*> (&scaleSelector),
-                             static_cast<juce::Component*> (&glideSlider),
-                             static_cast<juce::Component*> (&levelSlider),
-                             static_cast<juce::Component*> (&velocityCurveSlider),
-                             static_cast<juce::Component*> (&attackSlider),
-                             static_cast<juce::Component*> (&releaseSlider) })
+    for (auto* component : { static_cast<juce::Component*> (&modeSelector),
+                              static_cast<juce::Component*> (&waveformView),
+                              static_cast<juce::Component*> (&regionSpanSlider),
+                              static_cast<juce::Component*> (&regionLengthSlider),
+                              static_cast<juce::Component*> (&rootKeySlider),
+                              static_cast<juce::Component*> (&pitchFineSlider),
+                              static_cast<juce::Component*> (&scaleLockButton),
+                              static_cast<juce::Component*> (&scaleSelector),
+                              static_cast<juce::Component*> (&glideSlider),
+                              static_cast<juce::Component*> (&levelSlider),
+                              static_cast<juce::Component*> (&velocityCurveSlider),
+                              static_cast<juce::Component*> (&attackSlider),
+                              static_cast<juce::Component*> (&releaseSlider) })
         component->setVisible (soundPage);
 
     for (auto* component : { static_cast<juce::Component*> (&tapeStopTimeSlider),
-                             static_cast<juce::Component*> (&tapeStopCurveSelector),
-                             static_cast<juce::Component*> (&memoryAmountSlider),
-                             static_cast<juce::Component*> (&memoryDecaySlider),
-                             static_cast<juce::Component*> (&driftAmountSlider),
-                             static_cast<juce::Component*> (&driftSpeedSlider),
-                             static_cast<juce::Component*> (&layBackSlider),
-                             static_cast<juce::Component*> (&swingSlider),
-                             static_cast<juce::Component*> (&humaniseSlider),
-                             static_cast<juce::Component*> (&ghostOnButton),
-                             static_cast<juce::Component*> (&ghostThresholdSlider),
-                             static_cast<juce::Component*> (&ghostLevelSlider),
-                             static_cast<juce::Component*> (&ghostDelaySlider),
-                             static_cast<juce::Component*> (&sliceCountSlider),
-                             static_cast<juce::Component*> (&grainSizeSlider),
-                             static_cast<juce::Component*> (&grainDensitySlider),
-                             static_cast<juce::Component*> (&grainSpreadSlider),
-                             static_cast<juce::Component*> (&sustainHoldButton),
-                             static_cast<juce::Component*> (&swellTimeSlider),
-                             static_cast<juce::Component*> (&swellCrossfadeSlider),
-                             static_cast<juce::Component*> (&dustSlider),
-                             static_cast<juce::Component*> (&crackleSlider),
-                             static_cast<juce::Component*> (&wowSlider),
-                             static_cast<juce::Component*> (&flutterSlider),
-                             static_cast<juce::Component*> (&shuffleSeedSlider) })
-        component->setVisible (! soundPage);
+                              static_cast<juce::Component*> (&tapeStopCurveSelector),
+                              static_cast<juce::Component*> (&memoryAmountSlider),
+                              static_cast<juce::Component*> (&memoryDecaySlider),
+                              static_cast<juce::Component*> (&driftAmountSlider),
+                              static_cast<juce::Component*> (&driftSpeedSlider),
+                              static_cast<juce::Component*> (&layBackSlider),
+                              static_cast<juce::Component*> (&swingSlider),
+                              static_cast<juce::Component*> (&humaniseSlider),
+                              static_cast<juce::Component*> (&ghostOnButton),
+                              static_cast<juce::Component*> (&ghostThresholdSlider),
+                              static_cast<juce::Component*> (&ghostLevelSlider),
+                              static_cast<juce::Component*> (&ghostDelaySlider) })
+        component->setVisible (texturePage);
 
-    helpLabel.setVisible (! soundPage);
+    for (auto* component : { static_cast<juce::Component*> (&sliceCountSlider),
+                              static_cast<juce::Component*> (&grainSizeSlider),
+                              static_cast<juce::Component*> (&grainDensitySlider),
+                              static_cast<juce::Component*> (&grainSpreadSlider),
+                              static_cast<juce::Component*> (&sustainHoldButton),
+                              static_cast<juce::Component*> (&swellTimeSlider),
+                              static_cast<juce::Component*> (&swellCrossfadeSlider),
+                              static_cast<juce::Component*> (&dustSlider),
+                              static_cast<juce::Component*> (&crackleSlider),
+                              static_cast<juce::Component*> (&wowSlider),
+                              static_cast<juce::Component*> (&flutterSlider),
+                              static_cast<juce::Component*> (&modulation) })
+        component->setVisible (modPage);
 
     resized();
     repaint();
@@ -330,67 +355,68 @@ void SgraffitoEditor::paint (juce::Graphics& g)
     g.setGradientFill (background);
     g.fillAll();
 
-    // Brand lockup at the left of the header, as in the other plugins.
+    // Brand lockup at the left of the header.
     SuiteUI::drawBrandLockup (g, getLocalBounds().removeFromTop (headerHeight).reduced (16, 0), brandLockup());
 
-    g.setColour (SuiteUI::Colours::textDim);
-    g.setFont (juce::Font (juce::FontOptions (11.0f)));
-    g.drawText ("Memory sampler  |  Scrub / Chop / Cloud / Swell  |  "
-                    + juce::String (processor.voicePool.countActive()) + " voices",
-                getLocalBounds().removeFromBottom (helpHeight).reduced (16), juce::Justification::centredLeft);
-
-    if (page == 1)
+    // Group frames, per page.
+    for (const auto& group : groups)
     {
-        const auto bounds = textureGroupBounds.toFloat();
+        if (group.page != page)
+            continue;
+
+        const auto bounds = group.bounds.toFloat();
 
         g.setColour (SuiteUI::Colours::panel.withAlpha (0.55f));
-        g.fillRoundedRectangle (bounds, 8.0f);
+        g.fillRoundedRectangle (bounds, SuiteUI::controlRadius);
         g.setColour (SuiteUI::Colours::track);
-        g.drawRoundedRectangle (bounds, 8.0f, 1.0f);
+        g.drawRoundedRectangle (bounds, SuiteUI::controlRadius, 1.0f);
 
         g.setColour (lookAndFeel.getAccent());
-        g.setFont (juce::Font (juce::FontOptions (15.0f, juce::Font::bold)));
-        g.drawText ("TEXTURE", textureGroupBounds.withHeight (groupTitleHeight).translated (0, 4).reduced (12, 0),
+        g.setFont (SuiteUI::uiFont (15.0f, true));
+        g.drawText (group.title, group.bounds.withHeight (SuiteUI::groupTitleHeight).translated (0, 4).reduced (12, 0),
                     juce::Justification::centredLeft);
     }
 }
 
 void SgraffitoEditor::resized()
 {
-    auto area = getLocalBounds().reduced (16);
+    groups.clear();
 
-    helpLabel.setBounds (area.removeFromBottom (helpHeight).reduced (16, 0));
+    // Header: lockup left, preset bar and page selector right.
+    auto area = getLocalBounds().reduced (16);
     auto headerArea = area.removeFromTop (headerHeight);
+
+    if (presetBar != nullptr && presetBar->getPreferredHeight() > 0)
+        presetBar->setBounds (headerArea.removeFromRight (300)
+                                .withHeight (presetBar->getPreferredHeight())
+                                .withY (headerArea.getCentreY() - presetBar->getPreferredHeight() / 2));
+
     pageSelector.setBounds (headerArea.removeFromRight (pageSelectorWidth)
                                 .withSizeKeepingCentre (pageSelectorWidth, pageSelectorHeight));
 
-    area.removeFromTop (groupGap);
+    // The playable keyboard sits at the very bottom of every page.
+    keyboard.setBounds (area.removeFromBottom (keyboardHeight));
+    helpLabel.setBounds (area.removeFromBottom (helpHeight).reduced (16, 0));
+    area.removeFromBottom (groupGap);
 
     if (page == 0)
         layoutSoundPage (area);
-    else
+    else if (page == 1)
         layoutTexturePage (area);
+    else
+        layoutModPage (area);
 }
 
 void SgraffitoEditor::layoutSoundPage (juce::Rectangle<int> area)
 {
-    // Mode: caption, selector, and the mode banner.
-    auto modeRow = area.removeFromTop (16 + SuiteUI::pillHeight + 24);
-    modeCaption.setBounds (modeRow.removeFromTop (16));
-    modeSelector.setBounds (modeRow.removeFromTop (SuiteUI::pillHeight).reduced (8, 0));
-    modeBanner.setBounds (modeRow.removeFromTop (24).reduced (8, 0));
+    // Mode: full-width selector.
+    modeSelector.setBounds (area.removeFromTop (SuiteUI::pillHeight).reduced (8, 0));
 
     area.removeFromTop (groupGap);
 
     // The waveform takes the space the fixed rows below leave, so the page has no dead area.
-    constexpr int keysHeight = 46;
-    const int fixedBelow = keysHeight + 2 * SuiteUI::knobRowHeight + SuiteUI::pillHeight + 5 * groupGap;
-    waveformView.setBounds (area.removeFromTop (juce::jmin (260, juce::jmax (110, area.getHeight() - fixedBelow))));
-
-    area.removeFromTop (groupGap);
-
-    // Visual row: key map strip.
-    keyStrip.setBounds (area.removeFromTop (keysHeight));
+    const int fixedBelow = 2 * SuiteUI::knobRowHeight + SuiteUI::pillHeight + 4 * groupGap;
+    waveformView.setBounds (area.removeFromTop (juce::jmax (100, juce::jmin (260, area.getHeight() - fixedBelow))));
 
     area.removeFromTop (groupGap);
 
@@ -417,56 +443,94 @@ void SgraffitoEditor::layoutSoundPage (juce::Rectangle<int> area)
 
 void SgraffitoEditor::layoutTexturePage (juce::Rectangle<int> area)
 {
-    textureGroupBounds = area;
+    // Three framed rows, grouped by meaning (plan 05.1); each frame takes an equal share.
+    const int frameHeight = (area.getHeight() - 2 * groupGap) / 3;
+    const juce::Rectangle<int> tapeMemory (area.getX(), area.getY(), area.getWidth(), frameHeight);
+    const juce::Rectangle<int> driftTiming (area.getX(), tapeMemory.getBottom() + groupGap, area.getWidth(), frameHeight);
+    const juce::Rectangle<int> ghost (area.getX(), driftTiming.getBottom() + groupGap, area.getWidth(), frameHeight);
 
-    // The group title is drawn over the top of the frame; keep the first row clear of it.
-    area.removeFromTop (groupTitleHeight);
-    area.removeFromTop (groupGap);
+    groups.push_back ({ "TAPE & MEMORY", tapeMemory, 1 });
+    groups.push_back ({ "DRIFT & TIMING", driftTiming, 1 });
+    groups.push_back ({ "GHOST", ghost, 1 });
 
-    // Row 1: Tape Stop Time, Memory Amount, Memory Decay, Drift Amount, Drift Speed.
-    layoutKnobRow (area.removeFromTop (SuiteUI::knobRowHeight),
-                   { &tapeStopTimeSlider, &memoryAmountSlider, &memoryDecaySlider, &driftAmountSlider, &driftSpeedSlider });
+    // TAPE & MEMORY: the tape stop curve selector takes the second cell.
+    auto tapeInner = tapeMemory.withTrimmedTop (SuiteUI::groupTitleHeight + 4).reduced (10, 4);
+    const int tapeCell = tapeInner.getWidth() / 4;
+    tapeStopTimeSlider.setBounds (tapeInner.removeFromLeft (tapeCell).reduced (4));
+    tapeStopCurveSelector.setBounds (tapeInner.removeFromLeft (tapeCell).reduced (8, 14));
+    memoryAmountSlider.setBounds (tapeInner.removeFromLeft (tapeCell).reduced (4));
+    memoryDecaySlider.setBounds (tapeInner.removeFromLeft (tapeCell).reduced (4));
 
-    area.removeFromTop (groupGap);
+    // DRIFT & TIMING: six cells.
+    auto driftInner = driftTiming.withTrimmedTop (SuiteUI::groupTitleHeight + 4).reduced (10, 4);
+    const int driftCell = driftInner.getWidth() / 6;
+    driftAmountSlider.setBounds (driftInner.removeFromLeft (driftCell).reduced (4));
+    driftSpeedSlider.setBounds (driftInner.removeFromLeft (driftCell).reduced (4));
+    layBackSlider.setBounds (driftInner.removeFromLeft (driftCell).reduced (4));
+    swingSlider.setBounds (driftInner.removeFromLeft (driftCell).reduced (4));
+    humaniseSlider.setBounds (driftInner.removeFromLeft (driftCell).reduced (4));
+    shuffleSeedSlider.setBounds (driftInner.removeFromLeft (driftCell).reduced (4));
 
-    // Tape stop curve: full-width selector.
-    tapeStopCurveSelector.setBounds (area.removeFromTop (SuiteUI::pillHeight).reduced (8, 0));
+    // GHOST.
+    auto ghostInner = ghost.withTrimmedTop (SuiteUI::groupTitleHeight + 4).reduced (10, 4);
+    const int ghostCell = ghostInner.getWidth() / 4;
+    layoutPill (ghostInner.removeFromLeft (ghostCell), ghostOnButton, 140);
+    ghostThresholdSlider.setBounds (ghostInner.removeFromLeft (ghostCell).reduced (4));
+    ghostLevelSlider.setBounds (ghostInner.removeFromLeft (ghostCell).reduced (4));
+    ghostDelaySlider.setBounds (ghostInner.removeFromLeft (ghostCell).reduced (4));
+}
 
-    area.removeFromTop (groupGap);
+void SgraffitoEditor::layoutModPage (juce::Rectangle<int> area)
+{
+    // The modulation panel on top; cloud and swell/surface frames below it.
+    const int frameHeight = (area.getHeight() - 2 * groupGap - SuiteUI::knobRowHeight - 10) / 2;
+    const juce::Rectangle<int> modGroup (area.getX(), area.getY(), area.getWidth(),
+                                         area.getHeight() - 2 * frameHeight - 2 * groupGap);
+    const juce::Rectangle<int> cloud (area.getX(), modGroup.getBottom() + groupGap, area.getWidth(), frameHeight);
+    const juce::Rectangle<int> swellSurface (area.getX(), cloud.getBottom() + groupGap, area.getWidth(), frameHeight);
 
-    // Row 2: Lay Back, Swing, Humanise, Shuffle Seed, Ghost On.
-    auto row = area.removeFromTop (SuiteUI::knobRowHeight);
-    const int fifth = row.getWidth() / 5;
-    layBackSlider.setBounds (row.removeFromLeft (fifth).reduced (4));
-    swingSlider.setBounds (row.removeFromLeft (fifth).reduced (4));
-    humaniseSlider.setBounds (row.removeFromLeft (fifth).reduced (4));
-    shuffleSeedSlider.setBounds (row.removeFromLeft (fifth).reduced (4));
-    layoutPill (row.removeFromLeft (fifth), ghostOnButton, 150);
+    groups.push_back ({ "MODULATION", modGroup, 2 });
+    groups.push_back ({ "CLOUD", cloud, 2 });
+    groups.push_back ({ "SWELL & SURFACE", swellSurface, 2 });
 
-    area.removeFromTop (groupGap);
+    modulation.setBounds (modGroup.withTrimmedTop (SuiteUI::groupTitleHeight + 4).reduced (10, 4));
 
-    // Row 3: Ghost Threshold, Ghost Level, Ghost Delay, Slice Count, Grain Size.
-    layoutKnobRow (area.removeFromTop (SuiteUI::knobRowHeight),
-                   { &ghostThresholdSlider, &ghostLevelSlider, &ghostDelaySlider, &sliceCountSlider, &grainSizeSlider });
+    auto cloudInner = cloud.withTrimmedTop (SuiteUI::groupTitleHeight + 4).reduced (10, 4);
+    const int cloudCell = cloudInner.getWidth() / 4;
+    sliceCountSlider.setBounds (cloudInner.removeFromLeft (cloudCell).reduced (4));
+    grainSizeSlider.setBounds (cloudInner.removeFromLeft (cloudCell).reduced (4));
+    grainDensitySlider.setBounds (cloudInner.removeFromLeft (cloudCell).reduced (4));
+    grainSpreadSlider.setBounds (cloudInner.removeFromLeft (cloudCell).reduced (4));
 
-    area.removeFromTop (groupGap);
+    auto surfaceInner = swellSurface.withTrimmedTop (SuiteUI::groupTitleHeight + 4).reduced (10, 4);
+    const int cell = surfaceInner.getWidth() / 7;
+    layoutPill (surfaceInner.removeFromLeft (cell), sustainHoldButton, 120);
+    swellTimeSlider.setBounds (surfaceInner.removeFromLeft (cell).reduced (4));
+    swellCrossfadeSlider.setBounds (surfaceInner.removeFromLeft (cell).reduced (4));
+    dustSlider.setBounds (surfaceInner.removeFromLeft (cell).reduced (4));
+    crackleSlider.setBounds (surfaceInner.removeFromLeft (cell).reduced (4));
+    wowSlider.setBounds (surfaceInner.removeFromLeft (cell).reduced (4));
+    flutterSlider.setBounds (surfaceInner.removeFromLeft (cell).reduced (4));
+}
 
-    // Row 4: Grain Density, Grain Spread, Sustain Hold, Swell Time, Swell Crossfade.
-    row = area.removeFromTop (SuiteUI::knobRowHeight);
-    grainDensitySlider.setBounds (row.removeFromLeft (fifth).reduced (4));
-    grainSpreadSlider.setBounds (row.removeFromLeft (fifth).reduced (4));
-    layoutPill (row.removeFromLeft (fifth), sustainHoldButton, 150);
-    swellTimeSlider.setBounds (row.removeFromLeft (fifth).reduced (4));
-    swellCrossfadeSlider.setBounds (row.removeFromLeft (fifth).reduced (4));
-
-    area.removeFromTop (groupGap);
-
-    // Row 5: Dust, Crackle, Wow, Flutter.
-    layoutKnobRow (area.removeFromTop (SuiteUI::knobRowHeight),
-                   { &dustSlider, &crackleSlider, &wowSlider, &flutterSlider });
+SuiteModulation::ModulationPanel::Style SgraffitoEditor::modulationStyle()
+{
+    return { { juce::Colour (0xff9aa0a6), juce::Colour (0xff9aa0a6) },   // both LFOs in the slate accent
+             SuiteUI::Colours::text, SuiteUI::Colours::textDim,
+             SuiteUI::Colours::panel, SuiteUI::Colours::track };
 }
 
 void SgraffitoEditor::timerCallback()
 {
+    // The keyboard lights the keys the voices hold.
+    bool notes[128] = {};
+    for (const auto& voice : processor.voicePool.voices)
+        if (voice.active)
+            notes[juce::jlimit (0, 127, voice.key)] = true;
+    keyboard.setActiveNotes (notes);
+    keyboard.setRootKey (juce::roundToInt (processor.getParamValue (SgraffitoProcessor::rootKeyId)));
+
+    modulation.refresh();
+    controls->update();
     repaint();
 }

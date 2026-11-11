@@ -53,7 +53,9 @@ private:
 
     // The visualiser shows on both pages, so modulation is visible while routing.
     SuiteUI::CurveView transferCurve { juce::Colour (0xffff9f1c) };
-    SuiteUI::LevelMeter inputMeter { juce::Colour (0xffff9f1c) };
+    SuiteUI::LevelMeter inputMeter { juce::Colour (0xff4fd1c5) };
+    SuiteUI::LevelMeter outputMeterL { juce::Colour (0xff4fd1c5) };
+    SuiteUI::LevelMeter outputMeterR { juce::Colour (0xff4fd1c5) };
 
     // Sound page: mode, then two rows of knobs
     SuiteUI::SegmentedSelector modeSelector { juce::Colour (0xffff9f1c) };
@@ -71,6 +73,7 @@ private:
     SuiteUI::LabelledSlider toneSlider { "TONE", juce::Slider::RotaryVerticalDrag };
     SuiteUI::LabelledSlider outputSlider { "OUTPUT", juce::Slider::RotaryVerticalDrag };
     SuiteUI::LabelledSlider mixSlider { "MIX", juce::Slider::RotaryVerticalDrag };
+    SuiteUI::LabelledSlider panSlider { "PANNING", juce::Slider::RotaryVerticalDrag };
 
     // Modulation page: the page switch, then the shared LFO and routing panel
     SuiteUI::SegmentedSelector pageSelector { juce::Colour (0xffff9f1c) };

@@ -167,7 +167,7 @@ SpectralDriftEditor::~SpectralDriftEditor()
 
 SuiteModulation::ModulationPanel::Style SpectralDriftEditor::modulationStyle()
 {
-    return { { juce::Colour (0xff2de2ff), juce::Colour (0xffff5ad1) },   // LFO 1 cyan, LFO 2 magenta
+    return { { juce::Colour (0xffff5ad1), juce::Colour (0xffff5ad1) },   // both LFOs in LFO 2's magenta (plan 05.1)
              SuiteUI::Colours::text, SuiteUI::Colours::textDim,
              SuiteUI::Colours::panel, SuiteUI::Colours::track };
 }
@@ -195,8 +195,6 @@ void SpectralDriftEditor::setPage (int newPage)
                              static_cast<juce::Component*> (&shiftSlider),
                              static_cast<juce::Component*> (&tiltSlider),
                              static_cast<juce::Component*> (&gateSlider),
-                             static_cast<juce::Component*> (&shapeCaption),
-                             static_cast<juce::Component*> (&shapeSelector),
                              static_cast<juce::Component*> (&feedbackSlider),
                              static_cast<juce::Component*> (&dampingSlider),
                              static_cast<juce::Component*> (&driftStartSlider),
@@ -205,7 +203,11 @@ void SpectralDriftEditor::setPage (int newPage)
                              static_cast<juce::Component*> (&freezeButton) })
         component->setVisible (page == 0);
 
-    modulation.setVisible (page == 1);
+    for (auto* component : { static_cast<juce::Component*> (&shapeCaption),
+                              static_cast<juce::Component*> (&shapeSelector),
+                              static_cast<juce::Component*> (&modulation) })
+        component->setVisible (page == 1);
+
     helpLabel.setVisible (page == 1);
 
     resized();
@@ -280,11 +282,8 @@ void SpectralDriftEditor::layoutSoundPage (juce::Rectangle<int> area)
 
     area.removeFromTop (groupGap);
 
-    // Pill row: the LFO shape caption and selector on the left, the freeze switch on the right.
+    // Pill row: the freeze switch. The LFO shape selector lives on the MOD page now (plan 05.1).
     auto pillRow = area.removeFromTop (SuiteUI::pillHeight);
-    auto shapeArea = pillRow.removeFromLeft (pillRow.getWidth() / 2).reduced (8, 0);
-    shapeCaption.setBounds (shapeArea.removeFromLeft (90).withSizeKeepingCentre (90, 18));
-    shapeSelector.setBounds (shapeArea.withSizeKeepingCentre (shapeArea.getWidth(), SuiteUI::pillHeight));
     freezeButton.setBounds (pillRow.removeFromRight (196).reduced (8, 0)
                                 .withSizeKeepingCentre (180, SuiteUI::pillHeight));
 }
@@ -295,6 +294,12 @@ void SpectralDriftEditor::layoutModPage (juce::Rectangle<int> area)
     area.removeFromBottom (groupGap);
 
     spectrum.setBounds (area.removeFromTop (juce::jmax (150, (int) ((float) area.getHeight() * 0.30f))));
+    area.removeFromTop (groupGap);
+
+    // The drift LFO's shape: a caption and selector above the panel (plan 05.1).
+    auto shapeRow = area.removeFromTop (SuiteUI::pillHeight);
+    shapeCaption.setBounds (shapeRow.removeFromLeft (100).withSizeKeepingCentre (100, 18));
+    shapeSelector.setBounds (shapeRow.removeFromLeft (240).withSizeKeepingCentre (220, SuiteUI::pillHeight));
     area.removeFromTop (groupGap);
 
     modulationGroupBounds = area;

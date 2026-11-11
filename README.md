@@ -128,7 +128,7 @@ Spectral Drift, Dynamic Saturation and Micro-Timing Chaos share a preset system 
 
 **Preset files** use the `.ausp` extension: UTF-8 XML (`<AudioSuitePreset formatVersion="1" plugin="..." pluginVersion="...">`, `<Meta>`, `<PARAMETERS suiteStateVersion="N">`). User presets are stored under `Documents/AudioSuite/<plugin>/Presets` (Windows) or the platform equivalent, and the plugin id and state version are checked on read — a preset saved with a newer plugin version is refused rather than partially applied.
 
-**Factory bank.** With `SUITE_PRESET_BANK=ON`, 80 factory presets are embedded in the plugin binary (`bank/AudioSuitePresets.xml`): 26 for Spectral Drift, 26 for Dynamic Saturation and 28 for Micro-Timing Chaos. Each preset is a delta from the default state, so absent parameters are set to their defaults at load time. The bank is checked by `tools/audit_bank.py` (unique names, in-range values, no preset equal to the default, category rules, and Micro-Timing Chaos base patterns that fire at least one step). Without the flag, the bank compiles as empty and the bar shows only user presets and INIT.
+**Factory bank.** With `SUITE_PRESET_BANK=ON`, 95 factory presets are embedded in the plugin binary (`bank/AudioSuitePresets.xml`): 26 for Spectral Drift, 26 for Dynamic Saturation, 28 for Micro-Timing Chaos and 15 for Sgraffito. Each preset is a delta from the default state, so absent parameters are set to their defaults at load time. The bank is checked by `tools/audit_bank.py` (unique names, in-range values, no preset equal to the default, category rules, and Micro-Timing Chaos base patterns that fire at least one step). Without the flag, the bank compiles as empty and the bar shows only user presets and INIT.
 
 **Preset bar.** Each editor gains a header bar (right-aligned in the title area) that lists factory presets by category, INIT (reset-all-defaults) and SAVE. The bar is always visible (height 30); when the bank is empty it lists only user presets.
 
@@ -190,6 +190,7 @@ The stage runs at 2× oversampling to reduce aliasing. The added latency is repo
 | **Mode** | Tube / Tape / Diode | Tube | Transfer curve (see below). |
 | **Mix** | 0 – 100 % | 100 % | Dry/wet balance. |
 | **Output** | −12 – +6 dB | 0 dB | Output level. |
+| **Panning** | −100 – +100 % | 0 % | Balance control (plan 05.1 Phase 4.5): centre is unity in both channels, hard pan silences the opposite channel, applied after the output level. |
 
 **Dynamics**
 
@@ -335,7 +336,7 @@ Plugin bundles are written to `build/plugins/<Name>/<Name>_artefacts/Release/`.
 |---|---|---|
 | `SUITE_BUILD_PLUGINS` | `ON` | Build the plugins, their editors and the host-level tests. Set to `OFF` to build only the DSP core and its tests, which is faster. |
 | `SUITE_BUILD_TESTS` | `ON` | Build and register the unit tests. |
-| `SUITE_PRESET_BANK` | `OFF` | Embed the factory preset bank into the plugin binaries (`factory_bank/bank/AudioSuitePresets.xml`, 80 presets). The preset bar, `.ausp` files and user presets ship in every build; this flag only adds the embedded bank. |
+| `SUITE_PRESET_BANK` | `OFF` | Embed the factory preset bank into the plugin binaries (`factory_bank/bank/AudioSuitePresets.xml`, 95 presets: 26 SD / 26 DS / 28 MTC / 15 Sgraffito). The preset bar, `.ausp` files and user presets ship in every build; this flag only adds the embedded bank. |
 | `SUITE_PRESET_BANK_AS_PROGRAMS` | `OFF` | With `SUITE_PRESET_BANK=ON`, expose the factory bank as host programs (program 0 = Init, then one per preset). Bank order is append-only once hosts cache indices. |
 
 Example, DSP tests only:
@@ -540,7 +541,7 @@ Issues and pull requests are welcome. Before opening a pull request:
 
 This project is licensed under the **GNU General Public License v3.0**. See [LICENSE](LICENSE) for the full text.
 
-The project builds on JUCE, which is available under the GPLv3 or a commercial licence from its vendor. Because this project is GPLv3, JUCE is used under its GPLv3 option. If you distribute closed-source builds, you will need a commercial JUCE licence instead; see the [JUCE licensing terms](https://juce.com/juce-7-licence/).
+The project builds on JUCE, which is available under the GPLv3 from its vendor. Because this project is GPLv3, JUCE is used under its GPLv3 option; distribution stays under the GPL. See the [JUCE licensing terms](https://juce.com/juce-7-licence/).
 
 ---
 

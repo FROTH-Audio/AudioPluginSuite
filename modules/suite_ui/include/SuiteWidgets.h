@@ -2,6 +2,7 @@
 
 #include <juce_gui_basics/juce_gui_basics.h>
 
+#include <array>
 #include <functional>
 #include <vector>
 
@@ -128,5 +129,38 @@ namespace SuiteUI
         juce::Label label;
 
         void resized() override;
+    };
+
+    /** A playable piano keyboard strip, MIDI 24-96. Mouse down, drag (glissando) and up
+        produce note callbacks; the editor wires them to the processor. Keys light while
+        the mouse holds them and for the notes the host feeds through setActiveNotes
+        (the voices the processor reports). The root key gets a marker. */
+    class PlayableKeyboardStrip : public juce::Component
+    {
+    public:
+        PlayableKeyboardStrip();
+
+        /** The editor sets these; a null callback is allowed and ignored. */
+        std::function<void (int note, float velocity)> onNoteOn;
+        std::function<void (int note)> onNoteOff;
+
+        /** Voice activity from the processor, indexed by MIDI note (0-127). */
+        void setActiveNotes (const bool* notes128);
+
+        /** Marks the root key. */
+        void setRootKey (int note);
+
+        void paint (juce::Graphics&) override;
+        void mouseDown (const juce::MouseEvent&) override;
+        void mouseDrag (const juce::MouseEvent&) override;
+        void mouseUp (const juce::MouseEvent&) override;
+
+    private:
+        int noteAt (juce::Point<float> position) const;
+
+        std::array<bool, 128> active {};
+        std::array<bool, 128> pressed {};
+        int rootKey = 60;
+        int dragNote = -1;
     };
 }

@@ -372,10 +372,197 @@ namespace SuiteUI
         // One knob size for the whole suite (plan 05 R1): the slider is centred and sized
         // so drawRotarySlider receives exactly knobDiameter. The drawable rect is the
         // slider bounds minus the value box (18 px below), reduced 3 px per side in the
-        // look and feel; 84x84 bounds produce a 60 px knob.
+        // look and feel; 64x64 bounds produce a 40 px knob.
         constexpr int sliderBounds = SuiteUI::knobDiameter + 6 + SuiteUI::valueBoxHeight;
         const int h = juce::jmin (sliderBounds, area.getHeight());
         const int w = juce::jmin (sliderBounds, juce::jmax (SuiteUI::valueBoxWidth, area.getWidth()));
         slider.setBounds (area.withSizeKeepingCentre (w, h));
+    }
+
+    //==============================================================================
+    namespace
+    {
+        constexpr int keyboardFirstKey = 24;
+        constexpr int keyboardNumKeys = 73;   // MIDI 24-96
+
+        bool isBlackMidiKey (int note) noexcept
+        {
+            const int pc = ((note % 12) + 12) % 12;
+            return pc == 1 || pc == 3 || pc == 6 || pc == 8 || pc == 10;
+        }
+
+        int whiteKeyCount() noexcept
+        {
+            int whites = 0;
+            for (int i = 0; i < keyboardNumKeys; ++i)
+                if (! isBlackMidiKey (keyboardFirstKey + i))
+                    ++whites;
+            return whites;
+        }
+
+        juce::Colour accentOf (juce::Component& component)
+        {
+            if (auto* look = dynamic_cast<SuiteLookAndFeel*> (&component.getLookAndFeel()))
+                return look->getAccent();
+            return SuiteUI::Colours::text;
+        }
+    }
+
+    PlayableKeyboardStrip::PlayableKeyboardStrip()
+    {
+        setWantsKeyboardFocus (false);
+    }
+
+    void PlayableKeyboardStrip::setActiveNotes (const bool* notes128)
+    {
+        for (int i = 0; i < 128; ++i)
+            active[(size_t) i] = notes128 != nullptr && notes128[i];
+
+        repaint();
+    }
+
+    void PlayableKeyboardStrip::setRootKey (int note)
+    {
+        rootKey = juce::jlimit (keyboardFirstKey, keyboardFirstKey + keyboardNumKeys - 1, note);
+        repaint();
+    }
+
+    void PlayableKeyboardStrip::paint (juce::Graphics& g)
+    {
+        auto bounds = getLocalBounds().toFloat();
+        const float keyW = bounds.getWidth() / (float) keyboardNumKeys;
+        const auto litColour = accentOf (*this);
+
+        g.setColour (SuiteUI::Colours::panel.withAlpha (0.55f));
+        g.fillRoundedRectangle (bounds, SuiteUI::controlRadius);
+        g.setColour (SuiteUI::Colours::track);
+        g.drawRoundedRectangle (bounds, SuiteUI::controlRadius, 1.0f);
+
+        const float blackHeight = bounds.getHeight() * 0.62f;
+
+        for (int pass = 0; pass < 2; ++pass) // white keys first, then black keys on top
+        {
+            for (int i = 0; i < keyboardNumKeys; ++i)
+            {
+                const int note = keyboardFirstKey + i;
+                const bool black = isBlackMidiKey (note);
+
+                if (black != (pass == 1))
+                    continue;
+
+                const float h = black ? blackHeight : bounds.getHeight();
+                auto keyRect = juce::Rectangle<float> (bounds.getX() + i * keyW, bounds.getY(), keyW, h);
+                keyRect.reduce (0.5f, 0.0f);
+
+                const bool lit = active[(size_t) note] || pressed[(size_t) note];
+
+                if (black)
+                {
+                    g.setColour (lit ? litColour : SuiteUI::Colours::track.withAlpha (0.85f));
+                    g.fillRect (keyRect);
+                }
+                else
+                {
+                    g.setColour (lit ? litColour.withAlpha (0.8f) : SuiteUI::Colours::panelLight.withAlpha (0.55f));
+                    g.fillRect (keyRect);
+                }
+
+                if (note == rootKey)
+                {
+                    g.setColour (lit ? SuiteUI::Colours::background : litColour);
+                    g.fillRect (keyRect.removeFromBottom (3.0f).reduced (0.0f, 0.5f));
+                }
+            }
+        }
+    }
+
+    int PlayableKeyboardStrip::noteAt (juce::Point<float> position) const
+    {
+        auto bounds = getLocalBounds().toFloat();
+        if (! bounds.contains (position))
+            return -1;
+
+        const float keyW = bounds.getWidth() / (float) keyboardNumKeys;
+        const float blackHeight = bounds.getHeight() * 0.62f;
+        const int guess = keyboardFirstKey + (int) (position.x / keyW);
+
+        // Black keys sit on top in the upper region; check them around the guessed key.
+        if (position.y < blackHeight)
+            for (int offset = -1; offset <= 1; ++offset)
+            {
+                const int note = guess + offset;
+                if (note < keyboardFirstKey || note >= keyboardFirstKey + keyboardNumKeys)
+                    continue;
+
+                if (isBlackMidiKey (note))
+                {
+                    const float centreX = bounds.getX() + (float) (note - keyboardFirstKey + 1) * keyW;
+                    if (std::abs (position.x - centreX) <= keyW * 0.3f)
+                        return note;
+                }
+            }
+
+        // The white key under the pointer: white keys share the width equally.
+        const int whiteIdx = juce::jlimit (0, whiteKeyCount() - 1,
+                                           (int) ((position.x - bounds.getX()) / (bounds.getWidth() / (float) whiteKeyCount())));
+
+        int note = keyboardFirstKey;
+        int seen = 0;
+        for (; note < keyboardFirstKey + keyboardNumKeys; ++note)
+            if (! isBlackMidiKey (note))
+                if (seen++ == whiteIdx)
+                    break;
+
+        return juce::jlimit (keyboardFirstKey, keyboardFirstKey + keyboardNumKeys - 1, note);
+    }
+
+    void PlayableKeyboardStrip::mouseDown (const juce::MouseEvent& e)
+    {
+        const int note = noteAt (e.position);
+        if (note < 0)
+            return;
+
+        dragNote = note;
+        pressed[(size_t) note] = true;
+        repaint();
+
+        if (onNoteOn)
+            onNoteOn (note, 0.8f);
+    }
+
+    void PlayableKeyboardStrip::mouseDrag (const juce::MouseEvent& e)
+    {
+        const int note = noteAt (e.position);
+        if (note < 0 || note == dragNote)
+            return;
+
+        if (dragNote >= 0)
+        {
+            pressed[(size_t) dragNote] = false;
+            if (onNoteOff)
+                onNoteOff (dragNote);
+        }
+
+        dragNote = note;
+        pressed[(size_t) note] = true;
+        repaint();
+
+        if (onNoteOn)
+            onNoteOn (note, 0.8f);
+    }
+
+    void PlayableKeyboardStrip::mouseUp (const juce::MouseEvent& e)
+    {
+        const int note = dragNote >= 0 ? dragNote : noteAt (e.position);
+        dragNote = -1;
+
+        if (note >= 0 && pressed[(size_t) note])
+        {
+            pressed[(size_t) note] = false;
+            repaint();
+
+            if (onNoteOff)
+                onNoteOff (note);
+        }
     }
 }

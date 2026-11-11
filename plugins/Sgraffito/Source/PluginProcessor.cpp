@@ -59,8 +59,66 @@ SgraffitoProcessor::SgraffitoProcessor()
 }
 
 //==============================================================================
-juce::StringArray SgraffitoProcessor::modTargetNames()
+//==============================================================================
+// Note handling shared by the host MIDI and the editor keyboard (plan 05.1).
+void SgraffitoProcessor::handleNoteOn (int keyIn, float velocity, int samplePosition,
+                                       float rootKeyMod, float layBackMod,
+                                       float spanMod, float lengthMod)
 {
+    int key = keyIn;
+
+    // Scale Lock: quantize the played key to the nearest scale degree.
+    if (scaleLockParam->load() > 0.5f)
+    {
+        const int rootKey = (int) std::lround (rootKeyMod);
+        const int scaleIndex = (int) std::lround (scaleParam->load());
+        key = CoreDSP::Sampler::quantizeToScale (key, rootKey, scaleIndex);
+    }
+
+    // If lay back is enabled, queue the note for later playback.
+    if (layBackMod > 0.0f)
+    {
+        pendingNotes.push_back ({ key, velocity, static_cast<double> (samplePosition) });
+    }
+    else
+    {
+        const int idx = voicePool.allocateVoice (key, velocity, spanMod, lengthMod,
+                                                 modeParam->load(), sliceCountParam->load());
+
+        if (idx >= 0)
+        {
+            // Pitch: the key's distance from middle C, plus the fine tune in cents
+            // (plan 05.1: the key must change the pitch, and PITCH FINE must be audible).
+            const double semitones = (double) (key - 60) + (double) pitchFineParam->load() / 100.0;
+            voicePool.voices[idx].rate = std::pow (2.0, semitones / 12.0);
+
+            // Velocity curve: the curve is the exponent of the velocity (1.0 = linear).
+            const float curve = juce::jmax (0.1f, velocityCurveParam->load());
+            voicePool.voices[idx].velocity = std::pow (juce::jlimit (0.0f, 1.0f, velocity), curve);
+
+            // The voice reads from the region's start: allocateVoice does not set the
+            // position, and without this every note read the sample from sample 0
+            // (the "always sounds the same" bug, plan 05.1).
+            if (auto* sampleNow = getSampleBuffer())
+                voicePool.voices[idx].position = voicePool.voices[idx].regionStart
+                                                 * (double) sampleNow->getNumSamples();
+        }
+    }
+}
+
+void SgraffitoProcessor::handleNoteOff (int key, int samplePosition)
+{
+    for (int i = 0; i < CoreDSP::Sampler::maxVoices; ++i)
+    {
+        if (voicePool.voices[i].active && voicePool.voices[i].key == key)
+        {
+            voicePool.releaseVoice (i, samplePosition, tapeStopTimeParam->load(), tapeStopCurveParam->load());
+            break;
+        }
+    }
+}
+
+juce::StringArray SgraffitoProcessor::modTargetNames(){
     juce::StringArray names { "None" };
 
     for (int i = 0; i < numModulationTargets; ++i)
@@ -276,47 +334,37 @@ void SgraffitoProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         const auto msg = metadata.getMessage();
 
         if (msg.isNoteOn())
-        {
-            int key = msg.getNoteNumber();
-
-            // Scale Lock: quantize the played key to the nearest scale degree.
-            if (scaleLockParam->load() > 0.5f)
-            {
-                const int rootKey = (int) std::lround (modulated (ModTarget::RootKey, rootKeyParam->load()));
-                const int scaleIndex = (int) std::lround (scaleParam->load());
-                key = CoreDSP::Sampler::quantizeToScale (key, rootKey, scaleIndex);
-            }
-            const float velocity = msg.getVelocity() / 127.0f;
-
-            // If lay back is enabled, queue the note for later playback.
-            const float layBackMs = modulated (ModTarget::LayBack, layBackParam->load());
-            if (layBackMs > 0.0f)
-            {
-                pendingNotes.push_back({ key, velocity, static_cast<double>(metadata.samplePosition) });
-            }
-            else
-            {
-                voicePool.allocateVoice (key, velocity,
-                                         modulated (ModTarget::RegionSpan, regionSpanParam->load()),
-                                         modulated (ModTarget::RegionLength, regionLengthParam->load()),
-                                         modeParam->load(), sliceCountParam->load());
-            }
-        }
+            handleNoteOn (msg.getNoteNumber(), msg.getVelocity() / 127.0f,
+                          metadata.samplePosition,
+                          modulated (ModTarget::RootKey, rootKeyParam->load()),
+                          modulated (ModTarget::LayBack, layBackParam->load()),
+                          modulated (ModTarget::RegionSpan, regionSpanParam->load()),
+                          modulated (ModTarget::RegionLength, regionLengthParam->load()));
         else if (msg.isNoteOff())
-        {
-            const int key = msg.getNoteNumber();
-            for (int i = 0; i < CoreDSP::Sampler::maxVoices; ++i)
-            {
-                if (voicePool.voices[i].active && voicePool.voices[i].key == key)
-                {
-                    voicePool.releaseVoice (i, metadata.samplePosition, tapeStopTimeParam->load(), tapeStopCurveParam->load());
-                    break;
-                }
-            }
-        }
+            handleNoteOff (msg.getNoteNumber(), (int) (streamSample + metadata.samplePosition));
     }
 
     midiMessages.clear();
+
+    // The editor keyboard's notes run through the same handling (SPSC ring, plan 05.1).
+    for (;;)
+    {
+        const int read = uiNoteRead.load (std::memory_order_acquire);
+        if (read == uiNoteWrite.load (std::memory_order_acquire))
+            break;
+
+        const auto note = uiNoteRing[(size_t) read];
+        uiNoteRead.store ((read + 1) % uiNoteCapacity, std::memory_order_release);
+
+        if (note.on)
+            handleNoteOn (note.key, note.velocity, 0,
+                          modulated (ModTarget::RootKey, rootKeyParam->load()),
+                          modulated (ModTarget::LayBack, layBackParam->load()),
+                          modulated (ModTarget::RegionSpan, regionSpanParam->load()),
+                          modulated (ModTarget::RegionLength, regionLengthParam->load()));
+        else
+            handleNoteOff (note.key, 0);
+    }
 
     // Get the current sample buffer (atomic read).
     auto* samplePtr = getSampleBuffer();
@@ -331,7 +379,10 @@ void SgraffitoProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     const float level = juce::Decibels::decibelsToGain (modulated (ModTarget::Level, levelParam->load()));
     const float attackMs = modulated (ModTarget::Attack, attackParam->load());
     const float releaseMs = modulated (ModTarget::Release, releaseParam->load());
-    const double blockStartSample = static_cast<double> (buffer.getNumSamples()) - static_cast<double> (numSamples);
+    // The absolute sample position of this block's first sample: the envelope's time base.
+    // (streamSample advances at the end of the block; the old block-relative base stuck the
+    // envelope at the attack of the first block forever.)
+    const double blockStartSample = (double) streamSample;
 
     // Advance Lorenz attractor by driftSpeed * seconds in this block.
     const float driftSpeed = modulated (ModTarget::DriftSpeed, driftSpeedParam->load());
@@ -349,12 +400,16 @@ void SgraffitoProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         if (! voice.active)
             continue;
 
-        // Initialize envStart on first sample.
+        // Initialize envStart on first sample: the voice reads from its region, forwards
+        // for Scrub and Chop, from the region end backwards for Swell, and cloud schedules
+        // its first grain at once.
         if (voice.envStart < 0.0)
         {
             voice.envStart = blockStartSample;
-            voice.position = voice.regionStart * sample->getNumSamples();
+            voice.position = (mode == 3 ? voice.regionEnd - 1.0 / (double) sample->getNumSamples()
+                                        : voice.regionStart) * sample->getNumSamples();
             voice.grainPosition = voice.regionStart * sample->getNumSamples();
+            voice.nextGrainSample = 0.0;
         }
 
         // Cloud mode: read from random positions across the region.
@@ -372,6 +427,14 @@ void SgraffitoProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         const float driftRatio = std::pow (2.0f, driftCents / 1200.0f);
         rate *= driftRatio * rateFactor;
 
+        // Apply memory trace: the note's layer fades over the memory decay time, once per
+        // block (memoryDecay seconds is the time constant).
+        if (modulated (ModTarget::MemoryAmount, memoryAmountParam->load()) > 0.5f)
+        {
+            const double tau = juce::jmax (0.01, (double) memoryDecayParam->load());  // seconds
+            voice.gain *= (float) std::exp (- (double) numSamples / (tau * preparedSampleRate));
+        }
+
         // Process each sample in the block.
         for (int s = 0; s < numSamples; ++s)
         {
@@ -379,14 +442,6 @@ void SgraffitoProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 
             // Envelope value.
             const float env = voice.envelope (sampleIndex, attackMs, releaseMs, preparedSampleRate) * rateFactor;
-
-            // Apply memory trace: the note's layer fades over the memory decay time.
-            // Decays once per block, not per sample; memoryDecay seconds is the time constant.
-            if (modulated (ModTarget::MemoryAmount, memoryAmountParam->load()) > 0.5f)
-            {
-                const double tau = juce::jmax (0.01, (double) memoryDecayParam->load());  // seconds
-                voice.gain *= (float) std::exp (- (double) numSamples / (tau * preparedSampleRate));
-            }
 
             // Read sample with linear interpolation (normal playback: Scrub, Chop, Swell).
             if (! isCloud)
@@ -417,56 +472,78 @@ void SgraffitoProcessor::processBlock (juce::AudioBuffer<float>& buffer,
             }
             else
             {
-                // Cloud mode: the grain reads across the region and wraps for a continuous sound.
+                // Cloud mode: a grain scheduler. Grains spawn at grainDensity per second,
+                // read for grainSize milliseconds from a position spread across the region
+                // (grainSpread), and fade in and out (plan 05.1: the grain parameters must
+                // be audible).
                 const int sampleSize = static_cast<int> (sample->getNumSamples());
+                const double regionLenSamples = (voice.regionEnd - voice.regionStart) * (double) sampleSize;
 
-                const double pos = voice.grainPosition;
-                const int idx0 = static_cast<int> (std::floor (pos));
-                const int idx1 = idx0 + 1;
-                const float frac = static_cast<float> (pos - idx0);
-
-                if (idx0 >= 0 && idx1 < sampleSize)
+                if (sampleIndex >= voice.nextGrainSample)
                 {
-                    const float* src = sample->getReadPointer (0);
-                    const int safeIdx0 = std::clamp(idx0, 0, sampleSize - 1);
-                    const int safeIdx1 = std::clamp(idx1, 0, sampleSize - 1);
-                    const float s0 = src[safeIdx0];
-                    const float s1 = src[safeIdx1];
-                    const float v = s0 * (1.0f - frac) + s1 * frac;
+                    voice.grainActive = true;
+                    ++voice.grainIndex;
 
-                    buffer.addSample (0, s, v * voice.gain * voice.velocity * level * env);
+                    // Deterministic per-grain position: hash of the note and the grain index.
+                    const std::uint32_t hash = voice.noteId * 74747909u + voice.grainIndex * 2654435761u;
+                    const float fraction = (float) ((hash >> 8) & 0xFFFFu) / 65535.0f;
+
+                    const double spread = std::clamp (grainSpreadParam->load() / 100.0, 0.0, 1.0);
+                    voice.grainStartSample = voice.regionStart * (double) sampleSize
+                                             + (double) fraction * spread * regionLenSamples;
+                    voice.grainStartSample = std::clamp (voice.grainStartSample, 0.0, (double) sampleSize - 2.0);
+                    voice.grainPosition = voice.grainStartSample;
+                    voice.grainDurationSamples = juce::jmax (1.0,
+                        (double) grainSizeParam->load() * preparedSampleRate / 1000.0);
+                    voice.nextGrainSample = sampleIndex + (double) preparedSampleRate
+                                            / juce::jmax (1.0f, grainDensityParam->load());
                 }
 
-                // Advance the grain at the current rate; wrap at the region end.
-                voice.grainPosition += rate;
+                if (voice.grainActive)
+                {
+                    const double progress = (voice.grainPosition - voice.grainStartSample) / voice.grainDurationSamples;
 
-                if (voice.grainPosition >= voice.regionEnd * sampleSize)
-                    voice.grainPosition = voice.regionStart * sampleSize;
+                    if (progress >= 1.0)
+                    {
+                        voice.grainActive = false;
+                    }
+                    else
+                    {
+                        // Triangular grain envelope, up and down over the grain's duration.
+                        const float grainEnv = juce::jlimit (0.0f, 1.0f,
+                            progress < 0.5 ? (float) (progress * 2.0) : (float) ((1.0 - progress) * 2.0));
+
+                        const double pos = voice.grainPosition;
+                        const int idx0 = static_cast<int> (std::floor (pos));
+                        const int idx1 = idx0 + 1;
+                        const float frac = static_cast<float> (pos - idx0);
+                        const float* src = sample->getReadPointer (0);
+                        const int safeIdx0 = std::clamp (idx0, 0, sampleSize - 1);
+                        const int safeIdx1 = std::clamp (idx1, 0, sampleSize - 1);
+                        const float s0 = src[safeIdx0];
+                        const float s1 = src[safeIdx1];
+                        const float v = s0 * (1.0f - frac) + s1 * frac;
+
+                        for (int ch = 0; ch < numChannels; ++ch)
+                            buffer.addSample (ch, s, v * grainEnv * voice.gain * voice.velocity * level * env);
+
+                        voice.grainPosition += rate;
+                    }
+                }
 
                 continue;  // Cloud grains skip the mode-specific advance below.
             }
 
             // Mode-specific handling per voice.
             const int mode = std::lround (modeParam->load());
-            if (mode == 2)  // Cloud mode - grain cloud with multiple grains
+            if (mode == 3)  // Swell mode: reverse playback, wrapping across the region.
             {
-                // Already handled above with grainPosition and grainRate
-            }
-            else if (mode == 3)  // Swell mode - reverse playback with crossfade
-            {
-                // Reverse direction
                 voice.position -= rate;
-                
-                // Crossfade from normal to reverse: use envelope value as crossfade amount
-                const float crossfade = env;  // 0.0 to 1.0
-                double pos = voice.position - (1.0 - crossfade) * rate;
-                
-                if (pos < voice.regionStart)
-                    pos = voice.regionStart;
-                
-                voice.position = pos;
+
+                if (voice.position < voice.regionStart * (double) sample->getNumSamples())
+                    voice.position = voice.regionEnd * (double) sample->getNumSamples() - 1.0;
             }
-            else  // Normal forward playback (mode == 0 or mode == 1)
+            else  // Normal forward playback (Scrub and Chop; Cloud handled above).
             {
                 voice.position += rate;
             }
@@ -503,7 +580,7 @@ void SgraffitoProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 
         for (const auto metadata : pendingNotes)
         {
-            const double scheduledPos = static_cast<double> (metadata.samplePosition) + delaySamples;
+            const double scheduledPos = (double) streamSample + static_cast<double> (metadata.samplePosition) + delaySamples;
             const int key = std::clamp(static_cast<int>(metadata.key), 0, 127);
             const float velocity = metadata.velocity;
 
@@ -525,6 +602,12 @@ void SgraffitoProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                 voicePool.voices[idx].active = true;
                 voicePool.voices[idx].key = key;
                 voicePool.voices[idx].velocity = velocity;
+
+                // Pitch and velocity curve, as in the direct path (plan 05.1).
+                const double semitones = (double) (key - 60) + (double) pitchFineParam->load() / 100.0;
+                voicePool.voices[idx].rate = std::pow (2.0, semitones / 12.0);
+                const float velCurve = juce::jmax (0.1f, velocityCurveParam->load());
+                voicePool.voices[idx].velocity = std::pow (juce::jlimit (0.0f, 1.0f, velocity), velCurve);
                 voicePool.voices[idx].envStart = scheduledPos;
                 voicePool.voices[idx].envValue = 1.0f;
 

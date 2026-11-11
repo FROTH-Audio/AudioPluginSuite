@@ -124,12 +124,8 @@ namespace SuitePresets
 
         void paint (juce::Graphics& g)
         {
-            const auto bounds = owner.getLocalBounds();
-
-            g.setColour (accent.withAlpha (0.10f));
-            g.fillRoundedRectangle (bounds.toFloat(), 4.0f);
-            g.setColour (accent.withAlpha (0.45f));
-            g.drawRoundedRectangle (bounds.toFloat().reduced (0.5f), 4.0f, 1.0f);
+            // Flat on the header: no fill, no border (plan 05.1). The buttons carry the look.
+            juce::ignoreUnused (g);
         }
 
         void resized()

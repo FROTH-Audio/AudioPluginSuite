@@ -59,5 +59,5 @@ isn't a factory program). Bank order is append-only once hosts cache indices.
 
 ## Licence
 
-GPL v3, same as the rest of the suite (code). Note the repository-level caveat in `AGENTS.md`
-§10: closed-source distribution would need a commercial JUCE licence.
+GPL v3, same as the rest of the suite (code). The licence stays GPL (2026-11-12); the factory
+presets are now publicly available.

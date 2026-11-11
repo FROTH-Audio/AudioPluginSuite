@@ -1,6 +1,6 @@
 # Micro-Timing Chaos
 
-A MIDI step sequencer plugin by AudioSuite.
+A MIDI step sequencer plugin by FROTH Audio.
 
 ## Overview
 
