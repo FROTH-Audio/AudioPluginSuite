@@ -1,0 +1,11 @@
+{
+  "_name": "Cloud Rain",
+  "_category": "Melodic",
+  "_description": "High pentatonic with long gates and drift.",
+  "_plugin": "Sgraffito",
+  "_pluginVersion": "1.0.0",
+  "rootKey": 60,
+  "scale": 3,
+  "grainDensity": 4.0,
+  "swellTime": 200.0
+}

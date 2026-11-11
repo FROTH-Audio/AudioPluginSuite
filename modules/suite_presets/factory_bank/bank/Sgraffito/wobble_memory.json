@@ -1,0 +1,10 @@
+{
+  "_name": "Wobble Memory",
+  "_category": "Experimental",
+  "_description": "Drift with LFO modulating the root key.",
+  "_plugin": "Sgraffito",
+  "_pluginVersion": "1.0.0",
+  "lfo1Sync": 1,
+  "mod1Target": 3,
+  "mod1Amount": 30.0
+}

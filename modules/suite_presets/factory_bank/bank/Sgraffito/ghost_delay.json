@@ -1,0 +1,9 @@
+{
+  "_name": "Ghost Delay",
+  "_category": "Echo",
+  "_description": "Ghost notes with delay and feedback.",
+  "_plugin": "Sgraffito",
+  "_pluginVersion": "1.0.0",
+  "memoryAmount": 40.0,
+  "ghostDelay": 45.0
+}

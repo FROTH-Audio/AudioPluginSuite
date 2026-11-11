@@ -1,0 +1,9 @@
+{
+  "_name": "Init Cloud",
+  "_category": "Utility",
+  "_description": "A clean reference: 60% span, 40% length.",
+  "_plugin": "Sgraffito",
+  "_pluginVersion": "1.0.0",
+  "regionSpan": 60.0,
+  "regionLength": 40.0
+}

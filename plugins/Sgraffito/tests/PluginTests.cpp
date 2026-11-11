@@ -101,6 +101,36 @@ namespace
         pass ("testEditor");
     }
 
+    // When SUITE_RENDER_DIR is set, writes a PNG of each editor page and checks the
+    // two renders of the same view match within one process.
+    void testRenderBaseline()
+    {
+        const auto folder = juce::SystemStats::getEnvironmentVariable ("SUITE_RENDER_DIR", {});
+
+        if (folder.isEmpty())
+        {
+            std::printf ("[SKIP] editor renders: set SUITE_RENDER_DIR to write them\n");
+            return;
+        }
+
+        Processor processor;
+        processor.prepareToPlay (sampleRate, blockSize);
+
+        for (int renderPage = 0; renderPage < 2; ++renderPage)
+        {
+            std::unique_ptr<juce::AudioProcessorEditor> editor (processor.createEditor());
+            assert (editor != nullptr);
+            static_cast<SgraffitoEditor*> (editor.get())->setPage (renderPage);
+
+            const juce::File file (juce::File (folder).getChildFile (
+                renderPage == 0 ? "sgraffito-sound.png" : "sgraffito-texture.png"));
+            assert (PluginTest::writeDeterministicPng (*editor, file));
+            processor.editorBeingDeleted (editor.get());
+        }
+
+        pass ("testRenderBaseline");
+    }
+
     //==============================================================================
     // LFOs and modulation routing
 
@@ -479,6 +509,7 @@ int main()
     testChopModeSliceCoverage();
     testVoiceProducesOutput();
     testEditor();
+    testRenderBaseline();
     testModulationParameters();
     testDefaultRoutingIsSilent();
     testModulationReachesAudio();

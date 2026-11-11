@@ -1,0 +1,11 @@
+{
+  "_name": "Tape Break",
+  "_category": "Glitch",
+  "_description": "Chopped tape stop with dust and crackle.",
+  "_plugin": "Sgraffito",
+  "_pluginVersion": "1.0.0",
+  "mode": 1,
+  "tapeStopTime": 300.0,
+  "dust": 5.0,
+  "crackle": 8.0
+}

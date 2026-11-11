@@ -1,26 +1,49 @@
 #include "PluginEditor.h"
 
 #include "SuiteBrand.h"
+#include "BinaryData.h"
 
 namespace
 {
-    constexpr int editorWidth = 720;
-    constexpr int editorHeight = 1200;
-    constexpr int headerHeight = 40;
-    constexpr int pageSelectorHeight = 28;
+    constexpr int editorWidth = 880;
+    constexpr int editorHeight = 820;
+    constexpr int headerHeight = 44;
+    constexpr int pageSelectorHeight = 26;
+    constexpr int pageSelectorWidth = 240;
     constexpr int groupGap = 8;
     constexpr int groupTitleHeight = 20;
     constexpr int helpHeight = 26;
-    constexpr int waveformHeight = 130;
-    constexpr int keyStripHeight = 52;
+    constexpr int knobRowHeight = 120;   // caption 18 + knob ~90 + value box 18
+    constexpr int pillHeight = 36;       // toggle buttons and selectors
+    constexpr int selectorRowHeight = 36;
 
-    // Places components side by side in equal-width cells.
-    void layoutRow (juce::Rectangle<int> row, std::initializer_list<juce::Component*> cells)
+    // A knob never fills its cell: the slider is capped to ~90 px of knob and centred.
+    void layoutKnobCell (juce::Rectangle<int> cell, SuiteUI::LabelledSlider& slider)
     {
-        const int width = row.getWidth() / (int) cells.size();
+        auto area = cell.reduced (4);
+        slider.setBounds (area.withSizeKeepingCentre (juce::jmin (132, area.getWidth()), area.getHeight()));
+    }
 
-        for (auto* cell : cells)
-            cell->setBounds (row.removeFromLeft (width).reduced (4));
+    // A pill control (toggle button or selector) sits centred in its cell at a fixed height.
+    void layoutPill (juce::Rectangle<int> cell, juce::Component& component, int width, int height = pillHeight)
+    {
+        component.setBounds (cell.reduced (4).withSizeKeepingCentre (juce::jmin (width, cell.getWidth() - 8), height));
+    }
+
+    // A row of equal knob cells.
+    void layoutKnobRow (juce::Rectangle<int> row, std::initializer_list<SuiteUI::LabelledSlider*> knobs)
+    {
+        const int width = row.getWidth() / (int) knobs.size();
+
+        for (auto* knob : knobs)
+            layoutKnobCell (row.removeFromLeft (width), *knob);
+    }
+
+    const juce::Image& brandLockup()
+    {
+        static const juce::Image image = juce::ImageCache::getFromMemory (BinaryData::lockup_sgraffito_png,
+                                                                         BinaryData::lockup_sgraffito_pngSize);
+        return image;
     }
 }
 
@@ -32,7 +55,7 @@ SgraffitoEditor::SgraffitoEditor (SgraffitoProcessor& p)
 
     setSize (editorWidth, editorHeight);
     setResizable (true, true);
-    setResizeLimits (600, 900, 1440, 1440);
+    setResizeLimits (720, 600, 1200, 1200);
 
     helpTracker.onMove = [this] (const juce::MouseEvent& e) { showHelp (e); };
     addMouseListener (&helpTracker, true);
@@ -313,10 +336,8 @@ void SgraffitoEditor::paint (juce::Graphics& g)
     g.setGradientFill (background);
     g.fillAll();
 
-    g.setColour (lookAndFeel.getAccent());
-    g.setFont (juce::Font (juce::FontOptions (20.0f, juce::Font::bold)));
-    g.drawText ("SGRAFFITO", getLocalBounds().removeFromTop (headerHeight).reduced (16),
-                juce::Justification::centredLeft);
+    // Brand lockup at the left of the header, as in the other plugins.
+    SuiteUI::drawBrandLockup (g, getLocalBounds().removeFromTop (headerHeight).reduced (16, 0), brandLockup());
 
     g.setColour (SuiteUI::Colours::textDim);
     g.setFont (juce::Font (juce::FontOptions (11.0f)));
@@ -345,9 +366,10 @@ void SgraffitoEditor::resized()
     auto area = getLocalBounds().reduced (16);
 
     helpLabel.setBounds (area.removeFromBottom (helpHeight).reduced (16, 0));
-    area.removeFromTop (headerHeight);
+    auto headerArea = area.removeFromTop (headerHeight);
+    pageSelector.setBounds (headerArea.removeFromRight (pageSelectorWidth)
+                                .withSizeKeepingCentre (pageSelectorWidth, pageSelectorHeight));
 
-    pageSelector.setBounds (area.removeFromTop (pageSelectorHeight).withWidth (240));
     area.removeFromTop (groupGap);
 
     if (page == 0)
@@ -358,123 +380,96 @@ void SgraffitoEditor::resized()
 
 void SgraffitoEditor::layoutSoundPage (juce::Rectangle<int> area)
 {
-    constexpr int rowHeight = 140;
-
     // Mode: caption, selector, and the mode banner.
-    auto modeRow = area.removeFromTop (rowHeight);
-    modeCaption.setBounds (modeRow.removeFromTop (18));
-    modeSelector.setBounds (modeRow.removeFromTop (44).reduced (8, 2));
-    modeBanner.setBounds (modeRow.removeFromTop (32).reduced (8, 0));
+    auto modeRow = area.removeFromTop (16 + pillHeight + 24);
+    modeCaption.setBounds (modeRow.removeFromTop (16));
+    modeSelector.setBounds (modeRow.removeFromTop (pillHeight).reduced (8, 0));
+    modeBanner.setBounds (modeRow.removeFromTop (24).reduced (8, 0));
 
     area.removeFromTop (groupGap);
 
-    // Visual row: sample waveform.
-    waveformView.setBounds (area.removeFromTop (waveformHeight));
+    // The waveform takes the space the fixed rows below leave, so the page has no dead area.
+    constexpr int keysHeight = 46;
+    const int fixedBelow = keysHeight + 2 * knobRowHeight + selectorRowHeight + 5 * groupGap;
+    waveformView.setBounds (area.removeFromTop (juce::jmin (260, juce::jmax (110, area.getHeight() - fixedBelow))));
 
     area.removeFromTop (groupGap);
 
     // Visual row: key map strip.
-    keyStrip.setBounds (area.removeFromTop (keyStripHeight));
+    keyStrip.setBounds (area.removeFromTop (keysHeight));
 
     area.removeFromTop (groupGap);
 
-    // Row: Region Span, Region Length.
-    auto row1 = area.removeFromTop (rowHeight);
-    layoutRow (row1, { &regionSpanSlider, &regionLengthSlider });
+    // Row 1: Region Span, Region Length, Root Key, Pitch Fine, Glide.
+    layoutKnobRow (area.removeFromTop (knobRowHeight),
+                   { &regionSpanSlider, &regionLengthSlider, &rootKeySlider, &pitchFineSlider, &glideSlider });
 
     area.removeFromTop (groupGap);
 
-    // Row: Root Key, Pitch Fine.
-    auto row2 = area.removeFromTop (rowHeight);
-    layoutRow (row2, { &rootKeySlider, &pitchFineSlider });
+    // Row 2: Level, Velocity Curve, Attack, Release, Scale Lock.
+    auto row2 = area.removeFromTop (knobRowHeight);
+    const int fifth = row2.getWidth() / 5;
+    layoutKnobCell (row2.removeFromLeft (fifth), levelSlider);
+    layoutKnobCell (row2.removeFromLeft (fifth), velocityCurveSlider);
+    layoutKnobCell (row2.removeFromLeft (fifth), attackSlider);
+    layoutKnobCell (row2.removeFromLeft (fifth), releaseSlider);
+    layoutPill (row2.removeFromLeft (fifth), scaleLockButton, 150);
 
     area.removeFromTop (groupGap);
 
-    // Row: Scale Lock, Scale, Glide.
-    auto row3 = area.removeFromTop (rowHeight);
-    const int third = row3.getWidth() / 3;
-    scaleLockButton.setBounds (row3.removeFromLeft (third).reduced (8));
-    scaleSelector.setBounds (row3.removeFromLeft (third).reduced (8));
-    glideSlider.setBounds (row3.reduced (8));
-
-    area.removeFromTop (groupGap);
-
-    // Row: Level, Velocity Curve.
-    auto row4 = area.removeFromTop (rowHeight);
-    layoutRow (row4, { &levelSlider, &velocityCurveSlider });
-
-    area.removeFromTop (groupGap);
-
-    // Row: Attack, Release.
-    auto row5 = area.removeFromTop (rowHeight);
-    layoutRow (row5, { &attackSlider, &releaseSlider });
+    // Scale: full-width selector.
+    scaleSelector.setBounds (area.removeFromTop (selectorRowHeight).reduced (8, 0));
 }
 
 void SgraffitoEditor::layoutTexturePage (juce::Rectangle<int> area)
 {
-    constexpr int rowHeight = 140;
-
     textureGroupBounds = area;
 
-    // Row: Tape Stop Time, Tape Stop Curve.
-    auto row1 = area.removeFromTop (rowHeight);
-    const int half = row1.getWidth() / 2;
-    tapeStopTimeSlider.setBounds (row1.removeFromLeft (half).reduced (8));
-    tapeStopCurveSelector.setBounds (row1.reduced (8));
+    // The group title is drawn over the top of the frame; keep the first row clear of it.
+    area.removeFromTop (groupTitleHeight);
+    area.removeFromTop (groupGap);
+
+    // Row 1: Tape Stop Time, Memory Amount, Memory Decay, Drift Amount, Drift Speed.
+    layoutKnobRow (area.removeFromTop (knobRowHeight),
+                   { &tapeStopTimeSlider, &memoryAmountSlider, &memoryDecaySlider, &driftAmountSlider, &driftSpeedSlider });
 
     area.removeFromTop (groupGap);
 
-    // Row: Memory Amount, Memory Decay.
-    auto row2 = area.removeFromTop (rowHeight);
-    layoutRow (row2, { &memoryAmountSlider, &memoryDecaySlider });
+    // Tape stop curve: full-width selector.
+    tapeStopCurveSelector.setBounds (area.removeFromTop (selectorRowHeight).reduced (8, 0));
 
     area.removeFromTop (groupGap);
 
-    // Row: Drift Amount, Drift Speed.
-    auto row3 = area.removeFromTop (rowHeight);
-    layoutRow (row3, { &driftAmountSlider, &driftSpeedSlider });
+    // Row 2: Lay Back, Swing, Humanise, Shuffle Seed, Ghost On.
+    auto row = area.removeFromTop (knobRowHeight);
+    const int fifth = row.getWidth() / 5;
+    layoutKnobCell (row.removeFromLeft (fifth), layBackSlider);
+    layoutKnobCell (row.removeFromLeft (fifth), swingSlider);
+    layoutKnobCell (row.removeFromLeft (fifth), humaniseSlider);
+    layoutKnobCell (row.removeFromLeft (fifth), shuffleSeedSlider);
+    layoutPill (row.removeFromLeft (fifth), ghostOnButton, 150);
 
     area.removeFromTop (groupGap);
 
-    // Row: Lay Back, Swing, Humanise.
-    auto row4 = area.removeFromTop (rowHeight);
-    layoutRow (row4, { &layBackSlider, &swingSlider, &humaniseSlider });
+    // Row 3: Ghost Threshold, Ghost Level, Ghost Delay, Slice Count, Grain Size.
+    layoutKnobRow (area.removeFromTop (knobRowHeight),
+                   { &ghostThresholdSlider, &ghostLevelSlider, &ghostDelaySlider, &sliceCountSlider, &grainSizeSlider });
 
     area.removeFromTop (groupGap);
 
-    // Row: Ghost On, Ghost Threshold, Ghost Level, Ghost Delay.
-    auto row5 = area.removeFromTop (rowHeight);
-    const int quarter = row5.getWidth() / 4;
-    ghostOnButton.setBounds (row5.removeFromLeft (quarter).reduced (8));
-    ghostThresholdSlider.setBounds (row5.removeFromLeft (quarter).reduced (8));
-    ghostLevelSlider.setBounds (row5.removeFromLeft (quarter).reduced (8));
-    ghostDelaySlider.setBounds (row5.reduced (8));
+    // Row 4: Grain Density, Grain Spread, Sustain Hold, Swell Time, Swell Crossfade.
+    row = area.removeFromTop (knobRowHeight);
+    layoutKnobCell (row.removeFromLeft (fifth), grainDensitySlider);
+    layoutKnobCell (row.removeFromLeft (fifth), grainSpreadSlider);
+    layoutPill (row.removeFromLeft (fifth), sustainHoldButton, 150);
+    layoutKnobCell (row.removeFromLeft (fifth), swellTimeSlider);
+    layoutKnobCell (row.removeFromLeft (fifth), swellCrossfadeSlider);
 
     area.removeFromTop (groupGap);
 
-    // Row: Slice Count, Grain Size, Grain Density, Grain Spread.
-    auto row6 = area.removeFromTop (rowHeight);
-    layoutRow (row6, { &sliceCountSlider, &grainSizeSlider, &grainDensitySlider, &grainSpreadSlider });
-
-    area.removeFromTop (groupGap);
-
-    // Row: Sustain Hold, Swell Time, Swell Crossfade.
-    auto row7 = area.removeFromTop (rowHeight);
-    sustainHoldButton.setBounds (row7.removeFromLeft (quarter).reduced (8));
-    swellTimeSlider.setBounds (row7.removeFromLeft (quarter).reduced (8));
-    swellCrossfadeSlider.setBounds (row7.removeFromLeft (quarter).reduced (8));
-
-    area.removeFromTop (groupGap);
-
-    // Row: Dust, Crackle, Wow, Flutter.
-    auto row8 = area.removeFromTop (rowHeight);
-    layoutRow (row8, { &dustSlider, &crackleSlider, &wowSlider, &flutterSlider });
-
-    area.removeFromTop (groupGap);
-
-    // Row: Shuffle Seed.
-    auto row9 = area.removeFromTop (rowHeight);
-    shuffleSeedSlider.setBounds (row9.reduced (8));
+    // Row 5: Dust, Crackle, Wow, Flutter.
+    layoutKnobRow (area.removeFromTop (knobRowHeight),
+                   { &dustSlider, &crackleSlider, &wowSlider, &flutterSlider });
 }
 
 void SgraffitoEditor::timerCallback()

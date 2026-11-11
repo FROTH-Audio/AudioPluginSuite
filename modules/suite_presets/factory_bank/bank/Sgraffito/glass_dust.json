@@ -1,0 +1,10 @@
+{
+  "_name": "Glass Dust",
+  "_category": "Ambient",
+  "_description": "Slow, sparse cloud with long decay.",
+  "_plugin": "Sgraffito",
+  "_pluginVersion": "1.0.0",
+  "memoryDecay": 8.0,
+  "driftSpeed": 0.5,
+  "grainDensity": 8.0
+}

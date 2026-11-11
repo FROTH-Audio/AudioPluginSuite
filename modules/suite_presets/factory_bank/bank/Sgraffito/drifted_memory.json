@@ -1,0 +1,10 @@
+{
+  "_name": "Drifted Memory",
+  "_category": "Ambient",
+  "_description": "Memory trace that drifts across the sample.",
+  "_plugin": "Sgraffito",
+  "_pluginVersion": "1.0.0",
+  "memoryDecay": 10.0,
+  "driftAmount": 50.0,
+  "grainSpread": 25.0
+}

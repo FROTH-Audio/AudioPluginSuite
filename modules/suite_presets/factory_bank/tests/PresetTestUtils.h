@@ -151,11 +151,11 @@ namespace PresetTest
     // Tests that every plugin runs.
 
     template <typename Processor>
-    void runBankShape (const juce::String& pluginId)
+    void runBankShape (const juce::String& pluginId, std::size_t minPresets = 25)
     {
         const auto presets = presetsFor (pluginId);
 
-        assert (presets.size() >= 25);
+        assert (presets.size() >= minPresets);
 
         std::set<juce::String> names;
         std::set<juce::String> categories;

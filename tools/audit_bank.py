@@ -6,7 +6,7 @@ broken, so it can be used in CI.
 
 Rules:
 
-- 26 / 26 / 28 presets (80 total).
+- 26 / 26 / 28 / 15 presets (95 total).
 - Unique names per plugin, at least 3 categories per plugin, non-empty category and description.
 - Every ID exists, every value is inside its `NormalisableRange`, values have the right type.
 - No preset equals the default state.
@@ -26,8 +26,8 @@ from pathlib import Path
 
 from preset_data import PRESETS, SCHEMA
 
-EXPECTED_COUNTS = {"SpectralDrift": 26, "DynamicSaturation": 26, "MicroTimingChaos": 28}
-EXPECTED_TOTAL = 80
+EXPECTED_COUNTS = {"SpectralDrift": 26, "DynamicSaturation": 26, "MicroTimingChaos": 28, "Sgraffito": 15}
+EXPECTED_TOTAL = 95
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_BANK = REPO_ROOT / "modules" / "suite_presets" / "factory_bank" / "bank"

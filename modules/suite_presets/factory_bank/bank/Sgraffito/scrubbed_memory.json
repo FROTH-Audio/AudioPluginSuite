@@ -1,0 +1,10 @@
+{
+  "_name": "Scrubbed Memory",
+  "_category": "Scratch",
+  "_description": "Quick region scrub with humanised timing.",
+  "_plugin": "Sgraffito",
+  "_pluginVersion": "1.0.0",
+  "mode": 0,
+  "glide": 50.0,
+  "humanise": 15.0
+}

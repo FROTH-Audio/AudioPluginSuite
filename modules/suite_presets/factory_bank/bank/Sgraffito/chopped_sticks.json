@@ -1,0 +1,10 @@
+{
+  "_name": "Chopped Sticks",
+  "_category": "Rhythmic",
+  "_description": "Slice a sample into many short notes.",
+  "_plugin": "Sgraffito",
+  "_pluginVersion": "1.0.0",
+  "mode": 1,
+  "sliceCount": 8,
+  "grainDensity": 20.0
+}

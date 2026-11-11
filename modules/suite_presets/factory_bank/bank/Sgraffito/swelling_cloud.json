@@ -1,0 +1,10 @@
+{
+  "_name": "Swelling Cloud",
+  "_category": "Evolution",
+  "_description": "Starts small, swells to full cloud.",
+  "_plugin": "Sgraffito",
+  "_pluginVersion": "1.0.0",
+  "mode": 3,
+  "grainDensity": 2.0,
+  "swellTime": 500.0
+}

@@ -1,0 +1,10 @@
+{
+  "_name": "Deep Cloud",
+  "_category": "Ambient",
+  "_description": "Low pentatonic, dense and slow.",
+  "_plugin": "Sgraffito",
+  "_pluginVersion": "1.0.0",
+  "rootKey": 36,
+  "scale": 4,
+  "grainSpread": 30.0
+}

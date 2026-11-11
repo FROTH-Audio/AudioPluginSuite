@@ -1,0 +1,10 @@
+{
+  "_name": "Swell Pad",
+  "_category": "Pads",
+  "_description": "Long crossfade swell with drift and noise.",
+  "_plugin": "Sgraffito",
+  "_pluginVersion": "1.0.0",
+  "mode": 3,
+  "swellCrossfade": 150.0,
+  "dust": 15.0
+}

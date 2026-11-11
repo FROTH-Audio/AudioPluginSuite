@@ -1,0 +1,10 @@
+{
+  "_name": "Memory Ghosts",
+  "_category": "Sparse",
+  "_description": "Ghost notes over a quiet memory trace.",
+  "_plugin": "Sgraffito",
+  "_pluginVersion": "1.0.0",
+  "driftAmount": 20.0,
+  "ghostThreshold": 90.0,
+  "sliceCount": 4
+}

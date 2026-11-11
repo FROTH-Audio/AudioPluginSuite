@@ -11,6 +11,7 @@ All notable changes to this project are documented here. The format follows
 - Sgraffito factory presets (15) behind `SUITE_PRESET_BANK`.
 
 ### Changed
+- Sgraffito: the editor is laid out again. The window is 880×820 (was 720×1200 with clipped rows), knobs are capped at about 90 px and centred instead of filling their cells, the Scale Lock, Ghost On and Sustain Hold switches and the scale and tape-stop-curve selectors are 36 px pills instead of row-filling ellipses, and both pages arrange their controls in a five-column grid. The FROTH Audio brand lockup (slate accent) now sits in the header, embedded like the other plugins'. A `testRenderBaseline` writes editor renders when `SUITE_RENDER_DIR` is set.
 - Plugin metadata: each VST3 and AU bundle now has a description, the company website (the repository) and a copyright line (GPL v3). The Windows version resource shows the copyright. No e-mail is set. The manufacturer name hosts show is now FROTH Audio (was AudioSuite). The bundle IDs and plugin codes are unchanged, so sessions still load. Hosts may show the new name and description after a rescan.
 - Micro-Timing Chaos: its look and feel now derives from the suite's shared look and feel for the shared setup. The window is unchanged. Editor timers use one refresh constant, 60 Hz. No visible change.
 - Build: the deprecated juce::Font constructors are replaced by the juce::FontOptions form. The Release build has no deprecation warnings. No visible change.

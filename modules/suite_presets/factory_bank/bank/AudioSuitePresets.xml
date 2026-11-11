@@ -1,628 +1,748 @@
-<?xml version='1.0' encoding='utf-8'?>
+<?xml version="1.0" encoding="UTF-8"?>
 <Bank version="1" generator="tools/build_bank.py">
   <AudioSuitePreset formatVersion="1" plugin="SpectralDrift" pluginVersion="1.0.0">
-    <Meta name="Glass Cathedral" category="Ambient" author="FROTH Audio" description="Slow, wide drift with a bright upper shift." />
+    <Meta name="Glass Cathedral" category="Ambient" author="FROTH Audio" description="Slow, wide drift with a bright upper shift."/>
     <PARAMETERS suiteStateVersion="1">
-      <PARAM id="driftRate" value="0.12" />
-      <PARAM id="spread" value="0.75" />
-      <PARAM id="stereoPhase" value="180" />
-      <PARAM id="shift" value="12" />
-      <PARAM id="gate" value="-60" />
+      <PARAM id="driftRate" value="0.12"/>
+      <PARAM id="spread" value="0.75"/>
+      <PARAM id="stereoPhase" value="180"/>
+      <PARAM id="shift" value="12"/>
+      <PARAM id="gate" value="-60"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="SpectralDrift" pluginVersion="1.0.0">
-    <Meta name="Slow Melt" category="Ambient" author="FROTH Audio" description="Deep, slow movement with a short feedback tail." />
+    <Meta name="Slow Melt" category="Ambient" author="FROTH Audio" description="Deep, slow movement with a short feedback tail."/>
     <PARAMETERS suiteStateVersion="1">
-      <PARAM id="driftRate" value="0.15" />
-      <PARAM id="depth" value="80" />
-      <PARAM id="feedback" value="8" />
-      <PARAM id="feedbackDamping" value="60" />
+      <PARAM id="driftRate" value="0.15"/>
+      <PARAM id="depth" value="80"/>
+      <PARAM id="feedback" value="8"/>
+      <PARAM id="feedbackDamping" value="60"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="SpectralDrift" pluginVersion="1.0.0">
-    <Meta name="Bin Wash" category="Ambient" author="FROTH Audio" description="Wide bin spread and a dark tilt." />
+    <Meta name="Bin Wash" category="Ambient" author="FROTH Audio" description="Wide bin spread and a dark tilt."/>
     <PARAMETERS suiteStateVersion="1">
-      <PARAM id="spread" value="0.9" />
-      <PARAM id="tilt" value="-1" />
-      <PARAM id="mix" value="80" />
+      <PARAM id="spread" value="0.9"/>
+      <PARAM id="tilt" value="-1"/>
+      <PARAM id="mix" value="80"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="SpectralDrift" pluginVersion="1.0.0">
-    <Meta name="Deep Space" category="Ambient" author="FROTH Audio" description="The slowest drift, full depth, wide stereo." />
+    <Meta name="Deep Space" category="Ambient" author="FROTH Audio" description="The slowest drift, full depth, wide stereo."/>
     <PARAMETERS suiteStateVersion="1">
-      <PARAM id="driftRate" value="0.1" />
-      <PARAM id="depth" value="100" />
-      <PARAM id="stereoPhase" value="180" />
-      <PARAM id="feedback" value="6" />
+      <PARAM id="driftRate" value="0.1"/>
+      <PARAM id="depth" value="100"/>
+      <PARAM id="stereoPhase" value="180"/>
+      <PARAM id="feedback" value="6"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="SpectralDrift" pluginVersion="1.0.0">
-    <Meta name="Frozen Choir" category="Freeze" author="FROTH Audio" description="Holds a soft spectrum with a gentle gate." />
+    <Meta name="Frozen Choir" category="Freeze" author="FROTH Audio" description="Holds a soft spectrum with a gentle gate."/>
     <PARAMETERS suiteStateVersion="1">
-      <PARAM id="depth" value="30" />
-      <PARAM id="gate" value="-50" />
-      <PARAM id="freeze" value="1" />
+      <PARAM id="depth" value="30"/>
+      <PARAM id="gate" value="-50"/>
+      <PARAM id="freeze" value="1"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="SpectralDrift" pluginVersion="1.0.0">
-    <Meta name="Frozen Static" category="Freeze" author="FROTH Audio" description="Holds the spectrum with no drift." />
+    <Meta name="Frozen Static" category="Freeze" author="FROTH Audio" description="Holds the spectrum with no drift."/>
     <PARAMETERS suiteStateVersion="1">
-      <PARAM id="depth" value="0" />
-      <PARAM id="gate" value="-30" />
-      <PARAM id="freeze" value="1" />
+      <PARAM id="depth" value="0"/>
+      <PARAM id="gate" value="-30"/>
+      <PARAM id="freeze" value="1"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="SpectralDrift" pluginVersion="1.0.0">
-    <Meta name="Metallic Sheen" category="Bright" author="FROTH Audio" description="Bright tilt with a small upward shift." />
+    <Meta name="Metallic Sheen" category="Bright" author="FROTH Audio" description="Bright tilt with a small upward shift."/>
     <PARAMETERS suiteStateVersion="1">
-      <PARAM id="spread" value="0.1" />
-      <PARAM id="shift" value="7" />
-      <PARAM id="tilt" value="1.5" />
+      <PARAM id="spread" value="0.1"/>
+      <PARAM id="shift" value="7"/>
+      <PARAM id="tilt" value="1.5"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="SpectralDrift" pluginVersion="1.0.0">
-    <Meta name="Air Shifter" category="Bright" author="FROTH Audio" description="Large upward shift, partly wet." />
+    <Meta name="Air Shifter" category="Bright" author="FROTH Audio" description="Large upward shift, partly wet."/>
     <PARAMETERS suiteStateVersion="1">
-      <PARAM id="shift" value="24" />
-      <PARAM id="tilt" value="0.8" />
-      <PARAM id="mix" value="60" />
+      <PARAM id="shift" value="24"/>
+      <PARAM id="tilt" value="0.8"/>
+      <PARAM id="mix" value="60"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="SpectralDrift" pluginVersion="1.0.0">
-    <Meta name="Top Sparkle" category="Bright" author="FROTH Audio" description="Bright tilt with a high gate." />
+    <Meta name="Top Sparkle" category="Bright" author="FROTH Audio" description="Bright tilt with a high gate."/>
     <PARAMETERS suiteStateVersion="1">
-      <PARAM id="tilt" value="1" />
-      <PARAM id="gate" value="-70" />
+      <PARAM id="tilt" value="1"/>
+      <PARAM id="gate" value="-70"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="SpectralDrift" pluginVersion="1.0.0">
-    <Meta name="Whisper Drift" category="Subtle" author="FROTH Audio" description="A very small, slow drift." />
+    <Meta name="Whisper Drift" category="Subtle" author="FROTH Audio" description="A very small, slow drift."/>
     <PARAMETERS suiteStateVersion="1">
-      <PARAM id="driftRate" value="0.3" />
-      <PARAM id="depth" value="8" />
-      <PARAM id="stereoPhase" value="20" />
+      <PARAM id="driftRate" value="0.3"/>
+      <PARAM id="depth" value="8"/>
+      <PARAM id="stereoPhase" value="20"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="SpectralDrift" pluginVersion="1.0.0">
-    <Meta name="Mono Anchor" category="Subtle" author="FROTH Audio" description="Almost no stereo spread." />
+    <Meta name="Mono Anchor" category="Subtle" author="FROTH Audio" description="Almost no stereo spread."/>
     <PARAMETERS suiteStateVersion="1">
-      <PARAM id="spread" value="0.01" />
-      <PARAM id="stereoPhase" value="0" />
+      <PARAM id="spread" value="0.01"/>
+      <PARAM id="stereoPhase" value="0"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="SpectralDrift" pluginVersion="1.0.0">
-    <Meta name="Wide Bloom" category="Wide" author="FROTH Audio" description="Wide stereo with a moderate depth." />
+    <Meta name="Wide Bloom" category="Wide" author="FROTH Audio" description="Wide stereo with a moderate depth."/>
     <PARAMETERS suiteStateVersion="1">
-      <PARAM id="depth" value="40" />
-      <PARAM id="spread" value="0.9" />
-      <PARAM id="stereoPhase" value="180" />
+      <PARAM id="depth" value="40"/>
+      <PARAM id="spread" value="0.9"/>
+      <PARAM id="stereoPhase" value="180"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="SpectralDrift" pluginVersion="1.0.0">
-    <Meta name="Phase Tunnel" category="Wide" author="FROTH Audio" description="Full depth and a long feedback path." />
+    <Meta name="Phase Tunnel" category="Wide" author="FROTH Audio" description="Full depth and a long feedback path."/>
     <PARAMETERS suiteStateVersion="1">
-      <PARAM id="depth" value="100" />
-      <PARAM id="spread" value="0.6" />
-      <PARAM id="feedback" value="10" />
+      <PARAM id="depth" value="100"/>
+      <PARAM id="spread" value="0.6"/>
+      <PARAM id="feedback" value="10"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="SpectralDrift" pluginVersion="1.0.0">
-    <Meta name="Square Steps" category="Rhythmic" author="FROTH Audio" description="Square LFO at 2 Hz." />
+    <Meta name="Square Steps" category="Rhythmic" author="FROTH Audio" description="Square LFO at 2 Hz."/>
     <PARAMETERS suiteStateVersion="1">
-      <PARAM id="driftRate" value="2" />
-      <PARAM id="depth" value="40" />
-      <PARAM id="lfoShape" value="3" />
+      <PARAM id="driftRate" value="2"/>
+      <PARAM id="depth" value="40"/>
+      <PARAM id="lfoShape" value="3"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="SpectralDrift" pluginVersion="1.0.0">
-    <Meta name="Saw Sweep" category="Rhythmic" author="FROTH Audio" description="Slow saw sweep across the bins." />
+    <Meta name="Saw Sweep" category="Rhythmic" author="FROTH Audio" description="Slow saw sweep across the bins."/>
     <PARAMETERS suiteStateVersion="1">
-      <PARAM id="driftRate" value="0.5" />
-      <PARAM id="spread" value="0.3" />
-      <PARAM id="lfoShape" value="2" />
+      <PARAM id="driftRate" value="0.5"/>
+      <PARAM id="spread" value="0.3"/>
+      <PARAM id="lfoShape" value="2"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="SpectralDrift" pluginVersion="1.0.0">
-    <Meta name="Triangle Tide" category="Rhythmic" author="FROTH Audio" description="Triangle LFO with a deep sweep." />
+    <Meta name="Triangle Tide" category="Rhythmic" author="FROTH Audio" description="Triangle LFO with a deep sweep."/>
     <PARAMETERS suiteStateVersion="1">
-      <PARAM id="driftRate" value="0.25" />
-      <PARAM id="depth" value="60" />
-      <PARAM id="lfoShape" value="1" />
+      <PARAM id="driftRate" value="0.25"/>
+      <PARAM id="depth" value="60"/>
+      <PARAM id="lfoShape" value="1"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="SpectralDrift" pluginVersion="1.0.0">
-    <Meta name="Comb Weaver" category="Character" author="FROTH Audio" description="Maximum feedback, lightly damped." />
+    <Meta name="Comb Weaver" category="Character" author="FROTH Audio" description="Maximum feedback, lightly damped."/>
     <PARAMETERS suiteStateVersion="1">
-      <PARAM id="feedback" value="12" />
-      <PARAM id="feedbackDamping" value="15" />
+      <PARAM id="feedback" value="12"/>
+      <PARAM id="feedbackDamping" value="15"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="SpectralDrift" pluginVersion="1.0.0">
-    <Meta name="Damped Echo" category="Character" author="FROTH Audio" description="Feedback with a heavy low-pass." />
+    <Meta name="Damped Echo" category="Character" author="FROTH Audio" description="Feedback with a heavy low-pass."/>
     <PARAMETERS suiteStateVersion="1">
-      <PARAM id="feedback" value="10" />
-      <PARAM id="feedbackDamping" value="90" />
+      <PARAM id="feedback" value="10"/>
+      <PARAM id="feedbackDamping" value="90"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="SpectralDrift" pluginVersion="1.0.0">
-    <Meta name="Vocal Ghost" category="Character" author="FROTH Audio" description="A small shift and tilt, partly wet." />
+    <Meta name="Vocal Ghost" category="Character" author="FROTH Audio" description="A small shift and tilt, partly wet."/>
     <PARAMETERS suiteStateVersion="1">
-      <PARAM id="depth" value="25" />
-      <PARAM id="shift" value="3" />
-      <PARAM id="tilt" value="0.3" />
+      <PARAM id="depth" value="25"/>
+      <PARAM id="shift" value="3"/>
+      <PARAM id="tilt" value="0.3"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="SpectralDrift" pluginVersion="1.0.0">
-    <Meta name="Low Anchor" category="Mix" author="FROTH Audio" description="Only the upper part of the spectrum drifts." />
+    <Meta name="Low Anchor" category="Mix" author="FROTH Audio" description="Only the upper part of the spectrum drifts."/>
     <PARAMETERS suiteStateVersion="1">
-      <PARAM id="shift" value="-12" />
-      <PARAM id="driftStart" value="60" />
+      <PARAM id="shift" value="-12"/>
+      <PARAM id="driftStart" value="60"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="SpectralDrift" pluginVersion="1.0.0">
-    <Meta name="Dark Matter" category="Dark" author="FROTH Audio" description="Dark tilt with a low gate." />
+    <Meta name="Dark Matter" category="Dark" author="FROTH Audio" description="Dark tilt with a low gate."/>
     <PARAMETERS suiteStateVersion="1">
-      <PARAM id="tilt" value="-2" />
-      <PARAM id="gate" value="-80" />
+      <PARAM id="tilt" value="-2"/>
+      <PARAM id="gate" value="-80"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="SpectralDrift" pluginVersion="1.0.0">
-    <Meta name="Sub Rumble" category="Dark" author="FROTH Audio" description="Large downward shift, dark tilt." />
+    <Meta name="Sub Rumble" category="Dark" author="FROTH Audio" description="Large downward shift, dark tilt."/>
     <PARAMETERS suiteStateVersion="1">
-      <PARAM id="shift" value="-32" />
-      <PARAM id="tilt" value="-1.5" />
+      <PARAM id="shift" value="-32"/>
+      <PARAM id="tilt" value="-1.5"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="SpectralDrift" pluginVersion="1.0.0">
-    <Meta name="Broken Radio" category="Lo-Fi" author="FROTH Audio" description="Gated, undamped feedback." />
+    <Meta name="Broken Radio" category="Lo-Fi" author="FROTH Audio" description="Gated, undamped feedback."/>
     <PARAMETERS suiteStateVersion="1">
-      <PARAM id="gate" value="-40" />
-      <PARAM id="feedback" value="12" />
-      <PARAM id="feedbackDamping" value="0" />
+      <PARAM id="gate" value="-40"/>
+      <PARAM id="feedback" value="12"/>
+      <PARAM id="feedbackDamping" value="0"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="SpectralDrift" pluginVersion="1.0.0">
-    <Meta name="Alien Chatter" category="Lo-Fi" author="FROTH Audio" description="Fast square drift with a wide spread." />
+    <Meta name="Alien Chatter" category="Lo-Fi" author="FROTH Audio" description="Fast square drift with a wide spread."/>
     <PARAMETERS suiteStateVersion="1">
-      <PARAM id="driftRate" value="8" />
-      <PARAM id="spread" value="0.9" />
-      <PARAM id="lfoShape" value="3" />
-      <PARAM id="shift" value="5" />
+      <PARAM id="driftRate" value="8"/>
+      <PARAM id="spread" value="0.9"/>
+      <PARAM id="lfoShape" value="3"/>
+      <PARAM id="shift" value="5"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="SpectralDrift" pluginVersion="1.0.0">
-    <Meta name="Null Test" category="Utility" author="FROTH Audio" description="No drift, no shaping: a transparent reference." />
+    <Meta name="Null Test" category="Utility" author="FROTH Audio" description="No drift, no shaping: a transparent reference."/>
     <PARAMETERS suiteStateVersion="1">
-      <PARAM id="depth" value="0" />
+      <PARAM id="depth" value="0"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="SpectralDrift" pluginVersion="1.0.0">
-    <Meta name="Init Bright" category="Utility" author="FROTH Audio" description="Near-default with a little brightness." />
+    <Meta name="Init Bright" category="Utility" author="FROTH Audio" description="Near-default with a little brightness."/>
     <PARAMETERS suiteStateVersion="1">
-      <PARAM id="tilt" value="0.5" />
+      <PARAM id="tilt" value="0.5"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="DynamicSaturation" pluginVersion="1.0.0">
-    <Meta name="Tube Glue" category="Mix bus" author="FROTH Audio" description="Gentle tube glue for a mix bus." />
+    <Meta name="Tube Glue" category="Mix bus" author="FROTH Audio" description="Gentle tube glue for a mix bus."/>
     <PARAMETERS suiteStateVersion="1">
-      <PARAM id="drive" value="4" />
-      <PARAM id="sensitivity" value="0.4" />
+      <PARAM id="drive" value="4"/>
+      <PARAM id="sensitivity" value="0.4"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="DynamicSaturation" pluginVersion="1.0.0">
-    <Meta name="Tape Warmth" category="Mix bus" author="FROTH Audio" description="Soft tape saturation with a warm top." />
+    <Meta name="Tape Warmth" category="Mix bus" author="FROTH Audio" description="Soft tape saturation with a warm top."/>
     <PARAMETERS suiteStateVersion="1">
-      <PARAM id="drive" value="3" />
-      <PARAM id="mode" value="1" />
-      <PARAM id="tone" value="-0.3" />
+      <PARAM id="drive" value="3"/>
+      <PARAM id="mode" value="1"/>
+      <PARAM id="tone" value="-0.3"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="DynamicSaturation" pluginVersion="1.0.0">
-    <Meta name="Diode Edge" category="Mix bus" author="FROTH Audio" description="A little diode edge on the mix." />
+    <Meta name="Diode Edge" category="Mix bus" author="FROTH Audio" description="A little diode edge on the mix."/>
     <PARAMETERS suiteStateVersion="1">
-      <PARAM id="drive" value="5" />
-      <PARAM id="mode" value="2" />
-      <PARAM id="tone" value="0.2" />
+      <PARAM id="drive" value="5"/>
+      <PARAM id="mode" value="2"/>
+      <PARAM id="tone" value="0.2"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="DynamicSaturation" pluginVersion="1.0.0">
-    <Meta name="Mixbus Glue II" category="Mix bus" author="FROTH Audio" description="Slower envelope, stronger drive." />
+    <Meta name="Mixbus Glue II" category="Mix bus" author="FROTH Audio" description="Slower envelope, stronger drive."/>
     <PARAMETERS suiteStateVersion="1">
-      <PARAM id="drive" value="3" />
-      <PARAM id="sensitivity" value="0.6" />
-      <PARAM id="mode" value="1" />
-      <PARAM id="curve" value="1.5" />
+      <PARAM id="drive" value="3"/>
+      <PARAM id="sensitivity" value="0.6"/>
+      <PARAM id="mode" value="1"/>
+      <PARAM id="curve" value="1.5"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="DynamicSaturation" pluginVersion="1.0.0">
-    <Meta name="Gentle Touch" category="Subtle" author="FROTH Audio" description="Barely there, parallel." />
+    <Meta name="Gentle Touch" category="Subtle" author="FROTH Audio" description="Barely there, parallel."/>
     <PARAMETERS suiteStateVersion="1">
-      <PARAM id="drive" value="1" />
-      <PARAM id="sensitivity" value="0.2" />
-      <PARAM id="mix" value="40" />
+      <PARAM id="drive" value="1"/>
+      <PARAM id="sensitivity" value="0.2"/>
+      <PARAM id="mix" value="40"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="DynamicSaturation" pluginVersion="1.0.0">
-    <Meta name="Clean Lift" category="Subtle" author="FROTH Audio" description="Clean tape lift at full mix." />
+    <Meta name="Clean Lift" category="Subtle" author="FROTH Audio" description="Clean tape lift at full mix."/>
     <PARAMETERS suiteStateVersion="1">
-      <PARAM id="drive" value="2" />
-      <PARAM id="mode" value="1" />
+      <PARAM id="drive" value="2"/>
+      <PARAM id="mode" value="1"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="DynamicSaturation" pluginVersion="1.0.0">
-    <Meta name="Vocal Leveller" category="Vocal" author="FROTH Audio" description="Vocal-friendly detector and envelope." />
+    <Meta name="Vocal Leveller" category="Vocal" author="FROTH Audio" description="Vocal-friendly detector and envelope."/>
     <PARAMETERS suiteStateVersion="1">
-      <PARAM id="attack" value="8" />
-      <PARAM id="release" value="120" />
-      <PARAM id="detectHpf" value="90" />
-      <PARAM id="curve" value="1.2" />
+      <PARAM id="attack" value="8"/>
+      <PARAM id="release" value="120"/>
+      <PARAM id="detectHpf" value="90"/>
+      <PARAM id="curve" value="1.2"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="DynamicSaturation" pluginVersion="1.0.0">
-    <Meta name="Mid Forward" category="Character" author="FROTH Audio" description="Forward mids with a touch of folding." />
+    <Meta name="Mid Forward" category="Character" author="FROTH Audio" description="Forward mids with a touch of folding."/>
     <PARAMETERS suiteStateVersion="1">
-      <PARAM id="drive" value="5" />
-      <PARAM id="fold" value="5" />
-      <PARAM id="tone" value="0.5" />
+      <PARAM id="drive" value="5"/>
+      <PARAM id="fold" value="5"/>
+      <PARAM id="tone" value="0.5"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="DynamicSaturation" pluginVersion="1.0.0">
-    <Meta name="Bias Blues" category="Character" author="FROTH Audio" description="Asymmetric tube bias with more drive." />
+    <Meta name="Bias Blues" category="Character" author="FROTH Audio" description="Asymmetric tube bias with more drive."/>
     <PARAMETERS suiteStateVersion="1">
-      <PARAM id="drive" value="9" />
-      <PARAM id="bias" value="0.25" />
-      <PARAM id="tone" value="-0.2" />
+      <PARAM id="drive" value="9"/>
+      <PARAM id="bias" value="0.25"/>
+      <PARAM id="tone" value="-0.2"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="DynamicSaturation" pluginVersion="1.0.0">
-    <Meta name="Tape Stop" category="Character" author="FROTH Audio" description="Heavily saturated, dark tape." />
+    <Meta name="Tape Stop" category="Character" author="FROTH Audio" description="Heavily saturated, dark tape."/>
     <PARAMETERS suiteStateVersion="1">
-      <PARAM id="drive" value="14" />
-      <PARAM id="mode" value="1" />
-      <PARAM id="tone" value="-1" />
+      <PARAM id="drive" value="14"/>
+      <PARAM id="mode" value="1"/>
+      <PARAM id="tone" value="-1"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="DynamicSaturation" pluginVersion="1.0.0">
-    <Meta name="Bass Growl" category="Bass" author="FROTH Audio" description="Low detector and a dark tilt." />
+    <Meta name="Bass Growl" category="Bass" author="FROTH Audio" description="Low detector and a dark tilt."/>
     <PARAMETERS suiteStateVersion="1">
-      <PARAM id="drive" value="10" />
-      <PARAM id="detectHpf" value="30" />
-      <PARAM id="tone" value="-0.5" />
+      <PARAM id="drive" value="10"/>
+      <PARAM id="detectHpf" value="30"/>
+      <PARAM id="tone" value="-0.5"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="DynamicSaturation" pluginVersion="1.0.0">
-    <Meta name="Sub Tightener" category="Bass" author="FROTH Audio" description="Fast envelope for low-end control." />
+    <Meta name="Sub Tightener" category="Bass" author="FROTH Audio" description="Fast envelope for low-end control."/>
     <PARAMETERS suiteStateVersion="1">
-      <PARAM id="attack" value="2" />
-      <PARAM id="release" value="80" />
-      <PARAM id="detectHpf" value="40" />
+      <PARAM id="attack" value="2"/>
+      <PARAM id="release" value="80"/>
+      <PARAM id="detectHpf" value="40"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="DynamicSaturation" pluginVersion="1.0.0">
-    <Meta name="Drum Smash" category="Drums" author="FROTH Audio" description="Fast, heavy drum saturation." />
+    <Meta name="Drum Smash" category="Drums" author="FROTH Audio" description="Fast, heavy drum saturation."/>
     <PARAMETERS suiteStateVersion="1">
-      <PARAM id="drive" value="18" />
-      <PARAM id="mix" value="70" />
-      <PARAM id="attack" value="1" />
-      <PARAM id="release" value="60" />
+      <PARAM id="drive" value="18"/>
+      <PARAM id="mix" value="70"/>
+      <PARAM id="attack" value="1"/>
+      <PARAM id="release" value="60"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="DynamicSaturation" pluginVersion="1.0.0">
-    <Meta name="Snare Bite" category="Drums" author="FROTH Audio" description="Bias and fold for snare attack." />
+    <Meta name="Snare Bite" category="Drums" author="FROTH Audio" description="Bias and fold for snare attack."/>
     <PARAMETERS suiteStateVersion="1">
-      <PARAM id="drive" value="12" />
-      <PARAM id="bias" value="0.1" />
-      <PARAM id="fold" value="10" />
-      <PARAM id="tone" value="0.4" />
+      <PARAM id="drive" value="12"/>
+      <PARAM id="bias" value="0.1"/>
+      <PARAM id="fold" value="10"/>
+      <PARAM id="tone" value="0.4"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="DynamicSaturation" pluginVersion="1.0.0">
-    <Meta name="Kick Punch" category="Drums" author="FROTH Audio" description="Short envelope, strong curve." />
+    <Meta name="Kick Punch" category="Drums" author="FROTH Audio" description="Short envelope, strong curve."/>
     <PARAMETERS suiteStateVersion="1">
-      <PARAM id="drive" value="8" />
-      <PARAM id="attack" value="1" />
-      <PARAM id="release" value="50" />
-      <PARAM id="curve" value="2" />
+      <PARAM id="drive" value="8"/>
+      <PARAM id="attack" value="1"/>
+      <PARAM id="release" value="50"/>
+      <PARAM id="curve" value="2"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="DynamicSaturation" pluginVersion="1.0.0">
-    <Meta name="Parallel Crunch" category="Parallel" author="FROTH Audio" description="Heavy diode crunch in parallel." />
+    <Meta name="Parallel Crunch" category="Parallel" author="FROTH Audio" description="Heavy diode crunch in parallel."/>
     <PARAMETERS suiteStateVersion="1">
-      <PARAM id="drive" value="20" />
-      <PARAM id="mode" value="2" />
-      <PARAM id="mix" value="35" />
+      <PARAM id="drive" value="20"/>
+      <PARAM id="mode" value="2"/>
+      <PARAM id="mix" value="35"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="DynamicSaturation" pluginVersion="1.0.0">
-    <Meta name="Air Exciter" category="Bright" author="FROTH Audio" description="High-passed brightness at half mix." />
+    <Meta name="Air Exciter" category="Bright" author="FROTH Audio" description="High-passed brightness at half mix."/>
     <PARAMETERS suiteStateVersion="1">
-      <PARAM id="drive" value="4" />
-      <PARAM id="mix" value="50" />
-      <PARAM id="detectHpf" value="200" />
-      <PARAM id="tone" value="0.8" />
+      <PARAM id="drive" value="4"/>
+      <PARAM id="mix" value="50"/>
+      <PARAM id="detectHpf" value="200"/>
+      <PARAM id="tone" value="0.8"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="DynamicSaturation" pluginVersion="1.0.0">
-    <Meta name="Slow Bloom" category="Ambient" author="FROTH Audio" description="Very slow attack and release." />
+    <Meta name="Slow Bloom" category="Ambient" author="FROTH Audio" description="Very slow attack and release."/>
     <PARAMETERS suiteStateVersion="1">
-      <PARAM id="drive" value="12" />
-      <PARAM id="attack" value="100" />
-      <PARAM id="release" value="2000" />
+      <PARAM id="drive" value="12"/>
+      <PARAM id="attack" value="100"/>
+      <PARAM id="release" value="2000"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="DynamicSaturation" pluginVersion="1.0.0">
-    <Meta name="Release Tail" category="Ambient" author="FROTH Audio" description="Long release, partly wet." />
+    <Meta name="Release Tail" category="Ambient" author="FROTH Audio" description="Long release, partly wet."/>
     <PARAMETERS suiteStateVersion="1">
-      <PARAM id="mix" value="60" />
-      <PARAM id="release" value="1200" />
+      <PARAM id="mix" value="60"/>
+      <PARAM id="release" value="1200"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="DynamicSaturation" pluginVersion="1.0.0">
-    <Meta name="Full Send" category="Extreme" author="FROTH Audio" description="Maximum drive and bias." />
+    <Meta name="Full Send" category="Extreme" author="FROTH Audio" description="Maximum drive and bias."/>
     <PARAMETERS suiteStateVersion="1">
-      <PARAM id="drive" value="24" />
-      <PARAM id="bias" value="0.25" />
-      <PARAM id="fold" value="40" />
+      <PARAM id="drive" value="24"/>
+      <PARAM id="bias" value="0.25"/>
+      <PARAM id="fold" value="40"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="DynamicSaturation" pluginVersion="1.0.0">
-    <Meta name="Fold Chaos" category="Extreme" author="FROTH Audio" description="Maximum folding into a diode stage." />
+    <Meta name="Fold Chaos" category="Extreme" author="FROTH Audio" description="Maximum folding into a diode stage."/>
     <PARAMETERS suiteStateVersion="1">
-      <PARAM id="drive" value="16" />
-      <PARAM id="mode" value="2" />
-      <PARAM id="fold" value="50" />
+      <PARAM id="drive" value="16"/>
+      <PARAM id="mode" value="2"/>
+      <PARAM id="fold" value="50"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="DynamicSaturation" pluginVersion="1.0.0">
-    <Meta name="Lo-Fi Grit" category="Lo-Fi" author="FROTH Audio" description="Folded and darkened." />
+    <Meta name="Lo-Fi Grit" category="Lo-Fi" author="FROTH Audio" description="Folded and darkened."/>
     <PARAMETERS suiteStateVersion="1">
-      <PARAM id="drive" value="15" />
-      <PARAM id="fold" value="25" />
-      <PARAM id="tone" value="-0.6" />
+      <PARAM id="drive" value="15"/>
+      <PARAM id="fold" value="25"/>
+      <PARAM id="tone" value="-0.6"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="DynamicSaturation" pluginVersion="1.0.0">
-    <Meta name="Detector Focus" category="Utility" author="FROTH Audio" description="High detector, unlinked." />
+    <Meta name="Detector Focus" category="Utility" author="FROTH Audio" description="High detector, unlinked."/>
     <PARAMETERS suiteStateVersion="1">
-      <PARAM id="detectHpf" value="300" />
-      <PARAM id="stereoLink" value="0" />
+      <PARAM id="detectHpf" value="300"/>
+      <PARAM id="stereoLink" value="0"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="DynamicSaturation" pluginVersion="1.0.0">
-    <Meta name="Stereo Split" category="Utility" author="FROTH Audio" description="Unlinked envelopes with light drive." />
+    <Meta name="Stereo Split" category="Utility" author="FROTH Audio" description="Unlinked envelopes with light drive."/>
     <PARAMETERS suiteStateVersion="1">
-      <PARAM id="drive" value="7" />
-      <PARAM id="stereoLink" value="0" />
+      <PARAM id="drive" value="7"/>
+      <PARAM id="stereoLink" value="0"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="DynamicSaturation" pluginVersion="1.0.0">
-    <Meta name="Transient Keeper" category="Utility" author="FROTH Audio" description="Slow attack, fast release." />
+    <Meta name="Transient Keeper" category="Utility" author="FROTH Audio" description="Slow attack, fast release."/>
     <PARAMETERS suiteStateVersion="1">
-      <PARAM id="sensitivity" value="0.1" />
-      <PARAM id="attack" value="30" />
-      <PARAM id="release" value="50" />
+      <PARAM id="sensitivity" value="0.1"/>
+      <PARAM id="attack" value="30"/>
+      <PARAM id="release" value="50"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="DynamicSaturation" pluginVersion="1.0.0">
-    <Meta name="Null Reference" category="Utility" author="FROTH Audio" description="Fully dry: a null reference." />
+    <Meta name="Null Reference" category="Utility" author="FROTH Audio" description="Fully dry: a null reference."/>
     <PARAMETERS suiteStateVersion="1">
-      <PARAM id="drive" value="0" />
-      <PARAM id="mix" value="0" />
+      <PARAM id="drive" value="0"/>
+      <PARAM id="mix" value="0"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="MicroTimingChaos" pluginVersion="1.0.0">
-    <Meta name="Slow Orbit" category="Ambient" author="FROTH Audio" description="Slow, sparse orbit." />
+    <Meta name="Slow Orbit" category="Ambient" author="FROTH Audio" description="Slow, sparse orbit."/>
     <PARAMETERS suiteStateVersion="1">
-      <PARAM id="density" value="50" />
-      <PARAM id="lerp" value="40" />
-      <PARAM id="speed" value="0.5" />
+      <PARAM id="density" value="50"/>
+      <PARAM id="lerp" value="40"/>
+      <PARAM id="speed" value="0.5"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="MicroTimingChaos" pluginVersion="1.0.0">
-    <Meta name="Deep Space" category="Ambient" author="FROTH Audio" description="Low root, three octaves, long gate." />
+    <Meta name="Deep Space" category="Ambient" author="FROTH Audio" description="Low root, three octaves, long gate."/>
     <PARAMETERS suiteStateVersion="1">
-      <PARAM id="gate" value="80" />
-      <PARAM id="root" value="36" />
-      <PARAM id="octaves" value="3" />
+      <PARAM id="gate" value="80"/>
+      <PARAM id="root" value="36"/>
+      <PARAM id="octaves" value="3"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="MicroTimingChaos" pluginVersion="1.0.0">
-    <Meta name="Long Gate Pad" category="Ambient" author="FROTH Audio" description="Long gates, sparse and soft." />
+    <Meta name="Long Gate Pad" category="Ambient" author="FROTH Audio" description="Long gates, sparse and soft."/>
     <PARAMETERS suiteStateVersion="1">
-      <PARAM id="density" value="40" />
-      <PARAM id="gate" value="100" />
-      <PARAM id="baseVelocity" value="70" />
+      <PARAM id="density" value="40"/>
+      <PARAM id="gate" value="100"/>
+      <PARAM id="baseVelocity" value="70"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="MicroTimingChaos" pluginVersion="1.0.0">
-    <Meta name="Dust Motes" category="Sparse" author="FROTH Audio" description="Very sparse with the widest timing range." />
+    <Meta name="Dust Motes" category="Sparse" author="FROTH Audio" description="Very sparse with the widest timing range."/>
     <PARAMETERS suiteStateVersion="1">
-      <PARAM id="density" value="20" />
-      <PARAM id="seed" value="5" />
-      <PARAM id="baseVelocity" value="30" />
-      <PARAM id="timingRange" value="50" />
+      <PARAM id="density" value="20"/>
+      <PARAM id="seed" value="5"/>
+      <PARAM id="baseVelocity" value="30"/>
+      <PARAM id="timingRange" value="50"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="MicroTimingChaos" pluginVersion="1.0.0">
-    <Meta name="Ghost Notes" category="Sparse" author="FROTH Audio" description="Sparse, quiet and very uneven." />
+    <Meta name="Ghost Notes" category="Sparse" author="FROTH Audio" description="Sparse, quiet and very uneven."/>
     <PARAMETERS suiteStateVersion="1">
-      <PARAM id="density" value="15" />
-      <PARAM id="seed" value="1" />
-      <PARAM id="baseVelocity" value="40" />
-      <PARAM id="velocityChaos" value="80" />
+      <PARAM id="density" value="15"/>
+      <PARAM id="seed" value="1"/>
+      <PARAM id="baseVelocity" value="40"/>
+      <PARAM id="velocityChaos" value="80"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="MicroTimingChaos" pluginVersion="1.0.0">
-    <Meta name="Broken Clock" category="Glitch" author="FROTH Audio" description="Fast, dense and heavily swung." />
+    <Meta name="Broken Clock" category="Glitch" author="FROTH Audio" description="Fast, dense and heavily swung."/>
     <PARAMETERS suiteStateVersion="1">
-      <PARAM id="rate" value="3" />
-      <PARAM id="density" value="90" />
-      <PARAM id="swing" value="20" />
+      <PARAM id="rate" value="3"/>
+      <PARAM id="density" value="90"/>
+      <PARAM id="swing" value="20"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="MicroTimingChaos" pluginVersion="1.0.0">
-    <Meta name="Stutter Steps" category="Glitch" author="FROTH Audio" description="Short gates at 1/32." />
+    <Meta name="Stutter Steps" category="Glitch" author="FROTH Audio" description="Short gates at 1/32."/>
     <PARAMETERS suiteStateVersion="1">
-      <PARAM id="rate" value="3" />
-      <PARAM id="gate" value="15" />
-      <PARAM id="timingRange" value="10" />
+      <PARAM id="rate" value="3"/>
+      <PARAM id="gate" value="15"/>
+      <PARAM id="timingRange" value="10"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="MicroTimingChaos" pluginVersion="1.0.0">
-    <Meta name="Off Grid" category="Glitch" author="FROTH Audio" description="Maximum swing and timing range." />
+    <Meta name="Off Grid" category="Glitch" author="FROTH Audio" description="Maximum swing and timing range."/>
     <PARAMETERS suiteStateVersion="1">
-      <PARAM id="swing" value="20" />
-      <PARAM id="timingRange" value="50" />
+      <PARAM id="swing" value="20"/>
+      <PARAM id="timingRange" value="50"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="MicroTimingChaos" pluginVersion="1.0.0">
-    <Meta name="Machine Pulse" category="Techno" author="FROTH Audio" description="Steady, loud and dense." />
+    <Meta name="Machine Pulse" category="Techno" author="FROTH Audio" description="Steady, loud and dense."/>
     <PARAMETERS suiteStateVersion="1">
-      <PARAM id="density" value="80" />
-      <PARAM id="baseVelocity" value="110" />
+      <PARAM id="density" value="80"/>
+      <PARAM id="baseVelocity" value="110"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="MicroTimingChaos" pluginVersion="1.0.0">
-    <Meta name="Warehouse" category="Techno" author="FROTH Audio" description="Low pentatonic with more chaos." />
+    <Meta name="Warehouse" category="Techno" author="FROTH Audio" description="Low pentatonic with more chaos."/>
     <PARAMETERS suiteStateVersion="1">
-      <PARAM id="root" value="36" />
-      <PARAM id="scale" value="3" />
-      <PARAM id="chaos" value="70" />
+      <PARAM id="root" value="36"/>
+      <PARAM id="scale" value="3"/>
+      <PARAM id="chaos" value="70"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="MicroTimingChaos" pluginVersion="1.0.0">
-    <Meta name="Acid Ladder" category="Techno" author="FROTH Audio" description="One octave, short gates." />
+    <Meta name="Acid Ladder" category="Techno" author="FROTH Audio" description="One octave, short gates."/>
     <PARAMETERS suiteStateVersion="1">
-      <PARAM id="gate" value="30" />
-      <PARAM id="octaves" value="1" />
+      <PARAM id="gate" value="30"/>
+      <PARAM id="octaves" value="1"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="MicroTimingChaos" pluginVersion="1.0.0">
-    <Meta name="Tight Techno" category="Techno" author="FROTH Audio" description="Very short gates and tight timing." />
+    <Meta name="Tight Techno" category="Techno" author="FROTH Audio" description="Very short gates and tight timing."/>
     <PARAMETERS suiteStateVersion="1">
-      <PARAM id="gate" value="25" />
-      <PARAM id="timingRange" value="5" />
+      <PARAM id="gate" value="25"/>
+      <PARAM id="timingRange" value="5"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="MicroTimingChaos" pluginVersion="1.0.0">
-    <Meta name="Polyrhythm" category="Rhythmic" author="FROTH Audio" description="A 13-step pattern." />
+    <Meta name="Polyrhythm" category="Rhythmic" author="FROTH Audio" description="A 13-step pattern."/>
     <PARAMETERS suiteStateVersion="1">
-      <PARAM id="length" value="13" />
+      <PARAM id="length" value="13"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="MicroTimingChaos" pluginVersion="1.0.0">
-    <Meta name="Triplet Drift" category="Rhythmic" author="FROTH Audio" description="12 steps with a negative swing." />
+    <Meta name="Triplet Drift" category="Rhythmic" author="FROTH Audio" description="12 steps with a negative swing."/>
     <PARAMETERS suiteStateVersion="1">
-      <PARAM id="length" value="12" />
-      <PARAM id="swing" value="-10" />
+      <PARAM id="length" value="12"/>
+      <PARAM id="swing" value="-10"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="MicroTimingChaos" pluginVersion="1.0.0">
-    <Meta name="Half Time" category="Rhythmic" author="FROTH Audio" description="Eighth notes." />
+    <Meta name="Half Time" category="Rhythmic" author="FROTH Audio" description="Eighth notes."/>
     <PARAMETERS suiteStateVersion="1">
-      <PARAM id="rate" value="1" />
+      <PARAM id="rate" value="1"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="MicroTimingChaos" pluginVersion="1.0.0">
-    <Meta name="Double Time" category="Rhythmic" author="FROTH Audio" description="1/32 notes with short gates." />
+    <Meta name="Double Time" category="Rhythmic" author="FROTH Audio" description="1/32 notes with short gates."/>
     <PARAMETERS suiteStateVersion="1">
-      <PARAM id="rate" value="3" />
-      <PARAM id="gate" value="40" />
+      <PARAM id="rate" value="3"/>
+      <PARAM id="gate" value="40"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="MicroTimingChaos" pluginVersion="1.0.0">
-    <Meta name="Dorian Walk" category="Melodic" author="FROTH Audio" description="Dorian melody around F#3." />
+    <Meta name="Dorian Walk" category="Melodic" author="FROTH Audio" description="Dorian melody around F#3."/>
     <PARAMETERS suiteStateVersion="1">
-      <PARAM id="root" value="50" />
-      <PARAM id="scale" value="4" />
+      <PARAM id="root" value="50"/>
+      <PARAM id="scale" value="4"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="MicroTimingChaos" pluginVersion="1.0.0">
-    <Meta name="Pentatonic Bells" category="Melodic" author="FROTH Audio" description="High pentatonic with long gates." />
+    <Meta name="Pentatonic Bells" category="Melodic" author="FROTH Audio" description="High pentatonic with long gates."/>
     <PARAMETERS suiteStateVersion="1">
-      <PARAM id="gate" value="90" />
-      <PARAM id="root" value="60" />
-      <PARAM id="scale" value="3" />
+      <PARAM id="gate" value="90"/>
+      <PARAM id="root" value="60"/>
+      <PARAM id="scale" value="3"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="MicroTimingChaos" pluginVersion="1.0.0">
-    <Meta name="Whole Tone Fall" category="Melodic" author="FROTH Audio" description="Whole-tone melody." />
+    <Meta name="Whole Tone Fall" category="Melodic" author="FROTH Audio" description="Whole-tone melody."/>
     <PARAMETERS suiteStateVersion="1">
-      <PARAM id="root" value="55" />
-      <PARAM id="scale" value="5" />
+      <PARAM id="root" value="55"/>
+      <PARAM id="scale" value="5"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="MicroTimingChaos" pluginVersion="1.0.0">
-    <Meta name="Glass Rain" category="Melodic" author="FROTH Audio" description="High whole-tone notes with short gates." />
+    <Meta name="Glass Rain" category="Melodic" author="FROTH Audio" description="High whole-tone notes with short gates."/>
     <PARAMETERS suiteStateVersion="1">
-      <PARAM id="gate" value="40" />
-      <PARAM id="root" value="60" />
-      <PARAM id="scale" value="5" />
+      <PARAM id="gate" value="40"/>
+      <PARAM id="root" value="60"/>
+      <PARAM id="scale" value="5"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="MicroTimingChaos" pluginVersion="1.0.0">
-    <Meta name="Chromatic Chaos" category="Experimental" author="FROTH Audio" description="Every semitone, three octaves, full chaos." />
+    <Meta name="Chromatic Chaos" category="Experimental" author="FROTH Audio" description="Every semitone, three octaves, full chaos."/>
     <PARAMETERS suiteStateVersion="1">
-      <PARAM id="scale" value="0" />
-      <PARAM id="octaves" value="3" />
-      <PARAM id="chaos" value="100" />
+      <PARAM id="scale" value="0"/>
+      <PARAM id="octaves" value="3"/>
+      <PARAM id="chaos" value="100"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="MicroTimingChaos" pluginVersion="1.0.0">
-    <Meta name="Lorenz Storm" category="Experimental" author="FROTH Audio" description="Full chaos and every drift multiplier." />
+    <Meta name="Lorenz Storm" category="Experimental" author="FROTH Audio" description="Full chaos and every drift multiplier."/>
     <PARAMETERS suiteStateVersion="1" lerpCurve="0.0000,0.0000;0.2500,0.2000;0.5000,0.5000;0.7500,0.8000;1.0000,1.0000">
-      <PARAM id="chaos" value="100" />
-      <PARAM id="lerp" value="100" />
-      <PARAM id="lerpXMult" value="2" />
-      <PARAM id="lerpYMult" value="2" />
-      <PARAM id="lerpZMult" value="2" />
+      <PARAM id="chaos" value="100"/>
+      <PARAM id="lerp" value="100"/>
+      <PARAM id="lerpXMult" value="2"/>
+      <PARAM id="lerpYMult" value="2"/>
+      <PARAM id="lerpZMult" value="2"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="MicroTimingChaos" pluginVersion="1.0.0">
-    <Meta name="LFO Wobble" category="Experimental" author="FROTH Audio" description="Synced LFO moves the chaos amount." />
+    <Meta name="LFO Wobble" category="Experimental" author="FROTH Audio" description="Synced LFO moves the chaos amount."/>
     <PARAMETERS suiteStateVersion="1">
-      <PARAM id="lfo1Sync" value="1" />
-      <PARAM id="mod1Target" value="1" />
-      <PARAM id="mod1Amount" value="60" />
+      <PARAM id="lfo1Sync" value="1"/>
+      <PARAM id="mod1Target" value="1"/>
+      <PARAM id="mod1Amount" value="60"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="MicroTimingChaos" pluginVersion="1.0.0">
-    <Meta name="Random Walk" category="Experimental" author="FROTH Audio" description="Random LFO moves the seed after 2 s." />
+    <Meta name="Random Walk" category="Experimental" author="FROTH Audio" description="Random LFO moves the seed after 2 s."/>
     <PARAMETERS suiteStateVersion="1">
-      <PARAM id="lfo1Shape" value="5" />
-      <PARAM id="mod1Target" value="14" />
-      <PARAM id="mod1Amount" value="40" />
-      <PARAM id="mod1Delay" value="2" />
+      <PARAM id="lfo1Shape" value="5"/>
+      <PARAM id="mod1Target" value="14"/>
+      <PARAM id="mod1Amount" value="40"/>
+      <PARAM id="mod1Delay" value="2"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="MicroTimingChaos" pluginVersion="1.0.0">
-    <Meta name="S&amp;H Pitch" category="Experimental" author="FROTH Audio" description="Sample and hold moves the chaos." />
+    <Meta name="S&amp;H Pitch" category="Experimental" author="FROTH Audio" description="Sample and hold moves the chaos."/>
     <PARAMETERS suiteStateVersion="1">
-      <PARAM id="lfo2Shape" value="4" />
-      <PARAM id="mod1Source" value="1" />
-      <PARAM id="mod1Target" value="1" />
-      <PARAM id="mod1Amount" value="50" />
+      <PARAM id="lfo2Shape" value="4"/>
+      <PARAM id="mod1Source" value="1"/>
+      <PARAM id="mod1Target" value="1"/>
+      <PARAM id="mod1Amount" value="50"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="MicroTimingChaos" pluginVersion="1.0.0">
-    <Meta name="Frozen Pattern" category="Utility" author="FROTH Audio" description="The pattern without any drift." />
+    <Meta name="Frozen Pattern" category="Utility" author="FROTH Audio" description="The pattern without any drift."/>
     <PARAMETERS suiteStateVersion="1">
-      <PARAM id="lerp" value="0" />
+      <PARAM id="lerp" value="0"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="MicroTimingChaos" pluginVersion="1.0.0">
-    <Meta name="Seed 42 Dense" category="Utility" author="FROTH Audio" description="The default seed, much denser." />
+    <Meta name="Seed 42 Dense" category="Utility" author="FROTH Audio" description="The default seed, much denser."/>
     <PARAMETERS suiteStateVersion="1">
-      <PARAM id="density" value="90" />
+      <PARAM id="density" value="90"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="MicroTimingChaos" pluginVersion="1.0.0">
-    <Meta name="Tempo Rider" category="Utility" author="FROTH Audio" description="Triangle LFO moves the tempo." />
+    <Meta name="Tempo Rider" category="Utility" author="FROTH Audio" description="Triangle LFO moves the tempo."/>
     <PARAMETERS suiteStateVersion="1">
-      <PARAM id="lfo2Shape" value="1" />
-      <PARAM id="mod1Source" value="1" />
-      <PARAM id="mod1Target" value="13" />
-      <PARAM id="mod1Amount" value="30" />
+      <PARAM id="lfo2Shape" value="1"/>
+      <PARAM id="mod1Source" value="1"/>
+      <PARAM id="mod1Target" value="13"/>
+      <PARAM id="mod1Amount" value="30"/>
     </PARAMETERS>
   </AudioSuitePreset>
-<AudioSuitePreset plugin="Sgraffito" name="INIT" nameDisplay="INIT" category="User" type="User" /><AudioSuitePreset plugin="Sgraffito" name="Ambient" nameDisplay="Ambient" category="User" type="User" /><AudioSuitePreset plugin="Sgraffito" name="Techno" nameDisplay="Techno" category="User" type="User" /><AudioSuitePreset plugin="Sgraffito" name="Drone" nameDisplay="Drone" category="User" type="User" /><AudioSuitePreset plugin="Sgraffito" name="Glitch" nameDisplay="Glitch" category="User" type="User" /><AudioSuitePreset plugin="Sgraffito" name="Chill" nameDisplay="Chill" category="User" type="User" /><AudioSuitePreset plugin="Sgraffito" name="Industrial" nameDisplay="Industrial" category="User" type="User" /><AudioSuitePreset plugin="Sgraffito" name="Psychedelic" nameDisplay="Psychedelic" category="User" type="User" /><AudioSuitePreset plugin="Sgraffito" name="Minimal" nameDisplay="Minimal" category="User" type="User" /><AudioSuitePreset plugin="Sgraffito" name="Dark" nameDisplay="Dark" category="User" type="User" /><AudioSuitePreset plugin="Sgraffito" name="Bright" nameDisplay="Bright" category="User" type="User" /><AudioSuitePreset plugin="Sgraffito" name="Evolving" nameDisplay="Evolving" category="User" type="User" /><AudioSuitePreset plugin="Sgraffito" name="Rhythmic" nameDisplay="Rhythmic" category="User" type="User" /><AudioSuitePreset plugin="Sgraffito" name="Pads" nameDisplay="Pads" category="User" type="User" /><AudioSuitePreset plugin="Sgraffito" name="FX" nameDisplay="FX" category="User" type="User" /></Bank>
+  <AudioSuitePreset formatVersion="1" plugin="Sgraffito" pluginVersion="1.0.0">
+    <Meta name="Glass Dust" category="Ambient" author="FROTH Audio" description="Slow, sparse cloud with long decay."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="memoryDecay" value="8"/>
+      <PARAM id="driftSpeed" value="0.5"/>
+      <PARAM id="grainDensity" value="8"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="Sgraffito" pluginVersion="1.0.0">
+    <Meta name="Deep Cloud" category="Ambient" author="FROTH Audio" description="Low pentatonic, dense and slow."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="rootKey" value="36"/>
+      <PARAM id="scale" value="4"/>
+      <PARAM id="grainSpread" value="30"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="Sgraffito" pluginVersion="1.0.0">
+    <Meta name="Memory Ghosts" category="Sparse" author="FROTH Audio" description="Ghost notes over a quiet memory trace."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="driftAmount" value="20"/>
+      <PARAM id="ghostThreshold" value="90"/>
+      <PARAM id="sliceCount" value="4"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="Sgraffito" pluginVersion="1.0.0">
+    <Meta name="Tape Break" category="Glitch" author="FROTH Audio" description="Chopped tape stop with dust and crackle."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="mode" value="1"/>
+      <PARAM id="tapeStopTime" value="300"/>
+      <PARAM id="dust" value="5"/>
+      <PARAM id="crackle" value="8"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="Sgraffito" pluginVersion="1.0.0">
+    <Meta name="Cloud Rain" category="Melodic" author="FROTH Audio" description="High pentatonic with long gates and drift."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="rootKey" value="60"/>
+      <PARAM id="scale" value="3"/>
+      <PARAM id="grainDensity" value="4"/>
+      <PARAM id="swellTime" value="200"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="Sgraffito" pluginVersion="1.0.0">
+    <Meta name="Scrubbed Memory" category="Scratch" author="FROTH Audio" description="Quick region scrub with humanised timing."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="mode" value="0"/>
+      <PARAM id="glide" value="50"/>
+      <PARAM id="humanise" value="15"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="Sgraffito" pluginVersion="1.0.0">
+    <Meta name="Chopped Sticks" category="Rhythmic" author="FROTH Audio" description="Slice a sample into many short notes."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="mode" value="1"/>
+      <PARAM id="sliceCount" value="8"/>
+      <PARAM id="grainDensity" value="20"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="Sgraffito" pluginVersion="1.0.0">
+    <Meta name="Swell Pad" category="Pads" author="FROTH Audio" description="Long crossfade swell with drift and noise."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="mode" value="3"/>
+      <PARAM id="swellCrossfade" value="150"/>
+      <PARAM id="dust" value="15"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="Sgraffito" pluginVersion="1.0.0">
+    <Meta name="Cloud Dust" category="Textural" author="FROTH Audio" description="Dust and flutter over a sparse cloud."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="grainSpread" value="40"/>
+      <PARAM id="dust" value="10"/>
+      <PARAM id="flutter" value="2"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="Sgraffito" pluginVersion="1.0.0">
+    <Meta name="Wobble Memory" category="Experimental" author="FROTH Audio" description="Drift with LFO modulating the root key."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="lfo1Sync" value="1"/>
+      <PARAM id="mod1Target" value="3"/>
+      <PARAM id="mod1Amount" value="30"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="Sgraffito" pluginVersion="1.0.0">
+    <Meta name="Ghost Delay" category="Echo" author="FROTH Audio" description="Ghost notes with delay and feedback."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="memoryAmount" value="40"/>
+      <PARAM id="ghostDelay" value="45"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="Sgraffito" pluginVersion="1.0.0">
+    <Meta name="Swelling Cloud" category="Evolution" author="FROTH Audio" description="Starts small, swells to full cloud."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="mode" value="3"/>
+      <PARAM id="grainDensity" value="2"/>
+      <PARAM id="swellTime" value="500"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="Sgraffito" pluginVersion="1.0.0">
+    <Meta name="Choppy Scratch" category="Scratch" author="FROTH Audio" description="Fast chops with pitch fine control."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="mode" value="1"/>
+      <PARAM id="glide" value="20"/>
+      <PARAM id="sliceCount" value="16"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="Sgraffito" pluginVersion="1.0.0">
+    <Meta name="Drifted Memory" category="Ambient" author="FROTH Audio" description="Memory trace that drifts across the sample."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="memoryDecay" value="10"/>
+      <PARAM id="driftAmount" value="50"/>
+      <PARAM id="grainSpread" value="25"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="Sgraffito" pluginVersion="1.0.0">
+    <Meta name="Init Cloud" category="Utility" author="FROTH Audio" description="A clean reference: 60% span, 40% length."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="regionSpan" value="60"/>
+      <PARAM id="regionLength" value="40"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+</Bank>
