@@ -28,11 +28,11 @@ jobs:
         include:
           - name: Windows
             os: windows-latest
-            configure: cmake -S . -B build -A x64
+            configure: cmake -S . -B build -A x64 -DSUITE_PRESET_BANK=ON
           - name: macOS
             # Pinned to match build.yml; see the comment there.
             os: macos-15
-            configure: cmake -S . -B build -G Xcode
+            configure: cmake -S . -B build -G Xcode -DSUITE_PRESET_BANK=ON
 
     steps:
       - name: Check out repository
