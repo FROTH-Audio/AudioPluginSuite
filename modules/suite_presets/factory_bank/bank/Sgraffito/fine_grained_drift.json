@@ -1,0 +1,12 @@
+{
+  "_name": "Fine Grained Drift",
+  "_category": "Experimental",
+  "_description": "Fine pitch and velocity shaping over a drifting memory.",
+  "_plugin": "Sgraffito",
+  "_pluginVersion": "1.0.0",
+  "pitchFine": 40.0,
+  "velocityCurve": 1.5,
+  "attack": 60.0,
+  "release": 600.0,
+  "driftAmount": 20.0
+}

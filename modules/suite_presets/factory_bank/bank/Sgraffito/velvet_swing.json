@@ -1,0 +1,10 @@
+{
+  "_name": "Velvet Swing",
+  "_category": "Rhythmic",
+  "_description": "Swinged repeats with a soft attack and release.",
+  "_plugin": "Sgraffito",
+  "_pluginVersion": "1.0.0",
+  "attack": 80.0,
+  "release": 400.0,
+  "swing": 65.0
+}

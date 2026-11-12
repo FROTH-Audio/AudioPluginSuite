@@ -1,0 +1,11 @@
+{
+  "_name": "Held Breath",
+  "_category": "Pads",
+  "_description": "Latched voices holding through the memory decay.",
+  "_plugin": "Sgraffito",
+  "_pluginVersion": "1.0.0",
+  "attack": 150.0,
+  "release": 2500.0,
+  "memoryAmount": 40.0,
+  "sustainHold": 1
+}

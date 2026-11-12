@@ -244,5 +244,10 @@ PRESETS = {
         _preset("Choppy Scratch", "Scratch", "Fast chops with pitch fine control.", mode=1, sliceCount=16, glide=20.0),
         _preset("Drifted Memory", "Ambient", "Memory trace that drifts across the sample.", driftAmount=50.0, memoryDecay=10.0, grainSpread=25.0),
         _preset("Init Cloud", "Utility", "A clean reference: 60% span, 40% length.", regionSpan=60.0, regionLength=40.0),
+        _preset("Velvet Swing", "Rhythmic", "Swinged repeats with a soft attack and release.", swing=65.0, attack=80.0, release=400.0),
+        _preset("Ghostly Echo", "Echo", "Ghost notes repeating quietly under the memory decay.", ghostOn=1, ghostThreshold=70.0, ghostLevel=-15.0, ghostDelay=30.0, attack=40.0, release=300.0),
+        _preset("Held Breath", "Pads", "Latched voices holding through the memory decay.", sustainHold=1, memoryAmount=40.0, attack=150.0, release=2500.0),
+        _preset("Fine Grained Drift", "Experimental", "Fine pitch and velocity shaping over a drifting memory.", pitchFine=40.0, velocityCurve=1.5, driftAmount=20.0, attack=60.0, release=600.0),
+        _preset("Slow Attack Tape", "Glitch", "Tape stop that eases in with a long attack and release.", mode=1, tapeStopTime=250.0, tapeStopCurve=1, attack=200.0, release=1200.0, dust=5.0),
     ],
 }

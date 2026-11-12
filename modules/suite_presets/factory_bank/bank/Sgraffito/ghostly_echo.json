@@ -1,0 +1,13 @@
+{
+  "_name": "Ghostly Echo",
+  "_category": "Echo",
+  "_description": "Ghost notes repeating quietly under the memory decay.",
+  "_plugin": "Sgraffito",
+  "_pluginVersion": "1.0.0",
+  "attack": 40.0,
+  "release": 300.0,
+  "ghostOn": 1,
+  "ghostThreshold": 70.0,
+  "ghostLevel": -15.0,
+  "ghostDelay": 30.0
+}

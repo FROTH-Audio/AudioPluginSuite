@@ -10,8 +10,9 @@ int main()
 
     std::puts ("Running Sgraffito Pro preset tests...");
 
-    // Sgraffito ships the documented minimum of 15 factory presets.
-    PresetTest::runBankShape<SgraffitoProcessor> ("Sgraffito", 15);
+    // Sgraffito ships the documented minimum of 20 factory presets (the minimum is 15; F1.3 added
+    // five more that use the attack and release envelopes and showcase the performance controls).
+    PresetTest::runBankShape<SgraffitoProcessor> ("Sgraffito", 20);
 
     {
         SgraffitoProcessor processor;

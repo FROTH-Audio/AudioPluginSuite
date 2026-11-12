@@ -757,4 +757,53 @@
       <PARAM id="regionLength" value="40"/>
     </PARAMETERS>
   </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="Sgraffito" pluginVersion="1.0.0">
+    <Meta name="Velvet Swing" category="Rhythmic" author="FROTH Audio" description="Swinged repeats with a soft attack and release."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="attack" value="80"/>
+      <PARAM id="release" value="400"/>
+      <PARAM id="swing" value="65"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="Sgraffito" pluginVersion="1.0.0">
+    <Meta name="Ghostly Echo" category="Echo" author="FROTH Audio" description="Ghost notes repeating quietly under the memory decay."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="attack" value="40"/>
+      <PARAM id="release" value="300"/>
+      <PARAM id="ghostOn" value="1"/>
+      <PARAM id="ghostThreshold" value="70"/>
+      <PARAM id="ghostLevel" value="-15"/>
+      <PARAM id="ghostDelay" value="30"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="Sgraffito" pluginVersion="1.0.0">
+    <Meta name="Held Breath" category="Pads" author="FROTH Audio" description="Latched voices holding through the memory decay."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="attack" value="150"/>
+      <PARAM id="release" value="2500"/>
+      <PARAM id="memoryAmount" value="40"/>
+      <PARAM id="sustainHold" value="1"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="Sgraffito" pluginVersion="1.0.0">
+    <Meta name="Fine Grained Drift" category="Experimental" author="FROTH Audio" description="Fine pitch and velocity shaping over a drifting memory."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="pitchFine" value="40"/>
+      <PARAM id="velocityCurve" value="1.5"/>
+      <PARAM id="attack" value="60"/>
+      <PARAM id="release" value="600"/>
+      <PARAM id="driftAmount" value="20"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="Sgraffito" pluginVersion="1.0.0">
+    <Meta name="Slow Attack Tape" category="Glitch" author="FROTH Audio" description="Tape stop that eases in with a long attack and release."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="mode" value="1"/>
+      <PARAM id="attack" value="200"/>
+      <PARAM id="release" value="1200"/>
+      <PARAM id="tapeStopTime" value="250"/>
+      <PARAM id="tapeStopCurve" value="1"/>
+      <PARAM id="dust" value="5"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
 </Bank>
