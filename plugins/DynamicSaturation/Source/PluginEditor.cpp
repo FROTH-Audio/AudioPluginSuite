@@ -56,7 +56,6 @@ DynamicSaturationEditor::DynamicSaturationEditor (DynamicSaturationProcessor& p)
 
     for (auto* component : { static_cast<juce::Component*> (&helpLabel),
                              static_cast<juce::Component*> (&transferCurve),
-                             static_cast<juce::Component*> (&inputMeter),
                              static_cast<juce::Component*> (&outputMeterL),
                              static_cast<juce::Component*> (&outputMeterR),
                              static_cast<juce::Component*> (&modeSelector),
@@ -188,9 +187,7 @@ void DynamicSaturationEditor::setPage (int newPage)
                              static_cast<juce::Component*> (&biasSlider),
                              static_cast<juce::Component*> (&foldSlider),
                              static_cast<juce::Component*> (&toneSlider),
-                             static_cast<juce::Component*> (&outputSlider),
-                             static_cast<juce::Component*> (&outputMeterL),
-                             static_cast<juce::Component*> (&outputMeterR) })
+                             static_cast<juce::Component*> (&outputSlider) })
         component->setVisible (page == 0);
 
     modulation.setVisible (page == 1);
@@ -254,28 +251,28 @@ void DynamicSaturationEditor::resized()
 
 void DynamicSaturationEditor::layoutSoundPage (juce::Rectangle<int> area)
 {
-    // Curve row with the input meter and the stereo output bar (plan 05.1).
-    auto curveRow = area.removeFromTop (juce::jmax (140, area.getHeight() - 4 * (SuiteUI::knobRowHeight + groupGap)
-                                                                        - (SuiteUI::pillHeight + groupGap)));
-    inputMeter.setBounds (curveRow.removeFromRight (28).reduced (4, 6));
-    outputMeterR.setBounds (curveRow.removeFromRight (28).reduced (4, 6));
-    outputMeterL.setBounds (curveRow.removeFromRight (28).reduced (4, 6));
-    transferCurve.setBounds (curveRow.reduced (4, 0));
+    // The knob grid sits at the bottom; the transfer curve and the stereo output meters
+    // take all the remaining space above it (plan 05.1 pass 2).
+    const int gridHeight = SuiteUI::pillHeight + 3 * (SuiteUI::knobRowHeight + groupGap);
+    auto gridArea = area.removeFromBottom (gridHeight);
 
-    area.removeFromTop (groupGap);
-    modeSelector.setBounds (area.removeFromTop (SuiteUI::pillHeight).reduced (120, 0));
-    area.removeFromTop (groupGap);
+    // Stereo output meters: one bar per channel of the real output (plan 05.1 pass 2).
+    auto meterColumn = area.removeFromRight (56);
+    outputMeterR.setBounds (meterColumn.removeFromRight (26).reduced (4, 6));
+    outputMeterL.setBounds (meterColumn.removeFromRight (26).reduced (4, 6));
+    transferCurve.setBounds (area.reduced (4, 0));
 
-    // Four grouped rows (plan 05.1): drive, dynamics, character, output. The output knob
-    // sits in the empty grid cell of the character row (pass 2), and panning is centred
-    // below it, so no knob sits alone on a full-width row.
-    layoutRow (area.removeFromTop (SuiteUI::knobRowHeight),
+    modeSelector.setBounds (gridArea.removeFromTop (SuiteUI::pillHeight).reduced (120, 0));
+    gridArea.removeFromTop (groupGap);
+
+    // Three grouped rows of four (plan 05.1): drive, dynamics, character with output.
+    layoutRow (gridArea.removeFromTop (SuiteUI::knobRowHeight),
                { &driveSlider, &sensitivitySlider, &curveSlider, &mixSlider });
-    area.removeFromTop (groupGap);
-    layoutRow (area.removeFromTop (SuiteUI::knobRowHeight),
+    gridArea.removeFromTop (groupGap);
+    layoutRow (gridArea.removeFromTop (SuiteUI::knobRowHeight),
                { &attackSlider, &releaseSlider, &detectHpfSlider, &stereoLinkSlider });
-    area.removeFromTop (groupGap);
-    auto row3 = area.removeFromTop (SuiteUI::knobRowHeight);
+    gridArea.removeFromTop (groupGap);
+    auto row3 = gridArea.removeFromTop (SuiteUI::knobRowHeight);
     const int quarter = row3.getWidth() / 4;
     biasSlider.setBounds (row3.removeFromLeft (quarter).reduced (4));
     foldSlider.setBounds (row3.removeFromLeft (quarter).reduced (4));
@@ -288,9 +285,11 @@ void DynamicSaturationEditor::layoutModPage (juce::Rectangle<int> area)
     helpLabel.setBounds (area.removeFromBottom (helpHeight));
     area.removeFromBottom (groupGap);
 
-    auto curveRow = area.removeFromTop (juce::jmax (100, (int) ((float) area.getHeight() * 0.28f)));
-    inputMeter.setBounds (curveRow.removeFromRight (28).reduced (4, 6));
-    transferCurve.setBounds (curveRow.reduced (4, 0));
+    // The stereo output meters also live on the MOD page (plan 05.1 pass 2).
+    auto meterColumn = area.removeFromRight (56);
+    outputMeterR.setBounds (meterColumn.removeFromRight (26).reduced (4, 6));
+    outputMeterL.setBounds (meterColumn.removeFromRight (26).reduced (4, 6));
+    transferCurve.setBounds (area.reduced (4, 0));
 
     area.removeFromTop (groupGap);
     modulationGroupBounds = area;
@@ -317,7 +316,6 @@ void DynamicSaturationEditor::timerCallback()
     const float preGain = CoreDSP::Saturation::dynamicDrive (baseGain, sens,
                                                              CoreDSP::Saturation::shapeEnvelope (env, curveValue));
 
-    inputMeter.setLevel (env);
     outputMeterL.setLevel (processor.getOutputPeak (0));
     outputMeterR.setLevel (processor.getOutputPeak (1));
     transferCurve.setCurve ([preGain, shaping, biasValue, foldAmount] (float x)

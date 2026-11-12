@@ -677,6 +677,28 @@ namespace
         processor.editorBeingDeleted (editor.get());
         pass ("testEditorPages");
     }
+
+    // The output meters read the real per-channel output: a block with signal only on the
+    // left must light the left bar, not the right (plan 05.1 pass 2).
+    void testStereoOutputMeter()
+    {
+        Processor processor;
+        processor.prepareToPlay (sampleRate, blockSize);
+
+        juce::MidiBuffer midi;
+        juce::AudioBuffer<float> audio (2, blockSize);
+        audio.clear();
+        addSine (audio, 0, sampleRate, 300.0, 0.5f, 0);
+        processor.processBlock (audio, midi);
+
+        const float leftPeak = processor.getOutputPeak (0);
+        const float rightPeak = processor.getOutputPeak (1);
+
+        assert (leftPeak > 0.05f);
+        assert (rightPeak < 0.01f);
+
+        pass ("testStereoOutputMeter");
+    }
 }
 
 int main()
@@ -707,6 +729,7 @@ int main()
     testSyncedLfoFollowsTempo();
     testModulationStaysInRange();
     testEditorPages();
+    testStereoOutputMeter();
 
     testRenderBaseline ();
 

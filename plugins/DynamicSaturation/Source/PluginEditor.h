@@ -53,7 +53,7 @@ private:
 
     // The visualiser shows on both pages, so modulation is visible while routing.
     SuiteUI::CurveView transferCurve { juce::Colour (0xffff9f1c) };
-    SuiteUI::LevelMeter inputMeter { juce::Colour (0xff4fd1c5) };
+    // Stereo output meters: one bar per channel of the real output (plan 05.1 pass 2).
     SuiteUI::LevelMeter outputMeterL { juce::Colour (0xff4fd1c5) };
     SuiteUI::LevelMeter outputMeterR { juce::Colour (0xff4fd1c5) };
 
