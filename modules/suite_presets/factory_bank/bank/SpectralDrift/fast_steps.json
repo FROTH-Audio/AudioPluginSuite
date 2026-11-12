@@ -1,0 +1,11 @@
+{
+  "_name": "Fast Steps",
+  "_category": "Rhythmic",
+  "_description": "Fast drift at 2 Hz.",
+  "_plugin": "SpectralDrift",
+  "_pluginVersion": "1.0.0",
+  "depth": 40.0,
+  "lfo1Rate": 2.0,
+  "mod1Target": 12,
+  "mod1Amount": 100.0
+}

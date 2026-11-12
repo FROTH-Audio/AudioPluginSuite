@@ -59,15 +59,12 @@ SpectralDriftEditor::SpectralDriftEditor (SpectralDriftProcessor& p)
     helpLabel.setText ("Hover a control to see what it does.", juce::dontSendNotification);
 
     for (auto* component : { static_cast<juce::Component*> (&spectrum),
-                             static_cast<juce::Component*> (&rateSlider),
                              static_cast<juce::Component*> (&depthSlider),
                              static_cast<juce::Component*> (&spreadSlider),
                              static_cast<juce::Component*> (&stereoSlider),
                              static_cast<juce::Component*> (&shiftSlider),
                              static_cast<juce::Component*> (&tiltSlider),
                              static_cast<juce::Component*> (&gateSlider),
-                             static_cast<juce::Component*> (&shapeCaption),
-                             static_cast<juce::Component*> (&shapeSelector),
                              static_cast<juce::Component*> (&feedbackSlider),
                              static_cast<juce::Component*> (&dampingSlider),
                              static_cast<juce::Component*> (&driftStartSlider),
@@ -94,9 +91,8 @@ SpectralDriftEditor::SpectralDriftEditor (SpectralDriftProcessor& p)
     outputSlider.slider.setNumDecimalPlacesToDisplay (1);
     mixSlider.slider.setTextValueSuffix (" %");
 
-    shapeCaption.setText ("LFO SHAPE", juce::dontSendNotification);
-    shapeCaption.setJustificationType (juce::Justification::centred);
-    shapeCaption.setFont (juce::Font (juce::FontOptions (12.0f, juce::Font::bold)));
+    // The drift engine's own LFO Shape stays automatable but is not on the UI any more
+    // (plan 05.1 pass 2): the routing panel's LFOs cover the need.
 
     auto& apvts = processor.apvts;
 
@@ -105,7 +101,6 @@ SpectralDriftEditor::SpectralDriftEditor (SpectralDriftProcessor& p)
         sliderAttachments.push_back (std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (apvts, id, slider));
     };
 
-    bind (SpectralDriftProcessor::driftRateId, rateSlider.slider);
     bind (SpectralDriftProcessor::depthId, depthSlider.slider);
     bind (SpectralDriftProcessor::spreadId, spreadSlider.slider);
     bind (SpectralDriftProcessor::stereoPhaseId, stereoSlider.slider);
@@ -121,19 +116,10 @@ SpectralDriftEditor::SpectralDriftEditor (SpectralDriftProcessor& p)
     freezeAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (
         apvts, SpectralDriftProcessor::freezeId, freezeButton);
 
-    // The shape switch mirrors a choice parameter: the segment index equals the choice index.
-    shapeSelector.setOptions ({ "SINE", "TRI", "SAW", "SQUARE" });
-    shapeAttachment = std::make_unique<juce::ParameterAttachment> (
-        *apvts.getParameter (SpectralDriftProcessor::lfoShapeId),
-        [this] (float value) { shapeSelector.setSelectedIndex (juce::roundToInt (value)); });
-    shapeSelector.onChange = [this] (int index) { shapeAttachment->setValueAsCompleteGesture ((float) index); };
-    shapeAttachment->sendInitialUpdate();
-
     // Each control that the routing can move, and the target it shows.
     using Target = SpectralDriftProcessor::ModTarget;
     controls = std::make_unique<SuiteModulation::ControlDisplay> (processor.getRouter(),
         std::vector<SuiteModulation::ControlDisplay::Entry> {
-            { rateSlider.slider,        (int) Target::DriftRate },
             { depthSlider.slider,       (int) Target::Depth },
             { spreadSlider.slider,      (int) Target::BinSpread },
             { stereoSlider.slider,      (int) Target::StereoPhase },
@@ -188,8 +174,7 @@ void SpectralDriftEditor::setPage (int newPage)
     page = juce::jlimit (0, 1, newPage);
     pageSelector.setSelectedIndex (page);
 
-    for (auto* component : { static_cast<juce::Component*> (&rateSlider),
-                             static_cast<juce::Component*> (&depthSlider),
+    for (auto* component : { static_cast<juce::Component*> (&depthSlider),
                              static_cast<juce::Component*> (&spreadSlider),
                              static_cast<juce::Component*> (&stereoSlider),
                              static_cast<juce::Component*> (&shiftSlider),
@@ -203,9 +188,7 @@ void SpectralDriftEditor::setPage (int newPage)
                              static_cast<juce::Component*> (&freezeButton) })
         component->setVisible (page == 0);
 
-    for (auto* component : { static_cast<juce::Component*> (&shapeCaption),
-                              static_cast<juce::Component*> (&shapeSelector),
-                              static_cast<juce::Component*> (&modulation) })
+    for (auto* component : { static_cast<juce::Component*> (&modulation) })
         component->setVisible (page == 1);
 
     helpLabel.setVisible (page == 1);
@@ -268,24 +251,31 @@ void SpectralDriftEditor::resized()
 
 void SpectralDriftEditor::layoutSoundPage (juce::Rectangle<int> area)
 {
-    spectrum.setBounds (area.removeFromTop (juce::jmax (150, area.getHeight() - 3 * (SuiteUI::knobRowHeight + groupGap)
-                                                                        - (SuiteUI::pillHeight + groupGap))));
+    // The spectrum on top takes what the three knob rows leave (plan 05.1 pass 2: the
+    // drift-rate knob is gone, freeze moved into its cell, the pill row is gone).
+    const int fixedBelow = 3 * (SuiteUI::knobRowHeight + groupGap);
+    spectrum.setBounds (area.removeFromTop (juce::jmax (150, area.getHeight() - fixedBelow)));
     area.removeFromTop (groupGap);
 
-    // Three rows of four, then a pill row: twelve rotaries plus the shape selector and freeze.
-    layoutRow (area.removeFromTop (SuiteUI::knobRowHeight), { &rateSlider, &depthSlider, &spreadSlider, &stereoSlider });
+    // Row 1: Depth, Bin Spread, Stereo Phase, Shift.
+    layoutRow (area.removeFromTop (SuiteUI::knobRowHeight), { &depthSlider, &spreadSlider, &stereoSlider, &shiftSlider });
+
     area.removeFromTop (groupGap);
-    layoutRow (area.removeFromTop (SuiteUI::knobRowHeight), { &shiftSlider, &tiltSlider, &gateSlider, &mixSlider });
+
+    // Row 2: Tilt, Gate, Mix and the freeze switch in the freed cell.
+    auto shapingRow = area.removeFromTop (SuiteUI::knobRowHeight);
+    const int shapingCell = shapingRow.getWidth() / 4;
+    tiltSlider.setBounds (shapingRow.removeFromLeft (shapingCell).reduced (4));
+    gateSlider.setBounds (shapingRow.removeFromLeft (shapingCell).reduced (4));
+    mixSlider.setBounds (shapingRow.removeFromLeft (shapingCell).reduced (4));
+    freezeButton.setBounds (shapingRow.removeFromLeft (shapingCell).reduced (8, 18)
+                                .withSizeKeepingCentre (shapingCell - 16, SuiteUI::pillHeight));
+
     area.removeFromTop (groupGap);
+
+    // Row 3: Feedback, FB Damping, Drift Start, Output Gain.
     layoutRow (area.removeFromTop (SuiteUI::knobRowHeight),
                { &feedbackSlider, &dampingSlider, &driftStartSlider, &outputSlider });
-
-    area.removeFromTop (groupGap);
-
-    // Pill row: the freeze switch. The LFO shape selector lives on the MOD page now (plan 05.1).
-    auto pillRow = area.removeFromTop (SuiteUI::pillHeight);
-    freezeButton.setBounds (pillRow.removeFromRight (196).reduced (8, 0)
-                                .withSizeKeepingCentre (180, SuiteUI::pillHeight));
 }
 
 void SpectralDriftEditor::layoutModPage (juce::Rectangle<int> area)
@@ -296,12 +286,8 @@ void SpectralDriftEditor::layoutModPage (juce::Rectangle<int> area)
     spectrum.setBounds (area.removeFromTop (juce::jmax (150, (int) ((float) area.getHeight() * 0.30f))));
     area.removeFromTop (groupGap);
 
-    // The drift LFO's shape: a caption and selector above the panel (plan 05.1).
-    auto shapeRow = area.removeFromTop (SuiteUI::pillHeight);
-    shapeCaption.setBounds (shapeRow.removeFromLeft (100).withSizeKeepingCentre (100, 18));
-    shapeSelector.setBounds (shapeRow.removeFromLeft (240).withSizeKeepingCentre (220, SuiteUI::pillHeight));
-    area.removeFromTop (groupGap);
-
+    // The drift engine's own LFO Shape selector is gone from the UI (plan 05.1 pass 2):
+    // the routing panel's LFOs cover the need; the parameter stays automatable.
     modulationGroupBounds = area;
     modulation.setBounds (area.withTrimmedTop (groupTitleHeight + 4).reduced (12, 6));
 }

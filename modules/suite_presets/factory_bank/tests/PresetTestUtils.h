@@ -102,6 +102,13 @@ namespace PresetTest
             const float actual = apvts.getRawParameterValue (id)->load();
             const float tolerance = 1.0e-3f * juce::jmax (1.0f, std::abs (expected));
 
+            if (std::abs (actual - expected) > tolerance)
+                std::fprintf (stderr, "checkPresetApplied mismatch: %s expected %.6f actual %.6f (%s)\n",
+                              id.toRawUTF8(), expected, actual,
+                              dynamic_cast<juce::AudioParameterChoice*> (apvts.getParameter (id)) != nullptr
+                                  ? dynamic_cast<juce::AudioParameterChoice*> (apvts.getParameter (id))->getCurrentChoiceName().toRawUTF8()
+                                  : "(not a choice)");
+
             assert (std::abs (actual - expected) <= tolerance);
         }
     }

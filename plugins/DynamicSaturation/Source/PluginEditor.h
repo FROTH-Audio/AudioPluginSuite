@@ -73,7 +73,6 @@ private:
     SuiteUI::LabelledSlider toneSlider { "TONE", juce::Slider::RotaryVerticalDrag };
     SuiteUI::LabelledSlider outputSlider { "OUTPUT", juce::Slider::RotaryVerticalDrag };
     SuiteUI::LabelledSlider mixSlider { "MIX", juce::Slider::RotaryVerticalDrag };
-    SuiteUI::LabelledSlider panSlider { "PANNING", juce::Slider::RotaryVerticalDrag };
 
     // Modulation page: the page switch, then the shared LFO and routing panel
     SuiteUI::SegmentedSelector pageSelector { juce::Colour (0xffff9f1c) };

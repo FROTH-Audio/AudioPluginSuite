@@ -28,6 +28,14 @@ from preset_data import PRESETS, SCHEMA
 
 PLUGIN_VERSION = "1.0.0"
 STATE_VERSION = 1
+# Spectral Drift is at state version 2 since plan 05.1 pass 2 (the Drift Rate parameter was
+# removed and the Drift routing target appended); its presets are authored against the new
+# routing order. The other plugins are still at version 1.
+STATE_VERSIONS = {"SpectralDrift": 2}
+
+
+def state_version_for(plugin):
+    return STATE_VERSIONS.get(plugin, STATE_VERSION)
 AUTHOR = "FROTH Audio"
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -90,7 +98,7 @@ def preset_xml(plugin, preset, indent="  "):
                  f" category={xml_escape_attribute(preset['category'])}"
                  f" author={xml_escape_attribute(AUTHOR)}"
                  f" description={xml_escape_attribute(preset['description'])}/>")
-    lines.append(f"{indent}  <PARAMETERS suiteStateVersion=\"{STATE_VERSION}\""
+    lines.append(f"{indent}  <PARAMETERS suiteStateVersion=\"{state_version_for(plugin)}\""
                  + (f" lerpCurve={xml_escape_attribute(preset['lerpCurve'])}" if "lerpCurve" in preset else "")
                  + ">")
 

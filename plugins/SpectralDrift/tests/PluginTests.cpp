@@ -22,9 +22,9 @@ namespace
         SpectralDriftProcessor processor;
 
         checkParameterIds (processor, processor.apvts,
-                           { SpectralDriftProcessor::driftRateId, SpectralDriftProcessor::depthId,
+                           { SpectralDriftProcessor::depthId,
                              SpectralDriftProcessor::spreadId, SpectralDriftProcessor::stereoPhaseId,
-                             SpectralDriftProcessor::lfoShapeId, SpectralDriftProcessor::shiftId,
+                             SpectralDriftProcessor::shiftId,
                              SpectralDriftProcessor::tiltId, SpectralDriftProcessor::gateId,
                              SpectralDriftProcessor::feedbackId, SpectralDriftProcessor::mixId,
                              SpectralDriftProcessor::freezeId, SpectralDriftProcessor::feedbackDampingId,
@@ -41,11 +41,11 @@ namespace
                              SpectralDriftProcessor::modDelayIds[0], SpectralDriftProcessor::modDelayIds[5] },
                            SpectralDriftProcessor::numControls);
 
-        checkRange (processor.apvts, SpectralDriftProcessor::driftRateId, 0.1f, 10.0f, 1.0f);
+        checkRange (processor.apvts, SpectralDriftProcessor::depthId, 0.0f, 100.0f, 19.1f);
         checkRange (processor.apvts, SpectralDriftProcessor::depthId, 0.0f, 100.0f, 19.1f);
         checkRange (processor.apvts, SpectralDriftProcessor::spreadId, 0.0f, 1.0f, 0.05f);
         checkRange (processor.apvts, SpectralDriftProcessor::stereoPhaseId, 0.0f, 180.0f, 90.0f);
-        checkRange (processor.apvts, SpectralDriftProcessor::lfoShapeId, 0.0f, 3.0f, 0.0f);
+        checkRange (processor.apvts, SpectralDriftProcessor::stereoPhaseId, 0.0f, 180.0f, 90.0f);
         checkRange (processor.apvts, SpectralDriftProcessor::shiftId, -32.0f, 32.0f, 0.0f);
         checkRange (processor.apvts, SpectralDriftProcessor::tiltId, -2.0f, 2.0f, 0.0f);
         checkRange (processor.apvts, SpectralDriftProcessor::gateId, -90.0f, 0.0f, -90.0f);
@@ -87,8 +87,8 @@ namespace
     void testStateRoundTrip()
     {
         SpectralDriftProcessor processor;
-        checkStateRoundTrip (processor, processor.apvts, SpectralDriftProcessor::driftRateId, 5.0f);
-        checkStateRoundTrip (processor, processor.apvts, SpectralDriftProcessor::lfoShapeId, 2.0f);
+        checkStateRoundTrip (processor, processor.apvts, SpectralDriftProcessor::shiftId, 2.0f);
+        checkStateRoundTrip (processor, processor.apvts, SpectralDriftProcessor::shiftId, 2.0f);
         checkStateRoundTrip (processor, processor.apvts, Processor::lfo1RateId, 3.5f);
         checkStateRoundTrip (processor, processor.apvts, Processor::modTargetIds[1], 7.0f);
         checkStateRoundTrip (processor, processor.apvts, Processor::modAmountIds[1], -42.0f);
@@ -278,6 +278,12 @@ namespace
         {
             SpectralDriftProcessor processor;
             setParameter (processor.apvts, SpectralDriftProcessor::stereoPhaseId, stereoPhase);
+
+            // The drift is driven by the routed LFO (plan 05.1 pass 2): LFO 1 at 2 Hz, full
+            // amount, on the Drift target.
+            setParameter (processor.apvts, SpectralDriftProcessor::lfo1RateId, 2.0f);
+            setParameter (processor.apvts, SpectralDriftProcessor::modTargetIds[0], 12.0f);
+            setParameter (processor.apvts, SpectralDriftProcessor::modAmountIds[0], 100.0f);
             processor.prepareToPlay (sampleRate, blockSize);
 
             juce::AudioBuffer<float> audio (2, blockSize);
@@ -392,12 +398,12 @@ namespace
 
         SpectralDriftProcessor reader;
         reader.prepareToPlay (sampleRate, blockSize);
-        reader.apvts.getParameter (SpectralDriftProcessor::driftRateId)->setValueNotifyingHost (0.9f);
-        const float before = reader.apvts.getRawParameterValue (SpectralDriftProcessor::driftRateId)->load();
+        reader.apvts.getParameter (SpectralDriftProcessor::depthId)->setValueNotifyingHost (0.9f);
+        const float before = reader.apvts.getRawParameterValue (SpectralDriftProcessor::depthId)->load();
 
         reader.setStateInformation (newer.getData(), (int) newer.getSize());
 
-        assert (reader.apvts.getRawParameterValue (SpectralDriftProcessor::driftRateId)->load() == before);
+        assert (reader.apvts.getRawParameterValue (SpectralDriftProcessor::depthId)->load() == before);
 
         pass ("testStateRefusal");
     }
@@ -537,8 +543,12 @@ namespace
 
         assert (difference < 1.0e-5f);
 
-        // With drift starting at 0 % the same settings do change the sound.
+        // With drift starting at 0 % the same settings do change the sound — the drift comes
+        // from the routed LFO (plan 05.1 pass 2), so the test assigns it.
         Processor drifted;
+        setParameter (drifted.apvts, Processor::lfo1RateId, 2.0f);
+        setParameter (drifted.apvts, Processor::modTargetIds[0], 12.0f);
+        setParameter (drifted.apvts, Processor::modAmountIds[0], 100.0f);
         const auto c = renderLeft (drifted, 20);
         float driftDifference = 0.0f;
         for (size_t n = 0; n < a.size(); ++n)
@@ -589,7 +599,6 @@ namespace
     struct TargetEntry { Processor::ModTarget target; const char* id; };
 
     const TargetEntry targetEntries[] {
-        { Processor::ModTarget::DriftRate,        Processor::driftRateId },
         { Processor::ModTarget::Depth,            Processor::depthId },
         { Processor::ModTarget::BinSpread,        Processor::spreadId },
         { Processor::ModTarget::StereoPhase,      Processor::stereoPhaseId },

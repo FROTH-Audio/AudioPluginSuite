@@ -16,8 +16,7 @@ namespace
     /** The controls the routing can move. Choice index n is entry n - 1, so the order matches
         ModTarget and is saved in sessions: append only. */
     const SuiteModulation::TargetInfo modulationTargets[] {
-        { SpectralDriftProcessor::driftRateId,       "Drift Rate" },
-        { SpectralDriftProcessor::depthId,           "Drift Depth" },
+        { SpectralDriftProcessor::depthId,           "Depth" },
         { SpectralDriftProcessor::spreadId,          "Bin Spread" },
         { SpectralDriftProcessor::stereoPhaseId,     "Stereo Phase" },
         { SpectralDriftProcessor::shiftId,           "Spectral Shift" },
@@ -28,6 +27,7 @@ namespace
         { SpectralDriftProcessor::driftStartId,      "Drift Start" },
         { SpectralDriftProcessor::outputGainId,      "Output Gain" },
         { SpectralDriftProcessor::mixId,             "Mix" },
+        { nullptr,                                   "Drift" },   // no parameter: the routed LFO drives the drift directly
     };
 }
 
@@ -38,13 +38,33 @@ SpectralDriftProcessor::SpectralDriftProcessor()
       apvts (*this, nullptr, "PARAMETERS", createParameterLayout()),
       modulation (apvts, modulationTargets, (int) std::size (modulationTargets), nullptr)
 {
-    stateVersion = 1;
-    migrations = {};
-    driftRate = apvts.getRawParameterValue (driftRateId);
+    stateVersion = 2;
+    // Version 2 removed the Drift Rate parameter and appended the Drift target: routing
+    // target indices shift down by one past the removed entry, and a route that pointed at
+    // Drift Rate points at nothing now.
+    migrations =
+    {
+        { 1, [] (juce::ValueTree& tree)
+             {
+                 for (int i = 0; i < tree.getNumChildren(); ++i)
+                 {
+                     auto child = tree.getChild (i);
+                     const auto id = child.getProperty ("id").toString();
+
+                     if (! id.startsWith ("mod") || ! id.endsWith ("Target"))
+                         continue;
+
+                     const int oldIndex = (int) (double) child.getProperty ("value", 0.0);
+
+                     // 1 was Drift Rate (gone); 0 is None. Indices above it shift down one.
+                     const int newIndex = oldIndex <= 1 ? 0 : oldIndex - 1;
+                     child.setProperty ("value", (double) newIndex, nullptr);
+                 }
+             } }
+    };
     depth = apvts.getRawParameterValue (depthId);
     spread = apvts.getRawParameterValue (spreadId);
     stereoPhase = apvts.getRawParameterValue (stereoPhaseId);
-    lfoShape = apvts.getRawParameterValue (lfoShapeId);
     shift = apvts.getRawParameterValue (shiftId);
     tilt = apvts.getRawParameterValue (tiltId);
     gate = apvts.getRawParameterValue (gateId);
@@ -60,22 +80,6 @@ juce::AudioProcessorValueTreeState::ParameterLayout SpectralDriftProcessor::crea
 {
     std::vector<std::unique_ptr<juce::RangedAudioParameter>> params;
 
-    // Logarithmic sweep: equal distance per octave, so 1 Hz sits in the middle of the knob's travel.
-    const juce::NormalisableRange<float> rateRange (
-        0.1f, 10.0f,
-        [] (float start, float end, float normalised) { return start * std::pow (end / start, normalised); },
-        [] (float start, float end, float value) { return std::log (value / start) / std::log (end / start); });
-
-    // The value box shows this parameter: stringFromValue on the parameter, because
-    // formatting set on the slider after the attachment exists does not refresh (AGENTS 11).
-    juce::AudioParameterFloatAttributes rateAttributes;
-    rateAttributes = rateAttributes.withStringFromValueFunction (
-        [] (float value, int) { return juce::String (value, 2) + " Hz"; });
-    rateAttributes = rateAttributes.withLabel ("Hz");
-
-    params.push_back (std::make_unique<juce::AudioParameterFloat> (
-        juce::ParameterID { driftRateId, 1 }, "Drift Rate", rateRange, 1.0f, rateAttributes));
-
     params.push_back (std::make_unique<juce::AudioParameterFloat> (
         juce::ParameterID { depthId, 1 }, "Drift Depth", juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), defaultDepthPercent, "%"));
 
@@ -84,9 +88,6 @@ juce::AudioProcessorValueTreeState::ParameterLayout SpectralDriftProcessor::crea
 
     params.push_back (std::make_unique<juce::AudioParameterFloat> (
         juce::ParameterID { stereoPhaseId, 1 }, "Stereo Phase", juce::NormalisableRange<float> (0.0f, 180.0f, 0.1f), 90.0f, "deg"));
-
-    params.push_back (std::make_unique<juce::AudioParameterChoice> (
-        juce::ParameterID { lfoShapeId, 1 }, "LFO Shape", juce::StringArray { "Sine", "Triangle", "Saw", "Square" }, 0));
 
     params.push_back (std::make_unique<juce::AudioParameterFloat> (
         juce::ParameterID { shiftId, 1 }, "Spectral Shift", juce::NormalisableRange<float> (-32.0f, 32.0f, 0.01f), 0.0f, "bins"));
@@ -124,18 +125,21 @@ juce::AudioProcessorValueTreeState::ParameterLayout SpectralDriftProcessor::crea
 juce::StringArray SpectralDriftProcessor::modTargetNames()
 {
     // Must follow the ModTarget enum order exactly.
-    return { "None", "Drift Rate", "Drift Depth", "Bin Spread", "Stereo Phase", "Spectral Shift",
+    return { "None", "Drift Depth", "Bin Spread", "Stereo Phase", "Spectral Shift",
              "Spectral Tilt", "Spectral Gate", "Feedback", "FB Damping", "Drift Start", "Output Gain",
-             "Mix" };
+             "Mix", "Drift" };
 }
 
 void SpectralDriftProcessor::readSettings (CoreDSP::Spectral::DriftEngine::Settings& settings,
                                            const SuiteModulation::Router::Offsets& offsets) const noexcept
 {
-    settings.driftRateHz = modulation.modulate ((int) ModTarget::DriftRate, driftRate->load(), offsets);
+    // The drift is driven from the outside (plan 05.1 pass 2): the routed LFO's value,
+    // normalised 0..1 around no-drift, mapped to -1..1. The depth parameter scales it to
+    // radians in the engine. With no routing assigned the value sits at 0: no drift.
+    const float driftNormalised = modulation.modulate ((int) ModTarget::Drift, 0.5f, offsets);
+    settings.driftValue = driftNormalised * 2.0f - 1.0f;
     settings.driftDepth = modulation.modulate ((int) ModTarget::Depth, depth->load(), offsets) / 100.0f * juce::MathConstants<float>::pi;
     settings.binSpread = modulation.modulate ((int) ModTarget::BinSpread, spread->load(), offsets);
-    settings.lfoShape = static_cast<CoreDSP::Spectral::LfoShape> (juce::roundToInt (lfoShape->load()));
     settings.shiftBins = modulation.modulate ((int) ModTarget::Shift, shift->load(), offsets);
     settings.tilt = modulation.modulate ((int) ModTarget::Tilt, tilt->load(), offsets);
     settings.gateDb = modulation.modulate ((int) ModTarget::Gate, gate->load(), offsets);

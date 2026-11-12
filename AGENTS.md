@@ -133,19 +133,19 @@ Before 2026-11-08 the list was 9 entries: CoreDSPTests, SuiteUI_Tests, SuiteModu
 
 Parameter IDs are `static constexpr const char*` members of each processor. Defaults and ranges below are what `createParameterLayout()` defines. Each float uses a `NormalisableRange`, and some use a log or skew. The plugin tests check these values with `checkRange`, so a change here must change the test too.
 
-### 4.1 Spectral Drift Shifter (48 parameters)
+### 4.1 Spectral Drift Shifter (47 parameters)
 
-The 14 controls below are the original sound parameters. The remaining 34 are the two LFOs and six modulation
+The 13 controls below are the original sound parameters. The remaining 34 are the two LFOs and six modulation
 routings added by `SuiteModulation::Router` (`lfo1Rate` … `mod6Delay`), appended last so the original order never
-moves. At defaults every routing amount is 0, so the sound is bit-identical to the 14-parameter version.
+moves. At defaults every routing amount is 0, so the sound is bit-identical to the 13-parameter version.
+The drift LFO always runs its sine shape: the old `lfoShape` parameter was removed in plan 05.1 pass 2
+(owner decision: no hidden parameters), so old sessions and presets that set it simply ignore that value.
 
 | ID | Name | Range | Default | Notes |
 |---|---|---|---|---|
-| `driftRate` | Drift Rate | 0.1 – 10 Hz, log | 1 Hz | LFO speed |
-| `depth` | Drift Depth | 0 – 100 % | 19.1 % | Maps to 0 – π rad in the engine. 19.1 % = 0.6 rad |
-| `spread` | Bin Spread | 0 – 1 rad | 0.05 | LFO phase step between neighbouring bins |
-| `stereoPhase` | Stereo Phase | 0 – 180° | 90° | Offset of the right channel's LFO |
-| `lfoShape` | LFO Shape | choice: Sine, Triangle, Saw, Square | Sine | `CoreDSP::Spectral::LfoShape` |
+| `depth` | Drift Depth | 0 – 100 % | 19.1 % | Scales the routed LFO's drift to radians. 19.1 % = 0.6 rad |
+| `spread` | Bin Spread | 0 – 1 rad | 0.05 | Lag, in frames, between the drift of neighbouring bins |
+| `stereoPhase` | Stereo Phase | 0 – 180° | 90° | Extra drift lag, in frames, for the right channel |
 | `shift` | Spectral Shift | −32 – +32 bins | 0 | Magnitudes read from bin k − shift, linear interpolation |
 | `tilt` | Spectral Tilt | −2 – +2 | 0 | Gain (k / 32)^tilt, clamped to [1/16, 8] |
 | `gate` | Spectral Gate | −90 – 0 dB | −90 | At −90 the gate is open for every bin |
@@ -156,12 +156,18 @@ moves. At defaults every routing amount is 0, so the sound is bit-identical to t
 | `mix` | Mix | 0 – 100 % | 100 % | Dry is delayed by the frame latency |
 | `freeze` | Freeze | bool | off | Holds captured magnitudes, phases still advance |
 
+With plan 05.1 pass 2 the drift is driven by the routed LFOs: a new **Drift** routing target
+(append-only, index 12 in the target list) receives the routed LFO's value (−1 … +1 around no
+drift), which the depth, spread and stereo-phase parameters scale and spread across the bins.
+With no routing assigned there is no drift. The old `driftRateHz` internal oscillator and the
+`lfoShape` parameter are gone; the engine's per-bin drift reads a per-frame history of the
+routed value, bin k lagging k × `binSpread` frames behind.
+
 Latency reported: 2048 samples (`setLatencySamples`). Tail length: 0.
 
-### 4.2 Dynamic Saturation Companion (48 parameters)
+### 4.2 Dynamic Saturation Companion (47 parameters)
 
-The 13 controls below are the original sound parameters. **`pan`** is the 14th, appended in plan 05.1: a balance
-control, −100 % left to +100 % right, unity gain at centre, applied after the output level. The remaining 34 are the
+The 13 controls below are the original sound parameters. The remaining 34 are the
 two LFOs and six modulation
 routings added by `SuiteModulation::Router` (`lfo1Rate` … `mod6Delay`), appended last so the original order never
 moves. At defaults every routing amount is 0, so the sound is bit-identical to the 13-parameter version.
@@ -181,7 +187,6 @@ moves. At defaults every routing amount is 0, so the sound is bit-identical to t
 | `fold` | Fold | 0 – 50 % | 0 % | Wavefolder after shaping, 2× domain |
 | `tone` | Tone | −1 – +1 | 0 | Tilt around 1 kHz after the shaper |
 | `curve` | Envelope Curve | 0.5 – 3.0 | 1.0 | Envelope exponent |
-| `pan` | Panning | −100 – +100 % | 0 % | Balance law (plan 05.1): unity at centre, hard pan silences the opposite channel |
 
 Latency reported: the oversampler's integer latency, computed in `prepareToPlay`. The dry path is delayed by the same amount. Tail length: 0.
 
@@ -239,7 +244,7 @@ LFOs are sampled at step times, not per sample, so a fast LFO can alias against 
 
 ### Modulation targets in the effects
 
-Spectral Drift targets (12, in `ModTarget` order): 0 None, 1 Drift Rate, 2 Drift Depth, 3 Bin Spread, 4 Stereo Phase, 5 Spectral Shift, 6 Spectral Tilt, 7 Spectral Gate, 8 Feedback, 9 Feedback Damping, 10 Drift Start, 11 Output Gain, 12 Mix. Excluded: `freeze` (a switch) and `lfoShape` (the engine's own drift LFO).
+Spectral Drift targets (12, in `ModTarget` order): 0 None, 1 Drift Depth, 2 Bin Spread, 3 Stereo Phase, 4 Spectral Shift, 5 Spectral Tilt, 6 Spectral Gate, 7 Feedback, 8 Feedback Damping, 9 Drift Start, 10 Output Gain, 11 Mix, 12 Drift. Excluded: `freeze` (a switch). State version 2 removed the old Drift Rate target (a migration remaps saved routing indices).
 
 Mix, feedback, feedback damping and output gain are smoothed per-sample before reaching the engine, so modulating them per block never zips or clicks. Everything else is consumed once per frame (2048 samples) or per block, so block-rate modulation is safe.
 
@@ -257,7 +262,7 @@ Per channel, `DriftEngine` runs this pipeline:
 
 ```
 input → ring buffer → Hann analysis → FFT 2048 → [not frozen: store magnitudes and phases]
-      → shapeMagnitudes() (shift, tilt, gate) → per-bin phase drift from the LFO
+      → shapeMagnitudes() (shift, tilt, gate) → per-bin phase drift from the routed LFO's value
       → Hermitian IFFT → Hann synthesis → overlap-add → wet
       → feedback into input ring; dry/wet mix with the aligned dry signal
 ```

@@ -4,7 +4,9 @@
   "_description": "A very small, slow drift.",
   "_plugin": "SpectralDrift",
   "_pluginVersion": "1.0.0",
-  "driftRate": 0.3,
   "depth": 8.0,
-  "stereoPhase": 20.0
+  "stereoPhase": 20.0,
+  "lfo1Rate": 0.3,
+  "mod1Target": 12,
+  "mod1Amount": 100.0
 }

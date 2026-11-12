@@ -4,8 +4,10 @@
   "_description": "Deep, slow movement with a short feedback tail.",
   "_plugin": "SpectralDrift",
   "_pluginVersion": "1.0.0",
-  "driftRate": 0.15,
   "depth": 80.0,
   "feedback": 8.0,
-  "feedbackDamping": 60.0
+  "feedbackDamping": 60.0,
+  "lfo1Rate": 0.15,
+  "mod1Target": 12,
+  "mod1Amount": 100.0
 }

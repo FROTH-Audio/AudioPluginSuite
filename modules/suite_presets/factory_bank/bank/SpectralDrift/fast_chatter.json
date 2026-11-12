@@ -1,0 +1,12 @@
+{
+  "_name": "Fast Chatter",
+  "_category": "Lo-Fi",
+  "_description": "Fast drift with a wide spread.",
+  "_plugin": "SpectralDrift",
+  "_pluginVersion": "1.0.0",
+  "spread": 0.9,
+  "shift": 5.0,
+  "lfo1Rate": 8.0,
+  "mod1Target": 12,
+  "mod1Amount": 100.0
+}

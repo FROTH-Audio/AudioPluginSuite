@@ -1,0 +1,11 @@
+{
+  "_name": "Deep Tide",
+  "_category": "Rhythmic",
+  "_description": "Slow drift with a deep sweep.",
+  "_plugin": "SpectralDrift",
+  "_pluginVersion": "1.0.0",
+  "depth": 60.0,
+  "lfo1Rate": 0.25,
+  "mod1Target": 12,
+  "mod1Amount": 100.0
+}

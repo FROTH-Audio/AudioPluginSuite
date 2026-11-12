@@ -54,7 +54,6 @@ DynamicSaturationProcessor::DynamicSaturationProcessor()
     fold = apvts.getRawParameterValue (foldId);
     tone = apvts.getRawParameterValue (toneId);
     curve = apvts.getRawParameterValue (curveId);
-    pan = apvts.getRawParameterValue (panId);
 }
 
 juce::AudioProcessorValueTreeState::ParameterLayout DynamicSaturationProcessor::createParameterLayout()
@@ -112,10 +111,6 @@ juce::AudioProcessorValueTreeState::ParameterLayout DynamicSaturationProcessor::
 
     params.push_back (std::make_unique<juce::AudioParameterFloat> (
         juce::ParameterID { curveId, 1 }, "Envelope Curve", juce::NormalisableRange<float> (0.5f, 3.0f, 0.001f), 1.0f));
-
-    // Panning, appended last (plan 05.1): -100 % left to +100 % right, equal-power law.
-    params.push_back (std::make_unique<juce::AudioParameterFloat> (
-        juce::ParameterID { panId, 1 }, "Panning", juce::NormalisableRange<float> (-100.0f, 100.0f, 1.0f), 0.0f, "%"));
 
     // LFOs and modulation routing, appended last so the existing parameter order never moves.
     SuiteModulation::Router::addParameters (params, modTargetNames());
@@ -287,15 +282,8 @@ void DynamicSaturationProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 
     oversampling.processSamplesDown (block);
 
-    // Pass 3, base rate: tone, dry/wet mix with the aligned dry signal, output level, and pan.
+    // Pass 3, base rate: tone, dry/wet mix with the aligned dry signal, and output level.
     const bool hasLatency = latencySamples > 0;
-
-    // Balance panning (plan 05.1): centre is unity in both channels, hard pan silences the
-    // opposite channel. (Equal-power would attenuate the centre by 3 dB, changing every
-    // existing level and test.)
-    const float panNorm = juce::jlimit (-1.0f, 1.0f, pan->load() / 100.0f);
-    const float panGain[2] = { juce::jlimit (0.0f, 1.0f, 1.0f - juce::jmax (0.0f, panNorm)),
-                               juce::jlimit (0.0f, 1.0f, 1.0f + juce::jmin (0.0f, panNorm)) };
 
     for (int n = 0; n < numSamples; ++n)
     {
@@ -315,7 +303,7 @@ void DynamicSaturationProcessor::processBlock (juce::AudioBuffer<float>& buffer,
             }
 
             const float mixed = aligned + mixCurve[(size_t) n] * (wet - aligned);
-            buffer.setSample (channel, n, mixed * outputCurve[(size_t) n] * panGain[ch]);
+            buffer.setSample (channel, n, mixed * outputCurve[(size_t) n]);
         }
 
         if (hasLatency)

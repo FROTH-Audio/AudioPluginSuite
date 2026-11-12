@@ -111,11 +111,15 @@ namespace SuiteModulation
         }
 
         targetParams[0] = nullptr;
+        targetRaw[0] = nullptr;
         for (int i = 1; i <= targetCount; ++i)
         {
             const char* id = targets[i - 1].parameterId;
-            targetParams[(size_t) i] = apvts.getParameter(id);
-            targetRaw[(size_t) i] = apvts.getRawParameterValue(id);
+
+            // A target without a parameter (Spectral Drift's Drift: the routed LFO drives the
+            // drift directly) is legal; its modulation applies in the normalised space.
+            targetParams[(size_t) i] = id != nullptr ? apvts.getParameter(id) : nullptr;
+            targetRaw[(size_t) i] = id != nullptr ? apvts.getRawParameterValue(id) : nullptr;
         }
 
         hostSync = hostSyncId != nullptr ? apvts.getRawParameterValue(hostSyncId) : nullptr;
@@ -190,8 +194,13 @@ namespace SuiteModulation
         auto* parameter = targetParams[(size_t) targetIndex];
 
         // Unmodulated values are returned exactly, so an idle routing changes nothing.
-        if (offset == 0.0f || parameter == nullptr)
+        if (offset == 0.0f)
             return base;
+
+        // A target without a parameter applies the offset in the normalised space directly
+        // (Spectral Drift's Drift: base 0.5 is no drift, +/- the offset is the drift amount).
+        if (parameter == nullptr)
+            return juce::jlimit (0.0f, 1.0f, CoreDSP::Modulation::modulatedNormalised (base, offset));
 
         const float normalised = parameter->convertTo0to1(base);
         float result = parameter->convertFrom0to1(CoreDSP::Modulation::modulatedNormalised(normalised, offset));
@@ -234,7 +243,9 @@ namespace SuiteModulation
             return 0.0f;
 
         const auto& info = targets[targetIndex - 1];
-        const float base = targetRaw[(size_t) targetIndex]->load();
+        const float base = targetRaw[(size_t) targetIndex] != nullptr
+                               ? targetRaw[(size_t) targetIndex]->load()
+                               : 0.5f;   // a parameterless target centres at no drift
         const float offset = publishedOffset[(size_t) targetIndex].load(std::memory_order_relaxed);
         auto* parameter = targetParams[(size_t) targetIndex];
 
@@ -247,6 +258,10 @@ namespace SuiteModulation
         {
             const float normalised = parameter->convertTo0to1(base);
             result = parameter->convertFrom0to1(CoreDSP::Modulation::modulatedNormalised(normalised, offset));
+        }
+        else if (offset != 0.0f && parameter == nullptr && ! ignored)
+        {
+            result = juce::jlimit (0.0f, 1.0f, CoreDSP::Modulation::modulatedNormalised (base, offset));
         }
 
         // Whole-number controls show whole numbers, moved or not.

@@ -33,11 +33,9 @@ def _routing(target_max):
 
 SCHEMA = {
     "SpectralDrift": {
-        "driftRate": {"min": 0.1, "max": 10.0, "default": 1.0, "type": "float"},
         "depth": {"min": 0.0, "max": 100.0, "default": 19.1, "type": "float"},
         "spread": {"min": 0.0, "max": 1.0, "default": 0.05, "type": "float"},
         "stereoPhase": {"min": 0.0, "max": 180.0, "default": 90.0, "type": "float"},
-        "lfoShape": {"min": 0, "max": 3, "default": 0, "type": "choice"},
         "shift": {"min": -32.0, "max": 32.0, "default": 0.0, "type": "float"},
         "tilt": {"min": -2.0, "max": 2.0, "default": 0.0, "type": "float"},
         "gate": {"min": -90.0, "max": 0.0, "default": -90.0, "type": "float"},
@@ -63,7 +61,6 @@ SCHEMA = {
         "fold": {"min": 0.0, "max": 50.0, "default": 0.0, "type": "float"},
         "tone": {"min": -1.0, "max": 1.0, "default": 0.0, "type": "float"},
         "curve": {"min": 0.5, "max": 3.0, "default": 1.0, "type": "float"},
-        "pan": {"min": -100.0, "max": 100.0, "default": 0.0, "type": "float"},
         **_routing(12),
     },
     "MicroTimingChaos": {
@@ -144,22 +141,22 @@ def _preset(name, category, description, lerp_curve=None, **params):
 
 PRESETS = {
     "SpectralDrift": [
-        _preset("Glass Cathedral", "Ambient", "Slow, wide drift with a bright upper shift.", driftRate=0.12, spread=0.75, stereoPhase=180.0, shift=12.0, gate=-60.0),
-        _preset("Slow Melt", "Ambient", "Deep, slow movement with a short feedback tail.", driftRate=0.15, depth=80.0, feedback=8.0, feedbackDamping=60.0),
+        _preset("Glass Cathedral", "Ambient", "Slow, wide drift with a bright upper shift.", lfo1Rate=0.12, mod1Target=12, mod1Amount=100.0, spread=0.75, stereoPhase=180.0, shift=12.0, gate=-60.0),
+        _preset("Slow Melt", "Ambient", "Deep, slow movement with a short feedback tail.", lfo1Rate=0.15, mod1Target=12, mod1Amount=100.0, depth=80.0, feedback=8.0, feedbackDamping=60.0),
         _preset("Bin Wash", "Ambient", "Wide bin spread and a dark tilt.", spread=0.9, tilt=-1.0, mix=80.0),
-        _preset("Deep Space", "Ambient", "The slowest drift, full depth, wide stereo.", driftRate=0.1, depth=100.0, stereoPhase=180.0, feedback=6.0),
+        _preset("Deep Space", "Ambient", "The slowest drift, full depth, wide stereo.", lfo1Rate=0.1, mod1Target=12, mod1Amount=100.0, depth=100.0, stereoPhase=180.0, feedback=6.0),
         _preset("Frozen Choir", "Freeze", "Holds a soft spectrum with a gentle gate.", freeze=1, depth=30.0, gate=-50.0),
         _preset("Frozen Static", "Freeze", "Holds the spectrum with no drift.", freeze=1, depth=0.0, gate=-30.0),
         _preset("Metallic Sheen", "Bright", "Bright tilt with a small upward shift.", tilt=1.5, shift=7.0, spread=0.1),
         _preset("Air Shifter", "Bright", "Large upward shift, partly wet.", shift=24.0, mix=60.0, tilt=0.8),
         _preset("Top Sparkle", "Bright", "Bright tilt with a high gate.", gate=-70.0, tilt=1.0),
-        _preset("Whisper Drift", "Subtle", "A very small, slow drift.", depth=8.0, driftRate=0.3, stereoPhase=20.0),
+        _preset("Whisper Drift", "Subtle", "A very small, slow drift.", depth=8.0, lfo1Rate=0.3, mod1Target=12, mod1Amount=100.0, stereoPhase=20.0),
         _preset("Mono Anchor", "Subtle", "Almost no stereo spread.", stereoPhase=0.0, spread=0.01),
         _preset("Wide Bloom", "Wide", "Wide stereo with a moderate depth.", stereoPhase=180.0, spread=0.9, depth=40.0),
         _preset("Phase Tunnel", "Wide", "Full depth and a long feedback path.", depth=100.0, spread=0.6, feedback=10.0),
-        _preset("Square Steps", "Rhythmic", "Square LFO at 2 Hz.", lfoShape=3, driftRate=2.0, depth=40.0),
-        _preset("Saw Sweep", "Rhythmic", "Slow saw sweep across the bins.", lfoShape=2, driftRate=0.5, spread=0.3),
-        _preset("Triangle Tide", "Rhythmic", "Triangle LFO with a deep sweep.", lfoShape=1, driftRate=0.25, depth=60.0),
+        _preset("Fast Steps", "Rhythmic", "Fast drift at 2 Hz.", lfo1Rate=2.0, mod1Target=12, mod1Amount=100.0, depth=40.0),
+        _preset("Wide Sweep", "Rhythmic", "Slow sweep across the bins.", lfo1Rate=0.5, mod1Target=12, mod1Amount=100.0, spread=0.3),
+        _preset("Deep Tide", "Rhythmic", "Slow drift with a deep sweep.", lfo1Rate=0.25, mod1Target=12, mod1Amount=100.0, depth=60.0),
         _preset("Comb Weaver", "Character", "Maximum feedback, lightly damped.", feedback=12.0, feedbackDamping=15.0),
         _preset("Damped Echo", "Character", "Feedback with a heavy low-pass.", feedback=10.0, feedbackDamping=90.0),
         _preset("Vocal Ghost", "Character", "A small shift and tilt, partly wet.", shift=3.0, tilt=0.3, depth=25.0),
@@ -167,7 +164,7 @@ PRESETS = {
         _preset("Dark Matter", "Dark", "Dark tilt with a low gate.", tilt=-2.0, gate=-80.0),
         _preset("Sub Rumble", "Dark", "Large downward shift, dark tilt.", shift=-32.0, tilt=-1.5),
         _preset("Broken Radio", "Lo-Fi", "Gated, undamped feedback.", gate=-40.0, feedback=12.0, feedbackDamping=0.0),
-        _preset("Alien Chatter", "Lo-Fi", "Fast square drift with a wide spread.", lfoShape=3, driftRate=8.0, spread=0.9, shift=5.0),
+        _preset("Fast Chatter", "Lo-Fi", "Fast drift with a wide spread.", lfo1Rate=8.0, mod1Target=12, mod1Amount=100.0, spread=0.9, shift=5.0),
         _preset("Null Test", "Utility", "No drift, no shaping: a transparent reference.", depth=0.0),
         _preset("Init Bright", "Utility", "Near-default with a little brightness.", tilt=0.5),
     ],

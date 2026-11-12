@@ -20,6 +20,13 @@ int main()
         PresetTest::runApplyResetsMissing (processor);
         PresetTest::runApplyTwiceIdempotent (processor);
         PresetTest::runAudioSanity (processor);
+
+        // Plan 05.1 pass 2: the Drift routing target exists and is selectable.
+        auto* driftTargetParameter = dynamic_cast<juce::AudioParameterChoice*> (
+            processor.apvts.getParameter (SpectralDriftProcessor::modTargetIds[0]));
+        assert (driftTargetParameter != nullptr);
+        assert (driftTargetParameter->choices.size() == 13);
+        assert (driftTargetParameter->choices[12] == "Drift");
     }
 
     {

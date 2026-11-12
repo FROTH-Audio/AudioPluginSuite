@@ -39,7 +39,6 @@ public:
     static constexpr const char* foldId = "fold";
     static constexpr const char* toneId = "tone";
     static constexpr const char* curveId = "curve";
-    static constexpr const char* panId = "pan";
 
     // LFO 1 and LFO 2. The IDs are fixed by suite_modulation, so every plugin saves them the same way.
     static constexpr const char* lfo1RateId = "lfo1Rate";
@@ -59,7 +58,7 @@ public:
     static constexpr const char* modAmountIds[6] = { "mod1Amount", "mod2Amount", "mod3Amount", "mod4Amount", "mod5Amount", "mod6Amount" };
     static constexpr const char* modDelayIds[6] = { "mod1Delay", "mod2Delay", "mod3Delay", "mod4Delay", "mod5Delay", "mod6Delay" };
 
-    static constexpr int numControls = 48;
+    static constexpr int numControls = 47;
     static constexpr int lfoCount = 2;
     static constexpr int slotCount = 6;
 
@@ -186,7 +185,6 @@ private:
     std::atomic<float>* fold = nullptr;
     std::atomic<float>* tone = nullptr;
     std::atomic<float>* curve = nullptr;
-    std::atomic<float>* pan = nullptr;
 
     std::atomic<float> envelopeLevel { 0.0f };
 

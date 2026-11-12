@@ -73,11 +73,10 @@ namespace CoreDSP::Spectral
     public:
         struct Settings
         {
-            float driftRateHz = 1.0f;
             float driftDepth = defaultDriftDepth;      // radians
-            float binSpread = defaultBinSpread;        // radians
-            float stereoPhase = 0.0f;                  // radians added to this engine's LFO
-            LfoShape lfoShape = LfoShape::sine;
+            float binSpread = defaultBinSpread;        // hop-steps of drift lag between neighbouring bins
+            float stereoPhase = 0.0f;                  // radians; as extra hop lag for this engine (right channel)
+            float driftValue = 0.0f;                   // -1 .. 1: the drift source for this frame (from the routed LFO)
             float shiftBins = 0.0f;                    // -16 .. +16 bins, positive moves content up
             float tilt = 0.0f;                         // -1 .. +1, negative darkens, positive brightens
             float gateDb = gateOffDb;                  // bins quieter than this (relative to full scale) are removed
@@ -108,9 +107,12 @@ namespace CoreDSP::Spectral
         float processSample (float input) noexcept;
 
         /** Processes one sample with per-sample mix, feedback and feedback damping. The smoother
-            applies these once per block; everything else (drift rate, depth, shift, ...) comes from
+            applies these once per block; everything else (drift value, depth, shift, ...) comes from
             `settings`, which is set once per block. */
         float processSample (float input, const PerSampleSettings& p) noexcept;
+
+        /** The current settings. The tests feed the drift value through them per sample. */
+        const Settings& settingsForTest() const noexcept { return settings; }
 
         /** Linear magnitudes of the most recent input frame (not updated while frozen). */
         const std::array<float, numBins>& getInputMagnitudes() const noexcept { return inputMagnitudes; }
@@ -127,11 +129,16 @@ namespace CoreDSP::Spectral
         void processFrame() noexcept;
         void shapeMagnitudes() noexcept;
 
-        float lfoPhase = 0.0f;
         float feedbackState = 0.0f;
         double sampleRate = 44100.0;
         Settings settings;
         std::uint64_t frameCount = 0;
+
+        // The drift values of the past frames: bin k reads the value from k * binSpread
+        // frames ago, which is how the drift smears across the bins.
+        std::array<float, numBins> driftHistory {};
+        int driftHistoryPos = 0;
+        bool driftHistoryFilled = false;
 
         juce::dsp::FFT fft { frameOrder };
         juce::dsp::WindowingFunction<float> window { frameSize, juce::dsp::WindowingFunction<float>::hann, false };
@@ -147,6 +154,9 @@ namespace CoreDSP::Spectral
         std::array<float, frameSize> outputAccumulator {};
 
         std::array<float, frameSize> frameBuffer {};
+
+        // stereoPhase maps to at most this many frames of extra drift lag for this engine.
+        static constexpr int stereoLagFrames = 16;
         std::array<std::complex<float>, frameSize> fftInput {};
         std::array<std::complex<float>, frameSize> fftOutput {};
         std::array<std::complex<float>, frameSize> spectrum {};
@@ -183,11 +193,14 @@ namespace CoreDSP::Spectral
     inline void DriftEngine::prepare (double newSampleRate) noexcept
     {
         sampleRate = newSampleRate;
-        lfoPhase = 0.0f;
         feedbackState = 0.0f;
         ringPos = 0;
         hopIndex = 0;
         frameCount = 0;
+
+        driftHistory.fill (0.0f);
+        driftHistoryPos = 0;
+        driftHistoryFilled = false;
 
         inputRing.fill (0.0f);
         dryRing.fill (0.0f);
@@ -303,8 +316,28 @@ namespace CoreDSP::Spectral
 
         shapeMagnitudes();
 
-        lfoPhase = detail::wrapPhase (lfoPhase + detail::twoPi * settings.driftRateHz
-                                                 * (float) hopSize / (float) sampleRate);
+        // The drift per bin comes from the routed LFO's value, read through a per-bin lag:
+        // bin k reads the value from round(k * binSpread) frames ago, which is how the drift
+        // smears across the bins. stereoPhase adds an extra lag for this engine instance, which
+        // is how the right channel lags the left (plan 05.1 pass 2: the drift has no internal
+        // oscillator any more; it is driven from the outside).
+        const int stereoLag = (int) std::round (settings.stereoPhase / juce::MathConstants<float>::pi
+                                                * (float) stereoLagFrames);
+
+        if (! driftHistoryFilled)
+        {
+            // The first frame seeds the whole history with the current value, so every bin
+            // starts drifting at once instead of waiting for its lag to fill.
+            driftHistory.fill (settings.driftValue);
+            driftHistoryFilled = true;
+        }
+        else
+        {
+            driftHistory[(size_t) driftHistoryPos] = settings.driftValue;
+        }
+
+        const int newest = driftHistoryPos;
+        driftHistoryPos = (driftHistoryPos + 1) % numBins;
 
         // Bins below the drift start stay exactly as analysed.
         const float driftStartBin = std::clamp (settings.driftStart, 0.0f, 1.0f) * (float) numBins;
@@ -313,8 +346,15 @@ namespace CoreDSP::Spectral
         {
             const float drift = (float) k < driftStartBin
                                 ? 0.0f
-                                : settings.driftDepth
-                                  * lfoValue (settings.lfoShape, lfoPhase + settings.stereoPhase + settings.binSpread * (float) k);
+                                : [&]
+            {
+                const int lag = juce::jlimit (0, numBins - 1,
+                                              (int) std::round ((float) k * settings.binSpread) + stereoLag);
+                const float value = lag == 0 ? settings.driftValue
+                                             : driftHistory[(size_t) ((newest - lag + numBins) % numBins)];
+                return settings.driftDepth * value;
+            }();
+
             spectrum[(size_t) k] = std::polar (shapedMagnitudes[(size_t) k], phases[(size_t) k] + drift);
         }
 

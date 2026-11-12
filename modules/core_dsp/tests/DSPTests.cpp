@@ -22,14 +22,27 @@ namespace
     using namespace CoreDSP::Spectral;
     using Mode = CoreDSP::Saturation::Mode;
 
-    // Runs a drift engine over a generated signal and returns the output samples.
+    // Runs a drift engine over a generated signal and returns the output samples. The
+    // optional drift generator feeds the engine's drift value (plan 05.1: the drift is
+    // driven from outside; the engine has no internal LFO any more).
     template <typename Generator>
     std::vector<float> runEngine (DriftEngine& engine, int numSamples, Generator generate)
     {
+        return runEngine (engine, numSamples, generate, [] (int) { return 0.0f; });
+    }
+
+    template <typename Generator, typename DriftGenerator>
+    std::vector<float> runEngine (DriftEngine& engine, int numSamples, Generator generate, DriftGenerator drift)
+    {
         std::vector<float> out ((size_t) numSamples);
+        auto settings = engine.settingsForTest();
 
         for (int n = 0; n < numSamples; ++n)
+        {
+            settings.driftValue = drift (n);
+            engine.setSettings (settings);
             out[(size_t) n] = engine.processSample (generate (n));
+        }
 
         return out;
     }
@@ -429,6 +442,8 @@ namespace
     {
         const int total = 8 * frameSize;
 
+        // The drift is driven from the outside (plan 05.1 pass 2): the test plays a 2 Hz
+        // sine into the drift value, like the routed LFO would.
         auto render = [&] (float depth, float stereoPhase)
         {
             DriftEngine engine;
@@ -436,10 +451,16 @@ namespace
             DriftEngine::Settings settings;
             settings.driftDepth = depth;
             settings.stereoPhase = stereoPhase;
-            settings.driftRateHz = 2.0f;
             engine.setSettings (settings);
 
-            return runEngine (engine, total, [] (int n) { return sine (n, 1000.0, 0.5f); });
+            const double driftHz = 2.0;
+
+            return runEngine (engine, total, [] (int n) { return sine (n, 1000.0, 0.5f); },
+                              [&] (int n)
+                              {
+                                  const double phase = 2.0 * pi * driftHz * n / sampleRate;
+                                  return (float) std::sin (phase + stereoPhase);
+                              });
         };
 
         const auto dry = render (0.0f, 0.0f);

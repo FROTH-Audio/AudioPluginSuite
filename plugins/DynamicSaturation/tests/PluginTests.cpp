@@ -62,7 +62,7 @@ namespace
                            { Processor::driveId, Processor::sensitivityId, Processor::modeId, Processor::mixId,
                              Processor::outputLevelId, Processor::attackId, Processor::releaseId,
                              Processor::detectHpfId, Processor::stereoLinkId, Processor::biasId,
-                             Processor::foldId, Processor::toneId, Processor::curveId, Processor::panId,
+                             Processor::foldId, Processor::toneId, Processor::curveId,
                              Processor::lfo1RateId, Processor::lfo1ShapeId, Processor::lfo1SyncId,
                              Processor::lfo1DivisionId, Processor::lfo1OffsetId,
                              Processor::lfo2RateId, Processor::lfo2ShapeId, Processor::lfo2SyncId,
@@ -72,8 +72,6 @@ namespace
                              Processor::modAmountIds[0], Processor::modAmountIds[5],
                              Processor::modDelayIds[0], Processor::modDelayIds[5] },
                            Processor::numControls);
-
-        checkRange (processor.apvts, Processor::panId, -100.0f, 100.0f, 0.0f);
 
         checkRange (processor.apvts, Processor::driveId, 0.0f, 24.0f, 6.0f);
         checkRange (processor.apvts, Processor::sensitivityId, 0.0f, 1.0f, 0.5f);

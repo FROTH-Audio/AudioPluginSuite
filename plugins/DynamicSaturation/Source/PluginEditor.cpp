@@ -57,8 +57,8 @@ DynamicSaturationEditor::DynamicSaturationEditor (DynamicSaturationProcessor& p)
     for (auto* component : { static_cast<juce::Component*> (&helpLabel),
                              static_cast<juce::Component*> (&transferCurve),
                              static_cast<juce::Component*> (&inputMeter),
-    static_cast<juce::Component*> (&outputMeterL),
-    static_cast<juce::Component*> (&outputMeterR),
+                             static_cast<juce::Component*> (&outputMeterL),
+                             static_cast<juce::Component*> (&outputMeterR),
                              static_cast<juce::Component*> (&modeSelector),
                              static_cast<juce::Component*> (&driveSlider),
                              static_cast<juce::Component*> (&sensitivitySlider),
@@ -88,8 +88,6 @@ DynamicSaturationEditor::DynamicSaturationEditor (DynamicSaturationProcessor& p)
     foldSlider.slider.setTextValueSuffix (" %");
     toneSlider.slider.setNumDecimalPlacesToDisplay (2);
     outputSlider.slider.setTextValueSuffix (" dB");
-    panSlider.slider.setTextValueSuffix (" %");
-    panSlider.slider.setNumDecimalPlacesToDisplay (0);
 
     auto& apvts = processor.apvts;
 
@@ -110,8 +108,6 @@ DynamicSaturationEditor::DynamicSaturationEditor (DynamicSaturationProcessor& p)
     bind (DynamicSaturationProcessor::foldId, foldSlider.slider);
     bind (DynamicSaturationProcessor::toneId, toneSlider.slider);
     bind (DynamicSaturationProcessor::outputLevelId, outputSlider.slider);
-    bind (DynamicSaturationProcessor::panId, panSlider.slider);
-    panSlider.slider.setDoubleClickReturnValue (true, 0.0f);
 
     // The mode switch mirrors a choice parameter: the segment index equals the choice index.
     modeSelector.setOptions ({ "TUBE", "TAPE", "DIODE" });
@@ -193,7 +189,6 @@ void DynamicSaturationEditor::setPage (int newPage)
                              static_cast<juce::Component*> (&foldSlider),
                              static_cast<juce::Component*> (&toneSlider),
                              static_cast<juce::Component*> (&outputSlider),
-                             static_cast<juce::Component*> (&panSlider),
                              static_cast<juce::Component*> (&outputMeterL),
                              static_cast<juce::Component*> (&outputMeterR) })
         component->setVisible (page == 0);
@@ -271,17 +266,21 @@ void DynamicSaturationEditor::layoutSoundPage (juce::Rectangle<int> area)
     modeSelector.setBounds (area.removeFromTop (SuiteUI::pillHeight).reduced (120, 0));
     area.removeFromTop (groupGap);
 
-    // Four grouped rows of four (plan 05.1): drive, dynamics, character, output.
+    // Four grouped rows (plan 05.1): drive, dynamics, character, output. The output knob
+    // sits in the empty grid cell of the character row (pass 2), and panning is centred
+    // below it, so no knob sits alone on a full-width row.
     layoutRow (area.removeFromTop (SuiteUI::knobRowHeight),
                { &driveSlider, &sensitivitySlider, &curveSlider, &mixSlider });
     area.removeFromTop (groupGap);
     layoutRow (area.removeFromTop (SuiteUI::knobRowHeight),
                { &attackSlider, &releaseSlider, &detectHpfSlider, &stereoLinkSlider });
     area.removeFromTop (groupGap);
-    layoutRow (area.removeFromTop (SuiteUI::knobRowHeight),
-               { &biasSlider, &foldSlider, &toneSlider, &panSlider });
-    area.removeFromTop (groupGap);
-    layoutRow (area, { &outputSlider });
+    auto row3 = area.removeFromTop (SuiteUI::knobRowHeight);
+    const int quarter = row3.getWidth() / 4;
+    biasSlider.setBounds (row3.removeFromLeft (quarter).reduced (4));
+    foldSlider.setBounds (row3.removeFromLeft (quarter).reduced (4));
+    toneSlider.setBounds (row3.removeFromLeft (quarter).reduced (4));
+    outputSlider.setBounds (row3.removeFromLeft (quarter).reduced (4));
 }
 
 void DynamicSaturationEditor::layoutModPage (juce::Rectangle<int> area)

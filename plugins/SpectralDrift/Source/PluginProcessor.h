@@ -33,11 +33,9 @@ public:
     };
 
     // Drift and mix
-    static constexpr const char* driftRateId = "driftRate";
     static constexpr const char* depthId = "depth";
     static constexpr const char* spreadId = "spread";
     static constexpr const char* stereoPhaseId = "stereoPhase";
-    static constexpr const char* lfoShapeId = "lfoShape";
 
     // Spectral shaping
     static constexpr const char* shiftId = "shift";
@@ -70,7 +68,7 @@ public:
     static constexpr const char* modAmountIds[6] = { "mod1Amount", "mod2Amount", "mod3Amount", "mod4Amount", "mod5Amount", "mod6Amount" };
     static constexpr const char* modDelayIds[6] = { "mod1Delay", "mod2Delay", "mod3Delay", "mod4Delay", "mod5Delay", "mod6Delay" };
 
-    static constexpr int numControls = 48;
+    static constexpr int numControls = 46;
 
     /** Largest feedback the plugin allows. The engine itself can go to 0.95. */
     static constexpr float maxFeedbackPercent = 12.0f;
@@ -78,11 +76,13 @@ public:
     /**
         The parameters that an LFO can move. The order is part of the saved session: append new
         targets at the end, and never reorder or remove existing ones. Names come from modTargetNames().
+
+        Version 2 removed Drift Rate (the drift has no internal oscillator any more) and appended
+        Drift, the target the assignable LFOs drive. A migration remaps saved routing indices.
     */
     enum class ModTarget
     {
         None = 0,
-        DriftRate,
         Depth,
         BinSpread,
         StereoPhase,
@@ -94,6 +94,7 @@ public:
         DriftStart,
         OutputGain,
         Mix,
+        Drift,
         count
     };
 
@@ -162,11 +163,9 @@ private:
 
     std::array<CoreDSP::Spectral::DriftEngine, 2> engines;
 
-    std::atomic<float>* driftRate = nullptr;
     std::atomic<float>* depth = nullptr;
     std::atomic<float>* spread = nullptr;
     std::atomic<float>* stereoPhase = nullptr;
-    std::atomic<float>* lfoShape = nullptr;
     std::atomic<float>* shift = nullptr;
     std::atomic<float>* tilt = nullptr;
     std::atomic<float>* gate = nullptr;

@@ -4,9 +4,11 @@
   "_description": "Slow, wide drift with a bright upper shift.",
   "_plugin": "SpectralDrift",
   "_pluginVersion": "1.0.0",
-  "driftRate": 0.12,
   "spread": 0.75,
   "stereoPhase": 180.0,
   "shift": 12.0,
-  "gate": -60.0
+  "gate": -60.0,
+  "lfo1Rate": 0.12,
+  "mod1Target": 12,
+  "mod1Amount": 100.0
 }
