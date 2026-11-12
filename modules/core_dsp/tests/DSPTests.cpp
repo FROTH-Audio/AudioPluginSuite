@@ -338,38 +338,6 @@ namespace
     //==============================================================================
     // Spectral
 
-    void testLfoShapes()
-    {
-        const float halfPi = juce::MathConstants<float>::halfPi;
-        const float pi = juce::MathConstants<float>::pi;
-
-        // Sine matches the sine function.
-        assert (std::abs (lfoValue (LfoShape::sine, 0.0f)) < 1e-6f);
-        assert (std::abs (lfoValue (LfoShape::sine, halfPi) - 1.0f) < 1e-6f);
-
-        // Triangle runs from -1 at 0 up to +1 at pi.
-        assert (std::abs (lfoValue (LfoShape::triangle, 0.0f) + 1.0f) < 1e-6f);
-        assert (std::abs (lfoValue (LfoShape::triangle, pi) - 1.0f) < 1e-6f);
-
-        // Saw ramps from -1 towards +1 over one cycle.
-        assert (std::abs (lfoValue (LfoShape::saw, 0.0f) + 1.0f) < 1e-6f);
-        assert (lfoValue (LfoShape::saw, 1.5f * pi) > lfoValue (LfoShape::saw, 0.5f * pi));
-
-        // Square is +1 in the first half cycle and -1 in the second.
-        assert (lfoValue (LfoShape::square, 0.5f * pi) == 1.0f);
-        assert (lfoValue (LfoShape::square, 1.5f * pi) == -1.0f);
-
-        // Every shape stays in [-1, 1], including phases outside one cycle.
-        for (int shape = 0; shape < 4; ++shape)
-            for (float p = -10.0f; p < 10.0f; p += 0.05f)
-            {
-                const float v = lfoValue ((LfoShape) shape, p);
-                assert (v >= -1.0f - 1e-6f && v <= 1.0f + 1e-6f);
-            }
-
-        std::puts ("[PASS] testLfoShapes");
-    }
-
     void testSpectralFFT()
     {
         // Silence in must give a silent spectrum out.
@@ -1178,7 +1146,6 @@ int main()
     testOnePoleFilter();
     testToneControl();
     testLorenzChaos();
-    testLfoShapes();
     testSpectralFFT();
     testSpectralReconstruction();
     testSpectralDepthAndStereoPhase();

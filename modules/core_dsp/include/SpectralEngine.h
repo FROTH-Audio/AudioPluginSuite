@@ -43,31 +43,6 @@ namespace CoreDSP::Spectral
         }
     }
 
-    /** Shape of the drift LFO. All shapes lie in [-1, 1]. */
-    enum class LfoShape
-    {
-        sine = 0,
-        triangle,
-        saw,
-        square
-    };
-
-    /** Evaluates the LFO at a phase in radians. The phase may be outside [0, 2pi). */
-    inline float lfoValue (LfoShape shape, float phase) noexcept
-    {
-        const float p = detail::wrapPhase (phase);
-
-        switch (shape)
-        {
-            case LfoShape::sine:     return std::sin (p);
-            case LfoShape::triangle: return 1.0f - 4.0f * std::abs (p / detail::twoPi - 0.5f);
-            case LfoShape::saw:      return 2.0f * p / detail::twoPi - 1.0f;
-            case LfoShape::square:   return p < juce::MathConstants<float>::pi ? 1.0f : -1.0f;
-        }
-
-        return 0.0f;
-    }
-
     class DriftEngine
     {
     public:

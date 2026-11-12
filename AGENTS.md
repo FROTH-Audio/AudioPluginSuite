@@ -46,11 +46,11 @@ modules/
     include/CoreDSP.h             Umbrella header; decibelsToGain()
     include/SaturationEngine.h    Shapers, fold, OnePoleFilter, ToneControl, EnvelopeFollower
     include/ChaosEngine.h         LorenzAttractor (RK4), LorenzParams, LorenzState
-    include/SpectralEngine.h      DriftEngine (overlap-add FFT), LfoShape, lfoValue()
+    include/SpectralEngine.h      DriftEngine (overlap-add FFT); the drift is driven from the routed LFO's value
     include/SequencerEngine.h     CoreDSP::Sequencer: step rates, hashed pattern and melody, timing, swing, gate, velocity
     include/ModulationEngine.h    CoreDSP::Modulation: LFO shapes (cycles in, value in [-1, 1]) and the normalised offset clamp
     include/ModulationTiming.h    CoreDSP::Modulation: division table (beats per cycle), fractionalPart, cyclesFromSeconds
-    tests/DSPTests.cpp            CoreDSPTests (36 test functions)
+    tests/DSPTests.cpp            CoreDSPTests (35 test functions)
     CMakeLists.txt                CoreDSP INTERFACE target, CoreDSPTests
   suite_modulation/               Shared LFOs, routing slots, LFO scope, modulation panel, control display. NOT a library target, see section 8.
     include/SuiteModulationRouter.h   Router: LFO and slot parameters (addParameters), state, offsets, modulate(), publish. Also hostTempoOrDefault(), the tempo the effects' synced LFOs use
@@ -355,7 +355,7 @@ MTC's `lerpCurve` state property (not a parameter) round-trips through presets a
 
 ## 6. Test architecture
 
-Eleven CTest entries run eight executables: `CoreDSPTests` (36 test functions), `SuiteUI_Tests` (`SuiteUITests`, 9), `SuiteModulation_Tests` (`SuiteModulationTests`, 9), `SpectralDriftTests` (26), `DynamicSaturationTests` (23), `MicroTimingChaosTests` (45), `SgraffitoTests` (16), and `PluginHostTests`, which has one ctest entry per plugin (3). With the factory bank on, four preset-test executables join them (one per plugin). The README has the full list.
+Eleven CTest entries run eight executables: `CoreDSPTests` (35 test functions), `SuiteUI_Tests` (`SuiteUITests`, 9), `SuiteModulation_Tests` (`SuiteModulationTests`, 9), `SpectralDriftTests` (26), `DynamicSaturationTests` (24), `MicroTimingChaosTests` (45), `SgraffitoTests` (16), and `PluginHostTests`, which has one ctest entry per plugin (3). With the factory bank on, four preset-test executables join them (one per plugin). The README has the full list.
 
 **Module tests** (`modules/suite_modulation/tests/SuiteModulationTests.cpp`): the router, with a stub processor (no plugin). They cover the routed LFO, the zero case (bit for bit), bipolar amounts, whole-number targets, Host Sync ignoring Tempo, the one-bar period, sample and hold, out-of-range indices, and the control display (values set without notifying). Not covered: the control display skipping a slider the mouse holds, since the test cannot press a mouse button. The panel and scope are checked only by the MicroTimingChaos editor test.
 

@@ -116,11 +116,11 @@ Each routed control shows its modulated value live. While you hold the mouse on 
 
 | Plugin | Targets |
 |---|---|
-| Spectral Drift Shifter | Drift Rate, Drift Depth, Bin Spread, Stereo Phase, Spectral Shift, Spectral Tilt, Spectral Gate, Feedback, Feedback Damping, Drift Start, Output Gain, Mix |
+| Spectral Drift Shifter | Drift Depth, Bin Spread, Stereo Phase, Spectral Shift, Spectral Tilt, Spectral Gate, Feedback, Feedback Damping, Drift Start, Output Gain, Mix, Drift |
 | Dynamic Saturation Companion | Drive, Sensitivity, Mix, Output, Attack, Release, Detect HPF, Stereo Link, Tube Bias, Fold, Tone, Curve |
 | Micro-Timing Chaos | Chaos, Timing Range, Velocity Chaos, Lerp, Lerp X / Y / Z Mult, Density, Gate, Swing, Velocity, Speed, Tempo, Seed |
 
-Not routable on purpose: the switches and choices, such as Freeze, the Mode and the drift LFO's own Shape in Spectral Drift, and the Mode in Dynamic Saturation. In Micro-Timing Chaos, Rate, Length, Scale, Root, Octaves and Host Sync are not routable, because changing them would jump the groove. Velocity and Seed round to whole numbers. Tempo moves only while Host Sync is off.
+Not routable on purpose: the switches and choices, such as Freeze in Spectral Drift (the drift itself **is** routable — it is driven by the routed LFOs and has no internal oscillator) and the Mode in Dynamic Saturation. In Micro-Timing Chaos, Rate, Length, Scale, Root, Octaves and Host Sync are not routable, because changing them would jump the groove. Velocity and Seed round to whole numbers. Tempo moves only while Host Sync is off.
 
 ### Presets (optional bank)
 
@@ -142,13 +142,15 @@ An audio effect that breaks the input into 2048-point FFT frames, drifts the pha
 
 **Drift**
 
+The drift movement comes from the routed LFOs: assign LFO 1 or LFO 2 to the **Drift** routing
+target (no drift without routing). Depth scales the drift to radians, Bin Spread and Stereo
+Phase spread and offset it across the bins and channels.
+
 | Control | Range | Default | Description |
 |---|---|---|---|
-| **Drift Rate** | 0.1 – 10 Hz (logarithmic) | 1 Hz | Speed of the drift LFO. |
-| **Drift Depth** | 0 – 100 % | 19 % | Phase swing of the LFO. 100 % is π radians. |
-| **Bin Spread** | 0 – 1 rad | 0.05 rad | How much the LFO phase differs between neighbouring bins. Larger values give a more scattered, shimmering texture. |
-| **Stereo Phase** | 0 – 180° | 90° | Offset of the right channel's LFO. 0° is mono-identical, 90° is maximally decorrelated. |
-| **LFO Shape** | Sine / Triangle / Saw / Square | Sine | Waveform of the drift LFO. This is separate from the modulation LFOs. |
+| **Drift Depth** | 0 – 100 % | 19 % | How far the routed LFO's value pushes each bin's phase. 100 % is π radians. |
+| **Bin Spread** | 0 – 1 | 0.05 | Drift lag, in frames, between neighbouring bins: higher bins trail the routed LFO's value. Larger values give a more scattered, shimmering texture. |
+| **Stereo Phase** | 0 – 180° | 90° | Extra drift lag for the right channel. 0° is mono-identical, 90° is maximally decorrelated. |
 
 **Spectral shaping**
 
@@ -190,7 +192,6 @@ The stage runs at 2× oversampling to reduce aliasing. The added latency is repo
 | **Mode** | Tube / Tape / Diode | Tube | Transfer curve (see below). |
 | **Mix** | 0 – 100 % | 100 % | Dry/wet balance. |
 | **Output** | −12 – +6 dB | 0 dB | Output level. |
-| **Panning** | −100 – +100 % | 0 % | Balance control (plan 05.1 Phase 4.5): centre is unity in both channels, hard pan silences the opposite channel, applied after the output level. |
 
 **Dynamics**
 
