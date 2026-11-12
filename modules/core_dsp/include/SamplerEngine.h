@@ -143,6 +143,21 @@ namespace CoreDSP::Sampler
         double grainDurationSamples = 1.0;
         double nextGrainSample = 0.0;
 
+        // Sustain hold: latch release when note is held (plan 05.4 Phase 3)
+        bool sustainActive = false;         // voice should continue after note-off
+        int sustainKey = 60;                // key that will release this voice
+        double sustainTimeout = 0.0;        // time in seconds before timeout
+
+        // Surface effects state: per-sample modulation of playback rate and level (plan 05.4 Phase 4)
+        struct SurfaceState
+        {
+            double phaseDust = 0.0;          // slow low-frequency modulation (0.1-6 Hz)
+            double phaseCrackle = 0.0;       // fast high-frequency texture (50-210 Hz)
+            double phaseWow = 0.0;           // medium LFO-like rate modulation (0.5-4 Hz)
+            double phaseFlutter = 0.0;       // faster LFO-like rate modulation (3-11 Hz)
+            std::uint64_t sampleCounter = 0;  // for deterministic seeding
+        } surfaceState;
+
         /** Envelope value at an absolute sample index. Release starts from releaseLevel without a jump. */
         float envelope (double sampleIndex, double attackMs, double releaseMs, double sampleRate) const noexcept
         {
@@ -210,6 +225,13 @@ namespace CoreDSP::Sampler
                 voice.noteId = noteId;
                 voice.startOrder = nextStartOrder++;
                 voice.cloudLane = mode == 2 ? lane : -1;
+                
+                // Initialize surface state for this voice
+                voice.surfaceState.sampleCounter = (std::uint64_t) noteId * cloudLanesPerNote + lane;
+                voice.surfaceState.phaseDust = 0.0;
+                voice.surfaceState.phaseCrackle = 0.0;
+                voice.surfaceState.phaseWow = 0.0;
+                voice.surfaceState.phaseFlutter = 0.0;
 
                 if (firstAllocated < 0)
                     firstAllocated = index;
@@ -286,7 +308,14 @@ namespace CoreDSP::Sampler
         {
             for (int i = 0; i < maxVoices; ++i)
                 if (! voices[i].active)
+                {
+                    // Reset sustain state for reuse
+                    voices[i].sustainActive = false;
+                    voices[i].sustainKey = 60;
+                    voices[i].sustainTimeout = 0.0;
+
                     return i;
+                }
 
             int candidate = -1;
             std::uint32_t oldest = std::numeric_limits<std::uint32_t>::max();

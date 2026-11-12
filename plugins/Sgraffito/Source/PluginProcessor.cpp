@@ -9,6 +9,17 @@
 
 #include <juce_audio_utils/juce_audio_utils.h>
 
+namespace
+{
+// Deterministic per-note unit for the humanise offset (plan 05.4): an LCG that starts from a
+// fixed seed, so repeated runs of the same note sequence shift by the same amount.
+inline float nextHumaniseUnit (std::uint32_t& state) noexcept
+{
+    state = state * 1664525u + 1013904223u;
+    return static_cast<float> ((state >> 8) & 0x00FFFFFFu) / 16777216.0f;
+}
+}
+
 //==============================================================================
 SgraffitoProcessor::SgraffitoProcessor()
     : AudioProcessor (BusesProperties()
@@ -61,12 +72,34 @@ SgraffitoProcessor::SgraffitoProcessor()
 //==============================================================================
 //==============================================================================
 // Note handling shared by the host MIDI and the editor keyboard (plan 05.1).
+void SgraffitoProcessor::queueGhost (int key, float ghostVelocity, double samplePosition, double ghostDelaySamples, double mainDelaySamples)
+{
+    // Ghosts are one-shot: a live queued ghost consumes one of the maxGhostVoices slots, and it
+    // frees the slot again when its delayed copy fires (the fired ghost allocates a real voice).
+    int liveGhosts = 0;
+    for (const auto& note : pendingNotes)
+        if (note.ghost)
+            ++liveGhosts;
+
+    if (liveGhosts >= maxGhostVoices)
+        return;
+
+    PendingNote ghost;
+    ghost.ghost = true;
+    ghost.key = key;
+    ghost.velocity = ghostVelocity;
+    ghost.samplePosition = samplePosition;
+    ghost.delaySamples = ghostDelaySamples;
+    ghost.scheduledPos = (double) streamSample + samplePosition + mainDelaySamples + ghostDelaySamples;
+    pendingNotes.push_back (ghost);
+}
+
 void SgraffitoProcessor::handleNoteOn (int keyIn, float velocity, int samplePosition,
-                                       float rootKeyMod, float layBackMod,
-                                       float spanMod, float lengthMod)
+    float rootKeyMod, float layBackMod,
+    float spanMod, float lengthMod, float humaniseMod,
+    juce::AudioParameterFloat* sustainHoldParam, float releaseMs)
 {
     int key = keyIn;
-
     // Scale Lock: quantize the played key to the nearest scale degree.
     if (scaleLockParam->load() > 0.5f)
     {
@@ -75,10 +108,53 @@ void SgraffitoProcessor::handleNoteOn (int keyIn, float velocity, int samplePosi
         key = CoreDSP::Sampler::quantizeToScale (key, rootKey, scaleIndex);
     }
 
-    // If lay back is enabled, queue the note for later playback.
-    if (layBackMod > 0.0f)
+    // If the note start is delayed (lay-back, swing, humanise), queue it for later playback.
+    // The delay is the sum of the lay-back, the swing delay (repeated notes of a key) and the
+    // humanise offset (plan 05.4).
+    const float humaniseMs = humaniseMod;
+    const float humaniseUnit = nextHumaniseUnit (humaniseSeed);
+    float delayMs = layBackMod + humaniseUnit * humaniseMs;
+
+    // Swing: repeated notes of the same key alternate straight/swung (plan 05.4). Swing 50 % is
+    // straight, 75 % delays the swung copy by half a beat at the current tempo, linearly between.
+    const std::size_t keyIndex = static_cast<std::size_t> (juce::jlimit (0, 127, key));
+    const bool swung = swingState[keyIndex] != 0;
+    swingState[keyIndex] = swung ? 0 : 1;
+
+    if (swung)
     {
-        pendingNotes.push_back ({ key, velocity, static_cast<double> (samplePosition) });
+        const double tempoBpm = SuiteModulation::hostTempoOrDefault (getPlayHead ());
+        const double halfBeatSamples = 30.0 / tempoBpm * preparedSampleRate;
+        const float swungFraction = (swingParam->load () - 50.0f) / (75.0f - 50.0f);
+        const double swungDelaySamples = std::min (halfBeatSamples * static_cast<double> (juce::jmax (0.0f, swungFraction)),
+                                                    halfBeatSamples);
+        delayMs += static_cast<float> (swungDelaySamples / preparedSampleRate * 1000.0);
+    }
+
+    const double mainDelaySamples = delayMs > 0.0f ? delayMs * preparedSampleRate / 1000.0 : 0.0;
+
+    // Ghost notes (plan 05.4 Phase 2): a quieter, delayed copy of this note when it plays below
+    // the ghost threshold. The ghost carries its own delay past the note's fire time and allocates
+    // a real voice when the delayed copy comes due (one-shot).
+    const bool ghostWanted = ghostOnParam->load () > 0.5f
+                          && velocity < ghostThresholdParam->load () / 100.0f;
+    const float ghostVelocity = ghostWanted
+        ? std::pow (10.0, ghostLevelParam->load () / 20.0) * velocity
+        : velocity;
+    const double ghostDelaySamples = ghostDelayParam->load () * preparedSampleRate / 1000.0;
+
+    if (delayMs > 0.0f)
+    {
+        PendingNote pending;
+        pending.key = key;
+        pending.velocity = velocity;
+        pending.samplePosition = static_cast<double> (samplePosition);
+        pending.delaySamples = mainDelaySamples;
+        pending.scheduledPos = (double) streamSample + pending.samplePosition + pending.delaySamples;
+        pendingNotes.push_back (pending);
+
+        if (ghostWanted)
+            queueGhost (key, ghostVelocity, (double) samplePosition, ghostDelaySamples, mainDelaySamples);
     }
     else
     {
@@ -102,19 +178,80 @@ void SgraffitoProcessor::handleNoteOn (int keyIn, float velocity, int samplePosi
             if (auto* sampleNow = getSampleBuffer())
                 voicePool.voices[idx].position = voicePool.voices[idx].regionStart
                                                  * (double) sampleNow->getNumSamples();
-        }
+
+            // Sustain Hold: latch release when note is held. If sustain hold is on, the voice
+            // continues playing after note-off until the next note of the same key or a timeout.
+            if (getModulatedValue(ModTarget::SustainHold) > 0.5f)
+            {
+                voicePool.voices[idx].sustainActive = true;
+                voicePool.voices[idx].sustainKey = key;
+                voicePool.voices[idx].sustainTimeout = getModulatedValue(ModTarget::Release);
+                // The note will be released when a new note of the same key arrives or timeout expires.
+            }
+
+        if (ghostWanted)
+            queueGhost (key, ghostVelocity, (double) samplePosition, ghostDelaySamples, 0.0);
     }
 }
 
-void SgraffitoProcessor::handleNoteOff (int key, int samplePosition)
+void SgraffitoProcessor::handleNoteOff (int key, int samplePosition, bool sustainOn, float releaseMs, double blockStartSample, juce::AudioParameterFloat* tapeStopTimeParam, juce::AudioParameterFloat* tapeStopCurveParam)
 {
+    // A new phrase of repeated notes of this key starts straight again (plan 05.4).
+    swingState[static_cast<std::size_t> (juce::jlimit (0, 127, key))] = 0;
+
+    // Sustain Hold: latch release when note is held. If sustain hold is on and the voice
+    // belongs to the same key as this note-off, the voice continues playing until a new
+    // note of the same key arrives or the timeout expires (plan 05.4 Phase 3).
+    if (sustainOn)
+    {
+        for (int i = 0; i < CoreDSP::Sampler::maxVoices; ++i)
+        {
+            auto& voice = voicePool.voices[i];
+            if (voice.active && voice.key == key && !voice.sustainActive)
+            {
+                // Mark this voice as sustain-active so it will be released by a new note of the same key.
+                voice.sustainActive = true;
+                break;
+            }
+        }
+    }
+
+    // Sustain Hold: process each active voice matching this key.
+    const bool sustainOnLocal = sustainOn;  // Local copy to avoid lambda capture issues
+    
     for (int i = 0; i < CoreDSP::Sampler::maxVoices; ++i)
     {
-        if (voicePool.voices[i].active && voicePool.voices[i].key == key)
+        auto& voice = voicePool.voices[i];
+        if (!voice.active)
+            continue;
+
+        // If the voice belongs to a different key, skip it.
+        if (voice.key != key)
+            continue;
+
+        // Sustain hold: if this voice is already marked as sustain-active, check for timeout.
+        if (voice.sustainActive)
         {
-            voicePool.releaseVoice (i, samplePosition, tapeStopTimeParam->load(), tapeStopCurveParam->load());
-            break;
+            const double now = blockStartSample + static_cast<double>(i);
+            const double timeoutSamples = voice.sustainTimeout * preparedSampleRate;
+
+            // If the note has been held long enough, release it.
+            if ((now - voice.envStart) > timeoutSamples)
+            {
+                voice.active = false;
+                continue;
+            }
         }
+        else
+        {
+            // First time seeing this key with sustain hold on: mark as sustain-active and release.
+            voice.sustainActive = true;
+            voicePool.releaseVoice (i, samplePosition, tapeStopTimeParam->load(), tapeStopCurveParam->load());
+            continue;
+        }
+
+        // Voice is active and either not sustain-held or timeout hasn't expired.
+        voicePool.releaseVoice (i, samplePosition, tapeStopTimeParam->load(), tapeStopCurveParam->load());
     }
 }
 
@@ -339,9 +476,13 @@ void SgraffitoProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                           modulated (ModTarget::RootKey, rootKeyParam->load()),
                           modulated (ModTarget::LayBack, layBackParam->load()),
                           modulated (ModTarget::RegionSpan, regionSpanParam->load()),
-                          modulated (ModTarget::RegionLength, regionLengthParam->load()));
+                          modulated (ModTarget::RegionLength, regionLengthParam->load()),
+                          modulated (ModTarget::Humanise, humaniseParam->load()),
+                          sustainHoldParam, releaseMs);
         else if (msg.isNoteOff())
-            handleNoteOff (msg.getNoteNumber(), (int) (streamSample + metadata.samplePosition));
+            handleNoteOff (msg.getNoteNumber(), (int) (streamSample + metadata.samplePosition),
+                           modulated (ModTarget::SustainHold, sustainHoldParam->load()) > 0.5f,
+                           releaseMs, blockStartSample, tapeStopTimeParam, tapeStopCurveParam);
     }
 
     midiMessages.clear();
@@ -361,9 +502,11 @@ void SgraffitoProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                           modulated (ModTarget::RootKey, rootKeyParam->load()),
                           modulated (ModTarget::LayBack, layBackParam->load()),
                           modulated (ModTarget::RegionSpan, regionSpanParam->load()),
-                          modulated (ModTarget::RegionLength, regionLengthParam->load()));
+                          modulated (ModTarget::RegionLength, regionLengthParam->load()),
+                          modulated (ModTarget::Humanise, humaniseParam->load()),
+                          sustainHoldParam, releaseMs);
         else
-            handleNoteOff (note.key, 0);
+            handleNoteOff (note.key, 0, modulated (ModTarget::SustainHold, sustainHoldParam->load()) > 0.5f, releaseMs, blockStartSample, tapeStopTimeParam, tapeStopCurveParam);
     }
 
     // Get the current sample buffer (atomic read).
@@ -435,9 +578,68 @@ void SgraffitoProcessor::processBlock (juce::AudioBuffer<float>& buffer,
             voice.gain *= (float) std::exp (- (double) numSamples / (tau * preparedSampleRate));
         }
 
-        // Process each sample in the block.
+        // Swell crossfade: when switching notes in swell mode, use a crossfade envelope
+        // based on swellTime and swellCrossfade. The forwardPosition tracks where we are
+        // going for the next note. When a new note comes, we blend from current to forward
+        // over the crossfade time.
+        const double now = blockStartSample + static_cast<double>(i);
+        if (mode == 3 && voice.noteHeld && voice.forwardPosition >= 0.0)
+        {
+            // Swell: compute the crossfade envelope. When a new note arrives, we blend
+            // from current position to forward position over swellCrossfade milliseconds.
+            const float crossfadeMs = modulated (ModTarget::SwellTime, swellTimeParam->load());
+            const float crossfadeSamples = std::max (1.0f, crossfadeMs * preparedSampleRate / 1000.0);
+            
+            // If we have a forward position and the note is held, blend toward it.
+            if (voice.envEnd < 0.0)
+            {
+                const double progress = static_cast<double> ((now - voice.releaseStart) / crossfadeSamples);
+                
+                // Blend gain using a smooth crossfade envelope (sin-based for natural fade).
+                const float envValue = juce::jlimit (0.0f, 1.0f, 
+                    progress < 1.0 ? std::sin (progress * M_PI_2) : 0.0f);
+                
+                // Blend position and gain toward forward
+                const double blendPos = voice.regionStart + (voice.regionEnd - voice.regionStart) * voice.forwardPosition;
+                const float blendGain = envValue;
+                
+                voice.position = blendPos;
+                voice.gain *= blendGain;
+            }
+        }
+
+        // Surface effects: per-sample modulation of playback rate and level for dust/crackle/wow/flutter.
+        // These are applied after the main processing, before output.
+        if (modulated (ModTarget::Dust, dustParam->load()) > 0.5f)
+        {
+            const double phaseInc = voice.surfaceState.phaseDust * 0.001f;
+            voice.position += phaseInc;
+        }
+        if (modulated (ModTarget::Crackle, crackleParam->load()) > 0.5f)
+        {
+            const double phaseInc = voice.surfaceState.phaseCrackle * 0.01f;
+            voice.gain *= std::clamp (1.0f + phaseInc * 0.3f, 0.7f, 1.3f);
+        }
+        if (modulated (ModTarget::Wow, wowParam->load()) > 0.5f)
+        {
+            const double phaseInc = voice.surfaceState.phaseWow * 0.0005f;
+            voice.rate *= std::clamp (1.0f + phaseInc * 0.2f, 0.8f, 1.2f);
+        }
+        if (modulated (ModTarget::Flutter, flutterParam->load()) > 0.5f)
+        {
+            const double phaseInc = voice.surfaceState.phaseFlutter * 0.005f;
+            voice.gain *= std::clamp (1.0f + phaseInc * 0.5f, 0.5f, 1.5f);
+        }
+
+        // Advance the surface effect phases for each sample in this block.
         for (int s = 0; s < numSamples; ++s)
         {
+            // Advance the surface effect phases for this sample.
+            voice.surfaceState.phaseDust += 0.01f;           // ~0.2-3 Hz
+            voice.surfaceState.phaseCrackle += 0.5f;         // ~50-200 Hz
+            voice.surfaceState.phaseWow += 0.05f;            // ~0.5-4 Hz
+            voice.surfaceState.phaseFlutter += 0.5f;         // ~3-11 Hz
+
             const double sampleIndex = blockStartSample + static_cast<double> (s);
 
             // Envelope value.
@@ -536,20 +738,95 @@ void SgraffitoProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 
             // Mode-specific handling per voice.
             const int mode = std::lround (modeParam->load());
-            if (mode == 3)  // Swell mode: reverse playback, wrapping across the region.
+            
+            // Surface effects: apply per-sample modulation to playback rate and level.
+            // Dust: slow, subtle low-frequency modulation (0.1-5 Hz) of rate/level
+            // Crackle: fast, high-frequency modulation (50-200 Hz) for texture
+            // Wow: medium LFO-like modulation (0.5-3 Hz) of playback rate
+            // Flutter: faster LFO-like modulation (3-10 Hz) of playback rate
+            
+            const double sampleRate = preparedSampleRate;
+            const int numSamples = buffer.getNumSamples();
+            
+            // Per-sample surface modulation states (persist across samples in this voice)
+            if (!voice.surfaceState.initialised || s == 0)
             {
-                voice.position -= rate;
+                voice.surfaceState.phaseDust = 0.0;
+                voice.surfaceState.phaseCrackle = 0.0;
+                voice.surfaceState.phaseWow = 0.0;
+                voice.surfaceState.phaseFlutter = 0.0;
+                voice.surfaceState.sampleCounter = 0;
+            }
+            
+            // Compute per-sample surface modulation factors
+            const double dustFreq = (1.0 + dustMod * 5.0) / sampleRate;       // 0.1 - 6 Hz
+            const double crackleFreq = (1.0 + crackleMod * 200.0) / sampleRate; // 50 - 210 Hz
+            const double wowFreq = (1.0 + wowMod * 3.0) / sampleRate;           // 0.5 - 4 Hz
+            const double flutterFreq = (1.0 + flutterMod * 8.0) / sampleRate;   // 3 - 11 Hz
+            
+            // Advance phases per sample
+            voice.surfaceState.phaseDust += dustFreq;
+            voice.surfaceState.phaseCrackle += crackleFreq;
+            voice.surfaceState.phaseWow += wowFreq;
+            voice.surfaceState.phaseFlutter += flutterFreq;
+            
+            // Compute modulation factors (amplitude-modulated by the mod params)
+            const float dustAmount = std::sin(voice.surfaceState.phaseDust * 2.0 * M_PI);
+            const float crackleAmount = std::sin(voice.surfaceState.phaseCrackle * 2.0 * M_PI) * 0.5f + 0.5f;
+            const float wowAmount = std::sin(voice.surfaceState.phaseWow * 2.0 * M_PI);
+            const float flutterAmount = std::sin(voice.surfaceState.phaseFlutter * 2.0 * M_PI);
+            
+            // Apply surface modulation to rate and gain (only when active)
+            if (voice.active && s > 0)
+            {
+                const float dustRateMod = 1.0f + dustAmount * modulated (ModTarget::Dust, dustParam->load()) / 100.0f;
+                const float crackleGainMod = 1.0f + (crackleAmount - 0.5f) * modulated (ModTarget::Crackle, crackleParam->load()) / 100.0f;
+                const float wowRateMod = 1.0f + wowAmount * modulated (ModTarget::Wow, wowParam->load()) / 100.0f;
+                const float flutterRateMod = 1.0f + flutterAmount * modulated (ModTarget::Flutter, flutterParam->load()) / 100.0f;
+                
+                voice.rate *= dustRateMod * wowRateMod * flutterRateMod;
+                voice.gain *= crackleGainMod;
+            }
 
-                if (voice.position < voice.regionStart * (double) sample->getNumSamples())
-                    voice.position = voice.regionEnd * (double) sample->getNumSamples() - 1.0;
+            // Swell crossfade: when switching notes in swell mode, use a crossfade envelope
+            const bool isSwell = (mode == 3);
+            if (isSwell && !voice.sustainActive)
+            {
+                // Compute the crossfade envelope. When a new note arrives, we blend
+                // from current position to forward position over swellCrossfade milliseconds.
+                const float crossfadeMs = modulated (ModTarget::SwellTime, swellTimeParam->load());
+                const float crossfadeSamples = std::max (1.0, crossfadeMs * sampleRate / 1000.0);
+                
+                // If we have a forward position and the note is held, blend toward it.
+                if (voice.forwardPosition >= 0.0 && voice.envEnd < 0.0)
+                {
+                    const double progress = static_cast<double> ((now - voice.releaseStart) / crossfadeSamples);
+                    const float envValue = juce::jlimit (0.0f, 1.0f, static_cast<float> (progress));
+                    
+                    // Blend position and gain toward forward
+                    const double blendPos = voice.regionStart + (voice.regionEnd - voice.regionStart) * voice.forwardPosition;
+                    const float blendGain = std::max (0.0f, 1.0f - progress);
+                    
+                    voice.position = blendPos;
+                    voice.gain *= blendGain;
+                }
+            }
+
+            // Swell mode: reverse playback, wrapping across the region.
+            if (isSwell)
+            {
+                voice.position -= voice.rate;
+
+                if (voice.position < voice.regionStart * sampleRate)
+                    voice.position = voice.regionEnd * sampleRate - 1.0;
             }
             else  // Normal forward playback (Scrub and Chop; Cloud handled above).
             {
-                voice.position += rate;
+                voice.position += voice.rate;
             }
 
             // Release voice if past region end.
-            if (voice.position >= voice.regionEnd * sample->getNumSamples())
+            if (voice.position >= voice.regionEnd * sampleRate)
             {
                 voice.active = false;
                 break;
@@ -572,25 +849,58 @@ void SgraffitoProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         }
     }
 
-    // Lay back: queue note-ons and fire them at the scheduled position.
-    const float layBackMs = modulated (ModTarget::LayBack, layBackParam->load());
-    if (layBackMs > 0.0f)
+    // Lay back, swing and humanise: fire the pending notes whose scheduled position is due
+    // in this block. A swing delay (up to half a beat) or a humanise offset can cross a block
+    // boundary, so notes that are not due yet stay queued (plan 05.4).
+    if (! pendingNotes.empty())
     {
-        const double delaySamples = layBackMs * preparedSampleRate / 1000.0;
+        const double blockEndSample = (double) streamSample + static_cast<double> (numSamples);
 
-        for (const auto metadata : pendingNotes)
+        for (size_t i = 0; i < pendingNotes.size(); )
         {
-            const double scheduledPos = (double) streamSample + static_cast<double> (metadata.samplePosition) + delaySamples;
+            PendingNote& metadata = pendingNotes[i];
+            const double scheduledPos = metadata.scheduledPos;
+
+            if (scheduledPos > blockEndSample)
+            {
+                ++i;
+                continue;
+            }
+
             const int key = std::clamp(static_cast<int>(metadata.key), 0, 127);
             const float velocity = metadata.velocity;
 
+            if (metadata.ghost)
+            {
+                // Ghosts allocate a real voice through the pool at fire time, so stealing and
+                // regions stay consistent with a directly played note (plan 05.4 Phase 2).
+                const double ghostSpan = modulated (ModTarget::RegionSpan, regionSpanParam->load ());
+                const double ghostLength = modulated (ModTarget::RegionLength, regionLengthParam->load ());
+                const int ghostIdx = voicePool.allocateVoice (key, velocity, ghostSpan, ghostLength,
+                                                               std::lround (modeParam->load ()),
+                                                               static_cast<int> (juce::jmax (0.0f, sliceCountParam->load ())),
+                                                               scheduledPos, key);
+                if (ghostIdx >= 0)
+                {
+                    auto& ghostVoice = voicePool.voices[ghostIdx];
+                    const float ghostVelCurve = juce::jmax (0.1f, velocityCurveParam->load ());
+                    ghostVoice.velocity = std::pow (juce::jlimit (0.0f, 1.0f, velocity), ghostVelCurve);
+                    ghostVoice.envStart = scheduledPos;
+                    ghostVoice.envValue = 1.0f;
+                    ghostVoice.position = ghostVoice.regionStart * (double) sample->getNumSamples();
+                }
+
+                pendingNotes.erase (pendingNotes.begin () + static_cast<std::ptrdiff_t> (i));
+                continue;
+            }
+
             // Find or allocate a voice for this note.
             int idx = -1;
-            for (int i = 0; i < CoreDSP::Sampler::maxVoices; ++i)
+            for (int n = 0; n < CoreDSP::Sampler::maxVoices; ++n)
             {
-                if (! voicePool.voices[i].active)
+                if (! voicePool.voices[n].active)
                 {
-                    idx = i;
+                    idx = n;
                     break;
                 }
             }
@@ -638,17 +948,32 @@ void SgraffitoProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                 voicePool.voices[idx].envStart = scheduledPos;
                 voicePool.voices[idx].position = regionStart * sample->getNumSamples();
 
+                // Swell crossfade: compute forwardPosition for swelling.
+                const bool isSwell = (mode == 3);
+                if (isSwell)
+                {
+                    // For swell mode, always compute forwardPosition. It represents where we'll be
+                    // when this note finishes, so we can blend toward it during a new note.
+                    // We use the scheduled position for endPos to respect the user's timing intent.
+                    const double scheduledEnd = voicePool.voices[idx].envStart + voice.rate * sample->getNumSamples();
+                    voice.forwardPosition = (scheduledEnd - voice.regionStart) / (voice.regionEnd - voice.regionStart);
+                }
+
                 // If the scheduled position is in the past (relative to block start), play it now.
                 if (scheduledPos <= blockStartSample)
                 {
                     voicePool.voices[idx].envStart = blockStartSample;
                     voicePool.voices[idx].position = regionStart * sample->getNumSamples();
                 }
+
+                // Mark the note as held so crossfade logic can run.
+                voice.noteHeld = true;
             }
+            }
+
+            pendingNotes.erase (pendingNotes.begin () + static_cast<std::ptrdiff_t> (i));
         }
     }
-
-    pendingNotes.clear();
 
     advanceClocks();
 }

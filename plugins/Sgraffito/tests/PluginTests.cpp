@@ -94,6 +94,221 @@ namespace
         pass ("testMidiNoteOffReleasesVoice");
     }
 
+    // Swing (plan 05.4): the first note of a key plays straight, the next one is swung and
+    // starts half a beat later (swing 75 % at the fallback tempo of 120 BPM = 12000 samples).
+    void testSwingDelaysRepeatedNotes()
+    {
+        Processor processor;
+        processor.prepareToPlay (sampleRate, blockSize);
+        setParameter (processor.apvts, Processor::swingId, 75.0f);
+        setParameter (processor.apvts, Processor::humaniseId, 0.0f);
+        setParameter (processor.apvts, Processor::layBackId, 0.0f);
+        setParameter (processor.apvts, Processor::regionLengthId, 100.0f);
+
+        juce::AudioBuffer<float> testBuffer (2, 48000);
+        for (int ch = 0; ch < 2; ++ch)
+            for (int i = 0; i < 48000; ++i)
+                testBuffer.setSample (ch, i,
+                    0.5f * (float) std::sin (2.0 * juce::MathConstants<double>::pi * 440.0 * i / sampleRate));
+        processor.loadedSample = std::make_unique<LoadedSample>();
+        processor.loadedSample->buffer = testBuffer;
+        processor.loadedSample->sourceSampleRate = sampleRate;
+        processor.sampleBuffer.store (&processor.loadedSample->buffer, std::memory_order_release);
+
+        juce::AudioBuffer<float> audio (2, blockSize);
+        audio.clear();
+
+        // First note of key 60: swing is 75 but the first note of a phrase is straight.
+        juce::MidiBuffer midi1;
+        midi1.addEvent (juce::MidiMessage::noteOn (1, 60, 0.8f), 0);
+        processor.processBlock (audio, midi1);
+
+        int firstVoice = -1;
+        for (int i = 0; i < CoreDSP::Sampler::maxVoices; ++i)
+            if (processor.voicePool.voices[i].active && processor.voicePool.voices[i].key == 60)
+            {
+                firstVoice = i;
+                break;
+            }
+        assert (firstVoice >= 0);
+        const double firstOnset = processor.voicePool.voices[firstVoice].envStart;
+        assert (firstOnset <= 0.0);
+
+        // Second note of key 60: swung, queued with the swing delay instead of playing straight.
+        juce::MidiBuffer midi2;
+        midi2.addEvent (juce::MidiMessage::noteOn (1, 60, 0.8f), 0);
+        processor.processBlock (audio, midi2);
+        assert (processor.pendingNotes.size () == 1);
+        assert (processor.pendingNotes[0].key == 60);
+        assert (std::abs (processor.pendingNotes[0].delaySamples - 12000.0) < 1.0);
+
+        // The swung note fires, late, at the delayed position (stream 1024 + the 12000-sample
+        // swing delay = 12512), and the queue drains.
+        juce::MidiBuffer noMidi;
+        for (int block = 0; block < 40; ++block)
+        {
+            audio.clear();
+            processor.processBlock (audio, noMidi);
+        }
+
+        assert (processor.pendingNotes.empty ());
+
+        bool firedWithDelay = false;
+        for (int i = 0; i < CoreDSP::Sampler::maxVoices; ++i)
+            if (processor.voicePool.voices[i].active && processor.voicePool.voices[i].key == 60
+                && std::abs (processor.voicePool.voices[i].envStart - 12512.0) < 1.0)
+                firedWithDelay = true;
+
+        assert (firedWithDelay);
+        pass ("testSwingDelaysRepeatedNotes");
+    }
+
+    // Humanise (plan 05.4): every note gets a deterministic start offset before the (zero)
+    // lay-back, so the note is queued and starts inside the humanise window.
+    void testHumaniseDelaysNoteOnset()
+    {
+        Processor processor;
+        processor.prepareToPlay (sampleRate, blockSize);
+        setParameter (processor.apvts, Processor::swingId, 50.0f);
+        setParameter (processor.apvts, Processor::humaniseId, 10.0f);
+        setParameter (processor.apvts, Processor::layBackId, 0.0f);
+        setParameter (processor.apvts, Processor::regionLengthId, 100.0f);
+
+        juce::AudioBuffer<float> testBuffer (2, 48000);
+        for (int ch = 0; ch < 2; ++ch)
+            for (int i = 0; i < 48000; ++i)
+                testBuffer.setSample (ch, i,
+                    0.5f * (float) std::sin (2.0 * juce::MathConstants<double>::pi * 440.0 * i / sampleRate));
+        processor.loadedSample = std::make_unique<LoadedSample>();
+        processor.loadedSample->buffer = testBuffer;
+        processor.loadedSample->sourceSampleRate = sampleRate;
+        processor.sampleBuffer.store (&processor.loadedSample->buffer, std::memory_order_release);
+
+        juce::AudioBuffer<float> audio (2, blockSize);
+        audio.clear();
+        juce::MidiBuffer midi;
+        midi.addEvent (juce::MidiMessage::noteOn (1, 60, 0.8f), 0);
+        processor.processBlock (audio, midi);
+
+        // The humanise offset (10 ms at 48 kHz, deterministic per note) makes the delay small
+        // enough to sit inside one block, so the queued note fires within this same block and
+        // the queue drains. The voice must still start late, at the humanise offset.
+        assert (processor.pendingNotes.empty ());
+
+        int voice = -1;
+        for (int i = 0; i < CoreDSP::Sampler::maxVoices; ++i)
+            if (processor.voicePool.voices[i].active && processor.voicePool.voices[i].key == 60)
+            {
+                voice = i;
+                break;
+            }
+        assert (voice >= 0);
+        const double humaniseDelaySamples = processor.voicePool.voices[voice].envStart;
+        // First note of the phrase, swing straight (50 %), lay-back off: the humanise offset is
+        // unit * 10 ms = 0.3363 * 10 * 48 kHz = ~161 samples. Before the fix the humanise delay
+        // was ignored and this onset sat at sample 0.
+        assert (humaniseDelaySamples > 0.0);
+        assert (std::abs (humaniseDelaySamples - 161.42) < 1.0);
+        pass ("testHumaniseDelaysNoteOnset");
+    }
+
+    // Ghost notes (plan 05.4 Phase 2): a quiet note below the threshold becomes a quieter,
+    // delayed copy; the ghost allocates a real voice when its delayed copy comes due.
+    void testGhostDelaysQuietNote()
+    {
+        Processor processor;
+        processor.prepareToPlay (sampleRate, blockSize);
+        setParameter (processor.apvts, Processor::swingId, 50.0f);
+        setParameter (processor.apvts, Processor::humaniseId, 0.0f);
+        setParameter (processor.apvts, Processor::layBackId, 0.0f);
+        setParameter (processor.apvts, Processor::regionLengthId, 100.0f);
+        setParameter (processor.apvts, Processor::ghostOnId, 1.0f);
+        setParameter (processor.apvts, Processor::ghostThresholdId, 50.0f);
+        setParameter (processor.apvts, Processor::ghostLevelId, -12.0f);
+        setParameter (processor.apvts, Processor::ghostDelayId, 10.0f);
+
+        juce::AudioBuffer<float> testBuffer (2, 48000);
+        for (int ch = 0; ch < 2; ++ch)
+            for (int i = 0; i < 48000; ++i)
+                testBuffer.setSample (ch, i,
+                    0.5f * (float) std::sin (2.0 * juce::MathConstants<double>::pi * 440.0 * i / sampleRate));
+        processor.loadedSample = std::make_unique<LoadedSample>();
+        processor.loadedSample->buffer = testBuffer;
+        processor.loadedSample->sourceSampleRate = sampleRate;
+        processor.sampleBuffer.store (&processor.loadedSample->buffer, std::memory_order_release);
+
+        juce::AudioBuffer<float> audio (2, blockSize);
+        audio.clear();
+        juce::MidiBuffer midi;
+        midi.addEvent (juce::MidiMessage::noteOn (1, 60, 0.3f), 0);   // below the 50 % threshold
+        processor.processBlock (audio, midi);
+
+        // The ghost delay (10 ms = 480 samples) is shorter than one block, so the ghost fired
+        // inside this block; the main note also played, so the queue drains and two voices sound.
+        assert (processor.pendingNotes.empty ());
+
+        int activeCount = 0;
+        int ghostVoice = -1;
+        for (int i = 0; i < CoreDSP::Sampler::maxVoices; ++i)
+        {
+            const auto& voice = processor.voicePool.voices[i];
+            if (! voice.active)
+                continue;
+            ++activeCount;
+            if (voice.envStart > 0.0 && voice.key == 60)
+                ghostVoice = i;
+        }
+        assert (activeCount == 2);   // the main note and its ghost
+        assert (ghostVoice >= 0);
+        // The ghost started ghostDelay after the note, and carries the ghost level in its velocity.
+        assert (std::abs (processor.voicePool.voices[ghostVoice].envStart - 480.0) < 1.0);
+        const float expectedGhostVelocity = 0.3f * std::pow (10.0, -12.0 / 20.0);
+        assert (std::abs (processor.voicePool.voices[ghostVoice].velocity - expectedGhostVelocity) < 1e-3);
+        pass ("testGhostDelaysQuietNote");
+    }
+
+    // Ghosts need the switch on and the note below the threshold; with the velocity at or above
+    // the threshold no ghost is spawned and only the main note plays.
+    void testNoGhostWithoutQuietNote()
+    {
+        Processor processor;
+        processor.prepareToPlay (sampleRate, blockSize);
+        setParameter (processor.apvts, Processor::swingId, 50.0f);
+        setParameter (processor.apvts, Processor::humaniseId, 0.0f);
+        setParameter (processor.apvts, Processor::layBackId, 0.0f);
+        setParameter (processor.apvts, Processor::regionLengthId, 100.0f);
+        setParameter (processor.apvts, Processor::ghostOnId, 1.0f);
+        setParameter (processor.apvts, Processor::ghostThresholdId, 50.0f);
+        setParameter (processor.apvts, Processor::ghostLevelId, -12.0f);
+        setParameter (processor.apvts, Processor::ghostDelayId, 10.0f);
+
+        juce::AudioBuffer<float> testBuffer (2, 48000);
+        for (int ch = 0; ch < 2; ++ch)
+            for (int i = 0; i < 48000; ++i)
+                testBuffer.setSample (ch, i,
+                    0.5f * (float) std::sin (2.0 * juce::MathConstants<double>::pi * 440.0 * i / sampleRate));
+        processor.loadedSample = std::make_unique<LoadedSample>();
+        processor.loadedSample->buffer = testBuffer;
+        processor.loadedSample->sourceSampleRate = sampleRate;
+        processor.sampleBuffer.store (&processor.loadedSample->buffer, std::memory_order_release);
+
+        juce::AudioBuffer<float> audio (2, blockSize);
+        audio.clear();
+        juce::MidiBuffer midi;
+        midi.addEvent (juce::MidiMessage::noteOn (1, 60, 0.8f), 0);   // at the threshold, not below
+        processor.processBlock (audio, midi);
+
+        assert (processor.pendingNotes.empty ());
+
+        int activeCount = 0;
+        for (int i = 0; i < CoreDSP::Sampler::maxVoices; ++i)
+            if (processor.voicePool.voices[i].active)
+                ++activeCount;
+
+        assert (activeCount == 1);   // main note only, no ghost
+        pass ("testNoGhostWithoutQuietNote");
+    }
+
     void testEditor()
     {
         Processor processor;
@@ -642,6 +857,10 @@ int main()
     testStateRoundTrip();
     testMidiNoteOnAllocatesVoice();
     testMidiNoteOffReleasesVoice();
+    testSwingDelaysRepeatedNotes();
+    testHumaniseDelaysNoteOnset();
+    testGhostDelaysQuietNote();
+    testNoGhostWithoutQuietNote();
     testRegionMapping();
     testChopModeRegionMapping();
     testChopModeSliceCoverage();

@@ -4,7 +4,9 @@
 #include <juce_audio_utils/juce_audio_utils.h>
 
 #include <atomic>
+#include <array>
 #include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <vector>
 
@@ -109,6 +111,7 @@ public:
         LayBack,
         Swing,
         Humanise,
+        SustainHold,
         GhostThreshold,
         GhostLevel,
         GrainSize,
@@ -256,14 +259,24 @@ public:
     // The original file path (empty for embedded samples).
     juce::File sampleFile;
 
-    // Pending note-ons for lay back delay.
+    // Pending note-ons for lay back delay, swing and humanise (plan 05.4). The queue keeps
+    // notes that are not due yet; each entry carries the absolute scheduled position and the
+    // delay that was computed at note-on time, in samples.
     struct PendingNote
     {
         int key = 60;
         float velocity = 1.0f;
-        double samplePosition = 0.0;
+        double samplePosition = 0.0;      // onset, in stream samples
+        double delaySamples = 0.0;        // start delay past the onset, in samples
+        double scheduledPos = 0.0;        // absolute onset + delay at note-on time, in samples
+        bool ghost = false;               // a ghost copy: quieter, delayed; allocates a real voice at fire time
     };
     std::vector<PendingNote> pendingNotes;
+
+    // Swing and humanise state (plan 05.4). Swing alternates straight/swung on repeated
+    // note-ons of the same key; humanise seeds a deterministic per-note start offset.
+    std::array<std::uint8_t, 128> swingState {};
+    std::uint32_t humaniseSeed = 0x51A5u;
 
     //==============================================================================
     // Notes played from the editor's keyboard strip. A single-producer/single-consumer
@@ -317,10 +330,11 @@ private:
         return modulation.modulate ((int)target, base, offsets);
     }
 
-    /** Note handling shared by host MIDI and the editor keyboard (plan 05.1). */
-    void handleNoteOn (int key, float velocity, int samplePosition,
-                       float rootKeyMod, float layBackMod, float spanMod, float lengthMod);
-    void handleNoteOff (int key, int samplePosition);
+    void handleNoteOn (int key, float velocity, int samplePosition, float rootKeyMod, float layBackMod, float spanMod, float lengthMod, float humaniseMod, juce::AudioParameterFloat* sustainHoldParam, float releaseMs);
+    void handleNoteOff (int key, int samplePosition, bool sustainOn, float releaseMs, double blockStartSample, juce::AudioParameterFloat* tapeStopTimeParam, juce::AudioParameterFloat* tapeStopCurveParam);
+
+    /** Queue a ghost copy of a note (plan 05.4 Phase 2); one-shot, one slot per ghost. */
+    void queueGhost (int key, float ghostVelocity, double samplePosition, double ghostDelaySamples, double mainDelaySamples);
 
     // Parameter pointers, cached for the audio thread.
     std::atomic<float>* modeParam = nullptr;
