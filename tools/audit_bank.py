@@ -20,6 +20,7 @@ Rules:
 import argparse
 import json
 import math
+import re
 import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -269,6 +270,118 @@ def check_generated(audit, bank_dir):
                             f"bank JSON: {plugin} / {preset['name']} {pid} differs")
 
 
+def live_parameter_ids(plugin):
+    """The live parameter IDs a plugin exposes, parsed from its sources (plan 05.2 F1.1).
+
+    The IDs are collected two ways and unioned: the `const char*` constants in the processor
+    header, and every `getRawParameterValue (...)` argument in the processor source. Array
+    arguments (`modSourceIds[i]`) contribute all of the array's elements, which is right for
+    a coverage check because every element is a real parameter. This is a parsing
+    approximation, not a C++ parser: a parameter that is neither a named constant nor cached
+    would be missed, so a miss here must be checked by hand before trusting the verdict.
+    """
+    root = Path(__file__).resolve().parent.parent
+    plugin_dir = root / "plugins" / plugin
+
+    header = (plugin_dir / "Source" / "PluginProcessor.h")
+    source = (plugin_dir / "Source" / "PluginProcessor.cpp")
+
+    constants = {}
+    if header.is_file():
+        text = header.read_text(encoding="utf-8", errors="replace")
+
+        for match in re.finditer(r'const char\*\s*(\w+)\s*=\s*"([^"]+)"', text):
+            constants[match.group(1)] = match.group(2)
+
+        for match in re.finditer(r'const char\*\s*(\w+)\s*\[\s*\d+\s*\]\s*=\s*\{([^}]*)\}', text):
+            elements = re.findall(r'"([^"]+)"', match.group(2))
+            for index, element in enumerate(elements):
+                constants[f"{match.group(1)}[{index}]"] = element
+                constants[match.group(1)] = constants.get(match.group(1), element)
+
+    ids = set()
+
+    if source.is_file():
+        text = source.read_text(encoding="utf-8", errors="replace")
+
+        for match in re.finditer(r'getRawParameterValue\s*\(([^)]+)\)', text):
+            argument = match.group(1).strip()
+
+            if "[" in argument:
+                array_name = argument.split("[")[0].strip()
+                ids.update(v for k, v in constants.items() if k == array_name or k.startswith(array_name + "["))
+            elif argument in constants:
+                ids.add(constants[argument])
+
+    return ids
+
+
+ROUTER_PARAMETER_IDS = (
+    [f"lfo{index}{suffix}" for index in (1, 2)
+     for suffix in ("Rate", "Shape", "Sync", "Division", "Offset")]
+    + [f"mod{slot}{suffix}" for slot in range(1, 7)
+       for suffix in ("Source", "Target", "Amount", "Delay")]
+)
+
+
+def plugin_uses_router(plugin):
+    """True when the plugin adds the shared LFO/routing parameters (Router::addParameters)."""
+    plugin_dir = Path(__file__).resolve().parent.parent / "plugins" / plugin
+
+    for name in ("Source/PluginProcessor.cpp", "Source/PluginProcessor.h"):
+        path = plugin_dir / name
+        if path.is_file() and "Router::addParameters" in path.read_text(encoding="utf-8", errors="replace"):
+            return True
+
+    return False
+
+
+def live_num_controls(plugin):
+    """The plugin's numControls constant, or None when the header does not declare one."""
+    header = Path(__file__).resolve().parent.parent / "plugins" / plugin / "Source" / "PluginProcessor.h"
+
+    if not header.is_file():
+        return None
+
+    match = re.search(r'numControls\s*=\s*(\d+)', header.read_text(encoding="utf-8", errors="replace"))
+    return int(match.group(1)) if match else None
+
+
+def check_schema_covers_live(audit):
+    """Plan 05.2 F1.1: the authoring schema must know every parameter the plugins expose.
+
+    A parameter that is live but missing from `SCHEMA` silently drops out of preset
+    authoring (resetMissing keeps presets loadable, so nothing complains). Catches the
+    drift that produced finding F1.4 (DS `pan` implemented, schema without it)."""
+    for plugin, schema in SCHEMA.items():
+        live = live_parameter_ids(plugin)
+
+        # The shared LFO/routing parameters are added by SuiteModulation::Router and read
+        # inside the module, not the plugin's own sources; they are live when the plugin
+        # adds them (plan 05.2 F1.1).
+        if plugin_uses_router(plugin):
+            live = live | set(ROUTER_PARAMETER_IDS)
+
+        schema_ids = set(schema.keys())
+
+        if not live:
+            audit.check(False, f"{plugin}: no live parameter IDs could be parsed; the coverage check needs a manual look")
+            continue
+
+        missing = sorted(live - schema_ids)
+        unknown = sorted(schema_ids - live)
+
+        audit.check(not missing,
+                    f"{plugin}: live parameter(s) missing from the authoring schema: {', '.join(missing)}")
+        audit.check(not unknown,
+                    f"{plugin}: schema key(s) with no live parameter: {', '.join(unknown)}")
+
+        num_controls = live_num_controls(plugin)
+        if num_controls is not None:
+            audit.check(len(live) == num_controls,
+                        f"{plugin}: parsed {len(live)} live parameter IDs, but numControls says {num_controls}")
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--bank", default=str(DEFAULT_BANK),
@@ -278,6 +391,7 @@ def main(argv=None):
     audit = Audit()
     check_authoring(audit)
     check_generated(audit, args.bank)
+    check_schema_covers_live(audit)
 
     return 0 if audit.report() else 1
 

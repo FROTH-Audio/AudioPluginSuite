@@ -50,7 +50,7 @@ modules/
     include/SequencerEngine.h     CoreDSP::Sequencer: step rates, hashed pattern and melody, timing, swing, gate, velocity
     include/ModulationEngine.h    CoreDSP::Modulation: LFO shapes (cycles in, value in [-1, 1]) and the normalised offset clamp
     include/ModulationTiming.h    CoreDSP::Modulation: division table (beats per cycle), fractionalPart, cyclesFromSeconds
-    tests/DSPTests.cpp            CoreDSPTests (29 test functions)
+    tests/DSPTests.cpp            CoreDSPTests (36 test functions)
     CMakeLists.txt                CoreDSP INTERFACE target, CoreDSPTests
   suite_modulation/               Shared LFOs, routing slots, LFO scope, modulation panel, control display. NOT a library target, see section 8.
     include/SuiteModulationRouter.h   Router: LFO and slot parameters (addParameters), state, offsets, modulate(), publish. Also hostTempoOrDefault(), the tempo the effects' synced LFOs use
@@ -121,9 +121,9 @@ $CM = "C:\Program Files\Microsoft Visual Studio\18\Community\Common7\IDE\CommonE
 
 Last verified status (2026-11-12, plan 05.1 Phase 5): JUCE 9.0.5. Clean Release build: 0 errors, 90 warnings (all pre-existing `-Winconsistent-missing-override` on the preset-state overrides; none new since the plan 05.1 dead-constant cleanup). All CTest entries pass (15/15 with the factory bank on). All four plugin editor renders under `build/renders/ui-rework2/` green.
 
-- Default build (`SUITE_PRESET_BANK=OFF`): 10 entries — CoreDSPTests, SuiteState_Tests, SuiteModulation_Tests, SuiteUI_Tests, the three plugin test executables, and the three VST3 host-load tests.
-- Bank build (`SUITE_PRESET_BANK=ON`): 14 entries — the 10 public entries plus `SpectralDrift_PresetTests`, `DynamicSaturation_PresetTests`, `MicroTimingChaos_PresetTests`.
-- Bank with host program list (`SUITE_PRESET_BANK_AS_PROGRAMS=ON`): still 14 entries; the program-list virtuals are exercised inside `MicroTimingChaos_PresetTests`/`SpectralDrift_PresetTests`/`DynamicSaturation_PresetTests` via `runProgramList`.
+- Default build (`SUITE_PRESET_BANK=OFF`): 11 entries - CoreDSPTests, SuiteState_Tests, SuiteModulation_Tests, SuiteUI_Tests, the four plugin test executables, and the three VST3 host-load tests.
+- Bank build (`SUITE_PRESET_BANK=ON`): 15 entries - the 11 public entries plus `SpectralDrift_PresetTests`, `DynamicSaturation_PresetTests`, `MicroTimingChaos_PresetTests`, and `Sgraffito_PresetTests`.
+- Bank with host program list (`SUITE_PRESET_BANK_AS_PROGRAMS=ON`): still 15 entries; the program-list virtuals are exercised inside the plugin preset tests via `runProgramList`.
 
 Before 2026-11-08 the list was 9 entries: CoreDSPTests, SuiteUI_Tests, SuiteModulation_Tests, the three plugin test executables, and the three VST3 host-load tests. SuiteUI_Tests also passed against JUCE 8.0.6, the previous pin, which is the version CI ran (last checked 2026-11-06, not re-run since). macOS is not verified on JUCE 9.
 
@@ -338,7 +338,7 @@ The factory bank (`modules/suite_presets/factory_bank/`, gated by `SUITE_PRESET_
 - `PresetMenuModel`: builds a `juce::PopupMenu` with Factory/User submenus grouped by category.
 - `PresetPrograms` (behind the separate `SUITE_PRESET_BANK_AS_PROGRAMS` flag): host program list where program 0 is Init and programs 1..N are the factory presets in bank order. Bank order is append-only once hosts cache indices.
 
-Factory presets are authored as JSON deltas in `tools/preset_data.py` (26 SD / 26 DS / 28 MTC = 80) and generated into `modules/suite_presets/factory_bank/bank/` by `tools/build_bank.py`. `tools/audit_bank.py` enforces the rules: unique names per plugin, ≥3 categories, every value inside the parameter's `NormalisableRange`, no preset equal to the default state, SD `freeze` only in `Freeze`, DS `drive` 24+`fold` 50 only in `Extreme`, MTC host `sync` off and `bpm` 120 in every factory preset, and the base pattern must fire at least one step.
+Factory presets are authored as JSON deltas in `tools/preset_data.py` (26 SD / 26 DS / 28 MTC / 15 Sgraffito = 95) and generated into `modules/suite_presets/factory_bank/bank/` by `tools/build_bank.py`. `tools/audit_bank.py` enforces the rules: unique names per plugin, ≥3 categories, every value inside the parameter's `NormalisableRange`, no preset equal to the default state, SD `freeze` only in `Freeze`, DS `drive` 24+`fold` 50 only in `Extreme`, MTC host `sync` off and `bpm` 120 in every factory preset, the base pattern must fire at least one step, and — since plan 05.2 — the authoring schema must cover every parameter the plugins expose (live IDs parsed from the sources, the shared Router's parameters included).
 
 `SUITE_PRESET_BANK_AS_PROGRAMS=OFF` (default build): plugins report `getNumPrograms() == 1`, `getProgramName() == ""`, exactly as before the preset system. With both flags on, the program virtuals map to `applyPresetState` / `getStateInformation`, and `currentProgramIndex` tracks the last applied program (-1 after any preset/state change that is not a factory program).
 
@@ -350,7 +350,7 @@ MTC's `lerpCurve` state property (not a parameter) round-trips through presets a
 
 ## 6. Test architecture
 
-Nine CTest entries run seven executables: `CoreDSPTests` (29 test functions), `SuiteUI_Tests` (`SuiteUITests`, 9), `SuiteModulation_Tests` (`SuiteModulationTests`, 9), `SpectralDriftTests` (22), `DynamicSaturationTests` (19), `MicroTimingChaosTests` (40), and `PluginHostTests`, which has one ctest entry per plugin (3). The README has the full list.
+Eleven CTest entries run eight executables: `CoreDSPTests` (36 test functions), `SuiteUI_Tests` (`SuiteUITests`, 9), `SuiteModulation_Tests` (`SuiteModulationTests`, 9), `SpectralDriftTests` (26), `DynamicSaturationTests` (23), `MicroTimingChaosTests` (45), `SgraffitoTests` (16), and `PluginHostTests`, which has one ctest entry per plugin (3). With the factory bank on, four preset-test executables join them (one per plugin). The README has the full list.
 
 **Module tests** (`modules/suite_modulation/tests/SuiteModulationTests.cpp`): the router, with a stub processor (no plugin). They cover the routed LFO, the zero case (bit for bit), bipolar amounts, whole-number targets, Host Sync ignoring Tempo, the one-bar period, sample and hold, out-of-range indices, and the control display (values set without notifying). Not covered: the control display skipping a slider the mouse holds, since the test cannot press a mouse button. The panel and scope are checked only by the MicroTimingChaos editor test.
 
@@ -617,7 +617,7 @@ Each item is a mistake or a slow path hit during the framework work (2026-11-08)
 
 **Throwaway builds.** When a test needs a root change, such as a new plugin, build in a folder under `build/`, then remove the root line and the folder. Check `git status` at the end.
 
-**Verification.** Run all 10 CTest entries before you say a change works. A change in the entry count is a change in the test set, so report it. Say which checks you could not run, such as macOS or a desktop-only editor test.
+**Verification.** Run the full CTest set (11 entries default build, 15 with the bank on) before you say a change works. A change in the entry count is a change in the test set, so report it. Say which checks you could not run, such as macOS or a desktop-only editor test.
 
 **Stop and report** when a step needs the owner: a commit, a push, a macOS machine, an external search, a licence decision, or a deletion of an untracked file.
 
@@ -632,10 +632,10 @@ $CM = "C:\Program Files\Microsoft Visual Studio\18\Community\Common7\IDE\CommonE
 & $CM --build "C:\Users\tfroe\Documents\PROJECTS\AudioPluginSuite\build" --config Release --target clean
 & $CM --build "C:\Users\tfroe\Documents\PROJECTS\AudioPluginSuite\build" --config Release --parallel 8 > "C:\Users\tfroe\Documents\PROJECTS\AudioPluginSuite\build\logs\check-build.log" 2>&1
 Select-String -Path "C:\Users\tfroe\Documents\PROJECTS\AudioPluginSuite\build\logs\check-build.log" -Pattern " error " | Measure-Object   # must be 0
-Select-String -Path "C:\Users\tfroe\Documents\PROJECTS\AudioPluginSuite\build\logs\check-build.log" -Pattern "warning" | Measure-Object  # must be 0
+Select-String -Path "C:\Users\tfroe\Documents\PROJECTS\AudioPluginSuite\build\logs\check-build.log" -Pattern "warning" | Measure-Object  # baseline: ~90 pre-existing -Winconsistent-missing-override warnings on the preset-state overrides; count and compare, 0 new
 ```
 
-**2. CTest.** Run all 10 entries, with `ctest.exe --test-dir build -C Release --output-on-failure`. A changed entry count is a changed test set. Say so.
+**2. CTest.** Run the full set (11 entries default build, 15 with the bank on), with `ctest.exe --test-dir build -C Release --output-on-failure`. A changed entry count is a changed test set. Say so.
 
 **3. Look for escape damage.** A PowerShell replace once wrote the two characters backtick and `n` into C++ source in place of newlines. Search every changed file for them, and for duplicate definitions:
 

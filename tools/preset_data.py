@@ -63,6 +63,7 @@ SCHEMA = {
         "fold": {"min": 0.0, "max": 50.0, "default": 0.0, "type": "float"},
         "tone": {"min": -1.0, "max": 1.0, "default": 0.0, "type": "float"},
         "curve": {"min": 0.5, "max": 3.0, "default": 1.0, "type": "float"},
+        "pan": {"min": -100.0, "max": 100.0, "default": 0.0, "type": "float"},
         **_routing(12),
     },
     "MicroTimingChaos": {
