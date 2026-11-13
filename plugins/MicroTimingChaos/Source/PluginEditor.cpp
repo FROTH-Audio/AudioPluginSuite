@@ -548,7 +548,7 @@ void MicroTimingChaosEditor::resized()
     {
         const juce::Rectangle<int> patternGroup (x0, content.getY(), width,
                                                  groupTitleHeight + 2 * SuiteUI::knobRowHeight + groupGap + 10);
-        const int rowHeight = groupTitleHeight + SuiteUI::knobRowHeight + 10;
+        const int rowHeight = groupTitleHeight + SuiteUI::knobRowHeight + 20;
         const juce::Rectangle<int> melodyGroup (x0, patternGroup.getBottom() + groupGap, width / 2 - groupGap / 2, rowHeight);
         const juce::Rectangle<int> transportGroup (melodyGroup.getRight() + groupGap, melodyGroup.getY(),
                                                    width - melodyGroup.getWidth() - groupGap, rowHeight);
@@ -578,17 +578,20 @@ void MicroTimingChaosEditor::resized()
         scaleCaption.setBounds (scaleCell.removeFromTop (18));
         scaleBox.setBounds (scaleCell.withSizeKeepingCentre (scaleCell.getWidth(), SuiteUI::pillHeight));
 
-        // Transport: tempo and speed knobs on the left; on the right, the rate selector and
-        // BPM Sync share a row, the host tempo reads below them.
+        // Transport: tempo and speed knobs on the left; on the right, the rate switches with
+        // BPM Sync below them, and the host tempo readout underneath.
         auto transportInner = innerOf (transportGroup);
         auto knobArea = transportInner.removeFromLeft (juce::roundToInt ((float) transportInner.getWidth() * 0.4f));
         placeKnob (tempoSlider, knobArea.removeFromLeft (knobArea.getWidth() / 2));
         placeKnob (speedSlider, knobArea);
         transportInner.removeFromLeft (groupGap);
 
-        auto topRow = transportInner.removeFromTop (SuiteUI::pillHeight);
-        rateSelector.setBounds (topRow.removeFromLeft (150).withSizeKeepingCentre (150, SuiteUI::pillHeight));
-        syncButton.setBounds (topRow.withSizeKeepingCentre (100, SuiteUI::pillHeight));
+        auto pillRows = transportInner.removeFromTop (2 * SuiteUI::pillHeight + 2);
+        rateSelector.setBounds (pillRows.removeFromTop (SuiteUI::pillHeight)
+                                    .withSizeKeepingCentre (150, SuiteUI::pillHeight));
+        pillRows.removeFromTop (2);
+        syncButton.setBounds (pillRows.removeFromTop (SuiteUI::pillHeight)
+                                  .withSizeKeepingCentre (150, SuiteUI::pillHeight));
         hostTempoLabel.setBounds (transportInner.removeFromTop (readoutHeight).withSizeKeepingCentre (200, readoutHeight));
         return;
     }

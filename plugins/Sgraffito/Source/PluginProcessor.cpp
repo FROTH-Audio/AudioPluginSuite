@@ -281,7 +281,13 @@ juce::AudioProcessorValueTreeState::ParameterLayout SgraffitoProcessor::createPa
         juce::NormalisableRange<float> (1.0f, 100.0f, 1.0f), 25.0f, "%"));
     params.push_back (std::make_unique<juce::AudioParameterFloat> (
         juce::ParameterID { rootKeyId, 1 }, "Root Key",
-        juce::NormalisableRange<float> (24.0f, 96.0f, 1.0f), 60.0f));
+        juce::NormalisableRange<float> (24.0f, 96.0f, 1.0f), 60.0f,
+        juce::AudioParameterFloatAttributes().withStringFromValueFunction (
+            [] (float value, int)
+            {
+                const int note = juce::roundToInt (value);
+                return juce::MidiMessage::getMidiNoteName (note, true, true, 3) + " (" + juce::String (note) + ")";
+            })));
 
     // Pitch
     params.push_back (std::make_unique<juce::AudioParameterFloat> (

@@ -34,6 +34,11 @@ namespace
         checkRange (processor.apvts, Processor::levelId, -60.0f, 6.0f, 0.0f);
         checkRange (processor.apvts, Processor::driftAmountId, 0.0f, 100.0f, 0.0f);
         checkRange (processor.apvts, Processor::memoryAmountId, 0.0f, 100.0f, 20.0f);
+
+        // Root Key reads as a note name and octave, like the Micro-Timing Chaos root note.
+        setParameter (processor.apvts, Processor::rootKeyId, 48.0f);
+        assert (processor.apvts.getParameter (Processor::rootKeyId)->getCurrentValueAsText() == "C2 (48)");
+
         pass ("testParameters");
     }
 
