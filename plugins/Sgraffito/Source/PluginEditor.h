@@ -228,6 +228,11 @@ private:
     SuiteModulation::ModulationPanel modulation { processor.getRouter(), modulationStyle() };
     std::unique_ptr<SuiteModulation::ControlDisplay> controls;  // built in the constructor, once the sliders exist
     SuiteUI::LabelledSlider sliceCountSlider { "SLICE COUNT", juce::Slider::RotaryVerticalDrag };
+    
+    // Sample loading button (top right of header, next to preset bar).
+    juce::Button loadSampleButton;  // "LOAD SOUND" button
+    
+    /** The LFO curve colours, in the slate accent. */
     SuiteUI::LabelledSlider grainSizeSlider { "GRAIN SIZE", juce::Slider::RotaryVerticalDrag };
     SuiteUI::LabelledSlider grainDensitySlider { "GRAIN DENSITY", juce::Slider::RotaryVerticalDrag };
     SuiteUI::LabelledSlider grainSpreadSlider { "GRAIN SPREAD", juce::Slider::RotaryVerticalDrag };

@@ -47,7 +47,15 @@ SgraffitoEditor::SgraffitoEditor (SgraffitoProcessor& p)
     presetBar = std::make_unique<SuitePresets::PresetBar> (processor, juce::Colour (0xff9aa0a6));
     presetBar->onPresetLoaded = [this] { repaint(); };
     addAndMakeVisible (*presetBar);
-
+    
+    // Sample loading button: next to the preset bar.
+    loadSampleButton.setBounds (getLocalBounds().withWidth(150).withX(getLocalBounds().width - 166))
+                            .withHeight(presetBar->getPreferredHeight())
+                            .withY(getLocalBounds().getCentreY() - presetBar->getPreferredHeight() / 2);
+    loadSampleButton.setButtonText ("LOAD SOUND");
+    loadSampleButton.onClick = [this] { browseForSample(); };
+    addAndMakeVisible (loadSampleButton);
+    
     setSize (editorWidth, editorHeight);
     setResizable (true, true);
     setResizeLimits (editorWidth - 40, editorHeight - 40, 1200, 1200);
@@ -274,6 +282,22 @@ SgraffitoEditor::~SgraffitoEditor()
     setLookAndFeel (nullptr);
 }
 
+void SgraffitoEditor::browseForSample()
+{
+    juce::FileChooser fileChooser ("Select a sample...", processor.getSamplePath(),
+                                  "*.wav;*.aiff;*.aiif",
+                                  "All audio files (*)");
+    
+    if (fileChooser.launch())
+    {
+        const juce::File selectedFile = fileChooser.getFile();
+        if (selectedFile.existsAsFile())
+        {
+            processor.loadSample (selectedFile);
+        }
+    }
+}
+
 void SgraffitoEditor::setPage (int newPage)
 {
     page = juce::jlimit (0, 2, newPage);
@@ -295,7 +319,8 @@ void SgraffitoEditor::setPage (int newPage)
                               static_cast<juce::Component*> (&levelSlider),
                               static_cast<juce::Component*> (&velocityCurveSlider),
                               static_cast<juce::Component*> (&attackSlider),
-                              static_cast<juce::Component*> (&releaseSlider) })
+                              static_cast<juce::Component*> (&releaseSlider),
+                              static_cast<juce::Component*> (&loadSampleButton) })
         component->setVisible (soundPage);
 
     for (auto* component : { static_cast<juce::Component*> (&tapeStopTimeSlider),
@@ -374,6 +399,11 @@ void SgraffitoEditor::resized()
         presetBar->setBounds (headerArea.removeFromRight (300)
                                 .withHeight (presetBar->getPreferredHeight())
                                 .withY (headerArea.getCentreY() - presetBar->getPreferredHeight() / 2));
+
+    // Load sample button next to the preset bar.
+    loadSampleButton.setBounds (headerArea.removeFromRight (150)
+                                    .withHeight (presetBar->getPreferredHeight())
+                                    .withY (headerArea.getCentreY() - presetBar->getPreferredHeight() / 2));
 
     pageSelector.setBounds (headerArea.removeFromRight (pageSelectorWidth)
                                 .withSizeKeepingCentre (pageSelectorWidth, pageSelectorHeight));

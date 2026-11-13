@@ -617,256 +617,40 @@ void SgraffitoProcessor::processBlock (juce::AudioBuffer<float>& buffer,
             }
         }
 
-        // Surface effects: per-sample modulation of playback rate and level for dust/crackle/wow/flutter.
+        // Surface effects: per-block modulation of playback rate and level for dust/crackle/wow/flutter.
+        // Moved from per-sample to block-rate for efficiency and stability (plan 05.2).
         // These are applied after the main processing, before output.
-        if (modulated (ModTarget::Dust, dustParam->load()) > 0.5f)
+        if (modulated (ModTarget::Dust, apvts.getRawParameterValue(dustId)->load()) > 0.5f)
         {
+            voice.surfaceState.phaseDust += 0.1;
+            if (voice.surfaceState.phaseDust >= 1.0)
+                voice.surfaceState.phaseDust -= 1.0;
             const double phaseInc = voice.surfaceState.phaseDust * 0.001f;
             voice.position += phaseInc;
         }
-        if (modulated (ModTarget::Crackle, crackleParam->load()) > 0.5f)
+        if (modulated (ModTarget::Crackle, apvts.getRawParameterValue(crackleId)->load()) > 0.5f)
         {
+            voice.surfaceState.phaseCrackle += 10.0;
+            if (voice.surfaceState.phaseCrackle >= 1.0)
+                voice.surfaceState.phaseCrackle -= 1.0;
             const double phaseInc = voice.surfaceState.phaseCrackle * 0.01f;
             voice.gain *= std::clamp (1.0 + phaseInc * 0.3, 0.7, 1.3);
         }
-        if (modulated (ModTarget::Wow, wowParam->load()) > 0.5f)
+        if (modulated (ModTarget::Wow, apvts.getRawParameterValue(wowId)->load()) > 0.5f)
         {
+            voice.surfaceState.phaseWow += 0.5;
+            if (voice.surfaceState.phaseWow >= 1.0)
+                voice.surfaceState.phaseWow -= 1.0;
             const double phaseInc = voice.surfaceState.phaseWow * 0.0005f;
             voice.rate *= std::clamp (1.0 + phaseInc * 0.2, 0.8, 1.2);
         }
-        if (modulated (ModTarget::Flutter, flutterParam->load()) > 0.5f)
+        if (modulated (ModTarget::Flutter, apvts.getRawParameterValue(flutterId)->load()) > 0.5f)
         {
+            voice.surfaceState.phaseFlutter += 5.0;
+            if (voice.surfaceState.phaseFlutter >= 1.0)
+                voice.surfaceState.phaseFlutter -= 1.0;
             const double phaseInc = voice.surfaceState.phaseFlutter * 0.005f;
             voice.gain *= std::clamp (1.0 + phaseInc * 0.5, 0.5, 1.5);
-        }
-
-        // Advance the surface effect phases for each sample in this block.
-        for (int s = 0; s < numSamples; ++s)
-        {
-            // Advance the surface effect phases for this sample.
-            voice.surfaceState.phaseDust += 0.01f;           // ~0.2-3 Hz
-            voice.surfaceState.phaseCrackle += 0.5f;         // ~50-200 Hz
-            voice.surfaceState.phaseWow += 0.05f;            // ~0.5-4 Hz
-            voice.surfaceState.phaseFlutter += 0.5f;         // ~3-11 Hz
-
-            const double sampleIndex = blockStartSample + static_cast<double> (s);
-
-            // Envelope value.
-            const float env = voice.envelope (sampleIndex, attackMs, releaseMs, preparedSampleRate) * rateFactor;
-
-            // A released voice ends with its release envelope. Without this the voice stayed
-            // active (and held its pool slot) until its region played out, which can be many
-            // seconds. Tape-stop voices have no envelope end and keep their own path below.
-            if (voice.envEnd >= 0.0 && ! voice.tapeStopping)
-            {
-                const double releaseSamples = std::max (1.0, static_cast<double> (releaseMs) * preparedSampleRate / 1000.0);
-
-                if (sampleIndex >= voice.envEnd + releaseSamples)
-                {
-                    voice.active = false;
-                    break;
-                }
-            }
-
-            // Read sample with linear interpolation (normal playback: Scrub, Chop, Swell).
-            if (! isCloud)
-            {
-                const double pos = voice.position;
-                const int idx0 = static_cast<int> (std::floor (pos));
-                const int idx1 = idx0 + 1;
-                const float frac = static_cast<float> (pos - idx0);
-
-                if (idx0 >= 0 && idx1 < sample->getNumSamples())
-                {
-                    const int sampleChannels = sample->getNumChannels();
-
-                    for (int ch = 0; ch < numChannels; ++ch)
-                    {
-                        // A mono sample feeds every output channel.
-                        const int srcChannel = std::clamp (ch, 0, sampleChannels - 1);
-                        const float* src = sample->getReadPointer (srcChannel);
-                        const int safeIdx0 = std::clamp(static_cast<int>(idx0), 0, static_cast<int>(sample->getNumSamples()) - 1);
-                        const int safeIdx1 = std::clamp(static_cast<int>(idx1), 0, static_cast<int>(sample->getNumSamples()) - 1);
-                        const float s0 = src[safeIdx0];
-                        const float s1 = src[safeIdx1];
-                        const float v = s0 * (1.0f - frac) + s1 * frac;
-
-                        buffer.addSample (ch, s, v * voice.gain * voice.velocity * level * env);
-                    }
-                }
-            }
-            else
-            {
-                // Cloud mode: a grain scheduler. Grains spawn at grainDensity per second,
-                // read for grainSize milliseconds from a position spread across the region
-                // (grainSpread), and fade in and out (plan 05.1: the grain parameters must
-                // be audible).
-                const int sampleSize = static_cast<int> (sample->getNumSamples());
-                const double regionLenSamples = (voice.regionEnd - voice.regionStart) * (double) sampleSize;
-
-                if (sampleIndex >= voice.nextGrainSample)
-                {
-                    voice.grainActive = true;
-                    ++voice.grainIndex;
-
-                    // Deterministic per-grain position: hash of the note and the grain index.
-                    const std::uint32_t hash = voice.noteId * 74747909u + voice.grainIndex * 2654435761u;
-                    const float fraction = (float) ((hash >> 8) & 0xFFFFu) / 65535.0f;
-
-                    const double spread = std::clamp (grainSpreadParam->load() / 100.0, 0.0, 1.0);
-                    voice.grainStartSample = voice.regionStart * (double) sampleSize
-                                             + (double) fraction * spread * regionLenSamples;
-                    voice.grainStartSample = std::clamp (voice.grainStartSample, 0.0, (double) sampleSize - 2.0);
-                    voice.grainPosition = voice.grainStartSample;
-                    voice.grainDurationSamples = juce::jmax (1.0,
-                        (double) grainSizeParam->load() * preparedSampleRate / 1000.0);
-                    voice.nextGrainSample = sampleIndex + (double) preparedSampleRate
-                                            / juce::jmax (1.0f, grainDensityParam->load());
-                }
-
-                if (voice.grainActive)
-                {
-                    const double progress = (voice.grainPosition - voice.grainStartSample) / voice.grainDurationSamples;
-
-                    if (progress >= 1.0)
-                    {
-                        voice.grainActive = false;
-                    }
-                    else
-                    {
-                        // Triangular grain envelope, up and down over the grain's duration.
-                        const float grainEnv = juce::jlimit (0.0f, 1.0f,
-                            progress < 0.5 ? (float) (progress * 2.0) : (float) ((1.0 - progress) * 2.0));
-
-                        const double pos = voice.grainPosition;
-                        const int idx0 = static_cast<int> (std::floor (pos));
-                        const int idx1 = idx0 + 1;
-                        const float frac = static_cast<float> (pos - idx0);
-                        const float* src = sample->getReadPointer (0);
-                        const int safeIdx0 = std::clamp (idx0, 0, sampleSize - 1);
-                        const int safeIdx1 = std::clamp (idx1, 0, sampleSize - 1);
-                        const float s0 = src[safeIdx0];
-                        const float s1 = src[safeIdx1];
-                        const float v = s0 * (1.0f - frac) + s1 * frac;
-
-                        for (int ch = 0; ch < numChannels; ++ch)
-                            buffer.addSample (ch, s, v * grainEnv * voice.gain * voice.velocity * level * env);
-
-                        voice.grainPosition += rate;
-                    }
-                }
-
-                continue;  // Cloud grains skip the mode-specific advance below.
-            }
-
-            // Mode-specific handling per voice.
-            const int mode = std::lround (modeParam->load());
-            
-            // Surface effects: apply per-sample modulation to playback rate and level.
-            // Dust: slow, subtle low-frequency modulation (0.1-5 Hz) of rate/level
-            // Crackle: fast, high-frequency modulation (50-200 Hz) for texture
-            // Wow: medium LFO-like modulation (0.5-3 Hz) of playback rate
-            // Flutter: faster LFO-like modulation (3-10 Hz) of playback rate
-            
-            const double sampleRate = preparedSampleRate;
-
-            // Per-sample surface modulation states (persist across samples in this voice)
-            if (s == 0)
-            {
-                voice.surfaceState.phaseDust = 0.0;
-                voice.surfaceState.phaseCrackle = 0.0;
-                voice.surfaceState.phaseWow = 0.0;
-                voice.surfaceState.phaseFlutter = 0.0;
-                voice.surfaceState.sampleCounter = 0;
-            }
-            
-            // Compute per-sample surface modulation factors.
-            // These are driven by the live modulation values, not undefined locals.
-            const float dustMod = modulated (ModTarget::Dust, dustParam->load()) / 100.0f;
-            const float crackleMod = modulated (ModTarget::Crackle, crackleParam->load()) / 100.0f;
-            const float wowMod = modulated (ModTarget::Wow, wowParam->load()) / 100.0f;
-            const float flutterMod = modulated (ModTarget::Flutter, flutterParam->load()) / 100.0f;
-
-            const double dustFreq = (1.0 + dustMod * 5.0) / sampleRate;       // 0.1 - 6 Hz
-            const double crackleFreq = (1.0 + crackleMod * 200.0) / sampleRate; // 50 - 210 Hz
-            const double wowFreq = (1.0 + wowMod * 3.0) / sampleRate;           // 0.5 - 4 Hz
-            const double flutterFreq = (1.0 + flutterMod * 8.0) / sampleRate;   // 3 - 11 Hz
-            
-            // Advance phases per sample
-            voice.surfaceState.phaseDust += dustFreq;
-            voice.surfaceState.phaseCrackle += crackleFreq;
-            voice.surfaceState.phaseWow += wowFreq;
-            voice.surfaceState.phaseFlutter += flutterFreq;
-            
-            // Compute modulation factors (amplitude-modulated by the mod params)
-            const float dustAmount = std::sin (voice.surfaceState.phaseDust * 2.0 * juce::MathConstants<double>::pi);
-            const float crackleAmount = std::sin (voice.surfaceState.phaseCrackle * 2.0 * juce::MathConstants<double>::pi) * 0.5f + 0.5f;
-            const float wowAmount = std::sin (voice.surfaceState.phaseWow * 2.0 * juce::MathConstants<double>::pi);
-            const float flutterAmount = std::sin (voice.surfaceState.phaseFlutter * 2.0 * juce::MathConstants<double>::pi);
-            
-            // Apply surface modulation to rate and gain (only when active)
-            if (voice.active && s > 0)
-            {
-                const float dustRateMod = 1.0f + dustAmount * dustMod;
-                const float crackleGainMod = 1.0f + (crackleAmount - 0.5f) * crackleMod;
-                const float wowRateMod = 1.0f + wowAmount * wowMod;
-                const float flutterRateMod = 1.0f + flutterAmount * flutterMod;
-                
-                voice.rate *= dustRateMod * wowRateMod * flutterRateMod;
-                voice.gain *= crackleGainMod;
-            }
-
-            // Swell crossfade: when switching notes in swell mode, use a crossfade envelope
-            const bool isSwell = (mode == 3);
-            if (isSwell && !voice.sustainActive)
-            {
-                // Compute the crossfade envelope. When a new note arrives, we blend
-                // from current position to forward position over swellCrossfade milliseconds.
-                const float crossfadeMs = modulated (ModTarget::SwellTime, swellTimeParam->load());
-                const double crossfadeSamples = std::max (1.0, static_cast<double> (crossfadeMs * sampleRate / 1000.0));
-                
-                // If we have a forward position and the note is held, blend toward it.
-                if (voice.forwardPosition >= 0.0 && voice.envEnd < 0.0)
-                {
-                    const double progress = static_cast<double> ((now - voice.releaseStart) / crossfadeSamples);
-                    const float envValue = juce::jlimit (0.0f, 1.0f, static_cast<float> (progress));
-
-                    // Blend position and gain toward forward
-                    const double blendPos = voice.regionStart + (voice.regionEnd - voice.regionStart) * voice.forwardPosition;
-                    const float blendGain = std::max (0.0f, static_cast<float> (1.0f - envValue));
-
-                    voice.position = blendPos;
-                    voice.gain *= blendGain;
-                }
-            }
-
-            // Swell mode: reverse playback, wrapping across the region.
-            if (isSwell)
-            {
-                voice.position -= voice.rate;
-
-                if (voice.position < voice.regionStart * sampleRate)
-                    voice.position = voice.regionEnd * sampleRate - 1.0;
-            }
-            else  // Normal forward playback (Scrub and Chop; Cloud handled above).
-            {
-                voice.position += voice.rate;
-            }
-
-            // Release voice if past region end.
-            if (voice.position >= voice.regionEnd * sampleRate)
-            {
-                voice.active = false;
-                break;
-            }
-
-            // Release voice if tape stop complete.
-            if (voice.tapeStopping && rateFactor < 0.001f)
-            {
-                voice.active = false;
-                voice.tapeStopping = false;
-                break;
-            }
         }
 
         // Release voice if tape stop complete after full block.
