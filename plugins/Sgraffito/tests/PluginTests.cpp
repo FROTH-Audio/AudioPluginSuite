@@ -313,7 +313,63 @@ namespace
     {
         Processor processor;
         checkEditor (processor);
+
+        // The preset bar ships in every build, so it must be in the component tree and visible.
+        std::unique_ptr<juce::AudioProcessorEditor> editor (processor.createEditorAndMakeActive());
+        assert (editor != nullptr);
+
+        bool foundPresetBar = false;
+        for (int i = 0; i < editor->getNumChildComponents(); ++i)
+        {
+            auto* child = editor->getChildComponent (i);
+
+            if (dynamic_cast<SuitePresets::PresetBar*> (child) != nullptr)
+            {
+                foundPresetBar = true;
+                assert (child->isVisible());
+            }
+        }
+
+        assert (foundPresetBar);
+        processor.editorBeingDeleted (editor.get());
         pass ("testEditor");
+    }
+
+    /** Counts the editor's direct LabelledSlider children that are currently visible. */
+    int countVisibleKnobs (juce::Component& editor)
+    {
+        int count = 0;
+
+        for (int i = 0; i < editor.getNumChildComponents(); ++i)
+        {
+            auto* child = editor.getChildComponent (i);
+
+            if (child->isVisible() && dynamic_cast<SuiteUI::LabelledSlider*> (child) != nullptr)
+                ++count;
+        }
+
+        return count;
+    }
+
+    // Every knob belongs to exactly one page; an unlisted one floats over all of them.
+    void testPageVisibility()
+    {
+        Processor processor;
+        std::unique_ptr<juce::AudioProcessorEditor> editor (processor.createEditorAndMakeActive());
+        assert (editor != nullptr);
+        auto* sgraffito = static_cast<SgraffitoEditor*> (editor.get());
+
+        sgraffito->setPage (0);
+        assert (countVisibleKnobs (*editor) == 9);    // SOUND: region span, length, root, fine, glide, level, curve, attack, release
+
+        sgraffito->setPage (1);
+        assert (countVisibleKnobs (*editor) == 22);   // TEXTURE: tape/memory, drift/timing, ghost, cloud, swell & surface
+
+        sgraffito->setPage (2);
+        assert (countVisibleKnobs (*editor) == 0);    // MOD: the modulation panel's knobs live inside the panel
+
+        processor.editorBeingDeleted (editor.get());
+        pass ("testPageVisibility");
     }
 
     // When SUITE_RENDER_DIR is set, writes a PNG of each editor page and checks the
@@ -368,6 +424,7 @@ namespace
         { Processor::ModTarget::LayBack,        Processor::layBackId },
         { Processor::ModTarget::Swing,          Processor::swingId },
         { Processor::ModTarget::Humanise,       Processor::humaniseId },
+        { Processor::ModTarget::SustainHold,    Processor::sustainHoldId },
         { Processor::ModTarget::GhostThreshold, Processor::ghostThresholdId },
         { Processor::ModTarget::GhostLevel,     Processor::ghostLevelId },
         { Processor::ModTarget::GrainSize,      Processor::grainSizeId },
@@ -432,7 +489,7 @@ namespace
         checkRange (processor.apvts, Processor::lfo2RateId, 0.02f, 20.0f, 0.25f);
 
         checkRange (processor.apvts, Processor::modSourceIds[0], 0.0f, 1.0f, 0.0f);
-        checkRange (processor.apvts, Processor::modTargetIds[0], 0.0f, 24.0f, 0.0f);
+        checkRange (processor.apvts, Processor::modTargetIds[0], 0.0f, 25.0f, 0.0f);
         checkRange (processor.apvts, Processor::modAmountIds[0], -100.0f, 100.0f, 0.0f);
         checkRange (processor.apvts, Processor::modDelayIds[0], 0.0f, 10.0f, 0.0f);
 
@@ -866,6 +923,7 @@ int main()
     testChopModeSliceCoverage();
     testVoiceProducesOutput();
     testEditor();
+    testPageVisibility();
     testRenderBaseline();
     testModulationParameters();
     testDefaultRoutingIsSilent();

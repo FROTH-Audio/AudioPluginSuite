@@ -11,7 +11,6 @@ namespace
     constexpr int pageSelectorHeight = 26;
     constexpr int pageSelectorWidth = 240;
     constexpr int groupGap = 8;
-    constexpr int helpHeight = 26;
     constexpr int keyboardHeight = 48;
 
     const juce::Image& brandLockup()
@@ -46,20 +45,23 @@ SgraffitoEditor::SgraffitoEditor (SgraffitoProcessor& p)
 
     // The bar exists before setSize(), because setSize() runs resized().
     presetBar = std::make_unique<SuitePresets::PresetBar> (processor, juce::Colour (0xff9aa0a6));
+    presetBar->onPresetLoaded = [this] { repaint(); };
+    addAndMakeVisible (*presetBar);
 
     setSize (editorWidth, editorHeight);
     setResizable (true, true);
     setResizeLimits (editorWidth - 40, editorHeight - 40, 1200, 1200);
 
-    helpTracker.onMove = [this] (const juce::MouseEvent& e) { showHelp (e); };
-    addMouseListener (&helpTracker, true);
-
-    helpLabel.setFont (SuiteUI::uiFont (14.0f));
-    helpLabel.setColour (juce::Label::textColourId, SuiteUI::Colours::text);
-    helpLabel.setText ("Hover a control to see what it does.", juce::dontSendNotification);
-
     modeSelector.setOptions ({ "SCRUB", "CHOP", "CLOUD", "SWELL" });
     modeSelector.setFontHeight (12.0f);
+
+    // Options must exist before the attachments send their initial value, or the selector
+    // clamps to segment 0 and shows a different choice than the parameter holds.
+    scaleSelector.setOptions ({ "Chromatic", "Major", "Minor", "Minor Pent.", "Dorian", "Whole Tone" });
+    scaleSelector.setFontHeight (12.0f);
+
+    tapeStopCurveSelector.setOptions ({ "Linear", "Exponential", "Slow Then Fast" });
+    tapeStopCurveSelector.setFontHeight (12.0f);
 
     auto& apvts = processor.apvts;
 
@@ -183,12 +185,6 @@ SgraffitoEditor::SgraffitoEditor (SgraffitoProcessor& p)
     tapeStopCurveSelector.onChange = [this] (int index) { tapeStopCurveAttachment->setValueAsCompleteGesture ((float) index); };
     tapeStopCurveAttachment->sendInitialUpdate();
 
-    tapeStopCurveSelector.setOptions ({ "Linear", "Exponential", "Slow Then Fast" });
-    tapeStopCurveSelector.setFontHeight (12.0f);
-
-    scaleSelector.setOptions ({ "Chromatic", "Major", "Minor", "Minor Pent.", "Dorian", "Whole Tone" });
-    scaleSelector.setFontHeight (12.0f);
-
     pageSelector.setOptions ({ "SOUND", "TEXTURE", "MOD" });
     pageSelector.onChange = [this] (int index) { setPage (index); };
 
@@ -225,8 +221,7 @@ SgraffitoEditor::SgraffitoEditor (SgraffitoProcessor& p)
         { shuffleSeedSlider.slider,    (int) Target::ShuffleSeed },
     });
 
-    for (auto* component : { static_cast<juce::Component*> (&helpLabel),
-                              static_cast<juce::Component*> (&modeSelector),
+    for (auto* component : { static_cast<juce::Component*> (&modeSelector),
                               static_cast<juce::Component*> (&waveformView),
                               static_cast<juce::Component*> (&keyboard),
                               static_cast<juce::Component*> (&regionSpanSlider),
@@ -276,19 +271,7 @@ SgraffitoEditor::SgraffitoEditor (SgraffitoProcessor& p)
 SgraffitoEditor::~SgraffitoEditor()
 {
     stopTimer();
-    removeMouseListener (&helpTracker);
     setLookAndFeel (nullptr);
-}
-
-void SgraffitoEditor::showHelp (const juce::MouseEvent& e)
-{
-    if (auto* component = e.eventComponent)
-    {
-        const auto text = component->getHelpText();
-
-        if (text.isNotEmpty())
-            helpLabel.setText (text, juce::dontSendNotification);
-    }
 }
 
 void SgraffitoEditor::setPage (int newPage)
@@ -324,13 +307,12 @@ void SgraffitoEditor::setPage (int newPage)
                               static_cast<juce::Component*> (&layBackSlider),
                               static_cast<juce::Component*> (&swingSlider),
                               static_cast<juce::Component*> (&humaniseSlider),
+                              static_cast<juce::Component*> (&shuffleSeedSlider),
                               static_cast<juce::Component*> (&ghostOnButton),
                               static_cast<juce::Component*> (&ghostThresholdSlider),
                               static_cast<juce::Component*> (&ghostLevelSlider),
-                              static_cast<juce::Component*> (&ghostDelaySlider) })
-        component->setVisible (texturePage);
-
-    for (auto* component : { static_cast<juce::Component*> (&sliceCountSlider),
+                              static_cast<juce::Component*> (&ghostDelaySlider),
+                              static_cast<juce::Component*> (&sliceCountSlider),
                               static_cast<juce::Component*> (&grainSizeSlider),
                               static_cast<juce::Component*> (&grainDensitySlider),
                               static_cast<juce::Component*> (&grainSpreadSlider),
@@ -340,8 +322,10 @@ void SgraffitoEditor::setPage (int newPage)
                               static_cast<juce::Component*> (&dustSlider),
                               static_cast<juce::Component*> (&crackleSlider),
                               static_cast<juce::Component*> (&wowSlider),
-                              static_cast<juce::Component*> (&flutterSlider),
-                              static_cast<juce::Component*> (&modulation) })
+                              static_cast<juce::Component*> (&flutterSlider) })
+        component->setVisible (texturePage);
+
+    for (auto* component : { static_cast<juce::Component*> (&modulation) })
         component->setVisible (modPage);
 
     resized();
@@ -396,7 +380,6 @@ void SgraffitoEditor::resized()
 
     // The playable keyboard sits at the very bottom of every page.
     keyboard.setBounds (area.removeFromBottom (keyboardHeight));
-    helpLabel.setBounds (area.removeFromBottom (helpHeight).reduced (16, 0));
     area.removeFromBottom (groupGap);
 
     if (page == 0)
@@ -443,26 +426,45 @@ void SgraffitoEditor::layoutSoundPage (juce::Rectangle<int> area)
 
 void SgraffitoEditor::layoutTexturePage (juce::Rectangle<int> area)
 {
-    // Three framed rows, grouped by meaning (plan 05.1); each frame takes an equal share.
-    const int frameHeight = (area.getHeight() - 2 * groupGap) / 3;
-    const juce::Rectangle<int> tapeMemory (area.getX(), area.getY(), area.getWidth(), frameHeight);
-    const juce::Rectangle<int> driftTiming (area.getX(), tapeMemory.getBottom() + groupGap, area.getWidth(), frameHeight);
-    const juce::Rectangle<int> ghost (area.getX(), driftTiming.getBottom() + groupGap, area.getWidth(), frameHeight);
+    // Four rows: TAPE & MEMORY, DRIFT & TIMING, GHOST + CLOUD, and SWELL & SURFACE.
+    const int rowHeight = (area.getHeight() - 3 * groupGap) / 4;
+
+    const auto tapeMemory = area.removeFromTop (rowHeight);
+    area.removeFromTop (groupGap);
+    const auto driftTiming = area.removeFromTop (rowHeight);
+    area.removeFromTop (groupGap);
+
+    auto pairRow = area.removeFromTop (rowHeight);
+    const int pairWidth = (pairRow.getWidth() - groupGap) / 2;
+    const auto ghost = pairRow.removeFromLeft (pairWidth);
+    pairRow.removeFromLeft (groupGap);
+    const auto cloud = pairRow;
+
+    area.removeFromTop (groupGap);
+    const auto swellSurface = area.removeFromTop (rowHeight);
 
     groups.push_back ({ "TAPE & MEMORY", tapeMemory, 1 });
     groups.push_back ({ "DRIFT & TIMING", driftTiming, 1 });
     groups.push_back ({ "GHOST", ghost, 1 });
+    groups.push_back ({ "CLOUD", cloud, 1 });
+    groups.push_back ({ "SWELL & SURFACE", swellSurface, 1 });
 
-    // TAPE & MEMORY: the tape stop curve selector takes the second cell.
-    auto tapeInner = tapeMemory.withTrimmedTop (SuiteUI::groupTitleHeight + 4).reduced (10, 4);
-    const int tapeCell = tapeInner.getWidth() / 4;
+    auto innerArea = [] (juce::Rectangle<int> group)
+    {
+        return group.withTrimmedTop (SuiteUI::groupTitleHeight + 4).reduced (10, 4);
+    };
+
+    // TAPE & MEMORY: the curve selector spans two cells as a suite-height pill, so its long
+    // option labels fit without filling the row (the old bounds made it a giant switch).
+    auto tapeInner = innerArea (tapeMemory);
+    const int tapeCell = tapeInner.getWidth() / 5;
     tapeStopTimeSlider.setBounds (tapeInner.removeFromLeft (tapeCell).reduced (4));
-    tapeStopCurveSelector.setBounds (tapeInner.removeFromLeft (tapeCell).reduced (8, 14));
+    layoutPill (tapeInner.removeFromLeft (2 * tapeCell), tapeStopCurveSelector, juce::jmin (2 * tapeCell - 12, 300));
     memoryAmountSlider.setBounds (tapeInner.removeFromLeft (tapeCell).reduced (4));
     memoryDecaySlider.setBounds (tapeInner.removeFromLeft (tapeCell).reduced (4));
 
     // DRIFT & TIMING: six cells.
-    auto driftInner = driftTiming.withTrimmedTop (SuiteUI::groupTitleHeight + 4).reduced (10, 4);
+    auto driftInner = innerArea (driftTiming);
     const int driftCell = driftInner.getWidth() / 6;
     driftAmountSlider.setBounds (driftInner.removeFromLeft (driftCell).reduced (4));
     driftSpeedSlider.setBounds (driftInner.removeFromLeft (driftCell).reduced (4));
@@ -471,46 +473,39 @@ void SgraffitoEditor::layoutTexturePage (juce::Rectangle<int> area)
     humaniseSlider.setBounds (driftInner.removeFromLeft (driftCell).reduced (4));
     shuffleSeedSlider.setBounds (driftInner.removeFromLeft (driftCell).reduced (4));
 
-    // GHOST.
-    auto ghostInner = ghost.withTrimmedTop (SuiteUI::groupTitleHeight + 4).reduced (10, 4);
+    // GHOST: on switch and three knobs.
+    auto ghostInner = innerArea (ghost);
     const int ghostCell = ghostInner.getWidth() / 4;
-    layoutPill (ghostInner.removeFromLeft (ghostCell), ghostOnButton, 140);
+    layoutPill (ghostInner.removeFromLeft (ghostCell), ghostOnButton, 100);
     ghostThresholdSlider.setBounds (ghostInner.removeFromLeft (ghostCell).reduced (4));
     ghostLevelSlider.setBounds (ghostInner.removeFromLeft (ghostCell).reduced (4));
     ghostDelaySlider.setBounds (ghostInner.removeFromLeft (ghostCell).reduced (4));
-}
 
-void SgraffitoEditor::layoutModPage (juce::Rectangle<int> area)
-{
-    // The modulation panel on top; cloud and swell/surface frames below it.
-    const int frameHeight = (area.getHeight() - 2 * groupGap - SuiteUI::knobRowHeight - 10) / 2;
-    const juce::Rectangle<int> modGroup (area.getX(), area.getY(), area.getWidth(),
-                                         area.getHeight() - 2 * frameHeight - 2 * groupGap);
-    const juce::Rectangle<int> cloud (area.getX(), modGroup.getBottom() + groupGap, area.getWidth(), frameHeight);
-    const juce::Rectangle<int> swellSurface (area.getX(), cloud.getBottom() + groupGap, area.getWidth(), frameHeight);
-
-    groups.push_back ({ "MODULATION", modGroup, 2 });
-    groups.push_back ({ "CLOUD", cloud, 2 });
-    groups.push_back ({ "SWELL & SURFACE", swellSurface, 2 });
-
-    modulation.setBounds (modGroup.withTrimmedTop (SuiteUI::groupTitleHeight + 4).reduced (10, 4));
-
-    auto cloudInner = cloud.withTrimmedTop (SuiteUI::groupTitleHeight + 4).reduced (10, 4);
+    // CLOUD.
+    auto cloudInner = innerArea (cloud);
     const int cloudCell = cloudInner.getWidth() / 4;
     sliceCountSlider.setBounds (cloudInner.removeFromLeft (cloudCell).reduced (4));
     grainSizeSlider.setBounds (cloudInner.removeFromLeft (cloudCell).reduced (4));
     grainDensitySlider.setBounds (cloudInner.removeFromLeft (cloudCell).reduced (4));
     grainSpreadSlider.setBounds (cloudInner.removeFromLeft (cloudCell).reduced (4));
 
-    auto surfaceInner = swellSurface.withTrimmedTop (SuiteUI::groupTitleHeight + 4).reduced (10, 4);
-    const int cell = surfaceInner.getWidth() / 7;
-    layoutPill (surfaceInner.removeFromLeft (cell), sustainHoldButton, 120);
-    swellTimeSlider.setBounds (surfaceInner.removeFromLeft (cell).reduced (4));
-    swellCrossfadeSlider.setBounds (surfaceInner.removeFromLeft (cell).reduced (4));
-    dustSlider.setBounds (surfaceInner.removeFromLeft (cell).reduced (4));
-    crackleSlider.setBounds (surfaceInner.removeFromLeft (cell).reduced (4));
-    wowSlider.setBounds (surfaceInner.removeFromLeft (cell).reduced (4));
-    flutterSlider.setBounds (surfaceInner.removeFromLeft (cell).reduced (4));
+    // SWELL & SURFACE: sustain switch and six knobs.
+    auto surfaceInner = innerArea (swellSurface);
+    const int surfaceCell = surfaceInner.getWidth() / 7;
+    layoutPill (surfaceInner.removeFromLeft (surfaceCell), sustainHoldButton, 110);
+    swellTimeSlider.setBounds (surfaceInner.removeFromLeft (surfaceCell).reduced (4));
+    swellCrossfadeSlider.setBounds (surfaceInner.removeFromLeft (surfaceCell).reduced (4));
+    dustSlider.setBounds (surfaceInner.removeFromLeft (surfaceCell).reduced (4));
+    crackleSlider.setBounds (surfaceInner.removeFromLeft (surfaceCell).reduced (4));
+    wowSlider.setBounds (surfaceInner.removeFromLeft (surfaceCell).reduced (4));
+    flutterSlider.setBounds (surfaceInner.removeFromLeft (surfaceCell).reduced (4));
+}
+
+void SgraffitoEditor::layoutModPage (juce::Rectangle<int> area)
+{
+    // The modulation panel now has the page to itself; cloud and swell moved to TEXTURE.
+    groups.push_back ({ "MODULATION", area, 2 });
+    modulation.setBounds (area.withTrimmedTop (SuiteUI::groupTitleHeight + 4).reduced (10, 4));
 }
 
 SuiteModulation::ModulationPanel::Style SgraffitoEditor::modulationStyle()

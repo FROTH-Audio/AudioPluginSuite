@@ -648,6 +648,20 @@ void SgraffitoProcessor::processBlock (juce::AudioBuffer<float>& buffer,
             // Envelope value.
             const float env = voice.envelope (sampleIndex, attackMs, releaseMs, preparedSampleRate) * rateFactor;
 
+            // A released voice ends with its release envelope. Without this the voice stayed
+            // active (and held its pool slot) until its region played out, which can be many
+            // seconds. Tape-stop voices have no envelope end and keep their own path below.
+            if (voice.envEnd >= 0.0 && ! voice.tapeStopping)
+            {
+                const double releaseSamples = std::max (1.0, static_cast<double> (releaseMs) * preparedSampleRate / 1000.0);
+
+                if (sampleIndex >= voice.envEnd + releaseSamples)
+                {
+                    voice.active = false;
+                    break;
+                }
+            }
+
             // Read sample with linear interpolation (normal playback: Scrub, Chop, Swell).
             if (! isCloud)
             {

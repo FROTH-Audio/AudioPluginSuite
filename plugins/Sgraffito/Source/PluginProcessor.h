@@ -143,6 +143,7 @@ public:
         { "layBack",        "Lay Back" },
         { "swing",          "Swing" },
         { "humanise",       "Humanise" },
+        { "sustainHold",    "Sustain Hold", true },
         { "ghostThreshold", "Ghost Threshold" },
         { "ghostLevel",     "Ghost Level" },
         { "grainSize",      "Grain Size" },

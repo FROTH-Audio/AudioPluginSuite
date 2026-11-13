@@ -3,7 +3,6 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_gui_basics/juce_gui_basics.h>
 
-#include <functional>
 #include <memory>
 #include <vector>
 
@@ -165,13 +164,6 @@ public:
 private:
     void timerCallback() override;
 
-    /** Forwards mouse moves from every child to the editor, so the help line follows the pointer. */
-    struct HelpTracker : public juce::MouseListener
-    {
-        std::function<void (const juce::MouseEvent&)> onMove;
-        void mouseMove (const juce::MouseEvent& e) override { if (onMove) onMove (e); }
-    };
-
     struct Group
     {
         juce::String title;
@@ -179,7 +171,6 @@ private:
         int page = 0;
     };
 
-    void showHelp (const juce::MouseEvent&);
     void layoutSoundPage (juce::Rectangle<int> area);
     void layoutTexturePage (juce::Rectangle<int> area);
     void layoutModPage (juce::Rectangle<int> area);
@@ -188,12 +179,9 @@ private:
 
     // Declared first so it is destroyed last, after every component that uses it.
     SuiteUI::SuiteLookAndFeel lookAndFeel { juce::Colour (0xff9aa0a6) };
-    HelpTracker helpTracker;
     std::vector<Group> groups;
 
-    juce::Label helpLabel;
-
-    // Preset bar (right of the header; 0-height stub without the bank).
+    // Preset bar (right of the header).
     std::unique_ptr<SuitePresets::PresetBar> presetBar;
 
     // Page switch.
@@ -236,7 +224,7 @@ private:
     SuiteUI::LabelledSlider ghostLevelSlider { "GHOST LEVEL", juce::Slider::RotaryVerticalDrag };
     SuiteUI::LabelledSlider ghostDelaySlider { "GHOST DELAY", juce::Slider::RotaryVerticalDrag };
 
-    // MOD page: the LFO and routing panel, and the cloud and swell controls that moved here.
+    // MOD page: the LFO and routing panel. Cloud and swell/surface live on the TEXTURE page.
     SuiteModulation::ModulationPanel modulation { processor.getRouter(), modulationStyle() };
     std::unique_ptr<SuiteModulation::ControlDisplay> controls;  // built in the constructor, once the sliders exist
     SuiteUI::LabelledSlider sliceCountSlider { "SLICE COUNT", juce::Slider::RotaryVerticalDrag };
