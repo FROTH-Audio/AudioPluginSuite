@@ -12,11 +12,18 @@ namespace SuitePresets
     {
         juce::ValueTree treeFromXmlElement (const juce::XmlElement& element)
         {
-            // Use createCopy() to ensure we have a complete deep copy of the element
-            // including all children. This fixes preset loading for Sgraffito where
-            // ValueTree::fromXml was failing with child elements.
-            auto copy = element.createCopy();
-            auto tree = juce::ValueTree::fromXml (copy);
+            // Parse the element by converting it to XML text and back. This ensures we have
+            // a complete copy of the element including all children. This fixes preset loading
+            // for Sgraffito where ValueTree::fromXml was failing with child elements from the tree.
+            const auto xmlText = juce::String (element.toString());
+            if (xmlText.isEmpty())
+                return juce::ValueTree();
+
+            auto root = juce::XmlDocument::parse (xmlText);
+            if (root == nullptr)
+                return juce::ValueTree();
+
+            auto tree = juce::ValueTree::fromXml (*root);
             return tree.isValid() ? tree : juce::ValueTree();
         }
 
