@@ -336,6 +336,8 @@ private:
     /** Queue a ghost copy of a note (plan 05.4 Phase 2); one-shot, one slot per ghost. */
     void queueGhost (int key, float ghostVelocity, double samplePosition, double ghostDelaySamples, double mainDelaySamples);
 
+    void handleNoteOn(int keyIn, float velocity, int samplePosition, float rootKeyMod, float layBackMod, float spanMod, float lengthMod, float humaniseMod, std::atomic<float> *sustainHoldParam, float releaseMs);
+
     // Parameter pointers, cached for the audio thread.
     std::atomic<float>* modeParam = nullptr;
     std::atomic<float>* regionSpanParam = nullptr;

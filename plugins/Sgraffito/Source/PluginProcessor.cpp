@@ -97,7 +97,7 @@ void SgraffitoProcessor::queueGhost (int key, float ghostVelocity, double sample
 void SgraffitoProcessor::handleNoteOn (int keyIn, float velocity, int samplePosition,
     float rootKeyMod, float layBackMod,
     float spanMod, float lengthMod, float humaniseMod,
-    juce::AudioParameterFloat* sustainHoldParam, float releaseMs)
+    std::atomic<float>* sustainHoldParam, float releaseMs)
 {
     int key = keyIn;
     // Scale Lock: quantize the played key to the nearest scale degree.
@@ -188,7 +188,7 @@ void SgraffitoProcessor::handleNoteOn (int keyIn, float velocity, int samplePosi
                 voicePool.voices[idx].sustainTimeout = getModulatedValue(ModTarget::Release);
                 // The note will be released when a new note of the same key arrives or timeout expires.
             }
-
+        }
         if (ghostWanted)
             queueGhost (key, ghostVelocity, (double) samplePosition, ghostDelaySamples, 0.0);
     }
@@ -217,8 +217,7 @@ void SgraffitoProcessor::handleNoteOff (int key, int samplePosition, bool sustai
     }
 
     // Sustain Hold: process each active voice matching this key.
-    const bool sustainOnLocal = sustainOn;  // Local copy to avoid lambda capture issues
-    
+
     for (int i = 0; i < CoreDSP::Sampler::maxVoices; ++i)
     {
         auto& voice = voicePool.voices[i];
@@ -246,12 +245,12 @@ void SgraffitoProcessor::handleNoteOff (int key, int samplePosition, bool sustai
         {
             // First time seeing this key with sustain hold on: mark as sustain-active and release.
             voice.sustainActive = true;
-            voicePool.releaseVoice (i, samplePosition, tapeStopTimeParam->load(), tapeStopCurveParam->load());
+                voicePool.releaseVoice (i, samplePosition, tapeStopTimeParam->get(), tapeStopCurveParam->get());
             continue;
         }
 
         // Voice is active and either not sustain-held or timeout hasn't expired.
-        voicePool.releaseVoice (i, samplePosition, tapeStopTimeParam->load(), tapeStopCurveParam->load());
+        voicePool.releaseVoice (i, samplePosition, tapeStopTimeParam->get(), tapeStopCurveParam->get());
     }
 }
 
@@ -448,7 +447,7 @@ void SgraffitoProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 
     // Advance the clock that drives the free LFOs and the synced beat position.
     // No host tempo (including the Standalone): a fixed 120 BPM keeps the synced LFOs moving.
-    auto advanceClocks = [this, numSamples]()
+    auto advanceClocks = [this, numSamples]() -> void
     {
         beatClock += (double) numSamples * SuiteModulation::hostTempoOrDefault (getPlayHead()) / 60.0 / preparedSampleRate;
         streamSample += numSamples;
@@ -463,6 +462,15 @@ void SgraffitoProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     {
         return modulation.modulate ((int) target, base, offsets);
     };
+
+    const float releaseMs = modulated (ModTarget::Release, releaseParam->load());
+    // The absolute sample position of this block's first sample: the envelope's time base.
+    // (streamSample advances at the end of the block; the old block-relative base stuck the
+    // envelope at the attack of the first block forever.)
+    const double blockStartSample = (double) streamSample;
+
+    auto* tapeStopTimeParameter = static_cast<juce::AudioParameterFloat*> (apvts.getParameter (tapeStopTimeId));
+    auto* tapeStopCurveParameter = static_cast<juce::AudioParameterFloat*> (apvts.getParameter (tapeStopCurveId));
 
     // Process MIDI messages first: note-on allocates a voice, note-off releases it.
     // This must happen even without a sample loaded, so voices are tracked correctly.
@@ -482,7 +490,7 @@ void SgraffitoProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         else if (msg.isNoteOff())
             handleNoteOff (msg.getNoteNumber(), (int) (streamSample + metadata.samplePosition),
                            modulated (ModTarget::SustainHold, sustainHoldParam->load()) > 0.5f,
-                           releaseMs, blockStartSample, tapeStopTimeParam, tapeStopCurveParam);
+                           releaseMs, blockStartSample, tapeStopTimeParameter, tapeStopCurveParameter);
     }
 
     midiMessages.clear();
@@ -506,7 +514,7 @@ void SgraffitoProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                           modulated (ModTarget::Humanise, humaniseParam->load()),
                           sustainHoldParam, releaseMs);
         else
-            handleNoteOff (note.key, 0, modulated (ModTarget::SustainHold, sustainHoldParam->load()) > 0.5f, releaseMs, blockStartSample, tapeStopTimeParam, tapeStopCurveParam);
+            handleNoteOff (note.key, 0, modulated (ModTarget::SustainHold, sustainHoldParam->load()) > 0.5f, releaseMs, blockStartSample, tapeStopTimeParameter, tapeStopCurveParameter);
     }
 
     // Get the current sample buffer (atomic read).
@@ -521,11 +529,6 @@ void SgraffitoProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     const int numChannels = buffer.getNumChannels();
     const float level = juce::Decibels::decibelsToGain (modulated (ModTarget::Level, levelParam->load()));
     const float attackMs = modulated (ModTarget::Attack, attackParam->load());
-    const float releaseMs = modulated (ModTarget::Release, releaseParam->load());
-    // The absolute sample position of this block's first sample: the envelope's time base.
-    // (streamSample advances at the end of the block; the old block-relative base stuck the
-    // envelope at the attack of the first block forever.)
-    const double blockStartSample = (double) streamSample;
 
     // Advance Lorenz attractor by driftSpeed * seconds in this block.
     const float driftSpeed = modulated (ModTarget::DriftSpeed, driftSpeedParam->load());
@@ -588,7 +591,7 @@ void SgraffitoProcessor::processBlock (juce::AudioBuffer<float>& buffer,
             // Swell: compute the crossfade envelope. When a new note arrives, we blend
             // from current position to forward position over swellCrossfade milliseconds.
             const float crossfadeMs = modulated (ModTarget::SwellTime, swellTimeParam->load());
-            const float crossfadeSamples = std::max (1.0f, crossfadeMs * preparedSampleRate / 1000.0);
+            const float crossfadeSamples = static_cast<float> (std::max (1.0, crossfadeMs * preparedSampleRate / 1000.0));
             
             // If we have a forward position and the note is held, blend toward it.
             if (voice.envEnd < 0.0)
@@ -596,8 +599,8 @@ void SgraffitoProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                 const double progress = static_cast<double> ((now - voice.releaseStart) / crossfadeSamples);
                 
                 // Blend gain using a smooth crossfade envelope (sin-based for natural fade).
-                const float envValue = juce::jlimit (0.0f, 1.0f, 
-                    progress < 1.0 ? std::sin (progress * M_PI_2) : 0.0f);
+                const float envValue = juce::jlimit<float> (0.0f, 1.0f,
+                    progress < 1.0 ? static_cast<float> (std::sin (progress * juce::MathConstants<double>::halfPi)) : 0.0f);
                 
                 // Blend position and gain toward forward
                 const double blendPos = voice.regionStart + (voice.regionEnd - voice.regionStart) * voice.forwardPosition;
@@ -618,17 +621,17 @@ void SgraffitoProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         if (modulated (ModTarget::Crackle, crackleParam->load()) > 0.5f)
         {
             const double phaseInc = voice.surfaceState.phaseCrackle * 0.01f;
-            voice.gain *= std::clamp (1.0f + phaseInc * 0.3f, 0.7f, 1.3f);
+            voice.gain *= std::clamp (1.0 + phaseInc * 0.3, 0.7, 1.3);
         }
         if (modulated (ModTarget::Wow, wowParam->load()) > 0.5f)
         {
             const double phaseInc = voice.surfaceState.phaseWow * 0.0005f;
-            voice.rate *= std::clamp (1.0f + phaseInc * 0.2f, 0.8f, 1.2f);
+            voice.rate *= std::clamp (1.0 + phaseInc * 0.2, 0.8, 1.2);
         }
         if (modulated (ModTarget::Flutter, flutterParam->load()) > 0.5f)
         {
             const double phaseInc = voice.surfaceState.phaseFlutter * 0.005f;
-            voice.gain *= std::clamp (1.0f + phaseInc * 0.5f, 0.5f, 1.5f);
+            voice.gain *= std::clamp (1.0 + phaseInc * 0.5, 0.5, 1.5);
         }
 
         // Advance the surface effect phases for each sample in this block.
@@ -746,10 +749,9 @@ void SgraffitoProcessor::processBlock (juce::AudioBuffer<float>& buffer,
             // Flutter: faster LFO-like modulation (3-10 Hz) of playback rate
             
             const double sampleRate = preparedSampleRate;
-            const int numSamples = buffer.getNumSamples();
-            
+
             // Per-sample surface modulation states (persist across samples in this voice)
-            if (!voice.surfaceState.initialised || s == 0)
+            if (s == 0)
             {
                 voice.surfaceState.phaseDust = 0.0;
                 voice.surfaceState.phaseCrackle = 0.0;
@@ -758,7 +760,13 @@ void SgraffitoProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                 voice.surfaceState.sampleCounter = 0;
             }
             
-            // Compute per-sample surface modulation factors
+            // Compute per-sample surface modulation factors.
+            // These are driven by the live modulation values, not undefined locals.
+            const float dustMod = modulated (ModTarget::Dust, dustParam->load()) / 100.0f;
+            const float crackleMod = modulated (ModTarget::Crackle, crackleParam->load()) / 100.0f;
+            const float wowMod = modulated (ModTarget::Wow, wowParam->load()) / 100.0f;
+            const float flutterMod = modulated (ModTarget::Flutter, flutterParam->load()) / 100.0f;
+
             const double dustFreq = (1.0 + dustMod * 5.0) / sampleRate;       // 0.1 - 6 Hz
             const double crackleFreq = (1.0 + crackleMod * 200.0) / sampleRate; // 50 - 210 Hz
             const double wowFreq = (1.0 + wowMod * 3.0) / sampleRate;           // 0.5 - 4 Hz
@@ -771,18 +779,18 @@ void SgraffitoProcessor::processBlock (juce::AudioBuffer<float>& buffer,
             voice.surfaceState.phaseFlutter += flutterFreq;
             
             // Compute modulation factors (amplitude-modulated by the mod params)
-            const float dustAmount = std::sin(voice.surfaceState.phaseDust * 2.0 * M_PI);
-            const float crackleAmount = std::sin(voice.surfaceState.phaseCrackle * 2.0 * M_PI) * 0.5f + 0.5f;
-            const float wowAmount = std::sin(voice.surfaceState.phaseWow * 2.0 * M_PI);
-            const float flutterAmount = std::sin(voice.surfaceState.phaseFlutter * 2.0 * M_PI);
+            const float dustAmount = std::sin (voice.surfaceState.phaseDust * 2.0 * juce::MathConstants<double>::pi);
+            const float crackleAmount = std::sin (voice.surfaceState.phaseCrackle * 2.0 * juce::MathConstants<double>::pi) * 0.5f + 0.5f;
+            const float wowAmount = std::sin (voice.surfaceState.phaseWow * 2.0 * juce::MathConstants<double>::pi);
+            const float flutterAmount = std::sin (voice.surfaceState.phaseFlutter * 2.0 * juce::MathConstants<double>::pi);
             
             // Apply surface modulation to rate and gain (only when active)
             if (voice.active && s > 0)
             {
-                const float dustRateMod = 1.0f + dustAmount * modulated (ModTarget::Dust, dustParam->load()) / 100.0f;
-                const float crackleGainMod = 1.0f + (crackleAmount - 0.5f) * modulated (ModTarget::Crackle, crackleParam->load()) / 100.0f;
-                const float wowRateMod = 1.0f + wowAmount * modulated (ModTarget::Wow, wowParam->load()) / 100.0f;
-                const float flutterRateMod = 1.0f + flutterAmount * modulated (ModTarget::Flutter, flutterParam->load()) / 100.0f;
+                const float dustRateMod = 1.0f + dustAmount * dustMod;
+                const float crackleGainMod = 1.0f + (crackleAmount - 0.5f) * crackleMod;
+                const float wowRateMod = 1.0f + wowAmount * wowMod;
+                const float flutterRateMod = 1.0f + flutterAmount * flutterMod;
                 
                 voice.rate *= dustRateMod * wowRateMod * flutterRateMod;
                 voice.gain *= crackleGainMod;
@@ -795,18 +803,18 @@ void SgraffitoProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                 // Compute the crossfade envelope. When a new note arrives, we blend
                 // from current position to forward position over swellCrossfade milliseconds.
                 const float crossfadeMs = modulated (ModTarget::SwellTime, swellTimeParam->load());
-                const float crossfadeSamples = std::max (1.0, crossfadeMs * sampleRate / 1000.0);
+                const double crossfadeSamples = std::max (1.0, static_cast<double> (crossfadeMs * sampleRate / 1000.0));
                 
                 // If we have a forward position and the note is held, blend toward it.
                 if (voice.forwardPosition >= 0.0 && voice.envEnd < 0.0)
                 {
                     const double progress = static_cast<double> ((now - voice.releaseStart) / crossfadeSamples);
                     const float envValue = juce::jlimit (0.0f, 1.0f, static_cast<float> (progress));
-                    
+
                     // Blend position and gain toward forward
                     const double blendPos = voice.regionStart + (voice.regionEnd - voice.regionStart) * voice.forwardPosition;
-                    const float blendGain = std::max (0.0f, 1.0f - progress);
-                    
+                    const float blendGain = std::max (0.0f, static_cast<float> (1.0f - envValue));
+
                     voice.position = blendPos;
                     voice.gain *= blendGain;
                 }
@@ -968,7 +976,6 @@ void SgraffitoProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 
                 // Mark the note as held so crossfade logic can run.
                 voice.noteHeld = true;
-            }
             }
 
             pendingNotes.erase (pendingNotes.begin () + static_cast<std::ptrdiff_t> (i));
