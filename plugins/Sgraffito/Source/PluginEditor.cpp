@@ -49,8 +49,7 @@ SgraffitoEditor::SgraffitoEditor (SgraffitoProcessor& p)
     addAndMakeVisible (*presetBar);
     
     // Sample loading button: next to the preset bar.
-    loadSampleButton.setBounds (getLocalBounds().withWidth(150).withX(getLocalBounds().getWidth() - 166));
-    loadSampleButton.setTooltip ("LOAD SOUND");
+    loadSampleButton.onClick = [this] { browseForSample(); };
     addAndMakeVisible (loadSampleButton);
     
     setSize (editorWidth, editorHeight);
@@ -281,19 +280,25 @@ SgraffitoEditor::~SgraffitoEditor()
 
 void SgraffitoEditor::browseForSample()
 {
-    juce::FileChooser fileChooser ("Select a sample...", processor.getSamplePath(),
-                                  "*.wav;*.aiff;*.aiif",
-                                  "All audio files (*)");
-    
-    // Use launchAsync to show the dialog asynchronously
-    fileChooser.launchAsync (0, [this] (const juce::FileChooser& chooser)
+    // The FileChooser must stay alive while the dialog is open (deleting it aborts the
+    // dialog), so it lives on the editor and is replaced on the next browse.
+    sampleChooser = std::make_unique<juce::FileChooser> ("Select a sample...",
+                                                         processor.getSamplePath(),
+                                                         "*.wav;*.aiff;*.aif");
+
+    const int openFlags = juce::FileBrowserComponent::openMode
+                        | juce::FileBrowserComponent::canSelectFiles;
+
+    juce::Component::SafePointer<SgraffitoEditor> safeThis { this };
+    sampleChooser->launchAsync (openFlags, [safeThis] (const juce::FileChooser& chooser)
     {
-        const juce::File selectedFile = chooser.getResult();
-        if (selectedFile.existsAsFile())
+        if (safeThis != nullptr)
         {
-            processor.loadSample (selectedFile);
+            const juce::File selectedFile = chooser.getResult();
+            if (selectedFile.existsAsFile())
+                safeThis->processor.loadSample (selectedFile);
         }
-    }, nullptr);
+    });
 }
 
 void SgraffitoEditor::setPage (int newPage)
@@ -398,10 +403,12 @@ void SgraffitoEditor::resized()
                                 .withHeight (presetBar->getPreferredHeight())
                                 .withY (headerArea.getCentreY() - presetBar->getPreferredHeight() / 2));
 
-    // Load sample button next to the preset bar.
+    // Load sample button next to the preset bar. A floor of one pill height keeps it visible
+    // in the default build, where the preset-bar stub reports height 0.
     loadSampleButton.setBounds (headerArea.removeFromRight (150)
-                                    .withHeight (presetBar->getPreferredHeight())
-                                    .withY (headerArea.getCentreY() - presetBar->getPreferredHeight() / 2));
+                                    .withHeight (juce::jmax (presetBar->getPreferredHeight(), SuiteUI::pillHeight))
+                                    .withY (headerArea.getCentreY()
+                                              - juce::jmax (presetBar->getPreferredHeight(), SuiteUI::pillHeight) / 2));
 
     pageSelector.setBounds (headerArea.removeFromRight (pageSelectorWidth)
                                 .withSizeKeepingCentre (pageSelectorWidth, pageSelectorHeight));

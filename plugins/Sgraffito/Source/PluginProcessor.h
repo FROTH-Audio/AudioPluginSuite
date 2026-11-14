@@ -257,6 +257,10 @@ public:
     // The loaded sample (public for tests).
     std::unique_ptr<LoadedSample> loadedSample;
 
+    // The previously loaded sample. The audio thread may still hold a pointer to its buffer
+    // when a new sample is installed, so the retired buffer stays alive until the next load.
+    std::unique_ptr<LoadedSample> retiredSample;
+
     // The loaded sample buffer (atomic swap for thread safety).
     std::atomic<const juce::AudioBuffer<float>*> sampleBuffer { nullptr };
 

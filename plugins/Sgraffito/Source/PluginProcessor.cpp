@@ -931,8 +931,9 @@ void SgraffitoProcessor::loadSample (const juce::File& file)
         fileBuffer = std::move (resampled);
     }
 
-    // Atomic swap: release old pointer first, then install new sample.
-    sampleBuffer.store (nullptr, std::memory_order_release);
+    // Retire the old sample instead of destroying it: an audio block that started before
+    // this call may still hold the old buffer pointer from the atomic load.
+    retiredSample = std::move (loadedSample);
     loadedSample = std::make_unique<LoadedSample>();
     loadedSample->buffer = std::move (fileBuffer);
     loadedSample->sourcePath = file.getFullPathName();
@@ -1009,8 +1010,8 @@ void SgraffitoProcessor::loadEmbeddedSample (const juce::String& embeddedPath)
         fileBuffer = std::move (resampled);
     }
 
-    // Atomic swap: release old pointer first, then install new sample.
-    sampleBuffer.store (nullptr, std::memory_order_release);
+    // Retire the old sample instead of destroying it (see loadSample).
+    retiredSample = std::move (loadedSample);
     loadedSample = std::make_unique<LoadedSample>();
     loadedSample->buffer = std::move (fileBuffer);
     loadedSample->sourcePath = "embedded:" + filePath;
@@ -1022,7 +1023,7 @@ void SgraffitoProcessor::loadEmbeddedSample (const juce::String& embeddedPath)
 void SgraffitoProcessor::clearSample()
 {
     sampleFile = juce::File();
-    loadedSample.reset();
+    retiredSample = std::move (loadedSample);
     sampleBuffer.store (nullptr, std::memory_order_release);
 }
 
