@@ -13,14 +13,15 @@
 
 namespace PluginTest
 {
-    /** Sets one LFO. Shape is the choice index (0 sine ... 6 noise). Division is the choice index (4 is 1/4). */
+    /** Sets one LFO. Shape is the choice index (0 sine ... 6 noise). Division is the choice index (4 is 1/4). Offset is the DC shift in percent (-100 to +100, clamped to waveform [-1, 1]). */
     template <typename Processor>
-    void setLfo (Processor& p, int lfo, float rateHz, float shape, bool synced, float division)
+    void setLfo (Processor& p, int lfo, float rateHz, float shape, bool synced, float division, float offset = 0.0f)
     {
         setParameter (p.apvts, lfo == 0 ? Processor::lfo1RateId : Processor::lfo2RateId, rateHz);
         setParameter (p.apvts, lfo == 0 ? Processor::lfo1ShapeId : Processor::lfo2ShapeId, shape);
         setParameter (p.apvts, lfo == 0 ? Processor::lfo1SyncId : Processor::lfo2SyncId, synced ? 1.0f : 0.0f);
         setParameter (p.apvts, lfo == 0 ? Processor::lfo1DivisionId : Processor::lfo2DivisionId, division);
+        setParameter (p.apvts, lfo == 0 ? Processor::lfo1OffsetId : Processor::lfo2OffsetId, offset);
     }
 
     /** Routes one slot. Source 0 is LFO 1 and 1 is LFO 2. Target is the choice index (0 is None). Amount is -100 to +100. */

@@ -1,4 +1,4 @@
-#include "PluginProcessor.h"
+﻿#include "PluginProcessor.h"
 #include "PluginEditor.h"
 #include "BinaryData.h"
 
@@ -100,7 +100,11 @@ void SgraffitoProcessor::handleNoteOn (int keyIn, float velocity, int samplePosi
     std::atomic<float>* sustainHoldParam, float releaseMs)
 {
     int key = keyIn;
-    // Scale Lock: quantize the played key to the nearest scale degree.
+    
+    auto* samplePtr = getSampleBuffer();
+    if (samplePtr == nullptr || samplePtr->getNumSamples() == 0)
+        return;
+
     if (scaleLockParam->load() > 0.5f)
     {
         const int rootKey = (int) std::lround (rootKeyMod);
@@ -245,12 +249,14 @@ void SgraffitoProcessor::handleNoteOff (int key, int samplePosition, bool sustai
         {
             // First time seeing this key with sustain hold on: mark as sustain-active and release.
             voice.sustainActive = true;
-                voicePool.releaseVoice (i, samplePosition, tapeStopTimeParam->get(), tapeStopCurveParam->get());
+                const double sampleIndex = static_cast<double>(samplePosition);
+                voicePool.releaseVoice (i, sampleIndex, tapeStopTimeParam->get(), tapeStopCurveParam->get());
             continue;
         }
 
         // Voice is active and either not sustain-held or timeout hasn't expired.
-        voicePool.releaseVoice (i, samplePosition, tapeStopTimeParam->get(), tapeStopCurveParam->get());
+        const double sampleIndex = static_cast<double>(samplePosition);
+        voicePool.releaseVoice (i, sampleIndex, tapeStopTimeParam->get(), tapeStopCurveParam->get());
     }
 }
 
@@ -479,8 +485,7 @@ void SgraffitoProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     auto* tapeStopCurveParameter = static_cast<juce::AudioParameterFloat*> (apvts.getParameter (tapeStopCurveId));
 
     // Process MIDI messages first: note-on allocates a voice, note-off releases it.
-    // This must happen even without a sample loaded, so voices are tracked correctly.
-    for (const auto metadata : midiMessages)
+    for (const auto& metadata : midiMessages)
     {
         const auto msg = metadata.getMessage();
 
@@ -498,7 +503,7 @@ void SgraffitoProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                            modulated (ModTarget::SustainHold, sustainHoldParam->load()) > 0.5f,
                            releaseMs, blockStartSample, tapeStopTimeParameter, tapeStopCurveParameter);
     }
-
+    
     midiMessages.clear();
 
     // The editor keyboard's notes run through the same handling (SPSC ring, plan 05.1).
@@ -533,18 +538,13 @@ void SgraffitoProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 
     const auto* sample = static_cast<const juce::AudioBuffer<float>*>(samplePtr);
     const int numChannels = buffer.getNumChannels();
-    const float level = juce::Decibels::decibelsToGain (modulated (ModTarget::Level, levelParam->load()));
-    const float attackMs = modulated (ModTarget::Attack, attackParam->load());
 
     // Advance Lorenz attractor by driftSpeed * seconds in this block.
     const float driftSpeed = modulated (ModTarget::DriftSpeed, driftSpeedParam->load());
     const double advanceSeconds = static_cast<double> (numSamples) / preparedSampleRate;
     lorenz.advance (driftSpeed * advanceSeconds);
-
-    const float driftAmountPercent = modulated (ModTarget::DriftAmount, driftAmountParam->load()) / 100.0f;
-
-    // Mode-specific processing: switch on the current mode.
-    const int mode = std::lround (modeParam->load());
+    // Chaos drift is not wired to the audio yet (a follow-up plan owns it, like the
+    // other unwired texture parameters documented in AGENTS.md).
 
     for (int i = 0; i < CoreDSP::Sampler::maxVoices; ++i)
     {
@@ -552,32 +552,9 @@ void SgraffitoProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         if (! voice.active)
             continue;
 
-        // Initialize envStart on first sample: the voice reads from its region, forwards
-        // for Scrub and Chop, from the region end backwards for Swell, and cloud schedules
-        // its first grain at once.
-        if (voice.envStart < 0.0)
-        {
-            voice.envStart = blockStartSample;
-            voice.position = (mode == 3 ? voice.regionEnd - 1.0 / (double) sample->getNumSamples()
-                                        : voice.regionStart) * sample->getNumSamples();
-            voice.grainPosition = voice.regionStart * sample->getNumSamples();
-            voice.nextGrainSample = 0.0;
-        }
-
-        // Cloud mode: read from random positions across the region.
-        bool isCloud = (mode == 2);
-
-        // Apply tape-stop rate reduction.
-        float rate = voice.rate;
-        float rateFactor = 1.0f;
+        // Advance the tape-stop ramp; the per-sample loop keeps playing at voice.rate.
         if (voice.tapeStopping)
-            rateFactor = voice.tapeStop.tick (preparedSampleRate);
-
-        // Apply chaos drift: chaos * driftAmount cents, converted to rate multiplier.
-        const float chaos = lorenz.normalisedX();
-        const float driftCents = driftAmountPercent * chaos;
-        const float driftRatio = std::pow (2.0f, driftCents / 1200.0f);
-        rate *= driftRatio * rateFactor;
+            voice.tapeStop.tick (preparedSampleRate);
 
         // Apply memory trace: the note's layer fades over the memory decay time, once per
         // block (memoryDecay seconds is the time constant).
@@ -587,35 +564,9 @@ void SgraffitoProcessor::processBlock (juce::AudioBuffer<float>& buffer,
             voice.gain *= (float) std::exp (- (double) numSamples / (tau * preparedSampleRate));
         }
 
-        // Swell crossfade: when switching notes in swell mode, use a crossfade envelope
-        // based on swellTime and swellCrossfade. The forwardPosition tracks where we are
-        // going for the next note. When a new note comes, we blend from current to forward
-        // over the crossfade time.
-        const double now = blockStartSample + static_cast<double>(i);
-        if (mode == 3 && voice.noteHeld && voice.forwardPosition >= 0.0)
-        {
-            // Swell: compute the crossfade envelope. When a new note arrives, we blend
-            // from current position to forward position over swellCrossfade milliseconds.
-            const float crossfadeMs = modulated (ModTarget::SwellTime, swellTimeParam->load());
-            const float crossfadeSamples = static_cast<float> (std::max (1.0, crossfadeMs * preparedSampleRate / 1000.0));
-            
-            // If we have a forward position and the note is held, blend toward it.
-            if (voice.envEnd < 0.0)
-            {
-                const double progress = static_cast<double> ((now - voice.releaseStart) / crossfadeSamples);
-                
-                // Blend gain using a smooth crossfade envelope (sin-based for natural fade).
-                const float envValue = juce::jlimit<float> (0.0f, 1.0f,
-                    progress < 1.0 ? static_cast<float> (std::sin (progress * juce::MathConstants<double>::halfPi)) : 0.0f);
-                
-                // Blend position and gain toward forward
-                const double blendPos = voice.regionStart + (voice.regionEnd - voice.regionStart) * voice.forwardPosition;
-                const float blendGain = envValue;
-                
-                voice.position = blendPos;
-                voice.gain *= blendGain;
-            }
-        }
+        // Swell reads backwards from the region end in the per-sample loop below.
+        // The swellTime/swellCrossfade crossfade is not wired to the audio yet
+        // (documented in AGENTS.md; a follow-up plan owns it).
 
         // Surface effects: per-block modulation of playback rate and level for dust/crackle/wow/flutter.
         // Moved from per-sample to block-rate for efficiency and stability (plan 05.2).
@@ -710,7 +661,8 @@ void SgraffitoProcessor::processBlock (juce::AudioBuffer<float>& buffer,
             int idx = -1;
             for (int n = 0; n < CoreDSP::Sampler::maxVoices; ++n)
             {
-                if (! voicePool.voices[n].active)
+                const bool isAvailable = ! voicePool.voices[n].active;
+                if (isAvailable)
                 {
                     idx = n;
                     break;
@@ -719,8 +671,7 @@ void SgraffitoProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 
             if (idx >= 0)
             {
-                CoreDSP::Sampler::Voice voice = CoreDSP::Sampler::Voice{};
-                voicePool.voices[idx] = voice;
+                voicePool.voices[idx] = CoreDSP::Sampler::Voice{};
                 voicePool.voices[idx].active = true;
                 voicePool.voices[idx].key = key;
                 voicePool.voices[idx].velocity = velocity;
@@ -730,6 +681,11 @@ void SgraffitoProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                 voicePool.voices[idx].rate = std::pow (2.0, semitones / 12.0);
                 const float velCurve = juce::jmax (0.1f, velocityCurveParam->load());
                 voicePool.voices[idx].velocity = std::pow (juce::jlimit (0.0f, 1.0f, velocity), velCurve);
+                
+                // Reset envEnd-related fields to prevent stale values from previous note
+                voicePool.voices[idx].envEnd = -1.0;
+                voicePool.voices[idx].envEndSet = false;
+                
                 voicePool.voices[idx].envStart = scheduledPos;
                 voicePool.voices[idx].envValue = 1.0f;
 
@@ -760,29 +716,154 @@ void SgraffitoProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                 voicePool.voices[idx].envStart = scheduledPos;
                 voicePool.voices[idx].position = regionStart * sample->getNumSamples();
 
-                // Swell crossfade: compute forwardPosition for swelling.
-                const bool isSwell = (mode == 3);
-                if (isSwell)
-                {
-                    // For swell mode, always compute forwardPosition. It represents where we'll be
-                    // when this note finishes, so we can blend toward it during a new note.
-                    // We use the scheduled position for endPos to respect the user's timing intent.
-                    const double scheduledEnd = voicePool.voices[idx].envStart + voice.rate * sample->getNumSamples();
-                    voice.forwardPosition = (scheduledEnd - voice.regionStart) / (voice.regionEnd - voice.regionStart);
-                }
-
                 // If the scheduled position is in the past (relative to block start), play it now.
                 if (scheduledPos <= blockStartSample)
                 {
                     voicePool.voices[idx].envStart = blockStartSample;
                     voicePool.voices[idx].position = regionStart * sample->getNumSamples();
                 }
-
-                // Mark the note as held so crossfade logic can run.
-                voice.noteHeld = true;
             }
 
             pendingNotes.erase (pendingNotes.begin () + static_cast<std::ptrdiff_t> (i));
+        }
+    }
+
+    // AUDIO PLAYBACK: read from sample buffer and write to output.
+    // This is the critical missing piece - we must actually play audio!
+    if (samplePtr != nullptr && samplePtr->getNumSamples() > 0)
+    {
+        const auto* sample = static_cast<const juce::AudioBuffer<float>*>(samplePtr);
+        const int sampleChannels = std::max (1, sample->getNumChannels());
+        const double sampleLength = (double) sample->getNumSamples();
+
+        // Cloud grain timing: grain size in milliseconds, density in grains per second.
+        const double grainSizeSamples = juce::jmax (1.0, (double) grainSizeParam->load() * preparedSampleRate / 1000.0);
+        const double grainInterval = juce::jmax (1.0, preparedSampleRate / (double) juce::jmax (1.0f, grainDensityParam->load()));
+        const double grainSpread = juce::jlimit (0.0, 1.0, (double) grainSpreadParam->load() / 100.0);
+
+        for (int ch = 0; ch < numChannels; ++ch)
+        {
+            float* outPtr = buffer.getWritePointer(ch);
+            // A mono sample feeds every output channel (the embedded factory sample is mono).
+            const int srcCh = ch % sampleChannels;
+            const float* sampleData = sample->getReadPointer(srcCh);
+            
+            // Process each output sample - voices contribute to all samples in the block
+            for (int n = 0; n < numSamples; ++n)
+            {
+                float outputValue = 0.0f;
+                
+                const double currentSampleIdx = blockStartSample + static_cast<double>(n);
+                
+                // Process each active voice for this sample
+                for (int i = 0; i < CoreDSP::Sampler::maxVoices; ++i)
+                {
+                    auto& voice = voicePool.voices[i];
+                    if (!voice.active)
+                        continue;
+                    
+                    // Get envelope value at this sample
+                    const float envValue = voice.envelope(currentSampleIdx, attackParam->load(), releaseMs, preparedSampleRate);
+                    
+                    // Cache the current envelope value: releaseVoice reads it as the release level,
+                    // so a note-off fades from where the envelope actually is.
+                    voice.envValue = envValue;
+                    
+                    // The release envelope has decayed to zero: the voice is done.
+                    if (envValue <= 0.0f && voice.envEnd > 0.0)
+                    {
+                        voice.active = false;
+                        continue;
+                    }
+
+                    if (envValue <= 0.0f)
+                        continue;
+
+                    // Swell starts its backwards read at the region end; the other modes
+                    // already have their frame position from allocation.
+                    if (! voice.positionInitialised)
+                    {
+                        voice.positionInitialised = true;
+                        if (voice.mode == 3)
+                            voice.position = voice.regionEnd * sampleLength - 1.0;
+                    }
+
+                    const double regionStartF = voice.regionStart * sampleLength;
+                    const double regionEndF = voice.regionEnd * sampleLength;
+                    const double regionLenF = juce::jmax (1.0, regionEndF - regionStartF);
+
+                    if (voice.mode == 2)
+                    {
+                        // Cloud: each lane fires grains on a density grid, reads them with a
+                        // half-sine window, and advances through the region (wrapping).
+                        if (! voice.grainActive && currentSampleIdx >= voice.nextGrainSample)
+                        {
+                            voice.grainActive = true;
+                            voice.grainStartSample = currentSampleIdx;
+                            voice.grainDurationSamples = grainSizeSamples;
+                            voice.grainPosition = CoreDSP::Sampler::cloudGrainPosition (
+                                voice.noteId, voice.grainIndex, voice.cloudLane,
+                                voice.regionStart, voice.regionEnd, grainSpread,
+                                sample->getNumSamples());
+                            voice.nextGrainSample = currentSampleIdx + grainInterval;
+                        }
+
+                        if (voice.grainActive)
+                        {
+                            const double progress = (currentSampleIdx - voice.grainStartSample)
+                                                    / voice.grainDurationSamples;
+
+                            if (progress >= 1.0)
+                            {
+                                voice.grainActive = false;
+                                ++voice.grainIndex;
+                            }
+                            else
+                            {
+                                while (voice.grainPosition >= regionEndF)
+                                    voice.grainPosition -= regionLenF;
+                                while (voice.grainPosition < regionStartF)
+                                    voice.grainPosition += regionLenF;
+
+                                const int grainSample = (int) voice.grainPosition;
+                                if (grainSample >= 0 && grainSample < sample->getNumSamples())
+                                {
+                                    const double window = std::sin (progress * juce::MathConstants<double>::pi);
+                                    outputValue += (float) (sampleData[grainSample] * window)
+                                                   * voice.gain * voice.velocity * envValue;
+                                }
+
+                                voice.grainPosition += voice.rate
+                                                       * CoreDSP::Sampler::cloudLaneDetune (voice.cloudLane);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        // Scrub / Chop / Swell: read the current position, then advance one
+                        // frame per output sample (backwards for Swell). The voice ends as a
+                        // one-shot when it runs past its region.
+                        const int readIndex = (int) voice.position;
+                        if (readIndex >= 0 && readIndex < sample->getNumSamples())
+                            outputValue += sampleData[readIndex] * voice.gain * voice.velocity * envValue;
+
+                        if (voice.mode == 3)
+                        {
+                            voice.position -= voice.rate;
+                            if (voice.position <= regionStartF)
+                                voice.active = false;
+                        }
+                        else
+                        {
+                            voice.position += voice.rate;
+                            if (voice.position >= regionEndF)
+                                voice.active = false;
+                        }
+                    }
+                }
+                
+                outPtr[n] = outputValue;
+            }
         }
     }
 

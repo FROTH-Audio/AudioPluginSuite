@@ -230,7 +230,7 @@ private:
     SuiteUI::LabelledSlider sliceCountSlider { "SLICE COUNT", juce::Slider::RotaryVerticalDrag };
     
     // Sample loading button (top right of header, next to preset bar).
-    juce::Button loadSampleButton;  // "LOAD SOUND" button
+    juce::ToggleButton loadSampleButton;  // "LOAD SOUND" button
     
     /** The LFO curve colours, in the slate accent. */
     SuiteUI::LabelledSlider grainSizeSlider { "GRAIN SIZE", juce::Slider::RotaryVerticalDrag };
@@ -256,6 +256,8 @@ private:
     std::unique_ptr<juce::ParameterAttachment> tapeStopCurveAttachment;
 
     void resized() override;
+    
+    void browseForSample();
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (SgraffitoEditor)
 };

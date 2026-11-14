@@ -49,11 +49,8 @@ SgraffitoEditor::SgraffitoEditor (SgraffitoProcessor& p)
     addAndMakeVisible (*presetBar);
     
     // Sample loading button: next to the preset bar.
-    loadSampleButton.setBounds (getLocalBounds().withWidth(150).withX(getLocalBounds().width - 166))
-                            .withHeight(presetBar->getPreferredHeight())
-                            .withY(getLocalBounds().getCentreY() - presetBar->getPreferredHeight() / 2);
-    loadSampleButton.setButtonText ("LOAD SOUND");
-    loadSampleButton.onClick = [this] { browseForSample(); };
+    loadSampleButton.setBounds (getLocalBounds().withWidth(150).withX(getLocalBounds().getWidth() - 166));
+    loadSampleButton.setTooltip ("LOAD SOUND");
     addAndMakeVisible (loadSampleButton);
     
     setSize (editorWidth, editorHeight);
@@ -288,14 +285,15 @@ void SgraffitoEditor::browseForSample()
                                   "*.wav;*.aiff;*.aiif",
                                   "All audio files (*)");
     
-    if (fileChooser.launch())
+    // Use launchAsync to show the dialog asynchronously
+    fileChooser.launchAsync (0, [this] (const juce::FileChooser& chooser)
     {
-        const juce::File selectedFile = fileChooser.getFile();
+        const juce::File selectedFile = chooser.getResult();
         if (selectedFile.existsAsFile())
         {
             processor.loadSample (selectedFile);
         }
-    }
+    }, nullptr);
 }
 
 void SgraffitoEditor::setPage (int newPage)

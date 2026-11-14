@@ -116,16 +116,14 @@ public:
         GhostLevel,
         GrainSize,
         GrainDensity,
+        GrainSpread,
         SwellTime,
         Dust,
         Crackle,
         Wow,
         Flutter,
         ShuffleSeed,
-        count
     };
-
-    static juce::StringArray modTargetNames();
 
     /** Modulation routing targets - declared here so they're available in the constructor initializer. */
     static constexpr SuiteModulation::TargetInfo modulationTargets[] = {
@@ -148,6 +146,7 @@ public:
         { "ghostLevel",     "Ghost Level" },
         { "grainSize",      "Grain Size" },
         { "grainDensity",   "Grain Density" },
+        { "grainSpread",    "Grain Spread" },
         { "swellTime",      "Swell Time" },
         { "dust",           "Dust" },
         { "crackle",        "Crackle" },
@@ -157,6 +156,9 @@ public:
     };
 
     static constexpr int numModulationTargets = sizeof(modulationTargets) / sizeof(SuiteModulation::TargetInfo);
+    static constexpr int ModTargetCount = numModulationTargets;
+
+    static juce::StringArray modTargetNames();
 
     //==============================================================================
     SgraffitoProcessor();
@@ -195,8 +197,9 @@ public:
     //==============================================================================
     // Voice access for the editor and modulation
     // const juce::AudioBuffer<float>* getSampleBuffer() const noexcept;  // inline below
-    // int getNumActiveVoices() const noexcept;                           // inline below
-
+    
+    int getNumActiveVoices() const noexcept { return voicePool.countActive(); }
+    
     // Sample loading
     void loadSample (const juce::File& file);
     void loadEmbeddedSample (const juce::String& embeddedPath);  // e.g., "embedded:grain_4k.wav"
@@ -322,7 +325,6 @@ private:
         return sampleBuffer.load(std::memory_order_acquire);
     }
     
-    int getNumActiveVoices() const noexcept { return voicePool.countActive(); }
     static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
 
     // Applies an offset to a parameter's base value, in the parameter's own normalised range. Exact when the offset is zero. */

@@ -125,6 +125,8 @@ namespace CoreDSP::Sampler
 
         double envStart = -1.0;
         double envEnd = -1.0;
+        bool envEndSet = false;            // true when envEnd has been set to a valid release position
+        bool envEndUpdatedInBlock = false; // true when envEnd has been updated in this block to prevent multiple updates
         double releaseStart = -1.0;
         float envValue = 0.0f;
         float releaseLevel = 1.0f;
@@ -161,7 +163,7 @@ namespace CoreDSP::Sampler
         /** Envelope value at an absolute sample index. Release starts from releaseLevel without a jump. */
         float envelope (double sampleIndex, double attackMs, double releaseMs, double sampleRate) const noexcept
         {
-            if (envStart < 0.0 || sampleIndex <= envStart || sampleRate <= 0.0)
+            if (envStart < 0.0 || sampleIndex < envStart || sampleRate <= 0.0)
                 return 0.0f;
 
             if (envEnd >= 0.0 && sampleIndex >= envEnd)
@@ -279,9 +281,8 @@ namespace CoreDSP::Sampler
         int countActive() const noexcept
         {
             int count = 0;
-
-            for (const auto& voice : voices)
-                if (voice.active)
+            for (int idx = 0; idx < maxVoices; ++idx)
+                if (voices[idx].active)
                     ++count;
 
             return count;
