@@ -196,6 +196,9 @@ SgraffitoEditor::SgraffitoEditor (SgraffitoProcessor& p)
     keyboard.onNoteOn = [this] (int note, float velocity) { processor.pushUiNote (note, true, velocity); };
     keyboard.onNoteOff = [this] (int note) { processor.pushUiNote (note, false); };
 
+    // Clicking the missing-sample overlay opens the same browse flow as LOAD SOUND.
+    waveformView.onLocateClicked = [this] { browseForSample(); };
+
     // The control display shows the modulated value of every routable control on the MOD page.
     using Target = SgraffitoProcessor::ModTarget;
     controls = std::make_unique<SuiteModulation::ControlDisplay> (processor.getRouter(), std::vector<SuiteModulation::ControlDisplay::Entry> {

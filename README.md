@@ -136,6 +136,8 @@ Spectral Drift, Dynamic Saturation and Micro-Timing Chaos share a preset system 
 
 Spectral Drift's `freeze` is on only in the `Freeze` factory category; Dynamic Saturation's `drive` 24 + `fold` 50 appears only in `Extreme`; and Micro-Timing Chaos keeps host sync off and `bpm` at 120 in every factory preset. Micro-Timing Chaos's `lerpCurve` state property (not a parameter) round-trips through presets and the factory bank.
 
+**Sgraffito's sample follows the preset.** Sgraffito presets and host sessions carry a `samplePath` property on the `<PARAMETERS>` tree (not a parameter): an absolute file path or an `embedded:` URI. A preset with the property loads that sample; a preset without it leaves the sample alone, like a parameter the preset does not touch; INIT (and host program 0) resets the sample to the embedded factory default. A path that cannot be found is searched for by file name in `userDocuments/AudioSuite/Sgraffito/Samples`; if it is still not found, the current sample keeps playing and the waveform view draws a "Sample missing - click to locate" overlay — clicking it opens the sample browser. Loading a sample marks the session dirty for the bar's SAVE indicator — intended, because the sample is part of the preset.
+
 ### Spectral Drift Shifter
 
 An audio effect that breaks the input into 2048-point FFT frames, drifts the phase of each frequency bin with an LFO, shapes the magnitudes, and resynthesises the result.

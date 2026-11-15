@@ -437,7 +437,7 @@ void SgraffitoProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     // editor's waveform view has something to show, out of the box. A sample the user
     // loaded later is left alone.
     if (loadedSample == nullptr)
-        loadEmbeddedSample ("embedded:grain_4k.wav");
+        loadEmbeddedSample (embeddedSampleUri);
 
     // Reset all voices.
     for (int i = 0; i < CoreDSP::Sampler::maxVoices; ++i)
@@ -875,7 +875,15 @@ void SgraffitoProcessor::applyPresetState (const juce::ValueTree& tree)
     // Presets use resetMissing=true so absent parameters are set to default.
     const juce::MemoryBlock block = SuiteState::detail::encodeXml (*tree.createXml());
     const auto result = SuiteState::read (block.getData(), (int) block.getSize(), apvts,
-                                          stateVersion, migrations, {}, true);
+                                          stateVersion, migrations,
+                                          [this, &tree] (const juce::ValueTree&)
+                                          {
+                                              // The incoming tree, not the replaced state: an
+                                              // empty INIT tree gains a version property when
+                                              // it is read, so the empty check must run on the
+                                              // tree the caller passed (plan 07 C1/P1).
+                                              applySampleFromState (tree);
+                                          }, true);
     juce::ignoreUnused (result);
 }
 
@@ -940,6 +948,11 @@ void SgraffitoProcessor::loadSample (const juce::File& file)
     loadedSample->sourceSampleRate = reader->sampleRate;
     sampleFile = file;
     sampleBuffer.store (&loadedSample->buffer, std::memory_order_release);
+
+    // The sample is part of the preset/session state (plan 07): keep the property in
+    // sync at change time, like the Micro-Timing lerp curve does.
+    sampleMissing.store (false, std::memory_order_release);
+    apvts.state.setProperty (samplePathProperty, loadedSample->sourcePath, nullptr);
 }
 
 void SgraffitoProcessor::loadEmbeddedSample (const juce::String& embeddedPath)
@@ -1018,6 +1031,9 @@ void SgraffitoProcessor::loadEmbeddedSample (const juce::String& embeddedPath)
     loadedSample->sourceSampleRate = reader->sampleRate;
     sampleFile = juce::File(); // File path is not available for embedded data
     sampleBuffer.store (&loadedSample->buffer, std::memory_order_release);
+
+    sampleMissing.store (false, std::memory_order_release);
+    apvts.state.setProperty (samplePathProperty, loadedSample->sourcePath, nullptr);
 }
 
 void SgraffitoProcessor::clearSample()
@@ -1025,16 +1041,92 @@ void SgraffitoProcessor::clearSample()
     sampleFile = juce::File();
     retiredSample = std::move (loadedSample);
     sampleBuffer.store (nullptr, std::memory_order_release);
+
+    apvts.state.removeProperty (samplePathProperty, nullptr);
+}
+
+void SgraffitoProcessor::storeSampleToState (juce::ValueTree& state) const
+{
+    // A tree without the property speaks about no sample: applying it leaves the
+    // sample alone. So only write it when a sample is actually loaded.
+    if (sampleBuffer.load (std::memory_order_acquire) == nullptr)
+    {
+        state.removeProperty (samplePathProperty, nullptr);
+        return;
+    }
+
+    state.setProperty (samplePathProperty, loadedSample->sourcePath, nullptr);
+}
+
+void SgraffitoProcessor::applySampleFromState (const juce::ValueTree& tree)
+{
+    // INIT (the bar and host program 0) applies a hand-made empty tree: the sample
+    // resets to the embedded default, like every other parameter resets (Q4).
+    // A real preset always carries parameter children, so an empty tree is unambiguous.
+    if (tree.isValid() && tree.getNumChildren() == 0 && tree.getNumProperties() == 0)
+    {
+        loadEmbeddedSample (embeddedSampleUri);
+        return;
+    }
+
+    // A preset without the property does not speak about samples: leave the sample
+    // alone (delta semantics, like the parameters).
+    const auto path = tree.getProperty (samplePathProperty).toString();
+    if (path.isEmpty())
+        return;
+
+    if (path.startsWith ("embedded:"))
+    {
+        loadEmbeddedSample (path);
+        return;
+    }
+
+    const juce::File file (path);
+    if (file.existsAsFile())
+    {
+        loadSample (file);
+        return;
+    }
+
+    // Resolution order (plan 07 2.2): the stored path, then the same file name in the
+    // user sample folder (a moved sample library). Loading the fallback updates the
+    // saved path, so the session remembers the resolution. The embedded fallback is
+    // never automatic: a missing sample is reported, never silently substituted.
+    const auto searchFolder = sampleSearchFolder.isDirectory() ? sampleSearchFolder : userSampleFolder();
+    const auto fallback = searchFolder.getChildFile (file.getFileName());
+
+    if (fallback.existsAsFile())
+    {
+        loadSample (fallback);
+        return;
+    }
+
+    // Missing: keep the current sample playing and report it for the UI. Never silence,
+    // never a silent substitution.
+    missingSamplePath = path;
+    sampleMissing.store (true, std::memory_order_release);
 }
 
 void SgraffitoProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
-    destData = SuiteState::write (apvts, stateVersion);
+    // The sample is not a parameter; it rides along as the samplePath property
+    // (plan 07). It is normally already on the state, the extra callback makes the
+    // save not depend on that.
+    destData = SuiteState::write (apvts, stateVersion, [this] (juce::ValueTree& state)
+    {
+        storeSampleToState (state);
+    });
 }
 
 void SgraffitoProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
-    SuiteState::read (data, sizeInBytes, apvts, stateVersion, migrations);
+    // Old sessions carry no samplePath property: the hook leaves the sample alone,
+    // which is the embedded default loaded in prepareToPlay.
+    SuiteState::read (data, sizeInBytes, apvts, stateVersion, migrations,
+                      [this] (const juce::ValueTree&)
+                      {
+                          applySampleFromState (apvts.state);
+                      });
 }
 
 juce::AudioProcessorEditor* SgraffitoProcessor::createEditor()

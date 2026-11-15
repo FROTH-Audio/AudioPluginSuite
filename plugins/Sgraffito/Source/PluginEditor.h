@@ -27,6 +27,10 @@ class SgraffitoWaveformView : public juce::Component
 public:
     explicit SgraffitoWaveformView (SgraffitoProcessor& p) : processor (p) {}
 
+    /** Called when the missing-sample overlay is clicked; the editor wires it to its
+        browse flow (the FileChooser must stay alive on the editor, plan 07 P9). */
+    std::function<void()> onLocateClicked;
+
     void paint (juce::Graphics& g) override
     {
         auto bounds = getLocalBounds().toFloat();
@@ -107,6 +111,41 @@ public:
         g.drawText (regionCaption (regionStart, regionEnd),
                     getLocalBounds().removeFromBottom (16).reduced (8, 0).toFloat(),
                     juce::Justification::centredRight);
+
+        // Missing-sample overlay (plan 07 2.3): the current sample keeps playing, so
+        // the waveform stays visible underneath and the report sits on top. Accent
+        // border and text, not a colour-only signal (suite rule R6).
+        if (processor.isSampleMissing())
+        {
+            g.setColour (SuiteUI::Colours::panel.withAlpha (0.62f));
+            g.fillRoundedRectangle (bounds, SuiteUI::controlRadius);
+            g.setColour (accent);
+            g.drawRoundedRectangle (bounds, SuiteUI::controlRadius, 2.0f);
+
+            auto title = bounds.withSizeKeepingCentre (juce::jmax (0.0f, bounds.getWidth() - 24.0f), 16.0f);
+
+            g.setColour (SuiteUI::Colours::text);
+            g.setFont (SuiteUI::uiFont (13.0f, true));
+            g.drawText ("Sample missing - click to locate", title.translated (0.0f, -12.0f),
+                        juce::Justification::centred);
+
+            g.setColour (SuiteUI::Colours::textDim);
+            g.setFont (SuiteUI::uiFont (10.0f));
+            g.drawText (juce::File (processor.getMissingSamplePath()).getFileName() + " - not found",
+                        title.translated (0.0f, 12.0f), juce::Justification::centred);
+        }
+    }
+
+    void mouseDown (const juce::MouseEvent&) override
+    {
+        if (processor.isSampleMissing() && onLocateClicked)
+            onLocateClicked();
+    }
+
+    juce::MouseCursor getMouseCursor() override
+    {
+        return processor.isSampleMissing() ? juce::MouseCursor (juce::MouseCursor::PointingHandCursor)
+                                           : juce::MouseCursor();
     }
 
 private:
@@ -202,7 +241,8 @@ private:
     SuiteUI::LabelledSlider attackSlider { "ATTACK", juce::Slider::RotaryVerticalDrag };
     SuiteUI::LabelledSlider releaseSlider { "RELEASE", juce::Slider::RotaryVerticalDrag };
 
-    // Visual: sample waveform.
+    // Visual: sample waveform. The missing-sample overlay clicks back into the
+    // editor's browse flow (the FileChooser lives on the editor, plan 07 P9).
     SgraffitoWaveformView waveformView { processor };
 
     // Playable keyboard: the very bottom of every page (plan 05.1).

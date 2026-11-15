@@ -208,6 +208,38 @@ public:
     juce::String getSamplePath() const noexcept { return sampleFile.getFullPathName(); }
     bool hasSample() const noexcept { return sampleBuffer.load() != nullptr; }
 
+    // Sample-linked presets and sessions (plan 07): the loaded sample travels as the
+    // samplePath property on <PARAMETERS>, the same non-parameter route as the
+    // Micro-Timing lerp curve. It is not an APVTS parameter.
+    static constexpr const char* samplePathProperty { "samplePath" };
+    static constexpr const char* embeddedSampleUri { "embedded:grain_4k.wav" };
+
+    /** Writes the current sample reference into a state tree (file path or embedded: URI).
+        A tree without a sample speaks about no sample: applying it leaves the sample alone. */
+    void storeSampleToState (juce::ValueTree& state) const;
+
+    /** Applies the sample rule from an incoming preset or session tree (message thread).
+        An empty tree is INIT (bar and host program 0): the sample resets to the embedded
+        default like every other parameter. A tree with samplePath loads it; a missing
+        file keeps the current sample playing and raises sampleMissing. */
+    void applySampleFromState (const juce::ValueTree& tree);
+
+    /** True when the last preset/session asked for a sample that could not be found. */
+    bool isSampleMissing() const noexcept { return sampleMissing.load (std::memory_order_acquire); }
+    juce::String getMissingSamplePath() const { return missingSamplePath; }
+
+    /** The folder searched when a preset or session names a sample that does not exist
+        at its stored path (plan 07 2.2, owner decision Q5). */
+    static juce::File userSampleFolder()
+    {
+        return juce::File::getSpecialLocation (juce::File::userDocumentsDirectory)
+                  .getChildFile ("AudioSuite").getChildFile ("Sgraffito").getChildFile ("Samples");
+    }
+
+    /** Where the fallback search looks. Empty (the normal state) = userSampleFolder();
+        tests set it so they do not write into the user's Documents folder. */
+    juce::File sampleSearchFolder;
+
     /** The raw value of a parameter, for the editor's visual widgets (waveform, key map). */
     float getParamValue (const char* id) const
     {
@@ -266,6 +298,11 @@ public:
 
     // The original file path (empty for embedded samples).
     juce::File sampleFile;
+
+    // Missing-sample report for the UI (plan 07 phase 2 draws the overlay). Both are
+    // written on the message thread only.
+    std::atomic<bool> sampleMissing { false };
+    juce::String missingSamplePath;
 
     // Pending note-ons for lay back delay, swing and humanise (plan 05.4). The queue keeps
     // notes that are not due yet; each entry carries the absolute scheduled position and the

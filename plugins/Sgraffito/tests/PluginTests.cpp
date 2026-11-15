@@ -1,6 +1,7 @@
 // Plugin-level tests for Sgraffito. Compiles the real processor and editor sources.
 
 #include "PluginTestUtils.h"
+#include "StateFixtures.h"
 #include "ModulationTestUtils.h"
 #include "PluginEditor.h"
 #include "PluginProcessor.h"
@@ -1014,12 +1015,503 @@ namespace
         assert (highCrossings > lowCrossings + 2);
         pass ("testKeyChangesPitch");
     }
+
+    // ------------------------------------------------------------------
+    // Plan 07: sample-linked presets and sessions.
+
+    /** Writes a one-second mono WAV of a constant value into the temp folder and returns it. */
+    juce::File writeTestWav (const juce::String& name, float value)
+    {
+        const auto folder = juce::File::getSpecialLocation (juce::File::tempDirectory)
+                                .getChildFile ("SgraffitoPlan07");
+        folder.createDirectory();
+
+        const auto file = folder.getChildFile (name);
+        file.deleteFile();
+
+        juce::AudioBuffer<float> buffer (1, 48000);
+        for (int i = 0; i < buffer.getNumSamples(); ++i)
+            buffer.setSample (0, i, value);
+
+        juce::WavAudioFormat format;
+        const auto writerOptions = juce::AudioFormatWriterOptions {}
+                                       .withSampleRate (sampleRate)
+                                       .withNumChannels (1)
+                                       .withBitsPerSample (16);
+        std::unique_ptr<juce::OutputStream> stream (new juce::FileOutputStream (file));
+        std::unique_ptr<juce::AudioFormatWriter> writer (format.createWriterFor (stream, writerOptions));
+        assert (writer != nullptr);
+        writer->writeFromAudioSampleBuffer (buffer, 0, buffer.getNumSamples());
+        writer = nullptr;   // close the stream before the file is read back
+
+        assert (file.existsAsFile());
+        return file;
+    }
+
+    /** A minimal preset delta tree, the way the bank and user presets carry parameters. */
+    juce::ValueTree deltaTree (const char* id, double value)
+    {
+        juce::ValueTree tree ("PARAMETERS");
+        juce::ValueTree param ("PARAM");
+        param.setProperty ("id", id, nullptr);
+        param.setProperty ("value", value, nullptr);
+        tree.appendChild (param, nullptr);
+        return tree;
+    }
+
+    /** Runs a held note through an already-prepared processor, without touching the sample. */
+    std::vector<float> renderNoteOn (Processor& processor, int blocks, int key = 60)
+    {
+        std::vector<float> output;
+
+        for (int block = 0; block < blocks; ++block)
+        {
+            juce::AudioBuffer<float> audio (2, blockSize);
+            audio.clear();
+            juce::MidiBuffer midi;
+
+            if (block == 0)
+                midi.addEvent (juce::MidiMessage::noteOn (1, key, 0.8f), 0);
+
+            processor.processBlock (audio, midi);
+
+            for (int n = 0; n < blockSize; ++n)
+                output.push_back (audio.getSample (0, n));
+        }
+
+        return output;
+    }
+
+    void testPresetSampleLinkRoundTrip()
+    {
+        Processor processor;
+        processor.prepareToPlay (sampleRate, blockSize);
+
+        const auto wavFile = writeTestWav ("roundtrip.wav", 0.5f);
+        processor.loadSample (wavFile);
+
+        // The property is on the live state at change time (plan 07 C2).
+        assert (processor.apvts.state.getProperty (Processor::samplePathProperty).toString()
+                == wavFile.getFullPathName());
+
+        SuitePresets::PresetInfo preset;
+        preset.name = "Round Trip";
+        preset.category = "Test";
+        preset.description = "Test";
+        preset.plugin = processor.getPresetPluginId();
+        preset.isFactory = false;
+
+        const auto file = juce::File::getSpecialLocation (juce::File::tempDirectory)
+                              .getChildFile ("SgraffitoPlan07")
+                              .getChildFile ("roundtrip.ausp");
+        file.deleteFile();
+
+        const auto written = SuitePresets::PresetFile::write (file, preset,
+                                                              processor.apvts.copyState(),
+                                                              processor.getPresetStateVersion());
+        assert (written.ok);
+
+        // formatVersion stays 1: the additive property needs no format bump (plan 07 P10).
+        const auto xml = juce::XmlDocument::parse (file);
+        assert (xml != nullptr);
+        assert (xml->getIntAttribute ("formatVersion") == 1);
+
+        const auto read = SuitePresets::PresetFile::read (file, processor.getPresetPluginId(),
+                                                          processor.getPresetStateVersion());
+        assert (read.ok);
+        assert (read.preset.state.getProperty (Processor::samplePathProperty).toString()
+                == wavFile.getFullPathName());
+        // A real preset carries parameter children, unlike the empty INIT tree.
+        assert (read.preset.state.getNumChildren() > 0);
+
+        pass ("testPresetSampleLinkRoundTrip");
+    }
+
+    void testPresetSampleLinkLoads()
+    {
+        Processor processor;
+        processor.prepareToPlay (sampleRate, blockSize);
+
+        const auto wavFile = writeTestWav ("loaded.wav", 0.5f);
+
+        auto tree = deltaTree (Processor::modeId, 2.0);
+        tree.setProperty (Processor::samplePathProperty, wavFile.getFullPathName(), nullptr);
+        processor.applyPresetState (tree);
+
+        assert (processor.hasSample());
+        assert (processor.getSamplePath() == wavFile.getFullPathName());
+        assert (processor.getParamValue (Processor::modeId) == 2.0f);
+
+        const auto output = renderNoteOn (processor, 10);
+        float peak = 0.0f;
+        for (auto sample : output)
+            if (std::abs (sample) > peak)
+                peak = std::abs (sample);
+        std::printf ("sample-linked preset: peak %.4f\n", peak);
+        assert (peak > 0.2f);
+
+        pass ("testPresetSampleLinkLoads");
+    }
+
+    void testPresetWithoutSampleLeavesSample()
+    {
+        Processor processor;
+        processor.prepareToPlay (sampleRate, blockSize);
+
+        const auto wavFile = writeTestWav ("kept.wav", 0.5f);
+        processor.loadSample (wavFile);
+
+        // Delta semantics: a preset without the property does not speak about samples.
+        processor.applyPresetState (deltaTree (Processor::modeId, 2.0));
+
+        assert (processor.getParamValue (Processor::modeId) == 2.0f);
+        assert (processor.getSamplePath() == wavFile.getFullPathName());
+        assert (processor.loadedSample->sourcePath == wavFile.getFullPathName());
+        assert (! processor.isSampleMissing());
+
+        pass ("testPresetWithoutSampleLeavesSample");
+    }
+
+    void testPresetEmbeddedSampleUri()
+    {
+        Processor processor;
+        processor.prepareToPlay (sampleRate, blockSize);
+
+        const auto wavFile = writeTestWav ("user.wav", 0.5f);
+        processor.loadSample (wavFile);
+        assert (processor.getSamplePath() == wavFile.getFullPathName());
+
+        auto tree = deltaTree (Processor::modeId, 1.0);
+        tree.setProperty (Processor::samplePathProperty, Processor::embeddedSampleUri, nullptr);
+        processor.applyPresetState (tree);
+
+        assert (processor.loadedSample->sourcePath == Processor::embeddedSampleUri);
+        assert (processor.getSamplePath().isEmpty());   // embedded samples have no file path
+        assert (processor.apvts.state.getProperty (Processor::samplePathProperty).toString()
+                == Processor::embeddedSampleUri);
+        assert (! processor.isSampleMissing());
+
+        pass ("testPresetEmbeddedSampleUri");
+    }
+
+    void testInitResetsSample()
+    {
+        Processor processor;
+        processor.prepareToPlay (sampleRate, blockSize);
+
+        const auto wavFile = writeTestWav ("before-init.wav", 0.5f);
+        processor.loadSample (wavFile);
+        assert (processor.getSamplePath() == wavFile.getFullPathName());
+
+        // INIT applies a hand-made empty tree (the bar and host program 0): the sample
+        // resets to the embedded default like every other parameter (plan 07 Q4).
+        processor.applyPresetState (juce::ValueTree ("PARAMETERS"));
+
+        assert (processor.loadedSample->sourcePath == Processor::embeddedSampleUri);
+        assert (! processor.isSampleMissing());
+
+        pass ("testInitResetsSample");
+    }
+
+    void testPresetMissingSampleKeepsCurrent()
+    {
+        Processor processor;
+        processor.prepareToPlay (sampleRate, blockSize);
+
+        const auto wavFile = writeTestWav ("current.wav", 0.5f);
+        processor.loadSample (wavFile);
+
+        const auto missing = wavFile.getSiblingFile ("deleted.wav").getFullPathName();
+
+        auto tree = deltaTree (Processor::modeId, 1.0);
+        tree.setProperty (Processor::samplePathProperty, missing, nullptr);
+        processor.applyPresetState (tree);
+
+        // Keep the current sample playing and report the missing one (plan 07 Q2).
+        assert (processor.getSamplePath() == wavFile.getFullPathName());
+        assert (processor.isSampleMissing());
+        assert (processor.getMissingSamplePath() == missing);
+        // The parameters of the preset still applied.
+        assert (processor.getParamValue (Processor::modeId) == 1.0f);
+
+        // A later apply with a valid path clears the flag.
+        auto valid = deltaTree (Processor::modeId, 2.0);
+        valid.setProperty (Processor::samplePathProperty, wavFile.getFullPathName(), nullptr);
+        processor.applyPresetState (valid);
+
+        assert (! processor.isSampleMissing());
+        assert (processor.getSamplePath() == wavFile.getFullPathName());
+
+        pass ("testPresetMissingSampleKeepsCurrent");
+    }
+
+    void testSessionRestoresSample()
+    {
+        Processor processor;
+        processor.prepareToPlay (sampleRate, blockSize);
+
+        const auto wavFile = writeTestWav ("session.wav", 0.5f);
+        processor.loadSample (wavFile);
+
+        juce::MemoryBlock block;
+        processor.getStateInformation (block);
+
+        Processor restored;
+        restored.prepareToPlay (sampleRate, blockSize);
+        restored.setStateInformation (block.getData(), (int) block.getSize());
+
+        assert (restored.hasSample());
+        assert (restored.getSamplePath() == wavFile.getFullPathName());
+        assert (restored.loadedSample->sourcePath == wavFile.getFullPathName());
+        assert (! restored.isSampleMissing());
+
+        pass ("testSessionRestoresSample");
+    }
+
+    // ------------------------------------------------------------------
+    // Plan 07 phase 2: fallback search, session UX, fixture anchor.
+
+    /** Applies a preset whose stored path does not exist, but whose file name sits in the
+        search folder: the fallback loads it and the session remembers the resolution. */
+    void testSampleFolderFallback()
+    {
+        Processor processor;
+        processor.prepareToPlay (sampleRate, blockSize);
+
+        const auto folder = juce::File::getSpecialLocation (juce::File::tempDirectory)
+                                .getChildFile ("SgraffitoPlan07")
+                                .getChildFile ("SampleFolder");
+        folder.createDirectory();
+
+        // writeTestWav lands in the temp root; move the file into the search folder.
+        const auto libraryFile = folder.getChildFile ("library-hit.wav");
+        assert (writeTestWav ("library-hit.wav", 0.4f).moveFileTo (libraryFile));
+        assert (libraryFile.existsAsFile());
+
+        processor.sampleSearchFolder = folder;
+
+        // The stored path does not exist; the same name in the search folder does.
+        const auto stored = juce::File::getSpecialLocation (juce::File::tempDirectory)
+                                .getChildFile ("SgraffitoPlan07")
+                                .getChildFile ("moved-library")
+                                .getChildFile ("library-hit.wav");
+        assert (! stored.existsAsFile());
+
+        auto tree = deltaTree (Processor::modeId, 2.0);
+        tree.setProperty (Processor::samplePathProperty, stored.getFullPathName(), nullptr);
+        processor.applyPresetState (tree);
+
+        assert (! processor.isSampleMissing());
+        assert (processor.getSamplePath() == libraryFile.getFullPathName());
+        assert (processor.loadedSample->sourcePath == libraryFile.getFullPathName());
+        // The resolved path replaces the dead one on the state, so the session remembers it.
+        assert (processor.apvts.state.getProperty (Processor::samplePathProperty).toString()
+                == libraryFile.getFullPathName());
+        assert (processor.getParamValue (Processor::modeId) == 2.0f);
+
+        // Stored-path priority: an existing path beats the same name in the folder.
+        const auto direct = writeTestWav ("direct.wav", 0.6f);
+        assert (! folder.getChildFile ("direct.wav").existsAsFile());   // keep the folders apart
+
+        auto directTree = deltaTree (Processor::modeId, 1.0);
+        directTree.setProperty (Processor::samplePathProperty, direct.getFullPathName(), nullptr);
+        processor.applyPresetState (directTree);
+
+        assert (! processor.isSampleMissing());
+        assert (processor.getSamplePath() == direct.getFullPathName());
+
+        // No name match anywhere: the missing report, never a silent substitution.
+        auto lostTree = deltaTree (Processor::modeId, 0.0);
+        lostTree.setProperty (Processor::samplePathProperty,
+                              stored.getSiblingFile ("unfindable.wav").getFullPathName(), nullptr);
+        processor.applyPresetState (lostTree);
+
+        assert (processor.isSampleMissing());
+        assert (processor.getMissingSamplePath().endsWith ("unfindable.wav"));
+        assert (processor.getSamplePath() == direct.getFullPathName());
+
+        pass ("testSampleFolderFallback");
+    }
+
+    /** Alternates a valid and a missing preset while audio runs: the retire pattern must
+        survive the new trigger path with no use-after-free (plan 07 test 7). */
+    void testRapidPresetSwitchingUnderAudio()
+    {
+        Processor processor;
+        processor.prepareToPlay (sampleRate, blockSize);
+
+        const auto wavFile = writeTestWav ("rapid.wav", 0.5f);
+        const auto missing = wavFile.getSiblingFile ("vanished.wav").getFullPathName();
+
+        auto valid = deltaTree (Processor::modeId, 2.0);
+        valid.setProperty (Processor::samplePathProperty, wavFile.getFullPathName(), nullptr);
+
+        auto broken = deltaTree (Processor::modeId, 1.0);
+        broken.setProperty (Processor::samplePathProperty, missing, nullptr);
+
+        const auto peakOf = [] (const std::vector<float>& samples)
+        {
+            float peak = 0.0f;
+            for (float sample : samples)
+                peak = juce::jmax (peak, std::abs (sample));
+            return peak;
+        };
+
+        for (int round = 0; round < 24; ++round)
+        {
+            processor.applyPresetState (valid);
+            assert (! processor.isSampleMissing());
+            assert (peakOf (renderNoteOn (processor, 3)) > 0.05f);
+
+            processor.applyPresetState (broken);
+            assert (processor.isSampleMissing());
+            assert (peakOf (renderNoteOn (processor, 3)) > 0.05f);   // the previous sample keeps playing
+        }
+
+        // Back to a valid preset: the flag clears and the sample loads again.
+        processor.applyPresetState (valid);
+        assert (! processor.isSampleMissing());
+        assert (processor.getSamplePath() == wavFile.getFullPathName());
+
+        pass ("testRapidPresetSwitchingUnderAudio");
+    }
+
+    /** A format-1 preset with no samplePath attribute (the shape every preset saved before
+        plan 07 has) loads exactly as before: parameters apply, the sample is untouched. */
+    void testOldPresetCompatibility()
+    {
+        Processor processor;
+        processor.prepareToPlay (sampleRate, blockSize);
+
+        const auto wavFile = writeTestWav ("compat.wav", 0.5f);
+        processor.loadSample (wavFile);
+
+        const auto file = juce::File::getSpecialLocation (juce::File::tempDirectory)
+                              .getChildFile ("SgraffitoPlan07")
+                              .getChildFile ("old-preset.ausp");
+        file.replaceWithText (R"(<AudioSuitePreset formatVersion="1" plugin="Sgraffito" pluginVersion="1.0.0">
+    <Meta name="Old" category="Legacy" description="saved before plan 07" author="FROTH Audio"/>
+    <PARAMETERS suiteStateVersion="1">
+        <PARAM id="mode" value="2.0"/>
+    </PARAMETERS>
+</AudioSuitePreset>)");
+
+        const auto read = SuitePresets::PresetFile::read (file, processor.getPresetPluginId(),
+                                                          processor.getPresetStateVersion());
+        assert (read.ok);
+        assert (read.preset.state.getProperty (Processor::samplePathProperty).toString().isEmpty());
+
+        processor.applyPresetState (read.preset.state);
+
+        assert (processor.getParamValue (Processor::modeId) == 2.0f);
+        assert (processor.getSamplePath() == wavFile.getFullPathName());
+        assert (processor.loadedSample->sourcePath == wavFile.getFullPathName());
+        assert (! processor.isSampleMissing());
+
+        pass ("testOldPresetCompatibility");
+    }
+
+    /** The missing-sample overlay renders on the SOUND page, and differs from the normal
+        render. Writes sgraffito-missing.png when SUITE_RENDER_DIR is set (suite rule R9). */
+    void testMissingSampleOverlayPaints()
+    {
+        Processor processor;
+        processor.prepareToPlay (sampleRate, blockSize);
+
+        std::unique_ptr<juce::AudioProcessorEditor> editor (processor.createEditorAndMakeActive());
+        assert (editor != nullptr);
+        static_cast<SgraffitoEditor*> (editor.get())->setPage (0);
+
+        const auto normal = PluginTest::paintComponent (*editor);
+
+        // The flag the way a missing preset path sets it.
+        processor.missingSamplePath = "C:/nowhere/gone.wav";
+        processor.sampleMissing.store (true, std::memory_order_release);
+
+        const auto flagged = PluginTest::paintComponent (*editor);
+        const int changed = PluginTest::countChangedPixels (const_cast<juce::Image&> (normal),
+                                                            const_cast<juce::Image&> (flagged));
+        std::printf ("missing overlay: %d sampled pixels changed\n", changed);
+        assert (changed > 0);
+
+        const auto renderDir = juce::SystemStats::getEnvironmentVariable ("SUITE_RENDER_DIR", {});
+        if (renderDir.isNotEmpty())
+            assert (PluginTest::writeDeterministicPng (*editor,
+                                                       juce::File (renderDir).getChildFile ("sgraffito-missing.png")));
+
+        processor.sampleMissing.store (false, std::memory_order_release);
+        processor.editorBeingDeleted (editor.get());
+        pass ("testMissingSampleOverlayPaints");
+    }
+
+    /** Loads the recorded state fixture (skips without SUITE_FIXTURE_DIR) and checks the
+        samplePath anchor recorded in it (plan 07 test 13). */
+    void testLoadsStateFixture()
+    {
+        Processor processor;
+        processor.prepareToPlay (sampleRate, blockSize);
+        assert (StateFixtures::loadsRecordedState (processor, "sgraffito"));
+
+        const auto fixtureDir = juce::SystemStats::getEnvironmentVariable ("SUITE_FIXTURE_DIR", {});
+
+        if (fixtureDir.isNotEmpty())
+        {
+            juce::MemoryBlock blob;
+            assert (juce::File (fixtureDir).getChildFile ("sgraffito_v1.xml").loadFileAsData (blob));
+            assert (blob.getSize() > 0);
+
+            const auto xml = SuiteState::detail::decodeXml (blob.getData(), (int) blob.getSize());
+            assert (xml != nullptr);
+
+            // The rule the fixture anchors: the recorded samplePath must have been applied
+            // by the state read - loaded, resolved, or reported missing (plan 07 2.3).
+            const auto recorded = juce::ValueTree::fromXml (*xml)
+                                      .getProperty (Processor::samplePathProperty).toString();
+            const auto loaded = processor.apvts.state.getProperty (Processor::samplePathProperty).toString();
+
+            if (recorded.isEmpty())
+                assert (loaded.isEmpty() || loaded == Processor::embeddedSampleUri);
+            else if (recorded.startsWith ("embedded:") || juce::File (recorded).existsAsFile())
+                assert (loaded == recorded);
+            else
+                assert (processor.isSampleMissing() && processor.getMissingSamplePath() == recorded);
+        }
+
+        pass ("testLoadsStateFixture");
+    }
 }
 
-int main()
+int main (int argc, char** argv)
 {
     std::setvbuf (stdout, nullptr, _IONBF, 0);
     juce::ScopedJuceInitialiser_GUI gui;
+
+    // Records a state fixture for a future suiteStateVersion bump (plan 07 test 13):
+    // <dir>/sgraffito_v1.xml is the state as getStateInformation writes it, and
+    // sgraffito_v1.values.txt holds one "parameterID normalisedValue" line per
+    // parameter, the format StateFixtures::loadsRecordedState reads.
+    if (argc >= 2)
+    {
+        const juce::File dir (argv[1]);
+        dir.createDirectory();
+
+        Processor processor;
+        processor.prepareToPlay (sampleRate, blockSize);
+        processor.loadSample (writeTestWav ("fixture.wav", 0.5f));
+
+        juce::MemoryBlock blob;
+        processor.getStateInformation (blob);
+        dir.getChildFile ("sgraffito_v1.xml").replaceWithData (blob.getData(), blob.getSize());
+
+        juce::String values;
+        for (auto* parameter : processor.getParameters())
+            if (auto* withId = dynamic_cast<juce::AudioProcessorParameterWithID*> (parameter))
+                values << withId->paramID << " " << juce::String (withId->getValue(), 7) << "\n";
+        dir.getChildFile ("sgraffito_v1.values.txt").replaceWithText (values);
+
+        std::printf ("fixture written to %s\n", dir.getFullPathName().toRawUTF8());
+        return 0;
+    }
 
     std::puts ("Running Sgraffito plugin tests...");
 
@@ -1044,6 +1536,18 @@ int main()
     testModulationStaysInRange();
     testModesProduceDifferentAudio();
     testKeyChangesPitch();
+    testPresetSampleLinkRoundTrip();
+    testPresetSampleLinkLoads();
+    testPresetWithoutSampleLeavesSample();
+    testPresetEmbeddedSampleUri();
+    testInitResetsSample();
+    testPresetMissingSampleKeepsCurrent();
+    testSessionRestoresSample();
+    testSampleFolderFallback();
+    testRapidPresetSwitchingUnderAudio();
+    testOldPresetCompatibility();
+    testMissingSampleOverlayPaints();
+    testLoadsStateFixture();
 
     std::puts ("All Sgraffito plugin tests passed.");
     return 0;
