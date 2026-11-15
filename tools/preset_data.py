@@ -8,6 +8,11 @@ under `bank/<plugin>/` and the combined `bank/AudioSuitePresets.xml` are generat
 Keep the schema in step with `createParameterLayout()` in each processor and with AGENTS.md
 section 4. The C++ test `bankRanges` checks the same rules against the live APVTS, so a drift here
 is caught at build time in a bank build.
+
+`samplePath` is **not** a parameter and must never be a SCHEMA key (plan 07 phase 3): it travels
+as a `<PARAMETERS>` attribute, and factory presets stay sample-free (plan 07 Q3). The audit
+rejects a `samplePath` key in authoring data, generated XML or JSON, and the schema-coverage
+check would flag a SCHEMA entry as having no live parameter.
 """
 
 

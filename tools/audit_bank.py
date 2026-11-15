@@ -14,6 +14,9 @@ Rules:
 - Dynamic Saturation: no `drive` 24 + `fold` 50 outside the `Extreme` category.
 - Micro-Timing Chaos: host `sync` off in every factory preset and `bpm` left at 120, and the base
   pattern must fire at least one step (a low density with a short repeating pattern can be silent).
+- No factory preset carries `samplePath` (plan 07 Q3: the bank stays sample-free; absolute paths
+  and `embedded:` URIs are both rejected) - checked in the authoring data, the generated XML
+  attributes and the JSON files.
 - Generated XML and JSON match the authoring data (metadata and every delta value).
 """
 
@@ -131,6 +134,14 @@ def check_authoring(audit):
                 audit.check(points[0].startswith("0.0000,"), f"{label}: lerpCurve must start at x=0")
                 audit.check(points[-1].startswith("1.0000,"), f"{label}: lerpCurve must end at x=1")
 
+            # Plan 07 Q3: factory presets never reference samples. `samplePath` is a
+            # non-parameter key (a property on <PARAMETERS>), and both absolute paths and
+            # embedded: URIs are rejected until the owner revisits the decision.
+            if "samplePath" in preset or "samplePath" in params:
+                audit.check(False,
+                            f"{label}: samplePath is not allowed in factory presets (plan 07 Q3: "
+                            f"the bank stays sample-free)")
+
             for pid, value in params.items():
                 spec = schema.get(pid)
                 audit.check(spec is not None, f"{label}: unknown parameter id {pid!r}")
@@ -207,6 +218,7 @@ def check_generated(audit, bank_dir):
             "description": meta.get("description", ""),
             "params": params,
             "lerpCurve": parameters.get("lerpCurve"),
+            "samplePath": parameters.get("samplePath"),
         }
 
     for plugin, presets in PRESETS.items():
@@ -232,6 +244,11 @@ def check_generated(audit, bank_dir):
 
             audit.check(entry["lerpCurve"] == preset.get("lerpCurve"),
                         f"bank XML: {plugin} / {name} lerpCurve differs")
+
+            # Plan 07 Q3: the generated XML must not carry the sample property either.
+            audit.check(entry["samplePath"] is None,
+                        f"bank XML: {plugin} / {name} carries samplePath (plan 07 Q3: the bank "
+                        f"stays sample-free)")
 
             for pid, value in preset["params"].items():
                 spec = SCHEMA[plugin][pid]
@@ -264,6 +281,11 @@ def check_generated(audit, bank_dir):
                         f"bank JSON: {plugin} / {preset['name']} parameter set differs")
             audit.check(data.get("_lerpCurve") == preset.get("lerpCurve"),
                         f"bank JSON: {plugin} / {preset['name']} lerpCurve differs")
+
+            # Plan 07 Q3: the JSON must not carry the sample property either.
+            audit.check("_samplePath" not in data,
+                        f"bank JSON: {plugin} / {preset['name']} carries _samplePath "
+                        f"(plan 07 Q3: the bank stays sample-free)")
 
             for pid, value in preset["params"].items():
                 audit.check(float(delta.get(pid, float("nan"))) == float(value),

@@ -185,11 +185,13 @@ public:
     bool producesMidi() const override { return false; }
     double getTailLengthSeconds() const override { return 0.0; }
 
-    int getNumPrograms() override { return 1; }
-    int getCurrentProgram() override { return 0; }
-    void setCurrentProgram (int) override {}
-    const juce::String getProgramName (int) override { return {}; }
+    int getNumPrograms() override;
+    int getCurrentProgram() override;
+    void setCurrentProgram (int) override;
+    const juce::String getProgramName (int) override;
     void changeProgramName (int, const juce::String&) override {}
+    void getCurrentProgramStateInformation (juce::MemoryBlock&) override;
+    void setCurrentProgramStateInformation (const void*, int) override;
 
     void getStateInformation (juce::MemoryBlock& destData) override;
     void setStateInformation (const void* data, int sizeInBytes) override;
@@ -303,6 +305,10 @@ public:
     // written on the message thread only.
     std::atomic<bool> sampleMissing { false };
     juce::String missingSamplePath;
+
+    // Host program list (embedded bank + SUITE_PRESET_BANK_AS_PROGRAMS). -1 means a state
+    // that is not a factory program, for example a user preset.
+    std::atomic<int> currentProgramIndex { 0 };
 
     // Pending note-ons for lay back delay, swing and humanise (plan 05.4). The queue keeps
     // notes that are not due yet; each entry carries the absolute scheduled position and the

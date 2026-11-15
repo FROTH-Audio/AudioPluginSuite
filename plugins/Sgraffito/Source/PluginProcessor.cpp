@@ -4,6 +4,10 @@
 
 #include "SuiteState.h"
 
+#if SUITE_PRESET_BANK_AS_PROGRAMS
+ #include "PresetBank.h"
+#endif
+
 #include <algorithm>
 #include <cmath>
 
@@ -884,7 +888,71 @@ void SgraffitoProcessor::applyPresetState (const juce::ValueTree& tree)
                                               // tree the caller passed (plan 07 C1/P1).
                                               applySampleFromState (tree);
                                           }, true);
+
+#if SUITE_PRESET_BANK_AS_PROGRAMS
+    // A preset applied from the bar or a file is no longer one of the host programs.
+    if (result == SuiteState::LoadResult::loaded)
+        currentProgramIndex.store (-1, std::memory_order_relaxed);
+#else
     juce::ignoreUnused (result);
+#endif
+}
+
+//==============================================================================
+// Host program list. Program 0 is Init; 1 to N are the factory presets in bank order. The list
+// only exists in a bank build with SUITE_PRESET_BANK_AS_PROGRAMS on; otherwise the plugin
+// reports one program, as it did before the preset system.
+
+int SgraffitoProcessor::getNumPrograms()
+{
+#if SUITE_PRESET_BANK_AS_PROGRAMS
+    return SuitePresets::PresetPrograms::getNumPrograms (getPresetPluginId());
+#else
+    return 1;
+#endif
+}
+
+int SgraffitoProcessor::getCurrentProgram()
+{
+#if SUITE_PRESET_BANK_AS_PROGRAMS
+    return currentProgramIndex.load (std::memory_order_relaxed);
+#else
+    return 0;
+#endif
+}
+
+void SgraffitoProcessor::setCurrentProgram (int index)
+{
+#if SUITE_PRESET_BANK_AS_PROGRAMS
+    if (SuitePresets::PresetPrograms::applyProgram (*this, index))
+        currentProgramIndex.store (index, std::memory_order_relaxed);
+#else
+    juce::ignoreUnused (index);
+#endif
+}
+
+const juce::String SgraffitoProcessor::getProgramName (int index)
+{
+#if SUITE_PRESET_BANK_AS_PROGRAMS
+    return SuitePresets::PresetPrograms::getProgramName (getPresetPluginId(), index);
+#else
+    juce::ignoreUnused (index);
+    return {};
+#endif
+}
+
+void SgraffitoProcessor::getCurrentProgramStateInformation (juce::MemoryBlock& destData)
+{
+    getStateInformation (destData);
+}
+
+void SgraffitoProcessor::setCurrentProgramStateInformation (const void* data, int sizeInBytes)
+{
+    setStateInformation (data, sizeInBytes);
+
+#if SUITE_PRESET_BANK_AS_PROGRAMS
+    currentProgramIndex.store (-1, std::memory_order_relaxed);
+#endif
 }
 
 void SgraffitoProcessor::loadSample (const juce::File& file)

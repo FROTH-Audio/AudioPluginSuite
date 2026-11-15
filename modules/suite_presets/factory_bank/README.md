@@ -58,9 +58,10 @@ python tools/audit_bank.py
 value inside the parameter's `NormalisableRange`, no preset equal to the default state (INIT
 exempt), Spectral Drift `freeze` only in `Freeze`, Dynamic Saturation `drive` 24 + `fold` 50
 only in `Extreme`, Micro-Timing Chaos host `sync` off and `bpm` 120 in every factory preset,
-base patterns that fire at least one step, and — since plan 05.2 — that the authoring schema
-covers every parameter the plugins expose (live IDs parsed from the sources, the shared
-Router's parameters included).
+base patterns that fire at least one step, no preset carries `samplePath` (plan 07 Q3: the bank
+stays sample-free; checked in the authoring data, the generated XML attributes and the JSON
+files), and — since plan 05.2 — that the authoring schema covers every parameter the plugins
+expose (live IDs parsed from the sources, the shared Router's parameters included).
 
 ## Host program list
 
