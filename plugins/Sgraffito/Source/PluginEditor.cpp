@@ -6,6 +6,9 @@
 
 namespace
 {
+    // LOAD SOUND's width inside the waveform preview (owner request 2026-11-16).
+    constexpr int loadButtonWidth = 130;
+
     constexpr int editorWidth = 880;
     constexpr int editorHeight = 700;
     constexpr int headerHeight = 44;
@@ -49,9 +52,11 @@ SgraffitoEditor::SgraffitoEditor (SgraffitoProcessor& p)
     presetBar->onPresetLoaded = [this] { repaint(); };
     addAndMakeVisible (*presetBar);
     
-    // Sample loading button: next to the preset bar.
+    // Sample loading button: inside the waveform preview on the SOUND page (owner
+    // request 2026-11-16) — the sample's home is the preview, not the header. It is a
+    // child of the waveform view, so it follows the page's visibility.
     loadSampleButton.onClick = [this] { browseForSample(); };
-    addAndMakeVisible (loadSampleButton);
+    waveformView.addAndMakeVisible (loadSampleButton);
 
     addAndMakeVisible (headerMenu);
     headerMenu.onAbout = [this]
@@ -337,9 +342,8 @@ void SgraffitoEditor::setPage (int newPage)
                               static_cast<juce::Component*> (&levelSlider),
                               static_cast<juce::Component*> (&velocityCurveSlider),
                               static_cast<juce::Component*> (&attackSlider),
-                              static_cast<juce::Component*> (&releaseSlider),
-                              static_cast<juce::Component*> (&loadSampleButton) })
-        component->setVisible (soundPage);
+                              static_cast<juce::Component*> (&releaseSlider) })
+        component->setVisible (soundPage);   // loadSampleButton follows its parent, the waveformView
 
     for (auto* component : { static_cast<juce::Component*> (&tapeStopTimeSlider),
                               static_cast<juce::Component*> (&tapeStopCurveSelector),
@@ -423,13 +427,6 @@ void SgraffitoEditor::resized()
                                 .withHeight (presetBar->getPreferredHeight())
                                 .withY (headerArea.getCentreY() - presetBar->getPreferredHeight() / 2));
 
-    // Load sample button next to the preset bar. A floor of one pill height keeps it visible
-    // in the default build, where the preset-bar stub reports height 0.
-    loadSampleButton.setBounds (headerArea.removeFromRight (150)
-                                    .withHeight (juce::jmax (presetBar->getPreferredHeight(), SuiteUI::pillHeight))
-                                    .withY (headerArea.getCentreY()
-                                              - juce::jmax (presetBar->getPreferredHeight(), SuiteUI::pillHeight) / 2));
-
     pageSelector.setBounds (headerArea.removeFromRight (pageSelectorWidth)
                                 .withSizeKeepingCentre (pageSelectorWidth, pageSelectorHeight));
 
@@ -455,6 +452,14 @@ void SgraffitoEditor::layoutSoundPage (juce::Rectangle<int> area)
     // The waveform takes the space the fixed rows below leave, so the page has no dead area.
     const int fixedBelow = 2 * SuiteUI::knobRowHeight + SuiteUI::pillHeight + 4 * groupGap;
     waveformView.setBounds (area.removeFromTop (juce::jmax (100, juce::jmin (260, area.getHeight() - fixedBelow))));
+
+    // LOAD SOUND sits inside the preview, at its top-right: the sample's home is the
+    // waveform, and the missing-sample overlay below it opens the same browse flow.
+    // A pill-height button, centred in its corner strip (rule R3: never fill a row).
+    loadSampleButton.setBounds (waveformView.getBounds()
+                                    .removeFromTop (SuiteUI::pillHeight + 10)
+                                    .removeFromRight (loadButtonWidth + 10)
+                                    .withSizeKeepingCentre (loadButtonWidth, SuiteUI::pillHeight));
 
     area.removeFromTop (groupGap);
 

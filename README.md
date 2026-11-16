@@ -1,9 +1,9 @@
 <p align="center">
-  <img src="docs/images/froth-audio-suite.png" alt="FROTH Audio: Spectral Drift Shifter, Dynamic Saturation Companion and Micro-Timing Chaos" width="100%">
+  <img src="docs/images/froth-audio-suite.png" alt="FROTH Audio: Spectral Drift Shifter, Dynamic Saturation Companion, Micro-Timing Chaos and Sgraffito" width="100%">
 </p>
 
 <p align="center">
-  <b>Three plugins that bend phase, drive and groove.</b><br>
+  <b>Four plugins that bend phase, drive and groove.</b><br>
   VST3, Audio Unit and Standalone. Each plugin has its own accent colour and a live visualiser.
 </p>
 
@@ -22,28 +22,28 @@
 
 FROTH Audio makes plugins that work on sound at the level of its structure: the phase of each frequency, the shape of each peak, and the timing of each note.
 <table align="center">
+<tr style="border-bottom: 2px solid #333;">
+<th colspan="3" style="padding: 15px; font-size: 1.2em; color: #666;">The Plugins</th>
+</tr>
 <tr>
-<td align="center" valign="top" width="33%">
-  <img src="modules/suite_ui/brand/lockup_spectral_drift.png" width="250" alt="FROTH Audio Spectral Drift"><br><br>
-  <b>Spectral Drift Shifter</b><br>
-  <sub>Audio effect</code></sub><br><br>
-  <i>Phase, bent into motion.</i><br>
-  FFT drift of every frequency bin, with shift, tilt, gate and feedback.
-</td>
-<td align="center" valign="top" width="33%">
-  <img src="modules/suite_ui/brand/lockup_dynamic_saturation.png" width="250" alt="FROTH Audio Dynamic Saturation"><br><br>
-  <b>Dynamic Saturation Companion</b><br>
-  <sub>Audio effect</code></sub><br><br>
-  <i>Drive that listens.</i><br>
-  Tube, Tape and Diode shaping at 2× oversampling, driven by the envelope.
-</td>
-<td align="center" valign="top" width="33%">
-  <img src="modules/suite_ui/brand/lockup_micro_timing_chaos.png" width="250" alt="FROTH Audio Micro-Timing Chaos"><br><br>
-  <b>Micro-Timing Chaos</b><br>
-  <sub>MIDI sequencer</code></sub><br><br>
-  <i>A groove that never plays the same way twice.</i><br>
-  A fixed pattern, moved in time, pitch and velocity by a Lorenz attractor.
-</td>
+<td align="center"><img src="modules/suite_ui/brand/lockup_spectral_drift.png" width="200" alt="FROTH Audio Spectral Drift"></td>
+<td><b>Spectral Drift Shifter</b><br><sub>Audio effect</sub></td>
+<td>Phase, bent into motion.<br>FFT drift of every frequency bin, with shift, tilt, gate and feedback.</td>
+</tr>
+<tr>
+<td align="center"><img src="modules/suite_ui/brand/lockup_dynamic_saturation.png" width="200" alt="FROTH Audio Dynamic Saturation"></td>
+<td><b>Dynamic Saturation Companion</b><br><sub>Audio effect</sub></td>
+<td>Drive that listens.<br>Tube, Tape and Diode shaping at 2× oversampling, driven by the envelope.</td>
+</tr>
+<tr>
+<td align="center"><img src="modules/suite_ui/brand/lockup_micro_timing_chaos.png" width="200" alt="FROTH Audio Micro-Timing Chaos"></td>
+<td><b>Micro-Timing Chaos</b><br><sub>MIDI sequencer</sub></td>
+<td>A groove that never plays the same way twice.<br>A fixed pattern, moved in time, pitch and velocity by a Lorenz attractor.</td>
+</tr>
+<tr>
+<td align="center"><img src="modules/suite_ui/brand/lockup_sgraffito.png" width="200" alt="FROTH Audio Sgraffito"></td>
+<td><b>Sgraffito Memory Sampler</b><br><sub>Memory sampler</sub></td>
+<td>Traces in memory, frozen in time.<br>Memory traces, tape stop, ghost notes, scale lock and a granular cloud.</td>
 </tr>
 </table>
 
@@ -58,6 +58,7 @@ FROTH Audio makes plugins that work on sound at the level of its structure: the 
   - [Spectral Drift Shifter](#spectral-drift-shifter)
   - [Dynamic Saturation Companion](#dynamic-saturation-companion)
   - [Micro-Timing Chaos](#micro-timing-chaos)
+  - [Sgraffito Memory Sampler](#sgraffito-memory-sampler)
   - [Latency](#latency)
 - [For developers](#for-developers)
   - [Requirements](#requirements)

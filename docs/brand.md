@@ -2,7 +2,7 @@
 
 The brand for the plugin suite. "FROTH" is not a registered trademark for audio software as far as the search done when choosing it went, but run a proper clearance search (USPTO, and EUIPO if you sell in Europe) before publishing. The word "Pulsar" was dropped because it is a registered trademark.
 
-Change `BRAND_WORD` and `BRAND_SUFFIX` in `tools/brand/make_brand.py` to rename it, then regenerate the artwork.
+The generator is `tools/brand/build.py`. Check that script for how the name is set. The `BRAND_WORD` and `BRAND_SUFFIX` constants named in earlier versions of this file are not in it. Regenerate the artwork after any change.
 
 ## Parts
 
@@ -12,6 +12,7 @@ Change `BRAND_WORD` and `BRAND_SUFFIX` in `tools/brand/make_brand.py` to rename 
   - `lockup_spectral_drift.png`, cyan `#2DE2FF`
   - `lockup_dynamic_saturation.png`, amber `#FF9F1C`
   - `lockup_micro_timing_chaos.png`, lime `#7DFF5A`
+  - `lockup_sgraffito.png`, slate `#9aa0a6`
 
 ## Typeface
 
@@ -28,7 +29,7 @@ Bahnschrift Bold, the Windows system font, is used to draw the artwork. The artw
 From the repository root:
 
 ```
-python -I tools/brand/make_brand.py
+python -I tools/brand/build.py
 ```
 
 Then rebuild. The script needs Pillow. It writes the mark and the lockups into `modules/suite_ui/brand/`, and the README banner into `docs/images/froth-audio-suite.png`. Do not edit the PNGs by hand.
@@ -42,6 +43,7 @@ FROTH Audio is one plugin suite with one product per accent colour. Each product
 | Spectral Drift Shifter | Cyan | `#2DE2FF` | `Sdft` |
 | Dynamic Saturation Companion | Amber | `#FF9F1C` | `Dsat` |
 | Micro-Timing Chaos | Lime | `#7DFF5A` | `Mtch` |
+| Sgraffito Memory Sampler | Slate | `#9aa0a6` | `Sgrf` |
 
 The plugin codes are saved in sessions and must not change after release. A new product needs a new accent colour, a lockup entry in `PLUGINS` in the script, and a row in this table and in the README's product line.
 
@@ -52,4 +54,4 @@ The banner is the wordmark with a cyan-to-lime sweep and a glow, the three produ
 ## Known limits
 
 - The lockups are bitmaps, so they do not scale past their rendered size. For a larger display, render at a higher `SCALE` in the script.
-- Title rows are 40 px in SpectralDrift and DynamicSaturation, and 60 px in Micro-Timing Chaos. The lockup is drawn to fit the row's height.
+- Title rows are 40 px in SpectralDrift and DynamicSaturation, 60 px in Micro-Timing Chaos and Sgraffito. The lockup is drawn to fit the row's height.
