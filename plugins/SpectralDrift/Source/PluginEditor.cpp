@@ -2,6 +2,7 @@
 
 #include "BinaryData.h"
 #include "SuiteBrand.h"
+#include "SuiteSettings.h"
 
 namespace
 {
@@ -140,6 +141,17 @@ SpectralDriftEditor::SpectralDriftEditor (SpectralDriftProcessor& p)
         addAndMakeVisible (*presetBar);
     presetBar->onPresetLoaded = [this] { repaint(); };
 
+    addAndMakeVisible (headerMenu);
+    headerMenu.onAbout = [this]
+    {
+        SuiteUI::showAboutDialog (brandLockup(), SUITE_PLUGIN_NAME, SUITE_PLUGIN_VERSION,
+                                  SUITE_PLUGIN_CODE, SUITE_PLUGIN_ID, this);
+    };
+    headerMenu.onSettings = [this]
+    {
+        SuiteSettings::showSettingsDialog (SuiteSettings::shared(), this);
+    };
+
     setPage (0);
     startTimerHz (SuiteUI::kRefreshHz);
 }
@@ -236,6 +248,11 @@ void SpectralDriftEditor::resized()
     auto headerArea = area.removeFromTop (headerHeight);
     const int barWidth = 300;
     const int barHeight = presetBar != nullptr ? presetBar->getPreferredHeight() : 0;
+
+    // The gear sits at the far right of the header, right of the preset bar (plan 08 Q4).
+    headerMenu.setBounds (headerArea.removeFromRight (26).withHeight (26)
+                            .withY (headerArea.getCentreY() - 13));
+
     if (barHeight > 0)
         presetBar->setBounds (headerArea.removeFromRight (barWidth).withHeight (barHeight)
                                 .withY (headerArea.getCentreY() - barHeight / 2));

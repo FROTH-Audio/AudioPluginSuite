@@ -2,6 +2,7 @@
 
 #include "SuiteBrand.h"
 #include "BinaryData.h"
+#include "SuiteSettings.h"
 
 namespace
 {
@@ -51,7 +52,18 @@ SgraffitoEditor::SgraffitoEditor (SgraffitoProcessor& p)
     // Sample loading button: next to the preset bar.
     loadSampleButton.onClick = [this] { browseForSample(); };
     addAndMakeVisible (loadSampleButton);
-    
+
+    addAndMakeVisible (headerMenu);
+    headerMenu.onAbout = [this]
+    {
+        SuiteUI::showAboutDialog (brandLockup(), SUITE_PLUGIN_NAME, SUITE_PLUGIN_VERSION,
+                                  SUITE_PLUGIN_CODE, SUITE_PLUGIN_ID, this);
+    };
+    headerMenu.onSettings = [this]
+    {
+        SuiteSettings::showSettingsDialog (SuiteSettings::shared(), this);
+    };
+
     setSize (editorWidth, editorHeight);
     setResizable (true, true);
     setResizeLimits (editorWidth - 40, editorHeight - 40, 1200, 1200);
@@ -400,6 +412,11 @@ void SgraffitoEditor::resized()
     // Header: lockup left, preset bar and page selector right.
     auto area = getLocalBounds().reduced (16);
     auto headerArea = area.removeFromTop (headerHeight);
+
+    // The gear sits at the far right of the header, right of the preset bar (plan 08 Q4).
+    headerMenu.setBounds (headerArea.removeFromRight (26)
+                            .withHeight (26)
+                            .withY (headerArea.getCentreY() - 13));
 
     if (presetBar != nullptr && presetBar->getPreferredHeight() > 0)
         presetBar->setBounds (headerArea.removeFromRight (300)

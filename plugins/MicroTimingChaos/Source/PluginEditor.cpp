@@ -2,10 +2,13 @@
 
 #include "BinaryData.h"
 #include "SuiteBrand.h"
+#include "SuiteSettings.h"
 
 namespace
 {
     namespace Palette = MicroTimingChaos::Palette;
+
+    const juce::Image& brandLockup();
 
     // Native design size (plan 05: the ×2/3 scale factor is gone; the design is the window).
     constexpr int groupTitleHeight = 20;
@@ -333,6 +336,17 @@ MicroTimingChaosEditor::MicroTimingChaosEditor (MicroTimingChaosProcessor& p)
         addAndMakeVisible (*presetBar);
     presetBar->onPresetLoaded = [this] { curveEditor.repaint(); };
 
+    addAndMakeVisible (headerMenu);
+    headerMenu.onAbout = [this]
+    {
+        SuiteUI::showAboutDialog (brandLockup(), SUITE_PLUGIN_NAME, SUITE_PLUGIN_VERSION,
+                                  SUITE_PLUGIN_CODE, SUITE_PLUGIN_ID, this);
+    };
+    headerMenu.onSettings = [this]
+    {
+        SuiteSettings::showSettingsDialog (SuiteSettings::shared(), this);
+    };
+
     hostTempoLabel.setText ("FREE", juce::dontSendNotification);
 
     // Units and formatting
@@ -527,6 +541,11 @@ void MicroTimingChaosEditor::resized()
     auto titleBand = getLocalBounds().removeFromTop (titleBandHeight);
     const int barWidth = 360;
     const int barHeight = 34;
+
+    // The gear sits at the far right of the header, right of the preset bar (plan 08 Q4).
+    headerMenu.setBounds (titleBand.removeFromRight (28)
+                            .withSizeKeepingCentre (28, 28));
+
     if (presetBar != nullptr && presetBar->getPreferredHeight() > 0)
         presetBar->setBounds (titleBand.removeFromRight (barWidth).withHeight (barHeight)
                                 .withY (titleBand.getCentreY() - barHeight / 2));

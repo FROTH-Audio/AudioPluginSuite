@@ -55,10 +55,48 @@ namespace SuitePresets
 
     struct PresetBar::Impl : private juce::Timer
     {
-        /** The name button: left click opens the browser menu, right click the user-file menu. */
-        struct NameButton : juce::TextButton
+        /**
+            A header button with no fill (plan 08 Q1 "ghost buttons"): a hairline rounded outline,
+            dim text, accent on hover. `emphasis` lifts the preset name above the arrow and
+            INIT/SAVE buttons: 0 = the quiet controls, 1 = the name.
+        */
+        struct GhostButton : juce::TextButton
         {
             using TextButton::TextButton;
+
+            float emphasis = 0.0f;
+            juce::Colour accent { 0xff888888 };
+
+            void paintButton (juce::Graphics& g, bool shouldDrawButtonAsHighlighted,
+                              bool shouldDrawButtonAsDown) override
+            {
+                const bool active = shouldDrawButtonAsHighlighted || shouldDrawButtonAsDown;
+                auto bounds = getLocalBounds().toFloat().reduced (0.5f, 0.5f);
+                constexpr float corner = 6.0f;
+
+                if (active)
+                {
+                    g.setColour (accent.withAlpha (shouldDrawButtonAsDown ? 0.14f : 0.07f));
+                    g.fillRoundedRectangle (bounds, corner);
+                }
+
+                g.setColour (accent.withAlpha (juce::jlimit (0.0f, 0.8f,
+                                (0.22f + 0.18f * emphasis) * (active ? 1.8f : 1.0f))));
+                g.drawRoundedRectangle (bounds, corner, 1.0f);
+
+                // The suite look and feel never re-colours button text, so draw it here: dim
+                // when idle, full white on hover/press.
+                g.setFont (getLookAndFeel().getTextButtonFont (*this, getHeight()));
+                g.setColour (active ? juce::Colours::white
+                                    : juce::Colours::white.withAlpha (0.55f + 0.25f * emphasis));
+                g.drawText (getButtonText(), getLocalBounds(), juce::Justification::centred);
+            }
+        };
+
+        /** The name button: left click opens the browser menu, right click the user-file menu. */
+        struct NameButton : GhostButton
+        {
+            using GhostButton::GhostButton;
 
             std::function<void()> onContextMenu;
 
@@ -83,11 +121,10 @@ namespace SuitePresets
 
             refreshUserPresets();
 
-            auto setup = [this] (juce::TextButton& button)
+            auto setup = [this] (GhostButton& button)
             {
                 button.setWantsKeyboardFocus (false);
-                button.setColour (juce::TextButton::buttonColourId, accent.withAlpha (0.16f));
-                button.setColour (juce::TextButton::buttonOnColourId, accent.withAlpha (0.30f));
+                button.accent = accent;
                 button.setColour (juce::TextButton::textColourOffId, juce::Colours::white);
                 button.setColour (juce::TextButton::textColourOnId, juce::Colours::white);
                 owner.addAndMakeVisible (button);
@@ -98,6 +135,10 @@ namespace SuitePresets
             setup (next);
             setup (initButton);
             setup (saveButton);
+
+            // The preset name is the only control that wants a second look; the arrows and
+            // INIT/SAVE stay quiet (plan 08 Q1).
+            nameButton.emphasis = 1.0f;
 
             previous.setTooltip ("Previous preset");
             next.setTooltip ("Next preset");
@@ -583,11 +624,11 @@ namespace SuitePresets
         bool dirty = false;
         juce::uint64 snapshotHash = 0;
 
-        juce::TextButton previous { "<" };
+        GhostButton previous { "<" };
         NameButton nameButton { "Init" };
-        juce::TextButton next { ">" };
-        juce::TextButton initButton { "INIT" };
-        juce::TextButton saveButton { "SAVE" };
+        GhostButton next { ">" };
+        GhostButton initButton { "INIT" };
+        GhostButton saveButton { "SAVE" };
 
         juce::ScopedMessageBox messageBox;
     };

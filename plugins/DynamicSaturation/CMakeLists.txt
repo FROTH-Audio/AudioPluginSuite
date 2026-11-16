@@ -12,4 +12,5 @@ suite_add_plugin(
     # The brand lockup (FROTH Audio wordmark, mark and the product name) is embedded, so the header loads it from inside the plugin.
     LOCKUP          ${CMAKE_SOURCE_DIR}/modules/suite_ui/brand/lockup_dynamic_saturation.png
     MODULATION
+    SETTINGS
 )

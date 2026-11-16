@@ -12,6 +12,11 @@
 # bar, the file I/O and the tests build unchanged without it.
 
 function(suite_presets_add_to_target target)
+    # PresetFile reads the user-preset-folder override from the shared settings store (plan 08),
+    # so the settings module rides along automatically. It defines suite_settings_add_to_target,
+    # which the root CMakeLists includes before any consumer.
+    suite_settings_add_to_target(${target})
+
     target_sources(${target} PRIVATE
         ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/PresetBar.cpp
         ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/PresetFile.cpp

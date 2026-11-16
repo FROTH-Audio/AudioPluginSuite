@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "PluginProcessor.h"
+#include "SuiteHeaderMenu.h"
 #include "SuiteLookAndFeel.h"
 #include "SuiteWidgets.h"
 #include "SuiteBrand.h"
@@ -222,6 +223,9 @@ private:
 
     // Preset bar (right of the header).
     std::unique_ptr<SuitePresets::PresetBar> presetBar;
+
+    // Gear at the far right of the header: settings and about (plan 08).
+    SuiteUI::HeaderMenuButton headerMenu { juce::Colour (0xff9aa0a6) };
 
     // Page switch.
     SuiteUI::SegmentedSelector pageSelector { juce::Colour (0xff9aa0a6) };

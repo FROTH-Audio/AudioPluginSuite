@@ -11,6 +11,7 @@ suite_add_plugin(
     # The brand lockup (FROTH Audio wordmark, mark and the product name) is embedded, so the header loads it from inside the plugin.
     LOCKUP          ${CMAKE_SOURCE_DIR}/modules/suite_ui/brand/lockup_sgraffito.png
     IS_SYNTH NEEDS_MIDI_INPUT MODULATION
+    SETTINGS
     ASSETS          Resources/samples/grain_4k.wav
                     Resources/samples/cloud_4k.wav
 )

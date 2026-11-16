@@ -10,6 +10,7 @@ function(suite_ui_add_to_target target)
     target_sources(${target} PRIVATE
         ${SUITE_UI_ROOT}/Source/SuiteLookAndFeel.cpp
         ${SUITE_UI_ROOT}/Source/SuiteWidgets.cpp
+        ${SUITE_UI_ROOT}/Source/SuiteHeaderMenu.cpp
     )
 
     target_include_directories(${target} PRIVATE ${SUITE_UI_ROOT}/include)

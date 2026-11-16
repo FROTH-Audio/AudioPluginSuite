@@ -69,6 +69,12 @@ modules/
     SuiteUI.cmake                 suite_ui_add_to_target(<target>): adds sources + include dir
     tests/SuiteUITests.cpp        SuiteUITests (9 test functions)
     CMakeLists.txt                SuiteUITests only
+  suite_settings/                Shared settings storage and Settings dialog. NOT a library target, see section 8.
+    include/SuiteSettings.h       SuiteSettings::Store: global application settings; SuiteSettings::SettingsDialog: the modal dialog with four rows (tooltips toggle, fallback tempo, preset folder browse, Sgraffito sample folder)
+    include/SuiteSettingsRowBuilders.h   Row builder structs for dialog layout (namespace scope)
+    Source/SuiteSettings.cpp      Dialog implementation; showSettingsDialog() static function
+    tests/SuiteSettingsTests.cpp  SuiteSettingsTests (8 test functions)
+    suite_settings.cmake          suite_settings_add_to_target(<target>): adds sources + include dir. Needs suite_ui_add_to_target on the same target (for LabelledSlider used in dialog)
   suite_plugin/                   Build recipe. NOT a library target, see section 9
     SuitePlugin.cmake             suite_add_plugin(...): juce_add_plugin, sources, lockup, links, <Name>Tests and add_test from one call. Checks PLUGIN_CODE is unique
 plugins/<Name>/
@@ -119,11 +125,23 @@ $CM = "C:\Program Files\Microsoft Visual Studio\18\Community\Common7\IDE\CommonE
 - Build records for the pre-refactor baseline are in `build/baselines/phase0-pre-refactor/`, and the converted tree in `build/baselines/phase1-after-suite_add_plugin/`. They are generated and not committed (`build/` is ignored). To regenerate: `git archive 0d21400` into `build/baselines/src`, configure that tree with `-DFETCHCONTENT_SOURCE_DIR_JUCE=<repo>/build/_deps/juce-src` so JUCE is not fetched again, build Release, then save `Defs.txt`, `Info.txt`, `<Name>_resources.rc`, the VST3 file list and the source lists from each `.vcxproj`.
 - Asset embedding: `juce_add_binary_data(MicroTimingChaosAssets ...)` builds a `BinaryData` target that the plugin and its test executable link. Add new icons or textures to its `SOURCES` list, then reference them by the generated name (`file_name_with_underscores`, for example `bpm_sync_active_svg`).
 
-Last verified status (2026-11-12, plan 05.1 Phase 5): JUCE 9.0.5. Clean Release build: 0 errors, 90 warnings (all pre-existing `-Winconsistent-missing-override` on the preset-state overrides; none new since the plan 05.1 dead-constant cleanup). All CTest entries pass (15/15 with the factory bank on). All four plugin editor renders under `build/renders/ui-rework2/` green.
+Last verified status (2026-11-16, Plan 08 Phase 4): JUCE 9.0.5. Clean Release build: 0 errors, ~90 warnings (all pre-existing `-Winconsistent-missing-override` on the preset-state overrides). All CTest entries pass (16/16 with the factory bank on).
 
-- Default build (`SUITE_PRESET_BANK=OFF`): 11 entries - CoreDSPTests, SuiteState_Tests, SuiteModulation_Tests, SuiteUI_Tests, the four plugin test executables, and the three VST3 host-load tests.
-- Bank build (`SUITE_PRESET_BANK=ON`): 15 entries - the 11 public entries plus `SpectralDrift_PresetTests`, `DynamicSaturation_PresetTests`, `MicroTimingChaos_PresetTests`, and `Sgraffito_PresetTests`.
-- Bank with host program list (`SUITE_PRESET_BANK_AS_PROGRAMS=ON`): still 15 entries; the program-list virtuals are exercised inside the plugin preset tests via `runProgramList`.
+- Default build (`SUITE_PRESET_BANK=OFF`): 12 entries - CoreDSPTests, SuiteState_Tests, SuiteModulation_Tests, SuiteUI_Tests, SuiteSettingsTests, the four plugin test executables, and the three VST3 host-load tests.
+- Bank build (`SUITE_PRESET_BANK=ON`): 16 entries - the 12 public entries plus `SpectralDrift_PresetTests`, `DynamicSaturation_PresetTests`, `MicroTimingChaos_PresetTests`, and `Sgraffito_PresetTests`.
+- Bank with host program list (`SUITE_PRESET_BANK_AS_PROGRAMS=ON`): still 16 entries; the program-list virtuals are exercised inside the plugin preset tests via `runProgramList`.
+
+All test executables pass:
+- CoreDSPTests (35 functions)
+- SuiteStateTests (8 functions)
+- SuiteModulationTests (9 functions)
+- SuiteSettingsTests (8 functions) - new in Plan 08 Phase 4
+- SuiteUITests (9 functions)
+- SpectralDriftTests (26 functions)
+- DynamicSaturationTests (24 functions)
+- MicroTimingChaosTests (45 functions)
+- SgraffitoTests (31 functions)
+- [PluginName]_PresetTests for each plugin (factory bank)
 
 Before 2026-11-08 the list was 9 entries: CoreDSPTests, SuiteUI_Tests, SuiteModulation_Tests, the three plugin test executables, and the three VST3 host-load tests. SuiteUI_Tests also passed against JUCE 8.0.6, the previous pin, which is the version CI ran (last checked 2026-11-06, not re-run since). macOS is not verified on JUCE 9.
 
@@ -355,7 +373,7 @@ MTC's `lerpCurve` state property (not a parameter) round-trips through presets a
 
 ## 6. Test architecture
 
-Eleven CTest entries run eight executables: `CoreDSPTests` (35 test functions), `SuiteUI_Tests` (`SuiteUITests`, 9), `SuiteModulation_Tests` (`SuiteModulationTests`, 9), `SpectralDriftTests` (26), `DynamicSaturationTests` (24), `MicroTimingChaosTests` (45), `SgraffitoTests` (17), and `PluginHostTests`, which has one ctest entry per plugin (3). With the factory bank on, four preset-test executables join them (one per plugin). The README has the full list.
+Twelve CTest entries run nine executables: `CoreDSPTests` (35 test functions), `SuiteUI_Tests` (`SuiteUITests`, 9), `SuiteModulation_Tests` (`SuiteModulationTests`, 9), `SuiteSettingsTests` (`SuiteSettingsTests`, 8), `SpectralDriftTests` (26), `DynamicSaturationTests` (24), `MicroTimingChaosTests` (45), `SgraffitoTests` (17), and `PluginHostTests`, which has one ctest entry per plugin (3). With the factory bank on, four preset-test executables join them (one per plugin). The README has the full list.
 
 **Module tests** (`modules/suite_modulation/tests/SuiteModulationTests.cpp`): the router, with a stub processor (no plugin). They cover the routed LFO, the zero case (bit for bit), bipolar amounts, whole-number targets, Host Sync ignoring Tempo, the one-bar period, sample and hold, out-of-range indices, and the control display (values set without notifying). Not covered: the control display skipping a slider the mouse holds, since the test cannot press a mouse button. The panel and scope are checked only by the MicroTimingChaos editor test.
 
@@ -432,6 +450,8 @@ Reason: a static library that links JUCE module targets bundles those module obj
 If you add a new consumer, use `suite_ui_add_to_target`. Do not add `SuiteUI` to `target_link_libraries`.
 
 `suite_modulation` follows the same rule (`suite_modulation_add_to_target`, never `target_link_libraries`). Its panel uses `SuiteUI::LabelledSlider`, so a consumer calls `suite_ui_add_to_target` on the same target first. Its tests are registered in `modules/suite_modulation/CMakeLists.txt` only when `SUITE_BUILD_TESTS` is on, and the directory is added only inside the `SUITE_BUILD_PLUGINS` block.
+
+`suite_settings` follows the same pattern (`suite_settings_add_to_target`, never `target_link_libraries`). The Settings dialog uses `SuiteUI::LabelledSlider` for the preset folder browse button, so a consumer must call `suite_ui_add_to_target()` first, then `suite_settings_add_to_target()`. Its tests are registered in `modules/suite_settings/CMakeLists.txt` and only built when plugins are enabled.
 
 ---
 

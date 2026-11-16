@@ -29,11 +29,11 @@
 #   LOCKUP        Brand lockup PNG, embedded as binary data.
 #   ASSETS        Other files embedded in the same binary data target as LOCKUP.
 #   MODULATION    Adds suite_modulation (LFOs and routing). Off by default.
+#   SETTINGS      Adds suite_settings (the plugin settings store). Off by default.
 #   IS_SYNTH        Marks the plugin as a synth/instrument (VST3 instrument category).
 #   IS_MIDI_EFFECT  Marks the plugin as a MIDI effect (AU MIDI processor type).
 #   NEEDS_MIDI_INPUT  Declares MIDI input capability.
 #   NEEDS_MIDI_OUTPUT Declares MIDI output capability.
-#   MODULATION    Adds suite_modulation (LFOs and routing). Off by default.
 #
 # Needs suite_ui_add_to_target (modules/suite_ui/SuiteUI.cmake) and, with MODULATION, suite_modulation_add_to_target.
 # Variables set inside the function do not leak out: everything the plugin needs is a target property.
@@ -41,7 +41,7 @@
 set_property(GLOBAL PROPERTY SUITE_PLUGIN_CODES "")
 
 function(suite_add_plugin)
-    set(options MODULATION IS_SYNTH IS_MIDI_EFFECT NEEDS_MIDI_INPUT NEEDS_MIDI_OUTPUT)
+    set(options MODULATION SETTINGS IS_SYNTH IS_MIDI_EFFECT NEEDS_MIDI_INPUT NEEDS_MIDI_OUTPUT)
     set(oneValue NAME PRODUCT_NAME MANUFACTURER PLUGIN_CODE BUNDLE_ID COMPANY_NAME VERSION DESCRIPTION LOCKUP)
     set(multiValue SOURCES TEST_SOURCES ASSETS)
     cmake_parse_arguments(SAP "${options}" "${oneValue}" "${multiValue}" ${ARGN})
@@ -132,6 +132,20 @@ function(suite_add_plugin)
         suite_modulation_add_to_target(${SAP_NAME})
     endif()
     suite_presets_add_to_target(${SAP_NAME})  # StateHolder interface for presets
+    if(SAP_SETTINGS)
+        suite_settings_add_to_target(${SAP_NAME})
+    endif()
+
+    # Identity defines for the About dialog and the settings UI. The plugin target also receives
+    # JucePlugin_* definitions from juce_add_plugin, but the two test executables compile the
+    # same plugin sources and do not (JUCE 9 writes no JucePluginDefines.h here), so every
+    # target needs its own copy.
+    set(suiteIdentityDefines
+        SUITE_PLUGIN_VERSION="${SAP_VERSION}"
+        SUITE_PLUGIN_NAME="${SAP_PRODUCT_NAME}"
+        SUITE_PLUGIN_CODE="${SAP_PLUGIN_CODE}"
+        SUITE_PLUGIN_ID="${SAP_NAME}")
+    target_compile_definitions(${SAP_NAME} PRIVATE ${suiteIdentityDefines})
 
     #---- Binary data: the lockup and any other assets ----
     set(assets ${SAP_ASSETS})
@@ -179,6 +193,10 @@ function(suite_add_plugin)
             suite_modulation_add_to_target(${SAP_NAME}Tests)
         endif()
         suite_presets_add_to_target(${SAP_NAME}Tests)
+        if(SAP_SETTINGS)
+            suite_settings_add_to_target(${SAP_NAME}Tests)
+        endif()
+        target_compile_definitions(${SAP_NAME}Tests PRIVATE ${suiteIdentityDefines})
 
         target_link_libraries(${SAP_NAME}Tests PRIVATE ${links})
 
@@ -212,6 +230,10 @@ function(suite_add_plugin)
             suite_modulation_add_to_target(${SAP_NAME}PresetTests)
         endif()
         suite_presets_add_to_target(${SAP_NAME}PresetTests)
+        if(SAP_SETTINGS)
+            suite_settings_add_to_target(${SAP_NAME}PresetTests)
+        endif()
+        target_compile_definitions(${SAP_NAME}PresetTests PRIVATE ${suiteIdentityDefines})
 
         target_link_libraries(${SAP_NAME}PresetTests PRIVATE ${links})
         target_compile_definitions(${SAP_NAME}PresetTests PRIVATE JUCE_MODAL_LOOPS_PERMITTED=1)
