@@ -690,6 +690,25 @@ void MicroTimingChaosProcessor::setStateInformation (const void* data, int sizeI
         if (panicRequested.load(std::memory_order_relaxed))
             panicRequested.store(false, std::memory_order_relaxed);
     });
+
+    // The preset identity rides as a property (plan 09 1.4, D3): restore the bar's
+    // selection from the replaced state. A session without the property — every
+    // session saved before plan 09 — reads as Init.
+    lastPresetSelection = SuitePresets::decodePresetSelection (
+        apvts.state.getProperty (presetSelectionProperty).toString());
+}
+
+void MicroTimingChaosProcessor::setPresetSelection (const SuitePresets::PresetSelection& selection)
+{
+    lastPresetSelection = selection;
+
+    // The lerpCurve / samplePath pattern (plan 09 1.4): keep the property in sync at
+    // change time, so the identity rides in every saved session and host program dump.
+    if (selection.kind == SuitePresets::PresetSelection::Kind::none)
+        apvts.state.removeProperty (presetSelectionProperty, nullptr);
+    else
+        apvts.state.setProperty (presetSelectionProperty,
+                                 SuitePresets::encodePresetSelection (selection), nullptr);
 }
 
 void MicroTimingChaosProcessor::applyPresetState (const juce::ValueTree& tree)
@@ -706,6 +725,11 @@ void MicroTimingChaosProcessor::applyPresetState (const juce::ValueTree& tree)
     if (result == SuiteState::LoadResult::loaded)
     {
         panicRequested.store(true, std::memory_order_relaxed);
+
+        // Applying any tree resets the preset identity (plan 09 1.4): the caller — the
+        // bar or the host-program bridge — re-states it right after, when it knows the
+        // preset.
+        lastPresetSelection = {};
 
 #if SUITE_PRESET_BANK_AS_PROGRAMS
         // A preset applied from the bar or a file is no longer one of the host programs.
@@ -741,7 +765,21 @@ void MicroTimingChaosProcessor::setCurrentProgram (int index)
 {
 #if SUITE_PRESET_BANK_AS_PROGRAMS
     if (SuitePresets::PresetPrograms::applyProgram (*this, index))
+    {
         currentProgramIndex.store (index, std::memory_order_relaxed);
+
+        // The host program and the bar's selection describe the same event (plan 09 1.4):
+        // program 0 is Init, program N is factory preset N-1 in bank order.
+        SuitePresets::PresetSelection selection;
+
+        if (index > 0)
+        {
+            selection.kind = SuitePresets::PresetSelection::Kind::factory;
+            selection.factoryIndex = index - 1;
+        }
+
+        setPresetSelection (selection);
+    }
 #else
     juce::ignoreUnused (index);
 #endif

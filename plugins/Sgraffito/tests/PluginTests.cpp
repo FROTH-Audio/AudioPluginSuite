@@ -1524,6 +1524,396 @@ namespace
         pass ("testAsyncLoadSurvivesDestruction");
     }
 
+    //==============================================================================
+    // Plan 09: the capped sample retirement, the unified note paths, the preset identity.
+
+    /** Plan 09 1.1: the capped retirement queue. Sync loads install through the same
+        finishSampleLoad path as the async ones, so a second install while a voice from
+        the previous sample is still playing leaves that buffer alive in the queue —
+        the exact window where the old single retire slot freed it. The queue never
+        grows past the cap. */
+    void testRetirementQueue()
+    {
+        Processor processor;
+        processor.prepareToPlay (sampleRate, blockSize);
+
+        const auto wavA = writeTestWav ("retire-a.wav", 0.5f);
+        const auto wavB = writeTestWav ("retire-b.wav", 0.5f);
+        const auto wavC = writeTestWav ("retire-c.wav", 0.5f);
+        const auto wavD = writeTestWav ("retire-d.wav", 0.4f);
+
+        juce::AudioBuffer<float> audio (2, blockSize);
+        audio.clear();
+
+        processor.loadSample (wavA);
+
+        // A voice playing A: the block that must survive the next two installs.
+        juce::MidiBuffer midi;
+        midi.addEvent (juce::MidiMessage::noteOn (1, 60, 0.8f), 0);
+        processor.processBlock (audio, midi);
+        assert (processor.voicePool.countActive() > 0);
+
+        processor.loadSample (wavB);
+        assert ((int) processor.retiredSamples.size() <= Processor::retiredSampleGenerations);
+
+        // The exact window: a second install while the voice from A still plays. The
+        // old single slot destroyed A here; the queue keeps it alive.
+        processor.loadSample (wavC);
+        assert ((int) processor.retiredSamples.size() == Processor::retiredSampleGenerations);
+        assert (processor.retiredSamples.front()->sourcePath == wavA.getFullPathName());
+
+        for (int block = 0; block < 8; ++block)
+        {
+            audio.clear();
+            juce::MidiBuffer none;
+            processor.processBlock (audio, none);
+        }
+
+        processor.loadSample (wavD);
+        assert ((int) processor.retiredSamples.size() == Processor::retiredSampleGenerations);
+        assert (processor.retiredSamples.front()->sourcePath == wavB.getFullPathName());
+
+        for (int block = 0; block < 8; ++block)
+        {
+            audio.clear();
+            juce::MidiBuffer none;
+            processor.processBlock (audio, none);
+        }
+
+        pass ("testRetirementQueue");
+    }
+
+    /** Plan 09 1.3 / owner decision D1: a pending (delayed) note fires through
+        VoicePool::allocateVoice, so with all 32 voices busy it steals the oldest active
+        voice instead of being silently dropped. */
+    void testPendingNoteSteals()
+    {
+        Processor processor;
+        processor.prepareToPlay (sampleRate, blockSize);
+
+        // Straight timing for the fill notes, then a lay-back for the pending one.
+        setParameter (processor.apvts, Processor::swingId, 50.0f);
+        setParameter (processor.apvts, Processor::humaniseId, 0.0f);
+        setParameter (processor.apvts, Processor::layBackId, 0.0f);
+
+        juce::AudioBuffer<float> testBuffer (2, 48000);
+        processor.loadedSample = std::make_unique<LoadedSample>();
+        processor.loadedSample->buffer = testBuffer;
+        processor.loadedSample->sourceSampleRate = sampleRate;
+        processor.sampleBuffer.store (&processor.loadedSample->buffer, std::memory_order_release);
+
+        juce::AudioBuffer<float> audio (2, blockSize);
+        audio.clear();
+
+        // Fill every voice with a held note of its own key.
+        juce::MidiBuffer fill;
+        for (int key = 36; key < 36 + CoreDSP::Sampler::maxVoices; ++key)
+            fill.addEvent (juce::MidiMessage::noteOn (1, key, 0.8f), 0);
+
+        processor.processBlock (audio, fill);
+        assert (processor.voicePool.countActive() == CoreDSP::Sampler::maxVoices);
+
+        // A delayed note: 30 ms (the parameter's maximum) is 1440 samples at 48 kHz.
+        setParameter (processor.apvts, Processor::layBackId, 30.0f);
+
+        juce::MidiBuffer delayed;
+        delayed.addEvent (juce::MidiMessage::noteOn (1, 72, 0.8f), 0);
+        processor.processBlock (audio, delayed);
+        assert (processor.pendingNotes.size() == 1);
+
+        // Run until it fires. Voices are one-shots that end at their region end, so the
+        // scan below must happen in the same block the note fired, not after a fixed
+        // number of blocks.
+        int firedBlock = -1;
+
+        for (int block = 0; block < 8 && firedBlock < 0; ++block)
+        {
+            audio.clear();
+            juce::MidiBuffer none;
+            processor.processBlock (audio, none);
+
+            if (processor.pendingNotes.empty())
+                firedBlock = block;
+        }
+
+        assert (firedBlock >= 0);
+
+        // The pending note stole a voice: it plays, the pool stayed full, and the oldest
+        // fill note (key 36) is the one that was replaced.
+        bool hasPendingKey = false, hasStolenKey = false;
+
+        for (int i = 0; i < CoreDSP::Sampler::maxVoices; ++i)
+        {
+            if (! processor.voicePool.voices[i].active)
+                continue;
+
+            if (processor.voicePool.voices[i].key == 72)
+                hasPendingKey = true;
+
+            if (processor.voicePool.voices[i].key == 36)
+                hasStolenKey = true;
+        }
+
+        assert (hasPendingKey);
+        assert (! hasStolenKey);
+        assert (processor.voicePool.countActive() == CoreDSP::Sampler::maxVoices);
+
+        pass ("testPendingNoteSteals");
+    }
+
+    /** Plan 09 1.3: a delayed Cloud note allocates its four lanes through the pool, like
+        a directly played one (the old hand-rolled path allocated a single voice). */
+    void testPendingCloudNoteLanes()
+    {
+        Processor processor;
+        processor.prepareToPlay (sampleRate, blockSize);
+
+        setParameter (processor.apvts, Processor::modeId, 2.0f);   // Cloud
+        setParameter (processor.apvts, Processor::swingId, 50.0f);
+        setParameter (processor.apvts, Processor::humaniseId, 0.0f);
+        setParameter (processor.apvts, Processor::layBackId, 30.0f);
+
+        juce::AudioBuffer<float> testBuffer (2, 48000);
+        processor.loadedSample = std::make_unique<LoadedSample>();
+        processor.loadedSample->buffer = testBuffer;
+        processor.loadedSample->sourceSampleRate = sampleRate;
+        processor.sampleBuffer.store (&processor.loadedSample->buffer, std::memory_order_release);
+
+        juce::AudioBuffer<float> audio (2, blockSize);
+        audio.clear();
+
+        juce::MidiBuffer midi;
+        midi.addEvent (juce::MidiMessage::noteOn (1, 60, 0.8f), 0);
+        processor.processBlock (audio, midi);
+
+        assert (processor.voicePool.countActive() == 0);   // not due yet: it is pending
+
+        // Run until it fires, then scan in the same block (voices are one-shots).
+        int firedBlock = -1;
+
+        for (int block = 0; block < 8 && firedBlock < 0; ++block)
+        {
+            audio.clear();
+            juce::MidiBuffer none;
+            processor.processBlock (audio, none);
+
+            if (processor.pendingNotes.empty())
+                firedBlock = block;
+        }
+
+        assert (firedBlock >= 0);
+        assert (processor.voicePool.countActive() == CoreDSP::Sampler::cloudLanesPerNote);
+
+        int lanes[CoreDSP::Sampler::cloudLanesPerNote] = {};
+        for (int i = 0; i < CoreDSP::Sampler::maxVoices; ++i)
+        {
+            const auto& voice = processor.voicePool.voices[i];
+            if (voice.active)
+            {
+                assert (voice.key == 60);
+                assert (voice.cloudLane >= 0 && voice.cloudLane < CoreDSP::Sampler::cloudLanesPerNote);
+                ++lanes[voice.cloudLane];
+            }
+        }
+
+        for (int lane = 0; lane < CoreDSP::Sampler::cloudLanesPerNote; ++lane)
+            assert (lanes[lane] == 1);   // one voice per lane
+
+        pass ("testPendingCloudNoteLanes");
+    }
+
+    /** Plan 09 1.3: a delayed note and the same note played direct get the same pitch,
+        region and start position — all three paths share setupAllocatedVoice and
+        VoicePool::allocateVoice's region maths. */
+    void testPendingMatchesDirect()
+    {
+        Processor processor;
+        processor.prepareToPlay (sampleRate, blockSize);
+
+        setParameter (processor.apvts, Processor::swingId, 50.0f);   // straight: zero swung delay
+        setParameter (processor.apvts, Processor::humaniseId, 0.0f);
+        setParameter (processor.apvts, Processor::pitchFineId, 25.0f);   // off-default, so rate is meaningful
+
+        juce::AudioBuffer<float> testBuffer (2, 48000);
+        processor.loadedSample = std::make_unique<LoadedSample>();
+        processor.loadedSample->buffer = testBuffer;
+        processor.loadedSample->sourceSampleRate = sampleRate;
+        processor.sampleBuffer.store (&processor.loadedSample->buffer, std::memory_order_release);
+
+        juce::AudioBuffer<float> audio (2, blockSize);
+        audio.clear();
+
+        // The direct note: fires at once. Capture its fields before it starts playing,
+        // while they still hold the allocation-time values.
+        setParameter (processor.apvts, Processor::layBackId, 0.0f);
+        juce::MidiBuffer direct;
+        direct.addEvent (juce::MidiMessage::noteOn (1, 60, 0.8f), 0);
+        processor.processBlock (audio, direct);
+
+        int directIdx = -1;
+
+        for (int i = 0; i < CoreDSP::Sampler::maxVoices; ++i)
+            if (processor.voicePool.voices[i].active && processor.voicePool.voices[i].key == 60)
+            {
+                directIdx = i;
+                break;
+            }
+
+        assert (directIdx >= 0);
+
+        const auto directStartOrder = processor.voicePool.voices[directIdx].startOrder;
+        const double directRate = processor.voicePool.voices[directIdx].rate;
+        const double directRegionStart = processor.voicePool.voices[directIdx].regionStart;
+        const double directRegionEnd = processor.voicePool.voices[directIdx].regionEnd;
+        const double directPosition = processor.voicePool.voices[directIdx].position;
+        const float directVelocity = processor.voicePool.voices[directIdx].velocity;
+
+        // The same note, delayed through the pending queue. Run until it fires, then
+        // scan in the same block (voices are one-shots).
+        setParameter (processor.apvts, Processor::layBackId, 30.0f);
+        juce::MidiBuffer delayed;
+        delayed.addEvent (juce::MidiMessage::noteOn (1, 60, 0.7f), 0);
+        processor.processBlock (audio, delayed);
+
+        int firedBlock = -1;
+
+        for (int block = 0; block < 8 && firedBlock < 0; ++block)
+        {
+            audio.clear();
+            juce::MidiBuffer none;
+            processor.processBlock (audio, none);
+
+            if (processor.pendingNotes.empty())
+                firedBlock = block;
+        }
+
+        assert (firedBlock >= 0);
+
+        // The pending note's voice: same key, newer start order.
+        int pendingIdx = -1;
+
+        for (int i = 0; i < CoreDSP::Sampler::maxVoices; ++i)
+        {
+            const auto& voice = processor.voicePool.voices[i];
+            if (voice.active && voice.key == 60 && voice.startOrder > directStartOrder)
+            {
+                pendingIdx = i;
+                break;
+            }
+        }
+
+        assert (pendingIdx >= 0);
+
+        const auto& pendingVoice = processor.voicePool.voices[pendingIdx];
+
+        assert (std::abs (directRate - pendingVoice.rate) < 1.0e-9);
+        assert (std::abs (directRegionStart - pendingVoice.regionStart) < 1.0e-9);
+        assert (std::abs (directRegionEnd - pendingVoice.regionEnd) < 1.0e-9);
+
+        // Both voices start at their region's start — the direct one captured after one
+        // block of playback, the pending one after the block it fired in. The playback
+        // loop runs per channel (committed behaviour: a stereo buffer advances a voice
+        // once per channel and sample), so the bound is channels × blockSize × rate.
+        // The plan 05.1 bug this guards against was every note reading from sample 0.
+        const double blockAdvance = 2.0 * blockSize * directRate + 1.0e-9;
+        assert (std::abs (directPosition - directRegionStart * 48000.0) <= blockAdvance);
+        assert (std::abs (pendingVoice.position - pendingVoice.regionStart * 48000.0) <= blockAdvance);
+
+        // The velocity curve applies to both, from each note's own velocity. MIDI
+        // velocities quantise to 1/127, so the expectation reads the value back from
+        // the same messages (0.8f → 102/127, 0.7f → 89/127).
+        const float curve = juce::jmax (0.1f, processor.getParamValue (Processor::velocityCurveId));
+        const float directMidiVel = juce::MidiMessage::noteOn (1, 60, 0.8f).getVelocity() / 127.0f;
+        const float pendingMidiVel = juce::MidiMessage::noteOn (1, 60, 0.7f).getVelocity() / 127.0f;
+        assert (std::abs (directVelocity - std::pow (directMidiVel, curve)) < 1.0e-4f);
+        assert (std::abs (pendingVoice.velocity - std::pow (pendingMidiVel, curve)) < 1.0e-4f);
+
+        pass ("testPendingMatchesDirect");
+    }
+
+    /** Plan 09 1.4 / D3: the preset identity persists as the presetSelection state
+        property and survives a session round trip. A session without the property —
+        every session saved before plan 09 — reads as Init. Exercises the StateHolder
+        seam directly, so it runs without the factory bank too. */
+    void testPresetSelectionSessionRoundTrip()
+    {
+        SuitePresets::PresetSelection factory;
+        factory.kind = SuitePresets::PresetSelection::Kind::factory;
+        factory.factoryIndex = 0;
+
+        // A factory selection round-trips through the session bytes.
+        juce::MemoryBlock blob;
+
+        {
+            Processor processor;
+            processor.prepareToPlay (sampleRate, blockSize);
+
+            processor.setPresetSelection (factory);
+            assert (processor.getPresetSelection() == factory);
+            assert (processor.apvts.state.getProperty (Processor::presetSelectionProperty).toString()
+                    == "factory:0");
+
+            processor.getStateInformation (blob);
+            assert (blob.getSize() > 0);
+        }
+
+        {
+            Processor recalled;
+            recalled.prepareToPlay (sampleRate, blockSize);
+            recalled.setStateInformation (blob.getData(), (int) blob.getSize());
+            assert (recalled.getPresetSelection() == factory);
+
+            // Init clears it, in memory and on the state.
+            recalled.setPresetSelection (SuitePresets::PresetSelection {});
+            assert (! recalled.apvts.state.hasProperty (Processor::presetSelectionProperty));
+        }
+
+        // A user-file identity round-trips through the property text form (paths may
+        // contain spaces and colons).
+        juce::MemoryBlock userBlob;
+
+        {
+            Processor processor;
+            processor.prepareToPlay (sampleRate, blockSize);
+
+            SuitePresets::PresetSelection user;
+            user.kind = SuitePresets::PresetSelection::Kind::userFile;
+            user.userFilePath = "C:/Users/Some One/Presets/my preset.ausp";
+            processor.setPresetSelection (user);
+            assert (processor.getPresetSelection() == user);
+
+            processor.getStateInformation (userBlob);
+        }
+
+        {
+            Processor recalled;
+            recalled.prepareToPlay (sampleRate, blockSize);
+            recalled.setStateInformation (userBlob.getData(), (int) userBlob.getSize());
+
+            const auto selection = recalled.getPresetSelection();
+            assert (selection.kind == SuitePresets::PresetSelection::Kind::userFile);
+            assert (selection.userFilePath == "C:/Users/Some One/Presets/my preset.ausp");
+        }
+
+        // A session saved without the property (before plan 09) reads as Init.
+        juce::MemoryBlock oldBlob;
+
+        {
+            Processor fresh;
+            fresh.prepareToPlay (sampleRate, blockSize);
+            fresh.getStateInformation (oldBlob);
+        }
+
+        {
+            Processor recalled;
+            recalled.prepareToPlay (sampleRate, blockSize);
+            recalled.setStateInformation (oldBlob.getData(), (int) oldBlob.getSize());
+            assert (recalled.getPresetSelection() == SuitePresets::PresetSelection {});
+        }
+
+        pass ("testPresetSelectionSessionRoundTrip");
+    }
+
     /** Loads the recorded state fixture (skips without SUITE_FIXTURE_DIR) and checks the
         samplePath anchor recorded in it (plan 07 test 13). */
     void testLoadsStateFixture()
@@ -1629,6 +2019,11 @@ int main (int argc, char** argv)
     testOldPresetCompatibility();
     testAsyncLoadLatestWins();
     testAsyncLoadSurvivesDestruction();
+    testRetirementQueue();
+    testPendingNoteSteals();
+    testPendingCloudNoteLanes();
+    testPendingMatchesDirect();
+    testPresetSelectionSessionRoundTrip();
     testMissingSampleOverlayPaints();
     testLoadsStateFixture();
 

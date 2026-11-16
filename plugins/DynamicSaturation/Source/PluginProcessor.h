@@ -119,10 +119,20 @@ public:
     juce::AudioProcessorValueTreeState& getPresetStateTree() { return apvts; }
     void applyPresetState (const juce::ValueTree&);
 
+    // The preset identity (plan 09 1.4): which factory preset or user file the bar last
+    // applied. Message thread. Persisted as the presetSelection state property, so it
+    // survives the editor being reopened and rides in saved sessions.
+    SuitePresets::PresetSelection getPresetSelection() const override { return lastPresetSelection; }
+    void setPresetSelection (const SuitePresets::PresetSelection&) override;
+    static constexpr const char* presetSelectionProperty { "presetSelection" };
+
     juce::AudioProcessorValueTreeState apvts;
 
     int stateVersion = 1;
     std::vector<SuiteState::Migration> migrations;
+
+    // The preset identity (plan 09 1.4). Message thread only.
+    SuitePresets::PresetSelection lastPresetSelection;
 
     /** Linked detector level (linear), published for the editor's meter. */
     float getEnvelopeLevel() const noexcept { return envelopeLevel.load (std::memory_order_relaxed); }

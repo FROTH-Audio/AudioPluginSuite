@@ -144,6 +144,13 @@ public:
     juce::AudioProcessorValueTreeState& getPresetStateTree() { return apvts; }
     void applyPresetState (const juce::ValueTree&);
 
+    // The preset identity (plan 09 1.4): which factory preset or user file the bar last
+    // applied. Message thread. Persisted as the presetSelection state property, so it
+    // survives the editor being reopened and rides in saved sessions.
+    SuitePresets::PresetSelection getPresetSelection() const override { return lastPresetSelection; }
+    void setPresetSelection (const SuitePresets::PresetSelection&) override;
+    static constexpr const char* presetSelectionProperty { "presetSelection" };
+
     const SpectrumSnapshot& getSpectrumSnapshot() const noexcept { return snapshot; }
 
 private:
@@ -160,6 +167,9 @@ private:
     // Host program list (embedded bank + SUITE_PRESET_BANK_AS_PROGRAMS). -1 means a state that is not a
     // factory program, for example a user preset.
     std::atomic<int> currentProgramIndex { 0 };
+
+    // The preset identity (plan 09 1.4). Message thread only.
+    SuitePresets::PresetSelection lastPresetSelection;
 
     std::array<CoreDSP::Spectral::DriftEngine, 2> engines;
 

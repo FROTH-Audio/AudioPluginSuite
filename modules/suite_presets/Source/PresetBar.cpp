@@ -8,26 +8,32 @@ namespace SuitePresets
 {
     namespace
     {
+        constexpr juce::uint64 fnvOffset = 1469598103934665603ull;
+        constexpr juce::uint64 fnvPrime = 1099511628211ull;
+
+        void mixParameter (juce::uint64& hash, const juce::String& id, float value)
+        {
+            for (auto character : id)
+            {
+                hash ^= (juce::uint64) (juce::juce_wchar) character;
+                hash *= fnvPrime;
+            }
+
+            juce::uint32 bits = 0;
+            std::memcpy (&bits, &value, sizeof (bits));
+            hash ^= (juce::uint64) bits;
+            hash *= fnvPrime;
+        }
+
         juce::uint64 hashState (juce::AudioProcessorValueTreeState& apvts)
         {
-            juce::uint64 hash = 1469598103934665603ull;
+            juce::uint64 hash = fnvOffset;
 
             for (auto* parameter : apvts.processor.getParameters())
             {
                 const auto* withId = dynamic_cast<juce::AudioProcessorParameterWithID*> (parameter);
-                const auto id = withId != nullptr ? withId->paramID : juce::String();
-
-                for (auto character : id)
-                {
-                    hash ^= (juce::uint64) (juce::juce_wchar) character;
-                    hash *= 1099511628211ull;
-                }
-
-                const auto value = parameter->getValue();
-                juce::uint32 bits = 0;
-                std::memcpy (&bits, &value, sizeof (bits));
-                hash ^= (juce::uint64) bits;
-                hash *= 1099511628211ull;
+                mixParameter (hash, withId != nullptr ? withId->paramID : juce::String(),
+                              parameter->getValue());
             }
 
             return hash;
@@ -121,6 +127,12 @@ namespace SuitePresets
 
             refreshUserPresets();
 
+            // Restore the selection the processor remembers (plan 09 1.4): the bar is
+            // rebuilt with every editor; the processor is not. An unresolved user file
+            // falls back to Init — the audio state is whatever the session left.
+            holderSelectionSeen = holder.getPresetSelection();
+            restoreSelectionFromHolder (holderSelectionSeen);
+
             auto setup = [this] (GhostButton& button)
             {
                 button.setWantsKeyboardFocus (false);
@@ -153,7 +165,8 @@ namespace SuitePresets
             initButton.onClick = [this] { applyInit(); };
             saveButton.onClick = [this] { saveAs(); };
 
-            snapshotHash = hashState (holder.getPresetStateTree());
+            snapshotHash = currentFlat >= 0 ? hashOfAppliedPreset (at (currentFlat))
+                                            : hashState (holder.getPresetStateTree());
             updateName();
             startTimerHz (10);
         }
@@ -194,6 +207,124 @@ namespace SuitePresets
                                                      : user[(size_t) (flatIndex - (int) factory.size())];
         }
 
+        /** The selection the bar would record for a flat index: factory presets by bank
+            index (append-only, stable), user presets by file path. -1 or out of range is none. */
+        PresetSelection selectionForFlat (int flatIndex) const
+        {
+            PresetSelection selection;
+
+            if (flatIndex < 0 || flatIndex >= getTotal())
+                return selection;
+
+            if (flatIndex < (int) factory.size())
+            {
+                selection.kind = PresetSelection::Kind::factory;
+                selection.factoryIndex = flatIndex;
+            }
+            else
+            {
+                selection.kind = PresetSelection::Kind::userFile;
+                selection.userFilePath = at (flatIndex).file.getFullPathName();
+            }
+
+            return selection;
+        }
+
+        /** Points the bar at the holder's selection: factory by index, user by path in the
+            freshly scanned list, anything unresolvable at Init. Never touches the audio
+            state: restoring the name re-applies nothing. */
+        void restoreSelectionFromHolder (const PresetSelection& selection)
+        {
+            currentFlat = -1;
+            currentName = "Init";
+            currentCategory = {};
+
+            if (selection.kind == PresetSelection::Kind::factory
+                && selection.factoryIndex >= 0 && selection.factoryIndex < (int) factory.size())
+            {
+                currentFlat = selection.factoryIndex;
+            }
+            else if (selection.kind == PresetSelection::Kind::userFile
+                     && selection.userFilePath.isNotEmpty())
+            {
+                for (int i = 0; i < (int) user.size(); ++i)
+                {
+                    if (user[(size_t) i].file.getFullPathName() == selection.userFilePath)
+                    {
+                        currentFlat = (int) factory.size() + i;
+                        break;
+                    }
+                }
+            }
+
+            if (currentFlat >= 0)
+            {
+                currentName = at (currentFlat).name;
+                currentCategory = at (currentFlat).category;
+            }
+        }
+
+        /** Tells the processor what the bar just applied, and remembers it so the timer
+            does not echo our own change back at us (plan 09 1.4). */
+        void recordSelection()
+        {
+            const auto selection = selectionForFlat (currentFlat);
+            holder.setPresetSelection (selection);
+            holderSelectionSeen = selection;
+        }
+
+        /** The hash of the state a preset's delta would produce: every parameter at the
+            delta's value, at its default when the delta does not name it — the same
+            resetMissing semantics as applyPresetState, computed without touching the
+            live state. It is the clean baseline a restored bar needs, so a
+            tweaked-then-reopened session still shows the " *" (plan 09 1.4). */
+        juce::uint64 hashOfAppliedPreset (const PresetInfo& preset) const
+        {
+            auto& apvts = holder.getPresetStateTree();
+            juce::uint64 hash = fnvOffset;
+
+            for (auto* parameter : apvts.processor.getParameters())
+            {
+                const auto* withId = dynamic_cast<juce::AudioProcessorParameterWithID*> (parameter);
+                const auto id = withId != nullptr ? withId->paramID : juce::String();
+
+                float denormalised = 0.0f;
+                bool found = false;
+
+                for (int c = 0; c < preset.state.getNumChildren(); ++c)
+                {
+                    if (preset.state.getChild (c).getProperty ("id").toString() != id)
+                        continue;
+
+                    const auto value = preset.state.getChild (c).getProperty ("value");
+                    denormalised = value.isString() ? value.toString().getFloatValue()
+                                                    : (float) (double) value;
+                    found = true;
+                    break;
+                }
+
+                float normalised = parameter->getDefaultValue();
+
+                if (found)
+                    if (auto* ranged = dynamic_cast<juce::RangedAudioParameter*> (parameter))
+                        normalised = ranged->convertTo0to1 (denormalised);
+
+                mixParameter (hash, id, normalised);
+            }
+
+            return hash;
+        }
+
+        /** The clean baseline after a restore: the state the restored preset would
+            produce, or the current state when nothing resolved (the pre-plan-09
+            behaviour). */
+        void refreshSnapshot()
+        {
+            snapshotHash = currentFlat >= 0 ? hashOfAppliedPreset (at (currentFlat))
+                                            : hashState (holder.getPresetStateTree());
+            dirty = false;
+        }
+
         void applyFlat (int flatIndex)
         {
             if (flatIndex < 0 || flatIndex >= getTotal())
@@ -205,6 +336,7 @@ namespace SuitePresets
             currentFlat = flatIndex;
             currentName = preset.name;
             currentCategory = preset.category;
+            recordSelection();   // the processor remembers, so a rebuilt bar shows it (plan 09 1.4)
             snapshotHash = hashState (holder.getPresetStateTree());
             dirty = false;
             updateName();
@@ -222,6 +354,7 @@ namespace SuitePresets
             currentFlat = -1;
             currentName = "Init";
             currentCategory = {};
+            recordSelection();   // Init is a selection too: the processor forgets the preset (plan 09 1.4)
             snapshotHash = hashState (holder.getPresetStateTree());
             dirty = false;
             updateName();
@@ -282,6 +415,22 @@ namespace SuitePresets
 
         void timerCallback() override
         {
+            // Another editor of the same processor may have applied a preset: follow the
+            // holder's selection when it moves (multi-editor sync, plan 09 1.4). A
+            // selection that cannot resolve (a user file that vanished between scans)
+            // stays at what it resolved to; holderSelectionSeen stops the tick from
+            // re-processing it forever.
+            const auto holderSelection = holder.getPresetSelection();
+
+            if (! (holderSelection == holderSelectionSeen))
+            {
+                holderSelectionSeen = holderSelection;
+                restoreSelectionFromHolder (holderSelection);
+                refreshSnapshot();
+                updateName();
+                return;
+            }
+
             const bool nowDirty = hashState (holder.getPresetStateTree()) != snapshotHash;
 
             if (nowDirty != dirty)
@@ -493,6 +642,8 @@ namespace SuitePresets
                 currentCategory = at (currentFlat).category;
             }
 
+            recordSelection();   // the rename moved the file: the identity follows it (plan 09 1.4)
+
             snapshotHash = hashState (holder.getPresetStateTree());
             dirty = false;
             updateName();
@@ -624,6 +775,10 @@ namespace SuitePresets
         bool dirty = false;
         juce::uint64 snapshotHash = 0;
 
+        // The holder selection this bar last restored or recorded (plan 09 1.4). Message
+        // thread only, like everything in the bar.
+        PresetSelection holderSelectionSeen;
+
         GhostButton previous { "<" };
         NameButton nameButton { "Init" };
         GhostButton next { ">" };
@@ -662,6 +817,16 @@ namespace SuitePresets
     {
         if (impl != nullptr)
             impl->applyFlat (factoryIndex);
+    }
+
+    juce::String PresetBar::getCurrentPresetName() const
+    {
+        return impl != nullptr ? impl->currentName : juce::String ("Init");
+    }
+
+    bool PresetBar::isPresetDirty() const
+    {
+        return impl != nullptr && impl->dirty;
     }
 
     int PresetBar::getNumFactoryPresets() const noexcept

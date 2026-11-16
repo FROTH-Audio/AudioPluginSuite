@@ -7,6 +7,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <deque>
 #include <memory>
 #include <vector>
 
@@ -171,6 +172,12 @@ public:
     juce::AudioProcessorValueTreeState& getPresetStateTree() override { return apvts; }
     void applyPresetState (const juce::ValueTree&) override;
 
+    // The preset identity (plan 09 1.4): which factory preset or user file the bar last
+    // applied. Message thread. Written through setPresetSelection, restored by
+    // setStateInformation, reset by applyPresetState (the caller re-states it right after).
+    SuitePresets::PresetSelection getPresetSelection() const override { return lastPresetSelection; }
+    void setPresetSelection (const SuitePresets::PresetSelection&) override;
+
     //==============================================================================
     void prepareToPlay (double sampleRate, int samplesPerBlock) override;
     void releaseResources() override {}
@@ -223,6 +230,11 @@ public:
     // Micro-Timing lerp curve. It is not an APVTS parameter.
     static constexpr const char* samplePathProperty { "samplePath" };
     static constexpr const char* embeddedSampleUri { "embedded:grain_4k.wav" };
+
+    // The preset identity travels as the presetSelection property on <PARAMETERS>
+    // (plan 09 1.4, owner decision D3): "factory:<index>" / "user:<path>" / absent = Init.
+    // Additive like samplePath: a session saved before plan 09 simply reads as Init.
+    static constexpr const char* presetSelectionProperty { "presetSelection" };
 
     /** Writes the current sample reference into a state tree (file path or embedded: URI).
         A tree without a sample speaks about no sample: applying it leaves the sample alone. */
@@ -299,9 +311,13 @@ public:
     // The loaded sample (public for tests).
     std::unique_ptr<LoadedSample> loadedSample;
 
-    // The previously loaded sample. The audio thread may still hold a pointer to its buffer
-    // when a new sample is installed, so the retired buffer stays alive until the next load.
-    std::unique_ptr<LoadedSample> retiredSample;
+    // Retirement queue: capped at 2 generations to prevent a running audio block from
+    // being starved of memory. The deque grows only on the message thread (install path),
+    // so allocation is acceptable there. The audio thread never touches it.
+    static constexpr int retiredSampleGenerations = 2;
+    std::deque<std::unique_ptr<LoadedSample>> retiredSamples;
+
+    void retireCurrentSample();
 
     // The loaded sample buffer (atomic swap for thread safety).
     std::atomic<const juce::AudioBuffer<float>*> sampleBuffer { nullptr };
@@ -394,6 +410,11 @@ private:
     /** Queue a ghost copy of a note (plan 05.4 Phase 2); one-shot, one slot per ghost. */
     void queueGhost (int key, float ghostVelocity, double samplePosition, double ghostDelaySamples, double mainDelaySamples);
 
+    /** Post-allocation setup shared by the direct, ghost and pending note paths (plan 09 1.3):
+        pitch from the key and PITCH FINE, the velocity curve, and the start position from
+        the region the pool assigned. Everything else comes from VoicePool::allocateVoice. */
+    void setupAllocatedVoice (int idx, int key, float velocity);
+
     void handleNoteOn(int keyIn, float velocity, int samplePosition, float rootKeyMod, float layBackMod, float spanMod, float lengthMod, float humaniseMod, std::atomic<float> *sustainHoldParam, float releaseMs);
 
     // Parameter pointers, cached for the audio thread.
@@ -453,6 +474,9 @@ private:
 
     int stateVersion = 1;
     std::vector<SuiteState::Migration> migrations;
+
+    // The preset identity (plan 09 1.4). Message thread only.
+    SuitePresets::PresetSelection lastPresetSelection;
 
     //==============================================================================
     // Background sample loads (plan 07 phase 4). The read + resample runs on a pooled

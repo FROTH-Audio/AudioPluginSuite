@@ -335,6 +335,93 @@ namespace PresetTest
         return false;
     }
 
+    /** Finds the preset bar inside an editor: the bar is a child component of the editor. */
+    inline SuitePresets::PresetBar* findBar (juce::AudioProcessorEditor* editor)
+    {
+        for (auto* child : editor->getChildren())
+            if (auto* bar = dynamic_cast<SuitePresets::PresetBar*> (child))
+                return bar;
+
+        return nullptr;
+    }
+
+    /** Plan 09 1.4: the preset the bar applied survives the editor being destroyed and
+        recreated (the reported "shows INIT after reopen" bug). The dirty mark survives
+        too: a restored bar's clean baseline is the state the preset produces, not
+        whatever the session happens to hold. An applied empty tree (the bar's INIT)
+        resets the identity, and a user-file identity that no longer resolves falls back
+        to Init without touching the audio state. */
+    template <typename Processor>
+    void runSelectionSurvivesReopen (Processor& processor)
+    {
+        const auto presets = presetsFor (processor.getPresetPluginId());
+        assert (! presets.empty());
+
+        // Select the first factory preset through the bar, then throw the editor away.
+        {
+            std::unique_ptr<juce::AudioProcessorEditor> editor (processor.createEditorAndMakeActive());
+            assert (editor != nullptr);
+            auto* bar = findBar (editor.get());
+            assert (bar != nullptr);
+            assert (bar->getNumFactoryPresets() == (int) presets.size());
+
+            bar->selectPreset (0);
+            juce::MessageManager::getInstance()->runDispatchLoopUntil (100);
+            assert (bar->getCurrentPresetName() == presets.front().name);
+            assert (! bar->isPresetDirty());
+
+            // A tweak after the preset: the name keeps the preset, the dirty mark shows.
+            if (auto* last = processor.getParameters().getLast())
+                last->setValueNotifyingHost (last->getValue() < 0.5f ? 0.87f : 0.13f);
+
+            processor.editorBeingDeleted (editor.get());
+            editor.reset();
+        }
+
+        // The reopened bar remembers the preset and the dirty mark (plan 09 1.4).
+        {
+            std::unique_ptr<juce::AudioProcessorEditor> editor (processor.createEditorAndMakeActive());
+            assert (editor != nullptr);
+            auto* bar = findBar (editor.get());
+            assert (bar != nullptr);
+            assert (bar->getCurrentPresetName() == presets.front().name);
+
+            juce::MessageManager::getInstance()->runDispatchLoopUntil (150);   // the 10 Hz dirty tick
+            assert (bar->isPresetDirty());
+
+            processor.editorBeingDeleted (editor.get());
+            editor.reset();
+        }
+
+        // Init: an applied empty tree resets the identity (the bar's INIT path).
+        processor.applyPresetState (juce::ValueTree ("PARAMETERS"));
+        {
+            std::unique_ptr<juce::AudioProcessorEditor> editor (processor.createEditorAndMakeActive());
+            auto* bar = findBar (editor.get());
+            assert (bar != nullptr);
+            assert (bar->getCurrentPresetName() == "Init");
+            processor.editorBeingDeleted (editor.get());
+            editor.reset();
+        }
+
+        // A user-file identity that no longer resolves falls back to Init.
+        SuitePresets::PresetSelection missing;
+        missing.kind = SuitePresets::PresetSelection::Kind::userFile;
+        missing.userFilePath = "Z:/does/not/exist.ausp";
+        processor.setPresetSelection (missing);
+
+        {
+            std::unique_ptr<juce::AudioProcessorEditor> editor (processor.createEditorAndMakeActive());
+            auto* bar = findBar (editor.get());
+            assert (bar != nullptr);
+            assert (bar->getCurrentPresetName() == "Init");
+            processor.editorBeingDeleted (editor.get());
+            editor.reset();
+        }
+
+        pass ("selectionSurvivesReopen");
+    }
+
 #if SUITE_PRESET_BANK_AS_PROGRAMS
     template <typename Processor>
     void runProgramList (Processor& processor)
@@ -376,6 +463,38 @@ namespace PresetTest
         processor.setCurrentProgram (0);
         processor.setCurrentProgramStateInformation (programState.getData(), (int) programState.getSize());
         checkPresetApplied (processor.apvts, presets[1]);
+
+        // Plan 09 1.4: the host program and the bar's selection describe the same event,
+        // and the identity rides in the program state bytes (D3).
+        {
+            const auto selection = processor.getPresetSelection();
+            assert (selection.kind == SuitePresets::PresetSelection::Kind::factory);
+            assert (selection.factoryIndex == 1);
+        }
+
+        processor.setCurrentProgram (1);
+        {
+            const auto selection = processor.getPresetSelection();
+            assert (selection.kind == SuitePresets::PresetSelection::Kind::factory);
+            assert (selection.factoryIndex == 0);
+        }
+
+        processor.setCurrentProgram (0);
+        assert (processor.getPresetSelection().kind == SuitePresets::PresetSelection::Kind::none);
+
+        processor.setCurrentProgram (2);
+        juce::MemoryBlock selectionState;
+        processor.getCurrentProgramStateInformation (selectionState);
+
+        {
+            Processor other;
+            other.setStateInformation (selectionState.getData(), (int) selectionState.getSize());
+
+            const auto selection = other.getPresetSelection();
+            assert (selection.kind == SuitePresets::PresetSelection::Kind::factory);
+            assert (selection.factoryIndex == 1);
+        }
+
         pass ("programList");
     }
 #endif

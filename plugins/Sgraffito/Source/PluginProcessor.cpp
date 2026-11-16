@@ -205,22 +205,25 @@ void SgraffitoProcessor::loadSampleAsync (const juce::File& file)
     if (! file.existsAsFile())
         return;
 
-    // Any sample still in flight from an earlier request is superseded.
-    loadGeneration.fetch_add (1, std::memory_order_relaxed);
+    // Any sample still in flight from an earlier request is superseded. The generation
+    // this request creates is stamped onto the job in the same atomic operation, so the
+    // latest-wins check in the handoff compares against the number this request made
+    // (plan 09 1.2: no second load() between the increment and the stamp).
+    const int generation = loadGeneration.fetch_add (1, std::memory_order_relaxed) + 1;
     pendingSampleLoads.fetch_add (1, std::memory_order_relaxed);
 
     const double targetRate = preparedSampleRate > 0.0 ? preparedSampleRate : 44100.0;
-    sampleLoadPool.addJob (new SampleLoadJob (file, loadGeneration.load (std::memory_order_relaxed),
-                                              targetRate, loadLifetime, this),
+    sampleLoadPool.addJob (new SampleLoadJob (file, generation, targetRate, loadLifetime, this),
                            true);
 }
 
 void SgraffitoProcessor::finishSampleLoad (juce::AudioBuffer<float>&& buffer,
                                            const juce::String& sourcePath, double sourceSampleRate)
 {
-    // Retire the old sample instead of destroying it: an audio block that started before
-    // this call may still hold the old buffer pointer from the atomic load.
-    retiredSample = std::move (loadedSample);
+    // Retire the old sample through the capped queue (plan 09 1.1): a block that started
+    // before this call may still hold the old buffer pointer from the atomic load, and
+    // two installs inside one running block would have freed it under the old single slot.
+    retireCurrentSample();
     loadedSample = std::make_unique<LoadedSample>();
     loadedSample->buffer = std::move (buffer);
     loadedSample->sourcePath = sourcePath;
@@ -262,6 +265,26 @@ void SgraffitoProcessor::queueGhost (int key, float ghostVelocity, double sample
     ghost.delaySamples = ghostDelaySamples;
     ghost.scheduledPos = (double) streamSample + samplePosition + mainDelaySamples + ghostDelaySamples;
     pendingNotes.push_back (ghost);
+}
+
+void SgraffitoProcessor::setupAllocatedVoice (int idx, int key, float velocity)
+{
+    auto& voice = voicePool.voices[idx];
+
+    // Pitch: the key's distance from middle C, plus the fine tune in cents
+    // (plan 05.1: the key must change the pitch, and PITCH FINE must be audible).
+    const double semitones = (double) (key - 60) + (double) pitchFineParam->load() / 100.0;
+    voice.rate = std::pow (2.0, semitones / 12.0);
+
+    // Velocity curve: the curve is the exponent of the velocity (1.0 = linear).
+    const float curve = juce::jmax (0.1f, velocityCurveParam->load());
+    voice.velocity = std::pow (juce::jlimit (0.0f, 1.0f, velocity), curve);
+
+    // The voice reads from the region's start: allocateVoice does not set the
+    // position, and without this every note read the sample from sample 0
+    // (the "always sounds the same" bug, plan 05.1).
+    if (auto* sampleNow = getSampleBuffer())
+        voice.position = voice.regionStart * (double) sampleNow->getNumSamples();
 }
 
 void SgraffitoProcessor::handleNoteOn (int keyIn, float velocity, int samplePosition,
@@ -337,21 +360,7 @@ void SgraffitoProcessor::handleNoteOn (int keyIn, float velocity, int samplePosi
 
         if (idx >= 0)
         {
-            // Pitch: the key's distance from middle C, plus the fine tune in cents
-            // (plan 05.1: the key must change the pitch, and PITCH FINE must be audible).
-            const double semitones = (double) (key - 60) + (double) pitchFineParam->load() / 100.0;
-            voicePool.voices[idx].rate = std::pow (2.0, semitones / 12.0);
-
-            // Velocity curve: the curve is the exponent of the velocity (1.0 = linear).
-            const float curve = juce::jmax (0.1f, velocityCurveParam->load());
-            voicePool.voices[idx].velocity = std::pow (juce::jlimit (0.0f, 1.0f, velocity), curve);
-
-            // The voice reads from the region's start: allocateVoice does not set the
-            // position, and without this every note read the sample from sample 0
-            // (the "always sounds the same" bug, plan 05.1).
-            if (auto* sampleNow = getSampleBuffer())
-                voicePool.voices[idx].position = voicePool.voices[idx].regionStart
-                                                 * (double) sampleNow->getNumSamples();
+            setupAllocatedVoice (idx, key, velocity);
 
             // Sustain Hold: latch release when note is held. If sustain hold is on, the voice
             // continues playing after note-off until the next note of the same key or a timeout.
@@ -706,7 +715,6 @@ void SgraffitoProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         return;
     }
 
-    const auto* sample = static_cast<const juce::AudioBuffer<float>*>(samplePtr);
     const int numChannels = buffer.getNumChannels();
 
     // Advance Lorenz attractor by driftSpeed * seconds in this block.
@@ -815,83 +823,40 @@ void SgraffitoProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                                                                scheduledPos, key);
                 if (ghostIdx >= 0)
                 {
-                    auto& ghostVoice = voicePool.voices[ghostIdx];
-                    const float ghostVelCurve = juce::jmax (0.1f, velocityCurveParam->load ());
-                    ghostVoice.velocity = std::pow (juce::jlimit (0.0f, 1.0f, velocity), ghostVelCurve);
-                    ghostVoice.envStart = scheduledPos;
-                    ghostVoice.envValue = 1.0f;
-                    ghostVoice.position = ghostVoice.regionStart * (double) sample->getNumSamples();
+                    // The shared post-allocation setup (plan 09 1.3): pitch and velocity
+                    // curve like every other path. envStart comes from allocateVoice's
+                    // scheduledPos; envValue tracks the envelope for a later release.
+                    setupAllocatedVoice (ghostIdx, key, velocity);
+                    voicePool.voices[ghostIdx].envValue = 1.0f;
                 }
 
                 pendingNotes.erase (pendingNotes.begin () + static_cast<std::ptrdiff_t> (i));
                 continue;
             }
 
-            // Find or allocate a voice for this note.
-            int idx = -1;
-            for (int n = 0; n < CoreDSP::Sampler::maxVoices; ++n)
-            {
-                const bool isAvailable = ! voicePool.voices[n].active;
-                if (isAvailable)
-                {
-                    idx = n;
-                    break;
-                }
-            }
+            // Allocate through the pool exactly like the ghost fire (plan 09 1.3, owner
+            // decision D1): stealing when all voices are busy (tape-stopping, then oldest
+            // release, then oldest active), Cloud lanes for mode 2, regions from the
+            // shared engine maps. The old hand-rolled scan never stole and dropped the
+            // note silently, and a Cloud note lost its lanes.
+            const int idx = voicePool.allocateVoice (key, velocity,
+                                                     modulated (ModTarget::RegionSpan, regionSpanParam->load()),
+                                                     modulated (ModTarget::RegionLength, regionLengthParam->load()),
+                                                     std::lround (modeParam->load()),
+                                                     static_cast<int> (juce::jmax (0.0f, sliceCountParam->load())),
+                                                     scheduledPos, key);
 
             if (idx >= 0)
             {
-                voicePool.voices[idx] = CoreDSP::Sampler::Voice{};
-                voicePool.voices[idx].active = true;
-                voicePool.voices[idx].key = key;
-                voicePool.voices[idx].velocity = velocity;
+                setupAllocatedVoice (idx, key, velocity);
 
-                // Pitch and velocity curve, as in the direct path (plan 05.1).
-                const double semitones = (double) (key - 60) + (double) pitchFineParam->load() / 100.0;
-                voicePool.voices[idx].rate = std::pow (2.0, semitones / 12.0);
-                const float velCurve = juce::jmax (0.1f, velocityCurveParam->load());
-                voicePool.voices[idx].velocity = std::pow (juce::jlimit (0.0f, 1.0f, velocity), velCurve);
-                
-                // Reset envEnd-related fields to prevent stale values from previous note
-                voicePool.voices[idx].envEnd = -1.0;
-                voicePool.voices[idx].envEndSet = false;
-                
+                // envStart from the scheduled position, envValue for a later release. A
+                // note scheduled in the past (relative to the block start) plays now.
                 voicePool.voices[idx].envStart = scheduledPos;
                 voicePool.voices[idx].envValue = 1.0f;
 
-                // Compute region for this note through the shared engine maps, so this
-                // path produces exactly the regions of VoicePool::allocateVoice.
-                double regionStart = 0.0, regionEnd = 1.0;
-
-                const int mode = std::lround (modeParam->load());
-                if (mode == 1)  // Chop mode
-                {
-                    const int sliceCountClamped = std::clamp (static_cast<int> (sliceCountParam->load()), 2, CoreDSP::Sampler::maxRegions);
-                    const int sliceIndex = std::clamp (key * sliceCountClamped / CoreDSP::Sampler::maxKeys, 0, sliceCountClamped - 1);
-                    const CoreDSP::Sampler::Region region = CoreDSP::Sampler::chopRegion (sliceIndex, sliceCountClamped);
-                    regionStart = region.start;
-                    regionEnd = region.start + region.length;
-                }
-                else  // Scrub / Cloud / Swell: linear mapping through the span.
-                {
-                    const CoreDSP::Sampler::Region region = CoreDSP::Sampler::keyRegion (key, 60,
-                        modulated (ModTarget::RegionSpan, regionSpanParam->load()) / 100.0,
-                        modulated (ModTarget::RegionLength, regionLengthParam->load()) / 100.0);
-                    regionStart = region.start;
-                    regionEnd = region.start + region.length;
-                }
-
-                voicePool.voices[idx].regionStart = regionStart;
-                voicePool.voices[idx].regionEnd = regionEnd;
-                voicePool.voices[idx].envStart = scheduledPos;
-                voicePool.voices[idx].position = regionStart * sample->getNumSamples();
-
-                // If the scheduled position is in the past (relative to block start), play it now.
                 if (scheduledPos <= blockStartSample)
-                {
                     voicePool.voices[idx].envStart = blockStartSample;
-                    voicePool.voices[idx].position = regionStart * sample->getNumSamples();
-                }
             }
 
             pendingNotes.erase (pendingNotes.begin () + static_cast<std::ptrdiff_t> (i));
@@ -907,8 +872,12 @@ void SgraffitoProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         const double sampleLength = (double) sample->getNumSamples();
 
         // Cloud grain timing: grain size in milliseconds, density in grains per second.
-        const double grainSizeSamples = juce::jmax (1.0, (double) grainSizeParam->load() * preparedSampleRate / 1000.0);
-        const double grainInterval = juce::jmax (1.0, preparedSampleRate / (double) juce::jmax (1.0f, grainDensityParam->load()));
+        // The guards keep a grain at least one sample long and one grain per second at
+        // most apart (plan 09 D2: named, file-local, no behaviour change).
+        constexpr double minGrainSizeSamples = 1.0;
+        constexpr double minGrainIntervalSamples = 1.0;
+        const double grainSizeSamples = juce::jmax (minGrainSizeSamples, (double) grainSizeParam->load() * preparedSampleRate / 1000.0);
+        const double grainInterval = juce::jmax (minGrainIntervalSamples, preparedSampleRate / (double) juce::jmax (1.0f, grainDensityParam->load()));
         const double grainSpread = juce::jlimit (0.0, 1.0, (double) grainSpreadParam->load() / 100.0);
 
         for (int ch = 0; ch < numChannels; ++ch)
@@ -1055,6 +1024,12 @@ void SgraffitoProcessor::applyPresetState (const juce::ValueTree& tree)
                                               applySampleFromState (tree);
                                           }, true);
 
+    // Applying any tree resets the preset identity (plan 09 1.4): the replaced state no
+    // longer carries the property, and the caller — the bar or the host-program bridge —
+    // re-states it right after, when it knows which preset it applied.
+    if (result == SuiteState::LoadResult::loaded)
+        lastPresetSelection = {};
+
 #if SUITE_PRESET_BANK_AS_PROGRAMS
     // A preset applied from the bar or a file is no longer one of the host programs.
     if (result == SuiteState::LoadResult::loaded)
@@ -1091,7 +1066,21 @@ void SgraffitoProcessor::setCurrentProgram (int index)
 {
 #if SUITE_PRESET_BANK_AS_PROGRAMS
     if (SuitePresets::PresetPrograms::applyProgram (*this, index))
+    {
         currentProgramIndex.store (index, std::memory_order_relaxed);
+
+        // The host program and the bar's selection describe the same event (plan 09 1.4):
+        // program 0 is Init, program N is factory preset N-1 in bank order.
+        SuitePresets::PresetSelection selection;
+
+        if (index > 0)
+        {
+            selection.kind = SuitePresets::PresetSelection::Kind::factory;
+            selection.factoryIndex = index - 1;
+        }
+
+        setPresetSelection (selection);
+    }
 #else
     juce::ignoreUnused (index);
 #endif
@@ -1144,6 +1133,20 @@ void SgraffitoProcessor::loadSample (const juce::File& file)
                       file.getFullPathName(), reader->sampleRate);
 }
 
+void SgraffitoProcessor::retireCurrentSample()
+{
+    if (loadedSample == nullptr)
+        return;
+
+    retiredSamples.push_back (std::move (loadedSample));
+
+    // A block holds at most one pointer, read at its start. After two more installs, no
+    // block can still reference the oldest entry (blocks are milliseconds; installs are
+    // message-thread serialised), so the front is safe to destroy (plan 09 1.1).
+    while ((int) retiredSamples.size() > retiredSampleGenerations)
+        retiredSamples.pop_front();
+}
+
 void SgraffitoProcessor::loadEmbeddedSample (const juce::String& embeddedPath)
 {
     // Extract the resource name from "embedded:grain_4k.wav".
@@ -1185,8 +1188,8 @@ void SgraffitoProcessor::clearSample()
     // A pending background load must not reinstall after a clear.
     loadGeneration.fetch_add (1, std::memory_order_relaxed);
 
+    retireCurrentSample();
     sampleFile = juce::File();
-    retiredSample = std::move (loadedSample);
     sampleBuffer.store (nullptr, std::memory_order_release);
 
     apvts.state.removeProperty (samplePathProperty, nullptr);
@@ -1279,6 +1282,26 @@ void SgraffitoProcessor::setStateInformation (const void* data, int sizeInBytes)
                       {
                           applySampleFromState (apvts.state);
                       });
+
+    // The preset identity rides as a property (plan 09 1.4, D3): restore the bar's
+    // selection from the replaced state. A session without the property — every
+    // session saved before plan 09 — reads as Init.
+    lastPresetSelection = SuitePresets::decodePresetSelection (
+        apvts.state.getProperty (presetSelectionProperty).toString());
+}
+
+void SgraffitoProcessor::setPresetSelection (const SuitePresets::PresetSelection& selection)
+{
+    lastPresetSelection = selection;
+
+    // The lerpCurve / samplePath pattern: keep the property in sync at change time, so
+    // the identity rides in every saved session and host program dump (copyState
+    // serialises the state tree's properties). Nothing changes for absent = Init.
+    if (selection.kind == SuitePresets::PresetSelection::Kind::none)
+        apvts.state.removeProperty (presetSelectionProperty, nullptr);
+    else
+        apvts.state.setProperty (presetSelectionProperty,
+                                 SuitePresets::encodePresetSelection (selection), nullptr);
 }
 
 juce::AudioProcessorEditor* SgraffitoProcessor::createEditor()

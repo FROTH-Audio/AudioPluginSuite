@@ -61,6 +61,14 @@ int main()
         PresetTest::runEditorWithBar (processor);
     }
 
+    // Plan 09 1.4: the bar's preset selection survives the editor being destroyed and
+    // recreated, keeps the dirty mark, resets on INIT, and falls back to Init for a
+    // user file that no longer resolves.
+    {
+        SgraffitoProcessor processor;
+        PresetTest::runSelectionSurvivesReopen (processor);
+    }
+
 #if SUITE_PRESET_BANK_AS_PROGRAMS
     {
         SgraffitoProcessor processor;

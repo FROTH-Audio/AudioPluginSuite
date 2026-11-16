@@ -167,6 +167,12 @@ int main()
         runEditorWithBar (processor);
     }
 
+    // Plan 09 1.4: the bar's preset selection survives the editor being recreated.
+    {
+        Processor processor;
+        PresetTest::runSelectionSurvivesReopen (processor);
+    }
+
 #if SUITE_PRESET_BANK_AS_PROGRAMS
     {
         Processor processor;

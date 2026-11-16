@@ -27,6 +27,12 @@ int main()
         PresetTest::runEditorWithBar (processor);
     }
 
+    // Plan 09 1.4: the bar's preset selection survives the editor being recreated.
+    {
+        DynamicSaturationProcessor processor;
+        PresetTest::runSelectionSurvivesReopen (processor);
+    }
+
 #if SUITE_PRESET_BANK_AS_PROGRAMS
     {
         DynamicSaturationProcessor processor;
