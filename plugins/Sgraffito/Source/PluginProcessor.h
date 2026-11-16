@@ -162,7 +162,7 @@ public:
 
     //==============================================================================
     SgraffitoProcessor();
-    ~SgraffitoProcessor() override = default;
+    ~SgraffitoProcessor() override;
 
     //==============================================================================
     // StateHolder
@@ -204,8 +204,16 @@ public:
     
     // Sample loading
     void loadSample (const juce::File& file);
+    /** Loads a file sample on a background thread and installs it on the message thread
+        (plan 07 phase 4). The current sample keeps playing until the load completes;
+        the latest request wins. Requires a message thread for the handoff. */
+    void loadSampleAsync (const juce::File& file);
     void loadEmbeddedSample (const juce::String& embeddedPath);  // e.g., "embedded:grain_4k.wav"
     void clearSample();
+
+    /** True while a background sample load has not yet been installed (plan 07 phase 4).
+        Tests pump the message loop until this clears. */
+    bool hasPendingSampleLoad() const noexcept { return pendingSampleLoads.load() > 0; }
 
     juce::String getSamplePath() const noexcept { return sampleFile.getFullPathName(); }
     bool hasSample() const noexcept { return sampleBuffer.load() != nullptr; }
@@ -445,6 +453,33 @@ private:
 
     int stateVersion = 1;
     std::vector<SuiteState::Migration> migrations;
+
+    //==============================================================================
+    // Background sample loads (plan 07 phase 4). The read + resample runs on a pooled
+    // thread; the install (retire pattern, atomic swap, property write) runs on the
+    // message thread. `loadGeneration` makes the latest request win: each load request
+    // bumps it and an install that arrives out of order is discarded. `loadLifetime`
+    // lets a queued handoff notice that the processor is gone; it is set to dead first
+    // thing in the destructor, before any member is destroyed.
+    struct LoadLifetime
+    {
+        std::atomic<bool> alive { true };
+    };
+
+    std::shared_ptr<LoadLifetime> loadLifetime { std::make_shared<LoadLifetime>() };
+    std::atomic<int> loadGeneration { 0 };
+    std::atomic<int> pendingSampleLoads { 0 };
+
+    /** Shared install path: retire the old sample, swap the atomics and sync the
+        samplePath property. Message thread only. */
+    void finishSampleLoad (juce::AudioBuffer<float>&& buffer, const juce::String& sourcePath,
+                           double sourceSampleRate);
+
+    class SampleLoadJob;   // defined in the .cpp
+
+    // Declared last: destroyed first, and the destructor waits for running jobs, so a
+    // job never outlives the members it would hand off to.
+    juce::ThreadPool sampleLoadPool;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (SgraffitoProcessor)
 };

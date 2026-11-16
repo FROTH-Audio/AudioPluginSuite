@@ -14,9 +14,10 @@ Rules:
 - Dynamic Saturation: no `drive` 24 + `fold` 50 outside the `Extreme` category.
 - Micro-Timing Chaos: host `sync` off in every factory preset and `bpm` left at 120, and the base
   pattern must fire at least one step (a low density with a short repeating pattern can be silent).
-- No factory preset carries `samplePath` (plan 07 Q3: the bank stays sample-free; absolute paths
-  and `embedded:` URIs are both rejected) - checked in the authoring data, the generated XML
-  attributes and the JSON files.
+- No factory preset carries a file-path `samplePath`; only `embedded:` URIs are allowed
+  (plan 07 Q3, revised 2026-11-16 in phase 4: the bank may now ship embedded sample
+  variants, but never a machine-specific path) - checked in the authoring data, the
+  generated XML attributes and the JSON files.
 - Generated XML and JSON match the authoring data (metadata and every delta value).
 """
 
@@ -134,13 +135,14 @@ def check_authoring(audit):
                 audit.check(points[0].startswith("0.0000,"), f"{label}: lerpCurve must start at x=0")
                 audit.check(points[-1].startswith("1.0000,"), f"{label}: lerpCurve must end at x=1")
 
-            # Plan 07 Q3: factory presets never reference samples. `samplePath` is a
-            # non-parameter key (a property on <PARAMETERS>), and both absolute paths and
-            # embedded: URIs are rejected until the owner revisits the decision.
-            if "samplePath" in preset or "samplePath" in params:
-                audit.check(False,
-                            f"{label}: samplePath is not allowed in factory presets (plan 07 Q3: "
-                            f"the bank stays sample-free)")
+            # Plan 07 Q3, revised in phase 4: factory presets may reference embedded sample
+            # variants, but never a file path. `samplePath` is a non-parameter key (a
+            # property on <PARAMETERS>).
+            sample_path = preset.get("samplePath")
+            if sample_path is not None:
+                audit.check(str(sample_path).startswith("embedded:"),
+                            f"{label}: samplePath must be an embedded: URI, never a file "
+                            f"path (plan 07 Q3 revised)")
 
             for pid, value in params.items():
                 spec = schema.get(pid)
@@ -245,10 +247,12 @@ def check_generated(audit, bank_dir):
             audit.check(entry["lerpCurve"] == preset.get("lerpCurve"),
                         f"bank XML: {plugin} / {name} lerpCurve differs")
 
-            # Plan 07 Q3: the generated XML must not carry the sample property either.
-            audit.check(entry["samplePath"] is None,
-                        f"bank XML: {plugin} / {name} carries samplePath (plan 07 Q3: the bank "
-                        f"stays sample-free)")
+            # Plan 07 Q3, revised in phase 4: the generated XML may carry an embedded:
+            # URI, never a file path.
+            generated_path = entry["samplePath"]
+            audit.check(generated_path is None or str(generated_path).startswith("embedded:"),
+                        f"bank XML: {plugin} / {name} carries a file-path samplePath "
+                        f"(plan 07 Q3 revised)")
 
             for pid, value in preset["params"].items():
                 spec = SCHEMA[plugin][pid]
@@ -282,10 +286,12 @@ def check_generated(audit, bank_dir):
             audit.check(data.get("_lerpCurve") == preset.get("lerpCurve"),
                         f"bank JSON: {plugin} / {preset['name']} lerpCurve differs")
 
-            # Plan 07 Q3: the JSON must not carry the sample property either.
-            audit.check("_samplePath" not in data,
-                        f"bank JSON: {plugin} / {preset['name']} carries _samplePath "
-                        f"(plan 07 Q3: the bank stays sample-free)")
+            # Plan 07 Q3, revised in phase 4: the JSON may carry an embedded: URI,
+            # never a file path.
+            audit.check(data.get("_samplePath") is None
+                        or str(data.get("_samplePath")).startswith("embedded:"),
+                        f"bank JSON: {plugin} / {preset['name']} carries a file-path "
+                        f"_samplePath (plan 07 Q3 revised)")
 
             for pid, value in preset["params"].items():
                 audit.check(float(delta.get(pid, float("nan"))) == float(value),

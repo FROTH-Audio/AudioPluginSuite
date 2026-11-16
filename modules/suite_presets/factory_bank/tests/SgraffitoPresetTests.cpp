@@ -25,6 +25,38 @@ int main()
     }
 
     {
+        // Plan 07 phase 4 (Q3 revised): factory presets may carry `embedded:` sample
+        // variants. Every URI in the bank must name a real embedded resource, so
+        // applying the preset actually loads it (a typo would silently keep the
+        // current sample). File paths are rejected by the audit.
+        SgraffitoProcessor processor;
+        processor.prepareToPlay (PresetTest::sampleRate, PresetTest::blockSize);
+
+        int embeddedCount = 0;
+
+        for (const auto& preset : PresetTest::presetsFor (processor.getPresetPluginId()))
+        {
+            const auto uri = preset.state.getProperty (SgraffitoProcessor::samplePathProperty).toString();
+
+            if (uri.isEmpty())
+                continue;
+
+            ++embeddedCount;
+            assert (uri.startsWith ("embedded:"));
+
+            processor.applyPresetState (preset.state);
+            assert (processor.hasSample());
+            assert (! processor.isSampleMissing());
+            assert (processor.loadedSample->sourcePath == uri);
+            assert (processor.apvts.state.getProperty (SgraffitoProcessor::samplePathProperty).toString() == uri);
+        }
+
+        // The cloud presets actually shipped: five of them reference the variant.
+        assert (embeddedCount == 5);
+        PresetTest::pass ("embeddedSamples");
+    }
+
+    {
         SgraffitoProcessor processor;
         PresetTest::runEditorWithBar (processor);
     }
@@ -35,9 +67,9 @@ int main()
         PresetTest::runProgramList (processor);
 
         // Plan 07 test 11: program changes under audio, without an editor (the host
-        // context). The factory programs are sample-free (plan 07 Q3), but program 0
-        // (INIT) resets the sample to the embedded default, so every cycle reloads it
-        // while processBlock runs.
+        // context). Five factory programs load the embedded cloud sample (plan 07 Q3
+        // revised) and program 0 (INIT) resets to the embedded default, so every cycle
+        // reloads an embedded sample while processBlock runs.
         processor.prepareToPlay (PresetTest::sampleRate, PresetTest::blockSize);
 
         for (int program = 0; program < processor.getNumPrograms(); ++program)

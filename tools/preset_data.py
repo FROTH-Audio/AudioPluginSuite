@@ -10,9 +10,9 @@ section 4. The C++ test `bankRanges` checks the same rules against the live APVT
 is caught at build time in a bank build.
 
 `samplePath` is **not** a parameter and must never be a SCHEMA key (plan 07 phase 3): it travels
-as a `<PARAMETERS>` attribute, and factory presets stay sample-free (plan 07 Q3). The audit
-rejects a `samplePath` key in authoring data, generated XML or JSON, and the schema-coverage
-check would flag a SCHEMA entry as having no live parameter.
+as a `<PARAMETERS>` attribute. Since phase 4 the bank may carry `embedded:` URIs (revised Q3) —
+set `sample_path=` on a Sgraffito `_preset`; a file path is rejected by the audit. The
+schema-coverage check would flag a SCHEMA entry as having no live parameter.
 """
 
 
@@ -134,12 +134,17 @@ SCHEMA = {
 }
 
 
-def _preset(name, category, description, lerp_curve=None, **params):
+def _preset(name, category, description, lerp_curve=None, sample_path=None, **params):
     preset = {"name": name, "category": category, "description": description, "params": params}
 
     # Micro-Timing Chaos only: the Lerp curve is a state property, not a parameter.
     if lerp_curve is not None:
         preset["lerpCurve"] = lerp_curve
+
+    # Sgraffito only (plan 07 phase 4): a sample reference. Only `embedded:` URIs are
+    # allowed in the bank (revised Q3); the audit rejects anything else.
+    if sample_path is not None:
+        preset["samplePath"] = sample_path
 
     return preset
 
@@ -234,18 +239,18 @@ PRESETS = {
         _preset("Tempo Rider", "Utility", "Triangle LFO moves the tempo.", lfo2Shape=1, mod1Source=1, mod1Target=13, mod1Amount=30.0),
     ],
     "Sgraffito": [
-        _preset("Glass Dust", "Ambient", "Slow, sparse cloud with long decay.", grainDensity=8.0, driftSpeed=0.5, memoryDecay=8.0),
-        _preset("Deep Cloud", "Ambient", "Low pentatonic, dense and slow.", rootKey=36, scale=4, grainSpread=30.0),
+        _preset("Glass Dust", "Ambient", "Slow, sparse cloud with long decay.", sample_path="embedded:cloud_4k.wav", grainDensity=8.0, driftSpeed=0.5, memoryDecay=8.0),
+        _preset("Deep Cloud", "Ambient", "Low pentatonic, dense and slow.", sample_path="embedded:cloud_4k.wav", rootKey=36, scale=4, grainSpread=30.0),
         _preset("Memory Ghosts", "Sparse", "Ghost notes over a quiet memory trace.", ghostThreshold=90.0, driftAmount=20.0, sliceCount=4),
         _preset("Tape Break", "Glitch", "Chopped tape stop with dust and crackle.", mode=1, tapeStopTime=300.0, dust=5.0, crackle=8.0),
-        _preset("Cloud Rain", "Melodic", "High pentatonic with long gates and drift.", scale=3, rootKey=60, grainDensity=4.0, swellTime=200.0),
+        _preset("Cloud Rain", "Melodic", "High pentatonic with long gates and drift.", sample_path="embedded:cloud_4k.wav", scale=3, rootKey=60, grainDensity=4.0, swellTime=200.0),
         _preset("Scrubbed Memory", "Scratch", "Quick region scrub with humanised timing.", mode=0, glide=50.0, humanise=15.0),
         _preset("Chopped Sticks", "Rhythmic", "Slice a sample into many short notes.", mode=1, sliceCount=8, grainDensity=20.0),
         _preset("Swell Pad", "Pads", "Long crossfade swell with drift and noise.", mode=3, swellCrossfade=150.0, dust=15.0),
-        _preset("Cloud Dust", "Textural", "Dust and flutter over a sparse cloud.", dust=10.0, flutter=2.0, grainSpread=40.0),
+        _preset("Cloud Dust", "Textural", "Dust and flutter over a sparse cloud.", sample_path="embedded:cloud_4k.wav", dust=10.0, flutter=2.0, grainSpread=40.0),
         _preset("Wobble Memory", "Experimental", "Drift with LFO modulating the root key.", lfo1Sync=1, mod1Target=3, mod1Amount=30.0),
         _preset("Ghost Delay", "Echo", "Ghost notes with delay and feedback.", ghostDelay=45.0, memoryAmount=40.0),
-        _preset("Swelling Cloud", "Evolution", "Starts small, swells to full cloud.", mode=3, swellTime=500.0, grainDensity=2.0),
+        _preset("Swelling Cloud", "Evolution", "Starts small, swells to full cloud.", sample_path="embedded:cloud_4k.wav", mode=3, swellTime=500.0, grainDensity=2.0),
         _preset("Choppy Scratch", "Scratch", "Fast chops with pitch fine control.", mode=1, sliceCount=16, glide=20.0),
         _preset("Drifted Memory", "Ambient", "Memory trace that drifts across the sample.", driftAmount=50.0, memoryDecay=10.0, grainSpread=25.0),
         _preset("Init Cloud", "Utility", "A clean reference: 60% span, 40% length.", regionSpan=60.0, regionLength=40.0),

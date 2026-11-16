@@ -1082,6 +1082,22 @@ namespace
         return output;
     }
 
+    /** Pumps the message loop until every background sample load has been installed or
+        discarded (plan 07 phase 4). JUCE_MODAL_LOOPS_PERMITTED is 1 in this executable. */
+    void waitForSampleLoads (Processor& processor, int timeoutMs = 5000)
+    {
+        const auto start = juce::Time::getMillisecondCounter();
+
+        while (processor.hasPendingSampleLoad())
+        {
+            assert (juce::Time::getMillisecondCounter() - start <= (juce::uint32) timeoutMs);
+            juce::MessageManager::getInstance()->runDispatchLoopUntil (5);
+        }
+
+        // One more tick so the install lambda that cleared the counter is fully done.
+        juce::MessageManager::getInstance()->runDispatchLoopUntil (5);
+    }
+
     void testPresetSampleLinkRoundTrip()
     {
         Processor processor;
@@ -1137,6 +1153,11 @@ namespace
         auto tree = deltaTree (Processor::modeId, 2.0);
         tree.setProperty (Processor::samplePathProperty, wavFile.getFullPathName(), nullptr);
         processor.applyPresetState (tree);
+
+        // A file sample loads in the background now (plan 07 phase 4): the handoff has
+        // not run because the message loop has not been pumped.
+        assert (processor.hasPendingSampleLoad());
+        waitForSampleLoads (processor);
 
         assert (processor.hasSample());
         assert (processor.getSamplePath() == wavFile.getFullPathName());
@@ -1238,6 +1259,7 @@ namespace
         auto valid = deltaTree (Processor::modeId, 2.0);
         valid.setProperty (Processor::samplePathProperty, wavFile.getFullPathName(), nullptr);
         processor.applyPresetState (valid);
+        waitForSampleLoads (processor);
 
         assert (! processor.isSampleMissing());
         assert (processor.getSamplePath() == wavFile.getFullPathName());
@@ -1259,6 +1281,7 @@ namespace
         Processor restored;
         restored.prepareToPlay (sampleRate, blockSize);
         restored.setStateInformation (block.getData(), (int) block.getSize());
+        waitForSampleLoads (restored);
 
         assert (restored.hasSample());
         assert (restored.getSamplePath() == wavFile.getFullPathName());
@@ -1300,6 +1323,7 @@ namespace
         auto tree = deltaTree (Processor::modeId, 2.0);
         tree.setProperty (Processor::samplePathProperty, stored.getFullPathName(), nullptr);
         processor.applyPresetState (tree);
+        waitForSampleLoads (processor);
 
         assert (! processor.isSampleMissing());
         assert (processor.getSamplePath() == libraryFile.getFullPathName());
@@ -1316,6 +1340,7 @@ namespace
         auto directTree = deltaTree (Processor::modeId, 1.0);
         directTree.setProperty (Processor::samplePathProperty, direct.getFullPathName(), nullptr);
         processor.applyPresetState (directTree);
+        waitForSampleLoads (processor);
 
         assert (! processor.isSampleMissing());
         assert (processor.getSamplePath() == direct.getFullPathName());
@@ -1359,7 +1384,10 @@ namespace
 
         for (int round = 0; round < 24; ++round)
         {
+            // The valid preset loads in the background: pump the handoff before the
+            // note must sound from it (plan 07 phase 4).
             processor.applyPresetState (valid);
+            waitForSampleLoads (processor);
             assert (! processor.isSampleMissing());
             assert (peakOf (renderNoteOn (processor, 3)) > 0.05f);
 
@@ -1370,6 +1398,7 @@ namespace
 
         // Back to a valid preset: the flag clears and the sample loads again.
         processor.applyPresetState (valid);
+        waitForSampleLoads (processor);
         assert (! processor.isSampleMissing());
         assert (processor.getSamplePath() == wavFile.getFullPathName());
 
@@ -1444,6 +1473,57 @@ namespace
         pass ("testMissingSampleOverlayPaints");
     }
 
+    /** Two background loads raced: the latest request wins and the older install is
+        discarded (plan 07 phase 4). */
+    void testAsyncLoadLatestWins()
+    {
+        Processor processor;
+        processor.prepareToPlay (sampleRate, blockSize);
+
+        const auto first = writeTestWav ("async-a.wav", 0.5f);
+        const auto second = writeTestWav ("async-b.wav", 0.5f);
+
+        auto treeA = deltaTree (Processor::modeId, 1.0);
+        treeA.setProperty (Processor::samplePathProperty, first.getFullPathName(), nullptr);
+        processor.applyPresetState (treeA);
+
+        auto treeB = deltaTree (Processor::modeId, 2.0);
+        treeB.setProperty (Processor::samplePathProperty, second.getFullPathName(), nullptr);
+        processor.applyPresetState (treeB);
+
+        waitForSampleLoads (processor);
+
+        assert (! processor.isSampleMissing());
+        assert (processor.getSamplePath() == second.getFullPathName());
+        assert (processor.loadedSample->sourcePath == second.getFullPathName());
+        // The parameters applied regardless of the sample race.
+        assert (processor.getParamValue (Processor::modeId) == 2.0f);
+        assert (! processor.hasPendingSampleLoad());
+
+        pass ("testAsyncLoadLatestWins");
+    }
+
+    /** A processor destroyed while a load is in flight: the pool waits or interrupts the
+        job, and a queued handoff lambda must notice the dead token (plan 07 phase 4). */
+    void testAsyncLoadSurvivesDestruction()
+    {
+        {
+            Processor processor;
+            processor.prepareToPlay (sampleRate, blockSize);
+
+            const auto wavFile = writeTestWav ("destroyed.wav", 0.5f);
+            auto tree = deltaTree (Processor::modeId, 1.0);
+            tree.setProperty (Processor::samplePathProperty, wavFile.getFullPathName(), nullptr);
+            processor.applyPresetState (tree);
+            // The scope ends with the load still pending: no pump happened.
+        }
+
+        // Drain any queued handoff: the token must be dead, the lambda a no-op.
+        juce::MessageManager::getInstance()->runDispatchLoopUntil (50);
+
+        pass ("testAsyncLoadSurvivesDestruction");
+    }
+
     /** Loads the recorded state fixture (skips without SUITE_FIXTURE_DIR) and checks the
         samplePath anchor recorded in it (plan 07 test 13). */
     void testLoadsStateFixture()
@@ -1451,6 +1531,7 @@ namespace
         Processor processor;
         processor.prepareToPlay (sampleRate, blockSize);
         assert (StateFixtures::loadsRecordedState (processor, "sgraffito"));
+        waitForSampleLoads (processor);   // a resolved path loads in the background now
 
         const auto fixtureDir = juce::SystemStats::getEnvironmentVariable ("SUITE_FIXTURE_DIR", {});
 
@@ -1546,6 +1627,8 @@ int main (int argc, char** argv)
     testSampleFolderFallback();
     testRapidPresetSwitchingUnderAudio();
     testOldPresetCompatibility();
+    testAsyncLoadLatestWins();
+    testAsyncLoadSurvivesDestruction();
     testMissingSampleOverlayPaints();
     testLoadsStateFixture();
 

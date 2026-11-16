@@ -4,6 +4,7 @@
   "_description": "High pentatonic with long gates and drift.",
   "_plugin": "Sgraffito",
   "_pluginVersion": "1.0.0",
+  "_samplePath": "embedded:cloud_4k.wav",
   "rootKey": 60,
   "scale": 3,
   "grainDensity": 4.0,

@@ -73,6 +73,172 @@ SgraffitoProcessor::SgraffitoProcessor()
     shuffleSeedParam = apvts.getRawParameterValue (shuffleSeedId);
 }
 
+SgraffitoProcessor::~SgraffitoProcessor()
+{
+    // Dead first, so a queued handoff lambda does nothing (plan 07 phase 4). Then stop
+    // the pool: interrupt running jobs and wait, so no job outlives the members it
+    // would hand off to.
+    loadLifetime->alive = false;
+    sampleLoadPool.removeAllJobs (true, 5000);
+}
+
+//==============================================================================
+// Background sample loads (plan 07 phase 4).
+
+/** The read + resample of one file, run on a pooled thread. The job touches none of the
+    processor's members: it captures the request by value and hands the finished buffer
+    to the message thread, where the install happens. */
+class SgraffitoProcessor::SampleLoadJob : public juce::ThreadPoolJob
+{
+public:
+    SampleLoadJob (juce::File fileToRead, int generationIn, double targetRateIn,
+                   std::shared_ptr<LoadLifetime> lifetimeIn, SgraffitoProcessor* ownerIn)
+        : juce::ThreadPoolJob ("Sgraffito sample load"),
+          file (std::move (fileToRead)), generation (generationIn), targetRate (targetRateIn),
+          lifetime (std::move (lifetimeIn)), owner (ownerIn)
+    {
+    }
+
+    JobStatus runJob() override
+    {
+        auto buffer = readSampleFile (file, targetRate);
+        const double sourceRate = bufferSampleRate;
+
+        // A shutdown interrupt skips the handoff: the processor is going away anyway.
+        if (shouldExit())
+            return jobHasFinished;
+
+        // Locals for the capture list: members cannot be captured by name.
+        const auto lifetimeCopy = lifetime;
+        auto* const ownerCopy = owner;
+        const int generationCopy = generation;
+        const auto pathCopy = file.getFullPathName();
+
+        // Handoff runs on the message thread; the copy of the token keeps the check
+        // valid even if the processor is destroyed before the lambda runs.
+        juce::MessageManager::callAsync (
+            [lifetimeCopy, ownerCopy, generationCopy, buffer = std::move (buffer),
+             pathCopy, sourceRate]() mutable
+            {
+                if (lifetimeCopy == nullptr || ! lifetimeCopy->alive)
+                    return;
+
+                ownerCopy->pendingSampleLoads.fetch_sub (1, std::memory_order_relaxed);
+
+                if (buffer.getNumSamples() <= 0)
+                    return;   // unreadable file: keep the current sample, as the sync path does
+
+                // The latest request wins: an install that arrives out of order is discarded.
+                if (generationCopy != ownerCopy->loadGeneration.load (std::memory_order_relaxed))
+                    return;
+
+                ownerCopy->finishSampleLoad (std::move (buffer), pathCopy, sourceRate);
+            });
+
+        return jobHasFinished;
+    }
+
+    juce::AudioBuffer<float> readSampleFile (const juce::File& fileToRead, double rate)
+    {
+        juce::AudioFormatManager formatManager;
+        formatManager.registerBasicFormats();
+
+        std::unique_ptr<juce::AudioFormatReader> reader (
+            formatManager.createReaderFor (fileToRead));
+
+        if (reader == nullptr)
+            return {};
+
+        bufferSampleRate = reader->sampleRate;
+        return readAndResample (*reader, rate);
+    }
+
+    /** The read and (linear) resample shared with the sync loaders. */
+    static juce::AudioBuffer<float> readAndResample (juce::AudioFormatReader& reader, double targetRate)
+    {
+        juce::AudioBuffer<float> fileBuffer ((int) reader.numChannels,
+                                             (int) reader.lengthInSamples);
+        reader.read (&fileBuffer,
+                     0,
+                     (int) reader.lengthInSamples,
+                     0,
+                     true,
+                     true);
+
+        if (std::abs (reader.sampleRate - targetRate) <= 0.1)
+            return fileBuffer;
+
+        juce::AudioBuffer<float> resampled ((int) reader.numChannels,
+                                            (int) (reader.lengthInSamples * targetRate / reader.sampleRate));
+
+        for (int ch = 0; ch < (int) reader.numChannels; ++ch)
+        {
+            const float* src = fileBuffer.getReadPointer (ch);
+            float* dst = resampled.getWritePointer (ch);
+
+            const double ratio = reader.sampleRate / targetRate;
+            for (int i = 0; i < resampled.getNumSamples(); ++i)
+            {
+                const double srcPos = i * ratio;
+                const int srcIdx = (int) srcPos;
+                const float frac = (float) (srcPos - srcIdx);
+
+                if (srcIdx + 1 < fileBuffer.getNumSamples())
+                    dst[i] = src[srcIdx] * (1.0f - frac) + src[srcIdx + 1] * frac;
+                else
+                    dst[i] = src[srcIdx];
+            }
+        }
+        return resampled;
+    }
+
+    juce::File file;
+    int generation = 0;
+    double targetRate = 44100.0;
+    double bufferSampleRate = 0.0;
+    std::shared_ptr<LoadLifetime> lifetime;
+    SgraffitoProcessor* owner = nullptr;
+};
+
+void SgraffitoProcessor::loadSampleAsync (const juce::File& file)
+{
+    if (! file.existsAsFile())
+        return;
+
+    // Any sample still in flight from an earlier request is superseded.
+    loadGeneration.fetch_add (1, std::memory_order_relaxed);
+    pendingSampleLoads.fetch_add (1, std::memory_order_relaxed);
+
+    const double targetRate = preparedSampleRate > 0.0 ? preparedSampleRate : 44100.0;
+    sampleLoadPool.addJob (new SampleLoadJob (file, loadGeneration.load (std::memory_order_relaxed),
+                                              targetRate, loadLifetime, this),
+                           true);
+}
+
+void SgraffitoProcessor::finishSampleLoad (juce::AudioBuffer<float>&& buffer,
+                                           const juce::String& sourcePath, double sourceSampleRate)
+{
+    // Retire the old sample instead of destroying it: an audio block that started before
+    // this call may still hold the old buffer pointer from the atomic load.
+    retiredSample = std::move (loadedSample);
+    loadedSample = std::make_unique<LoadedSample>();
+    loadedSample->buffer = std::move (buffer);
+    loadedSample->sourcePath = sourcePath;
+    loadedSample->sourceSampleRate = sourceSampleRate;
+
+    if (sourcePath.startsWith ("embedded:"))
+        sampleFile = juce::File();
+    else
+        sampleFile = juce::File (sourcePath);
+
+    sampleBuffer.store (&loadedSample->buffer, std::memory_order_release);
+
+    // The sample is part of the preset/session state (plan 07): keep the property in
+    // sync at change time, like the Micro-Timing lerp curve does.
+    sampleMissing.store (false, std::memory_order_release);
+    apvts.state.setProperty (samplePathProperty, loadedSample->sourcePath, nullptr);
+}
+
 //==============================================================================
 //==============================================================================
 // Note handling shared by the host MIDI and the editor keyboard (plan 05.1).
@@ -960,6 +1126,9 @@ void SgraffitoProcessor::loadSample (const juce::File& file)
     if (! file.existsAsFile())
         return;
 
+    // A sync install supersedes anything still in flight (tests rely on sync loads).
+    loadGeneration.fetch_add (1, std::memory_order_relaxed);
+
     const double targetRate = preparedSampleRate > 0.0 ? preparedSampleRate : 44100.0;
 
     juce::AudioFormatManager formatManager;
@@ -971,56 +1140,8 @@ void SgraffitoProcessor::loadSample (const juce::File& file)
     if (reader == nullptr)
         return;
 
-    juce::AudioBuffer<float> fileBuffer ((int) reader->numChannels,
-                                         (int) reader->lengthInSamples);
-    reader->read (&fileBuffer,
-                  0,
-                  (int) reader->lengthInSamples,
-                  0,
-                  true,
-                  true);
-
-    // Resample to the target sample rate if needed.
-    if (std::abs (reader->sampleRate - targetRate) > 0.1)
-    {
-        juce::AudioBuffer<float> resampled ((int) reader->numChannels,
-                                            (int) (reader->lengthInSamples * targetRate / reader->sampleRate));
-
-        for (int ch = 0; ch < (int) reader->numChannels; ++ch)
-        {
-            const float* src = fileBuffer.getReadPointer (ch);
-            float* dst = resampled.getWritePointer (ch);
-
-            const double ratio = reader->sampleRate / targetRate;
-            for (int i = 0; i < resampled.getNumSamples(); ++i)
-            {
-                const double srcPos = i * ratio;
-                const int srcIdx = (int) srcPos;
-                const float frac = (float) (srcPos - srcIdx);
-
-                if (srcIdx + 1 < fileBuffer.getNumSamples())
-                    dst[i] = src[srcIdx] * (1.0f - frac) + src[srcIdx + 1] * frac;
-                else
-                    dst[i] = src[srcIdx];
-            }
-        }
-        fileBuffer = std::move (resampled);
-    }
-
-    // Retire the old sample instead of destroying it: an audio block that started before
-    // this call may still hold the old buffer pointer from the atomic load.
-    retiredSample = std::move (loadedSample);
-    loadedSample = std::make_unique<LoadedSample>();
-    loadedSample->buffer = std::move (fileBuffer);
-    loadedSample->sourcePath = file.getFullPathName();
-    loadedSample->sourceSampleRate = reader->sampleRate;
-    sampleFile = file;
-    sampleBuffer.store (&loadedSample->buffer, std::memory_order_release);
-
-    // The sample is part of the preset/session state (plan 07): keep the property in
-    // sync at change time, like the Micro-Timing lerp curve does.
-    sampleMissing.store (false, std::memory_order_release);
-    apvts.state.setProperty (samplePathProperty, loadedSample->sourcePath, nullptr);
+    finishSampleLoad (SampleLoadJob::readAndResample (*reader, targetRate),
+                      file.getFullPathName(), reader->sampleRate);
 }
 
 void SgraffitoProcessor::loadEmbeddedSample (const juce::String& embeddedPath)
@@ -1055,57 +1176,15 @@ void SgraffitoProcessor::loadEmbeddedSample (const juce::String& embeddedPath)
     if (reader == nullptr)
         return;
 
-    juce::AudioBuffer<float> fileBuffer ((int) reader->numChannels,
-                                         (int) reader->lengthInSamples);
-    reader->read (&fileBuffer,
-                  0,
-                  (int) reader->lengthInSamples,
-                  0,
-                  true,
-                  true);
-
-    // Resample to the target sample rate if needed.
-    if (std::abs (reader->sampleRate - targetRate) > 0.1)
-    {
-        juce::AudioBuffer<float> resampled ((int) reader->numChannels,
-                                            (int) (reader->lengthInSamples * targetRate / reader->sampleRate));
-
-        for (int ch = 0; ch < (int) reader->numChannels; ++ch)
-        {
-            const float* src = fileBuffer.getReadPointer (ch);
-            float* dst = resampled.getWritePointer (ch);
-
-            const double ratio = reader->sampleRate / targetRate;
-            for (int i = 0; i < resampled.getNumSamples(); ++i)
-            {
-                const double srcPos = i * ratio;
-                const int srcIdx = (int) srcPos;
-                const float frac = (float) (srcPos - srcIdx);
-
-                if (srcIdx + 1 < fileBuffer.getNumSamples())
-                    dst[i] = src[srcIdx] * (1.0f - frac) + src[srcIdx + 1] * frac;
-                else
-                    dst[i] = src[srcIdx];
-            }
-        }
-        fileBuffer = std::move (resampled);
-    }
-
-    // Retire the old sample instead of destroying it (see loadSample).
-    retiredSample = std::move (loadedSample);
-    loadedSample = std::make_unique<LoadedSample>();
-    loadedSample->buffer = std::move (fileBuffer);
-    loadedSample->sourcePath = "embedded:" + filePath;
-    loadedSample->sourceSampleRate = reader->sampleRate;
-    sampleFile = juce::File(); // File path is not available for embedded data
-    sampleBuffer.store (&loadedSample->buffer, std::memory_order_release);
-
-    sampleMissing.store (false, std::memory_order_release);
-    apvts.state.setProperty (samplePathProperty, loadedSample->sourcePath, nullptr);
+    finishSampleLoad (SampleLoadJob::readAndResample (*reader, targetRate),
+                      "embedded:" + filePath, reader->sampleRate);
 }
 
 void SgraffitoProcessor::clearSample()
 {
+    // A pending background load must not reinstall after a clear.
+    loadGeneration.fetch_add (1, std::memory_order_relaxed);
+
     sampleFile = juce::File();
     retiredSample = std::move (loadedSample);
     sampleBuffer.store (nullptr, std::memory_order_release);
@@ -1128,6 +1207,9 @@ void SgraffitoProcessor::storeSampleToState (juce::ValueTree& state) const
 
 void SgraffitoProcessor::applySampleFromState (const juce::ValueTree& tree)
 {
+    // Any in-flight background load is superseded by what this tree asks for.
+    loadGeneration.fetch_add (1, std::memory_order_relaxed);
+
     // INIT (the bar and host program 0) applies a hand-made empty tree: the sample
     // resets to the embedded default, like every other parameter resets (Q4).
     // A real preset always carries parameter children, so an empty tree is unambiguous.
@@ -1152,7 +1234,9 @@ void SgraffitoProcessor::applySampleFromState (const juce::ValueTree& tree)
     const juce::File file (path);
     if (file.existsAsFile())
     {
-        loadSample (file);
+        // The read runs on a background thread (plan 07 phase 4); the current sample
+        // keeps playing until the load installs on the message thread.
+        loadSampleAsync (file);
         return;
     }
 
@@ -1165,7 +1249,7 @@ void SgraffitoProcessor::applySampleFromState (const juce::ValueTree& tree)
 
     if (fallback.existsAsFile())
     {
-        loadSample (fallback);
+        loadSampleAsync (fallback);
         return;
     }
 

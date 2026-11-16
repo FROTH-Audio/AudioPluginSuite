@@ -4,6 +4,7 @@
   "_description": "Dust and flutter over a sparse cloud.",
   "_plugin": "Sgraffito",
   "_pluginVersion": "1.0.0",
+  "_samplePath": "embedded:cloud_4k.wav",
   "grainSpread": 40.0,
   "dust": 10.0,
   "flutter": 2.0

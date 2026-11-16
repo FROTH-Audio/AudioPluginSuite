@@ -299,7 +299,7 @@ void SgraffitoEditor::browseForSample()
         {
             const juce::File selectedFile = chooser.getResult();
             if (selectedFile.existsAsFile())
-                safeThis->processor.loadSample (selectedFile);
+                safeThis->processor.loadSampleAsync (selectedFile);   // background read, installs on the message thread (plan 07 phase 4)
         }
     });
 }

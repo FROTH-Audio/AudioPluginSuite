@@ -73,6 +73,9 @@ def preset_json(plugin, preset):
     if "lerpCurve" in preset:
         data["_lerpCurve"] = preset["lerpCurve"]
 
+    if "samplePath" in preset:
+        data["_samplePath"] = preset["samplePath"]
+
     # Keep the schema order in the JSON too, so a diff shows a new parameter in one place.
     params = preset["params"]
     for pid in parameter_order(plugin):
@@ -100,6 +103,7 @@ def preset_xml(plugin, preset, indent="  "):
                  f" description={xml_escape_attribute(preset['description'])}/>")
     lines.append(f"{indent}  <PARAMETERS suiteStateVersion=\"{state_version_for(plugin)}\""
                  + (f" lerpCurve={xml_escape_attribute(preset['lerpCurve'])}" if "lerpCurve" in preset else "")
+                 + (f" samplePath={xml_escape_attribute(preset['samplePath'])}" if "samplePath" in preset else "")
                  + ">")
 
     for pid in parameter_order(plugin):

@@ -639,7 +639,7 @@
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="Sgraffito" pluginVersion="1.0.0">
     <Meta name="Glass Dust" category="Ambient" author="FROTH Audio" description="Slow, sparse cloud with long decay."/>
-    <PARAMETERS suiteStateVersion="1">
+    <PARAMETERS suiteStateVersion="1" samplePath="embedded:cloud_4k.wav">
       <PARAM id="memoryDecay" value="8"/>
       <PARAM id="driftSpeed" value="0.5"/>
       <PARAM id="grainDensity" value="8"/>
@@ -647,7 +647,7 @@
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="Sgraffito" pluginVersion="1.0.0">
     <Meta name="Deep Cloud" category="Ambient" author="FROTH Audio" description="Low pentatonic, dense and slow."/>
-    <PARAMETERS suiteStateVersion="1">
+    <PARAMETERS suiteStateVersion="1" samplePath="embedded:cloud_4k.wav">
       <PARAM id="rootKey" value="36"/>
       <PARAM id="scale" value="4"/>
       <PARAM id="grainSpread" value="30"/>
@@ -672,7 +672,7 @@
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="Sgraffito" pluginVersion="1.0.0">
     <Meta name="Cloud Rain" category="Melodic" author="FROTH Audio" description="High pentatonic with long gates and drift."/>
-    <PARAMETERS suiteStateVersion="1">
+    <PARAMETERS suiteStateVersion="1" samplePath="embedded:cloud_4k.wav">
       <PARAM id="rootKey" value="60"/>
       <PARAM id="scale" value="3"/>
       <PARAM id="grainDensity" value="4"/>
@@ -705,7 +705,7 @@
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="Sgraffito" pluginVersion="1.0.0">
     <Meta name="Cloud Dust" category="Textural" author="FROTH Audio" description="Dust and flutter over a sparse cloud."/>
-    <PARAMETERS suiteStateVersion="1">
+    <PARAMETERS suiteStateVersion="1" samplePath="embedded:cloud_4k.wav">
       <PARAM id="grainSpread" value="40"/>
       <PARAM id="dust" value="10"/>
       <PARAM id="flutter" value="2"/>
@@ -728,7 +728,7 @@
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="Sgraffito" pluginVersion="1.0.0">
     <Meta name="Swelling Cloud" category="Evolution" author="FROTH Audio" description="Starts small, swells to full cloud."/>
-    <PARAMETERS suiteStateVersion="1">
+    <PARAMETERS suiteStateVersion="1" samplePath="embedded:cloud_4k.wav">
       <PARAM id="mode" value="3"/>
       <PARAM id="grainDensity" value="2"/>
       <PARAM id="swellTime" value="500"/>

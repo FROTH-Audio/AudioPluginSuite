@@ -4,6 +4,7 @@
   "_description": "Slow, sparse cloud with long decay.",
   "_plugin": "Sgraffito",
   "_pluginVersion": "1.0.0",
+  "_samplePath": "embedded:cloud_4k.wav",
   "memoryDecay": 8.0,
   "driftSpeed": 0.5,
   "grainDensity": 8.0
