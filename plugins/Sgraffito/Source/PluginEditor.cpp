@@ -66,7 +66,7 @@ SgraffitoEditor::SgraffitoEditor (SgraffitoProcessor& p)
     };
     headerMenu.onSettings = [this]
     {
-        SuiteSettings::showSettingsDialog (SuiteSettings::shared(), this);
+        SuiteSettings::showSettingsDialog (SuiteSettings::shared(), this, /*showSampleFolderRow*/ true);
     };
 
     setSize (editorWidth, editorHeight);

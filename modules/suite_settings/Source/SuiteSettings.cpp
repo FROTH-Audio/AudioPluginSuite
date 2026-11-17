@@ -85,42 +85,82 @@ namespace SuiteSettings
         return *store;
     }
 
-    SettingsDialog::SettingsDialog (Store& storeToOwn, juce::Component* centreAround)
-        : Component(),
-          store (storeToOwn),
-          showTooltips (true),
-          fallbackTempo (120.0),
+    SettingsDialog::SettingsDialog (Store& storeToUse, bool showSampleFolderRow)
+        : store (storeToUse),
           tooltipWindow (this)
     {
-        setSize (420, 360);
         setWantsKeyboardFocus (false);
-
-        buildTooltipsRow();
-        buildTempoRow();
-        buildPresetFolderRow();
-        if (shouldBuildSampleFolderRow)
-            buildSampleFolderRow();
 
         showTooltips = store.getBool (tooltipsKey, true);
         fallbackTempo = clampFallbackBpm (store.getDouble (fallbackTempoKey, defaultFallbackBpm));
         presetPath = store.getString (presetFolderKey ("SpectralDrift"), juce::String());
         samplePath = store.getString (sgraffitoSampleFolderKey, juce::String());
 
-        updateTooltipsRow();
-        updateTempoRow();
-        updatePresetFolderRow();
-        if (sampleFolderRow.label != nullptr)
-            updateSampleFolderRow();
+        auto captionFont = juce::Font (juce::FontOptions (13.0f, juce::Font::bold));
+        auto valueFont = juce::Font (juce::FontOptions (14.0f));
+        auto asCaption = [&captionFont] (juce::Label& label, const juce::String& text)
+        {
+            label.setFont (captionFont);
+            label.setJustificationType (juce::Justification::centredLeft);
+            label.setText (text, juce::dontSendNotification);
+        };
+        auto asValueText = [&valueFont] (juce::Label& label)
+        {
+            label.setFont (valueFont);
+            label.setJustificationType (juce::Justification::centredLeft);
+        };
 
-        auto centre = getScreenBounds().getCentre();
-        centre.x -= getWidth() / 2;
-        centre.y -= getHeight() / 2;
-        setTopLeftPosition (static_cast<int>(centre.x), static_cast<int>(centre.y));
+        // Tooltips row: toggle and On/Off text.
+        asCaption (tooltipsCaption, "Tooltips on controls");
+        tooltipsToggle.setToggleState (showTooltips, juce::dontSendNotification);
+        tooltipsToggle.onStateChange = [this] { applyTooltipsSetting(); };
+        asValueText (tooltipsValue);
+        addAndMakeVisible (tooltipsCaption);
+        addAndMakeVisible (tooltipsToggle);
+        addAndMakeVisible (tooltipsValue);
+
+        // Fallback tempo row.
+        asCaption (tempoCaption, "Fallback tempo (when the host reports none)");
+        tempoSlider.setSliderStyle (juce::Slider::LinearHorizontal);
+        tempoSlider.setTextBoxStyle (juce::Slider::TextBoxRight, false, 70, 22);
+        tempoSlider.setRange (minFallbackBpm, maxFallbackBpm, 1.0);
+        tempoSlider.setTextValueSuffix (" BPM");
+        tempoSlider.setValue (fallbackTempo, juce::dontSendNotification);
+        tempoSlider.onValueChange = [this]
+        {
+            fallbackTempo = tempoSlider.getValue();
+            store.setDouble (fallbackTempoKey, fallbackTempo);
+            store.save();
+        };
+        addAndMakeVisible (tempoCaption);
+        addAndMakeVisible (tempoSlider);
+
+        // User preset folder row.
+        asCaption (presetFolderCaption, "User preset folder");
+        asValueText (presetFolderText);
+        presetFolderBrowse.onClick = [this] { browse (false); };
+        addAndMakeVisible (presetFolderCaption);
+        addAndMakeVisible (presetFolderText);
+        addAndMakeVisible (presetFolderBrowse);
+
+        // Sgraffito's sample search folder row, only when the caller asks for it.
+        if (showSampleFolderRow)
+        {
+            asCaption (sampleFolderCaption, "Sgraffito sample search folder");
+            asValueText (sampleFolderText);
+            sampleFolderBrowse.onClick = [this] { browse (true); };
+            addAndMakeVisible (sampleFolderCaption);
+            addAndMakeVisible (sampleFolderText);
+            addAndMakeVisible (sampleFolderBrowse);
+        }
+
+        applyTooltipsSetting();
+        updateFolderTexts();
+
+        setSize (420, showSampleFolderRow ? 236 : 184);
     }
 
-    SettingsDialog::~SettingsDialog()
-    {
-    }
+    SettingsDialog::~SettingsDialog() = default;
 
     void SettingsDialog::paint (juce::Graphics& g)
     {
@@ -129,247 +169,114 @@ namespace SuiteSettings
         g.drawRect (getLocalBounds().toFloat(), 1.0f);
     }
 
-    void SettingsDialog::updateTooltipsRow()
+    void SettingsDialog::resized()
     {
-        if (SuiteSettings::tooltipsRow.label != nullptr)
-            SuiteSettings::tooltipsRow.label->setText ("Show tooltips", juce::dontSendNotification);
-        
-        auto& toggle = *SuiteSettings::tooltipsRow.toggle;
-        if (toggle.getToggleState() != showTooltips)
-            toggle.setToggleState(showTooltips, juce::dontSendNotification);
-        if (showTooltips)
-            toggle.setTooltip ("Enable tooltip hints on controls");
-        else
-            toggle.setTooltip ("Disable tooltip hints on controls");
+        auto area = getLocalBounds().reduced (16, 12);
+
+        // Tooltips row: toggle and On/Off text under the caption.
+        tooltipsCaption.setBounds (area.removeFromTop (18));
+        auto toggleRow = area.removeFromTop (26);
+        area.removeFromTop (8);
+        tooltipsToggle.setBounds (toggleRow.removeFromLeft (46));
+        toggleRow.removeFromLeft (8);
+        tooltipsValue.setBounds (toggleRow.removeFromLeft (46));
+
+        // Fallback tempo row: slider under the caption.
+        tempoCaption.setBounds (area.removeFromTop (18));
+        tempoSlider.setBounds (area.removeFromTop (26));
+        area.removeFromTop (8);
+
+        // User preset folder row: text and Browse under the caption.
+        presetFolderCaption.setBounds (area.removeFromTop (18));
+        auto presetRow = area.removeFromTop (26);
+        area.removeFromTop (8);
+        presetFolderBrowse.setBounds (presetRow.removeFromRight (80));
+        presetRow.removeFromRight (8);
+        presetFolderText.setBounds (presetRow);
+
+        // Sgraffito's sample search folder row: same shape, only when built.
+        if (sampleFolderCaption.getParentComponent() == this)
+        {
+            sampleFolderCaption.setBounds (area.removeFromTop (18));
+            auto sampleRow = area.removeFromTop (26);
+            sampleFolderBrowse.setBounds (sampleRow.removeFromRight (80));
+            sampleRow.removeFromRight (8);
+            sampleFolderText.setBounds (sampleRow);
+        }
     }
 
-    void SettingsDialog::updateTempoRow()
+    void SettingsDialog::updateFolderTexts()
     {
-        if (SuiteSettings::tempoRow.label != nullptr)
-            SuiteSettings::tempoRow.label->setText ("Fallback tempo (when no host tempo)", juce::dontSendNotification);
-        
-        auto& slider = *SuiteSettings::tempoRow.slider;
-        slider.setValue (fallbackTempo);
-        if (! showTooltips)
-            slider.setTooltip ("Used when the host reports no playhead position");
-    }
-
-    void SettingsDialog::updatePresetFolderRow()
-    {
-        if (SuiteSettings::presetFolderRow.label != nullptr)
-            SuiteSettings::presetFolderRow.label->setText ("User preset folder", juce::dontSendNotification);
-        
-        auto& text = *SuiteSettings::presetFolderRow.text;
-        if (presetPath.isEmpty())
-            text.setText ("Use default location", juce::dontSendNotification);
-        else
-            text.setText ("Custom: " + presetPath, juce::dontSendNotification);
-    }
-
-    void SettingsDialog::updateSampleFolderRow()
-    {
-        if (SuiteSettings::sampleFolderRow.label == nullptr)
-            return;
-
-        SuiteSettings::sampleFolderRow.label->setText ("Sample search folder", juce::dontSendNotification);
-        
-        auto& text = *SuiteSettings::sampleFolderRow.text;
-        if (samplePath.isEmpty())
-            text.setText ("Use default location", juce::dontSendNotification);
-        else
-            text.setText ("Custom: " + samplePath, juce::dontSendNotification);
+        presetFolderText.setText (presetPath.isEmpty() ? "Use default location" : "Custom: " + presetPath,
+                                  juce::dontSendNotification);
+        sampleFolderText.setText (samplePath.isEmpty() ? "Use default location" : "Custom: " + samplePath,
+                                  juce::dontSendNotification);
     }
 
     void SettingsDialog::applyTooltipsSetting()
     {
-        showTooltips = SuiteSettings::tooltipsRow.toggle->getToggleState();
+        showTooltips = tooltipsToggle.getToggleState();
         store.setBool (tooltipsKey, showTooltips);
-        updateTooltipsRow();
-    }
+        tooltipsValue.setText (showTooltips ? "On" : "Off", juce::dontSendNotification);
 
-    void SettingsDialog::applyTempoSetting()
-    {
-        fallbackTempo = (*SuiteSettings::tempoRow.slider).getValue();
-        store.setDouble (fallbackTempoKey, fallbackTempo);
-        updateTempoRow();
-    }
-
-    void SettingsDialog::applyPresetFolderSetting()
-    {
-        presetPath = juce::String((*SuiteSettings::presetFolderRow.text).getText().trim());
-        if (! presetPath.isEmpty())
-            store.setString (presetFolderKey ("SpectralDrift"), presetPath);
-        updatePresetFolderRow();
-    }
-
-    void SettingsDialog::applySampleFolderSetting()
-    {
-        if (SuiteSettings::sampleFolderRow.label == nullptr)
-            return;
-
-        auto& text = *SuiteSettings::sampleFolderRow.text;
-        samplePath = juce::String(text.getText().trim());
-        if (! samplePath.isEmpty())
-            store.setString (sgraffitoSampleFolderKey, samplePath);
-        updateSampleFolderRow();
-    }
-
-    void SettingsDialog::browsePresetFolder()
-    {
-        auto chooser = new juce::FileChooser ("Select preset folder", presetPath.isEmpty() ? "" : presetPath, "*.zip;*.vst3");
-        chooser->launchAsync (0, [this, chooser] (const juce::FileChooser& fc)
+        if (showTooltips)
         {
-            juce::File result = fc.getResult();
-            if (! result.isRoot())
-            {
-                presetPath = result.getFullPathName();
-                (*SuiteSettings::presetFolderRow.text).setText (presetPath, juce::sendNotification);
-                store.setString (presetFolderKey ("SpectralDrift"), presetPath);
-            }
-        });
-    }
-
-    void SettingsDialog::browseSampleFolder()
-    {
-        if (SuiteSettings::sampleFolderRow.label == nullptr)
-            return;
-
-        auto chooser = new juce::FileChooser ("Select sample folder", samplePath.isEmpty() ? "" : samplePath, "*.wav;*.aiff");
-        chooser->launchAsync (0, [this, chooser] (const juce::FileChooser& fc)
+            tooltipsToggle.setTooltip ("Enable tooltip hints on all suite controls");
+            tempoSlider.setTooltip ("Used when the host reports no tempo");
+            presetFolderBrowse.setTooltip ("Choose the folder for user presets");
+            sampleFolderBrowse.setTooltip ("Choose the folder Sgraffito searches for samples");
+        }
+        else
         {
-            juce::File result = fc.getResult();
-            if (! result.isRoot())
-            {
-                samplePath = result.getFullPathName();
-                auto& text = *SuiteSettings::sampleFolderRow.text;
-                text.setText (samplePath, juce::sendNotification);
-                store.setString (sgraffitoSampleFolderKey, samplePath);
-            }
-        });
-    }
-
-    void SettingsDialog::buttonPressed (juce::Button* buttonThatWasPressed)
-    {
-        if (buttonThatWasPressed == SuiteSettings::tooltipsRow.toggle)
-            applyTooltipsSetting();
-        else if (buttonThatWasPressed == SuiteSettings::presetFolderRow.browse)
-            browsePresetFolder();
-        else if (SuiteSettings::sampleFolderRow.browse != nullptr && buttonThatWasPressed == SuiteSettings::sampleFolderRow.browse)
-            browseSampleFolder();
+            tooltipsToggle.setTooltip ({});
+            tempoSlider.setTooltip ({});
+            presetFolderBrowse.setTooltip ({});
+            sampleFolderBrowse.setTooltip ({});
+        }
 
         store.save();
     }
 
-    void SettingsDialog::buildTooltipsRow()
+    void SettingsDialog::browse (bool forSampleFolder)
     {
-        auto& row = SuiteSettings::tooltipsRow;
-        auto label = new juce::Label ("Tooltips", "Tooltips");
-        label->setFont (juce::Font (13.0f, juce::Font::bold));
-        label->setJustificationType (juce::Justification::centredLeft);
-        label->setText ("Show tooltips on controls", juce::dontSendNotification);
-        addAndMakeVisible (label);
+        chooser = std::make_unique<juce::FileChooser> ("Select a folder");
+        juce::Component::SafePointer<SettingsDialog> safeThis (this);
 
-        auto bounds = getLocalBounds().reduced (12, 8).removeFromTop (16);
-        row.toggle = new juce::ToggleButton ("");
-        row.toggle->setToggleState (true, juce::sendNotification);
-        row.toggle->setBounds (bounds.removeFromLeft (50));
-        addAndMakeVisible (row.toggle);
+        chooser->launchAsync (juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectDirectories,
+                              [safeThis, forSampleFolder] (const juce::FileChooser& fc)
+        {
+            if (safeThis == nullptr || fc.getResults().isEmpty())
+                return;
 
-        (*row.valueBox).setText ("ON", juce::dontSendNotification);
-        (*row.valueBox).setFont (juce::Font(14.0f));
-        (*row.valueBox).setJustificationType (juce::Justification::centred);
-        row.toggle->setTooltip ("Enable tooltip hints on controls");
-        addAndMakeVisible ((Component*)row.valueBox);
+            const auto path = fc.getResult().getFullPathName();
+            if (path.isEmpty())
+                return;
 
-        row.area = bounds;
+            auto& dialog = *safeThis;
+            if (forSampleFolder)
+            {
+                dialog.samplePath = path;
+                dialog.store.setString (sgraffitoSampleFolderKey, path);
+            }
+            else
+            {
+                dialog.presetPath = path;
+                dialog.store.setString (presetFolderKey ("SpectralDrift"), path);
+            }
+            dialog.updateFolderTexts();
+            dialog.store.save();
+        });
     }
 
-    void SettingsDialog::buildTempoRow()
-    {
-        auto& row = SuiteSettings::tempoRow;
-        auto label = new juce::Label ("Fallback tempo", "Fallback tempo");
-        label->setFont (juce::Font (13.0f, juce::Font::bold));
-        label->setJustificationType (juce::Justification::centredLeft);
-        label->setText ("Used when the host reports no playhead position", juce::dontSendNotification);
-        addAndMakeVisible (label);
-
-        auto bounds = getLocalBounds().reduced (12, 8).removeFromTop (16);
-        row.slider = new juce::Slider ("");
-        row.slider->setSliderStyle (juce::Slider::LinearVertical);
-        row.slider->setBounds (bounds);
-        addAndMakeVisible (row.slider);
-
-        row.area = bounds;
-    }
-
-    void SettingsDialog::buildPresetFolderRow()
-    {
-        auto& row = SuiteSettings::presetFolderRow;
-        auto label = new juce::Label ("User preset folder", "User preset folder");
-        label->setFont (juce::Font (13.0f, juce::Font::bold));
-        label->setJustificationType (juce::Justification::centredLeft);
-        label->setText ("Browse for a custom location or use the default", juce::dontSendNotification);
-        addAndMakeVisible (label);
-
-        auto bounds = getLocalBounds().reduced (12, 8).removeFromTop (16);
-        row.text = new juce::Label ("", "");
-        row.text->setFont (juce::Font(14.0f));
-        row.text->setJustificationType (juce::Justification::centredLeft);
-        row.text->setText ("Use default location", juce::dontSendNotification);
-        row.text->setBounds (bounds.removeFromLeft (bounds.getWidth() - 40));
-        addAndMakeVisible (row.text);
-
-        auto browseBtn = new juce::TextButton ("Browse...");
-        browseBtn->setTooltip ("Browse for folder");
-        browseBtn->setBounds (bounds);
-        row.browse = browseBtn;
-        addAndMakeVisible (row.browse);
-
-        row.area = bounds;
-    }
-
-    void SettingsDialog::buildSampleFolderRow()
-    {
-        auto& row = SuiteSettings::sampleFolderRow;
-        auto label = new juce::Label ("Sample search folder", "Sample search folder");
-        label->setFont (juce::Font (13.0f, juce::Font::bold));
-        label->setJustificationType (juce::Justification::centredLeft);
-        label->setText ("Browse for a custom location or use the default", juce::dontSendNotification);
-        addAndMakeVisible (label);
-
-        auto bounds = getLocalBounds().reduced (12, 8).removeFromTop (16);
-        row.text = new juce::Label ("", "");
-        row.text->setFont (juce::Font(14.0f));
-        row.text->setJustificationType (juce::Justification::centredLeft);
-        row.text->setText ("Use default location", juce::dontSendNotification);
-        row.text->setBounds (bounds.removeFromLeft (bounds.getWidth() - 40));
-        addAndMakeVisible (row.text);
-
-        auto browseBtn = new juce::TextButton ("Browse...");
-        browseBtn->setTooltip ("Browse for folder");
-        browseBtn->setBounds (bounds);
-        row.browse = browseBtn;
-        addAndMakeVisible (row.browse);
-
-        row.area = bounds;
-    }
-
-    void showSettingsDialog (Store& store, juce::Component* centreAround)
+    void showSettingsDialog (Store& store, juce::Component* centreAround, bool showSampleFolderRow)
     {
         auto options = juce::DialogWindow::LaunchOptions{};
         options.dialogTitle = "Settings";
-        options.content = juce::OptionalScopedPointer<juce::Component>(new SettingsDialog (store, centreAround), true);
+        options.content = juce::OptionalScopedPointer<juce::Component> (
+            new SettingsDialog (store, showSampleFolderRow), true);
         options.componentToCentreAround = centreAround;
-        
+
         options.launchAsync();
     }
 
 }  // namespace SuiteSettings
-
-// Row builder static instance definitions
-namespace SuiteSettings {
-    TooltipsRowBuilder tooltipsRow = { nullptr, nullptr, nullptr, juce::Rectangle<int>() };
-    TempoRowBuilder tempoRow = { nullptr, nullptr, juce::Rectangle<int>() };
-    PresetFolderRowBuilder presetFolderRow = { nullptr, nullptr, nullptr, juce::Rectangle<int>() };
-    SampleFolderRowBuilder sampleFolderRow = { nullptr, nullptr, nullptr, juce::Rectangle<int>() };
-}

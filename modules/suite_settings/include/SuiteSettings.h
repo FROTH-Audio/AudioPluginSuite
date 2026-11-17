@@ -2,6 +2,7 @@
 
 #include <juce_gui_basics/juce_gui_basics.h>
 #include <juce_core/juce_core.h>
+#include <memory>
 #include <string>
 
 namespace SuiteSettings
@@ -74,63 +75,53 @@ namespace SuiteSettings
     */
     Store& shared();
 
-    // Row builder struct definitions - at namespace scope for visibility
-    struct TooltipsRowBuilder { juce::Label* label; juce::ToggleButton* toggle; juce::Label* valueBox; juce::Rectangle<int> area; };
-    struct TempoRowBuilder { juce::Label* label; juce::Slider* slider; juce::Rectangle<int> area; };
-    struct PresetFolderRowBuilder { juce::Label* label; juce::Label* text; juce::TextButton* browse; juce::Rectangle<int> area; };
-    struct SampleFolderRowBuilder { juce::Label* label; juce::Label* text; juce::TextButton* browse; juce::Rectangle<int> area; };
-
     /**
-        A settings dialog with four rows: tooltips toggle, fallback tempo slider, preset folder
-        browse, and Sgraffito's sample folder. The store is owned by this dialog so changes auto-save.
-        Non-Sgraffito callers pass nullptr for the sample-folder row; it stays hidden then.
+        A settings dialog with three rows (tooltips toggle, fallback tempo slider, user preset
+        folder browse), plus Sgraffito's sample-folder row when the caller asks for it.
+        The store is the caller's (normally the shared process-wide store); changes save immediately.
+        All rows are children owned by this component - there is no state shared between dialog
+        instances, so the dialog can be built and destroyed any number of times per process.
     */
     class SettingsDialog : public juce::Component
     {
     public:
-        explicit SettingsDialog (Store& storeToOwn, juce::Component* centreAround);
-        ~SettingsDialog();
+        SettingsDialog (Store& storeToUse, bool showSampleFolderRow);
+        ~SettingsDialog() override;
 
         void paint (juce::Graphics&) override;
+        void resized() override;
 
     private:
-        void updateTooltipsRow();
-        void updateTempoRow();
-        void updatePresetFolderRow();
-        void updateSampleFolderRow();
-
+        void updateFolderTexts();
         void applyTooltipsSetting();
-        void applyTempoSetting();
-        void applyPresetFolderSetting();
-        void applySampleFolderSetting();
-
-        void browsePresetFolder();
-        void browseSampleFolder();
-        void buttonPressed (juce::Button* buttonThatWasPressed);
-
-        void buildTooltipsRow();
-        void buildTempoRow();
-        void buildPresetFolderRow();
-        void buildSampleFolderRow();
+        void browse (bool forSampleFolder);
 
         Store& store;
-        bool showTooltips;
-        double fallbackTempo;
+        bool showTooltips = true;
+        double fallbackTempo = defaultFallbackBpm;
         juce::String presetPath;
         juce::String samplePath;
-        bool shouldBuildSampleFolderRow = true;
 
         juce::TooltipWindow tooltipWindow;
 
+        juce::Label        tooltipsCaption;
+        juce::ToggleButton tooltipsToggle;
+        juce::Label        tooltipsValue;
+        juce::Label        tempoCaption;
+        juce::Slider       tempoSlider;
+        juce::Label        presetFolderCaption;
+        juce::Label        presetFolderText;
+        juce::TextButton   presetFolderBrowse;
+        juce::Label        sampleFolderCaption;
+        juce::Label        sampleFolderText;
+        juce::TextButton   sampleFolderBrowse;
+        std::unique_ptr<juce::FileChooser> chooser;   // kept alive while the dialog is up
+
     };
 
-    /** Opens the Settings dialog as a modal DialogWindow centred around centreAround. */
-    void showSettingsDialog (Store& store, juce::Component* centreAround);
-
-    // Forward declarations for static row builder instances
-    extern TooltipsRowBuilder tooltipsRow;
-    extern TempoRowBuilder tempoRow;
-    extern PresetFolderRowBuilder presetFolderRow;
-    extern SampleFolderRowBuilder sampleFolderRow;
+    /** Opens the Settings dialog as a modal DialogWindow centred around centreAround.
+        Only Sgraffito passes true for showSampleFolderRow. */
+    void showSettingsDialog (Store& store, juce::Component* centreAround,
+                             bool showSampleFolderRow = false);
 
 }  // namespace SuiteSettings

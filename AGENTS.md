@@ -82,11 +82,10 @@ modules/
     tests/SuiteUITests.cpp        SuiteUITests (9 test functions)
     CMakeLists.txt                SuiteUITests only
   suite_settings/                Shared settings storage and Settings dialog. NOT a library target, see section 8.
-    include/SuiteSettings.h       SuiteSettings::Store: global application settings; SuiteSettings::SettingsDialog: the modal dialog with four rows (tooltips toggle, fallback tempo, preset folder browse, Sgraffito sample folder)
-    include/SuiteSettingsRowBuilders.h   Row builder structs for dialog layout (namespace scope)
+    include/SuiteSettings.h       SuiteSettings::Store: global application settings; SuiteSettings::SettingsDialog: the modal dialog (tooltips toggle, fallback tempo, preset folder browse, plus Sgraffito's sample folder when the caller asks for it)
     Source/SuiteSettings.cpp      Dialog implementation; showSettingsDialog() static function
-    tests/SuiteSettingsTests.cpp  SuiteSettingsTests (8 test functions)
-    suite_settings.cmake          suite_settings_add_to_target(<target>): adds sources + include dir. Needs suite_ui_add_to_target on the same target (for LabelledSlider used in dialog)
+    tests/SuiteSettingsTests.cpp  SuiteSettingsTests (9 test functions)
+    suite_settings.cmake          suite_settings_add_to_target(<target>): adds sources + include dir. The dialog uses plain JUCE widgets; no SuiteUI requirement beyond the historic call-order comment
   suite_plugin/                   Build recipe. NOT a library target, see section 9
     SuitePlugin.cmake             suite_add_plugin(...): juce_add_plugin, sources, lockup, links, <Name>Tests and add_test from one call. Checks PLUGIN_CODE is unique
 plugins/<Name>/
@@ -147,7 +146,7 @@ All test executables pass:
 - CoreDSPTests (35 functions)
 - SuiteStateTests (8 functions)
 - SuiteModulationTests (9 functions)
-- SuiteSettingsTests (8 functions) - new in Plan 08 Phase 4
+- SuiteSettingsTests (9 functions) - new in Plan 08 Phase 4
 - SuiteUITests (9 functions)
 - SpectralDriftTests (26 functions)
 - DynamicSaturationTests (24 functions)
@@ -387,7 +386,7 @@ MTC's `lerpCurve` state property (not a parameter) round-trips through presets a
 
 ## 6. Test architecture
 
-Twelve CTest entries run nine executables: `CoreDSPTests` (35 test functions), `SuiteUI_Tests` (`SuiteUITests`, 9), `SuiteModulation_Tests` (`SuiteModulationTests`, 9), `SuiteSettingsTests` (`SuiteSettingsTests`, 8), `SpectralDriftTests` (26), `DynamicSaturationTests` (24), `MicroTimingChaosTests` (45), `SgraffitoTests` (17), and `PluginHostTests`, which has one ctest entry per plugin (3). With the factory bank on, four preset-test executables join them (one per plugin). The README has the full list.
+Twelve CTest entries run nine executables: `CoreDSPTests` (35 test functions), `SuiteUI_Tests` (`SuiteUITests`, 9), `SuiteModulation_Tests` (`SuiteModulationTests`, 9), `SuiteSettingsTests` (`SuiteSettingsTests`, 9), `SpectralDriftTests` (26), `DynamicSaturationTests` (24), `MicroTimingChaosTests` (45), `SgraffitoTests` (17), and `PluginHostTests`, which has one ctest entry per plugin (3). With the factory bank on, four preset-test executables join them (one per plugin). The README has the full list.
 
 **Module tests** (`modules/suite_modulation/tests/SuiteModulationTests.cpp`): the router, with a stub processor (no plugin). They cover the routed LFO, the zero case (bit for bit), bipolar amounts, whole-number targets, Host Sync ignoring Tempo, the one-bar period, sample and hold, out-of-range indices, and the control display (values set without notifying). Not covered: the control display skipping a slider the mouse holds, since the test cannot press a mouse button. The panel and scope are checked only by the MicroTimingChaos editor test.
 
@@ -467,7 +466,7 @@ If you add a new consumer, use `suite_ui_add_to_target`. Do not add `SuiteUI` to
 
 `suite_modulation` follows the same rule (`suite_modulation_add_to_target`, never `target_link_libraries`). Its panel uses `SuiteUI::LabelledSlider`, so a consumer calls `suite_ui_add_to_target` on the same target first. Its tests are registered in `modules/suite_modulation/CMakeLists.txt` only when `SUITE_BUILD_TESTS` is on, and the directory is added only inside the `SUITE_BUILD_PLUGINS` block.
 
-`suite_settings` follows the same pattern (`suite_settings_add_to_target`, never `target_link_libraries`). The Settings dialog uses `SuiteUI::LabelledSlider` for the preset folder browse button, so a consumer must call `suite_ui_add_to_target()` first, then `suite_settings_add_to_target()`. Its tests are registered in `modules/suite_settings/CMakeLists.txt` and only built when plugins are enabled.
+`suite_settings` follows the same pattern (`suite_settings_add_to_target`, never `target_link_libraries`). The dialog builds on plain JUCE widgets, so it does not need SuiteUI compiled in; the cmake comments keep the old call-order advice for safety. Its tests are registered in `modules/suite_settings/CMakeLists.txt` and only built when plugins are enabled.
 
 ---
 

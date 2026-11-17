@@ -121,6 +121,39 @@ int main (int argc, char** argv)
                 || ! shared().getBool (tooltipsKey, true));    // reads either way, no crash
     }
 
+    // 9. The dialog: constructs twice in one process (the old global-row version crashed right
+    //    here), paints, and the Sgraffito variant carries the extra sample-folder row.
+    {
+        Store store (fileA);
+        auto render = [] (SettingsDialog& dialog)
+        {
+            const auto image = juce::Image (juce::Image::ARGB, dialog.getWidth(), dialog.getHeight(), true);
+            {
+                juce::Graphics g (image);   // scoped: JUCE 8+ shows the drawing only after release
+                dialog.paint (g);
+            }
+            return image;
+        };
+
+        int childrenWithoutSampleRow = 0;
+        {
+            SettingsDialog dialog (store, false);
+            childrenWithoutSampleRow = dialog.getNumChildComponents();
+            assert (render (dialog).getPixelAt (8, 8).getAlpha() > 0);   // the dialog painted
+        }
+        int childrenWithSampleRow = 0;
+        {
+            SettingsDialog dialog (store, true);
+            childrenWithSampleRow = dialog.getNumChildComponents();
+            assert (render (dialog).getPixelAt (8, 8).getAlpha() > 0);
+        }
+        {
+            // A third construction on the same store: the repeat is the regression guard.
+            SettingsDialog dialog (store, true);
+        }
+        assert (childrenWithSampleRow > childrenWithoutSampleRow);
+    }
+
     std::printf ("All SuiteSettings tests passed.\n");
     return 0;
 }
