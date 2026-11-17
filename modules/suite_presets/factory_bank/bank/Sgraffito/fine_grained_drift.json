@@ -4,9 +4,12 @@
   "_description": "Fine pitch and velocity shaping over a drifting memory.",
   "_plugin": "Sgraffito",
   "_pluginVersion": "1.0.0",
+  "_samplePath": "embedded:fine_grained_drift_4k.wav",
   "pitchFine": 40.0,
   "velocityCurve": 1.5,
   "attack": 60.0,
   "release": 600.0,
-  "driftAmount": 20.0
+  "memoryAmount": 35.0,
+  "memoryDecay": 15.0,
+  "flutter": 5.0
 }

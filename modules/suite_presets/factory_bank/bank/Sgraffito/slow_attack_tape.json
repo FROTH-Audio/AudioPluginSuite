@@ -4,10 +4,13 @@
   "_description": "Tape stop that eases in with a long attack and release.",
   "_plugin": "Sgraffito",
   "_pluginVersion": "1.0.0",
+  "_samplePath": "embedded:slow_attack_tape_4k.wav",
   "mode": 1,
   "attack": 200.0,
   "release": 1200.0,
   "tapeStopTime": 250.0,
   "tapeStopCurve": 1,
-  "dust": 5.0
+  "sliceCount": 12,
+  "dust": 5.0,
+  "wow": 8.0
 }

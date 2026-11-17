@@ -4,7 +4,11 @@
   "_description": "Ghost notes over a quiet memory trace.",
   "_plugin": "Sgraffito",
   "_pluginVersion": "1.0.0",
-  "driftAmount": 20.0,
+  "_samplePath": "embedded:memory_ghosts_4k.wav",
+  "mode": 1,
+  "release": 900.0,
+  "memoryAmount": 35.0,
+  "ghostOn": 1,
   "ghostThreshold": 90.0,
   "sliceCount": 4
 }

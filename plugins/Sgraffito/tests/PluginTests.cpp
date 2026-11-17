@@ -377,6 +377,218 @@ namespace
         return count;
     }
 
+    /** Finds a TextButton by its caption anywhere in the child hierarchy. */
+    juce::TextButton* findTextButtonDeep (juce::Component* parent, const juce::String& text)
+    {
+        for (int i = 0; i < parent->getNumChildComponents(); ++i)
+        {
+            auto* child = parent->getChildComponent (i);
+
+            if (auto* button = dynamic_cast<juce::TextButton*> (child))
+                if (button->getButtonText() == text)
+                    return button;
+
+            if (auto* deeper = findTextButtonDeep (child, text))
+                return deeper;
+        }
+
+        return nullptr;
+    }
+
+    /** Finds a LabelledSlider by its caption anywhere in the child hierarchy. */
+    SuiteUI::LabelledSlider* findLabelledSliderDeep (juce::Component* parent, const juce::String& caption)
+    {
+        for (int i = 0; i < parent->getNumChildComponents(); ++i)
+        {
+            auto* child = parent->getChildComponent (i);
+
+            if (auto* labelled = dynamic_cast<SuiteUI::LabelledSlider*> (child))
+                if (labelled->label.getText() == caption)
+                    return labelled;
+
+            if (auto* deeper = findLabelledSliderDeep (child, caption))
+                return deeper;
+        }
+
+        return nullptr;
+    }
+
+    /** Finds a component by its component ID anywhere in the child hierarchy. */
+    juce::Component* findComponentByIdDeep (juce::Component* parent, const juce::String& id)
+    {
+        for (int i = 0; i < parent->getNumChildComponents(); ++i)
+        {
+            auto* child = parent->getChildComponent (i);
+
+            if (child->getComponentID() == id)
+                return child;
+
+            if (auto* deeper = findComponentByIdDeep (child, id))
+                return deeper;
+        }
+
+        return nullptr;
+    }
+
+    template <class ComponentType>
+    ComponentType* findChildOfTypeDeep (juce::Component* parent)
+    {
+        for (int i = 0; i < parent->getNumChildComponents(); ++i)
+        {
+            auto* child = parent->getChildComponent (i);
+
+            if (auto* match = dynamic_cast<ComponentType*> (child))
+                return match;
+
+            if (auto* deeper = findChildOfTypeDeep<ComponentType> (child))
+                return deeper;
+        }
+
+        return nullptr;
+    }
+
+    // Plan 10 phase 5: the status bar below the keyboard follows the pointer's help text.
+    void testStatusBarShowsHelp()
+    {
+        Processor processor;
+        std::unique_ptr<juce::AudioProcessorEditor> editor (processor.createEditorAndMakeActive());
+        assert (editor != nullptr);
+        auto* sgraffito = static_cast<SgraffitoEditor*> (editor.get());
+
+        auto* status = findComponentByIdDeep (editor.get(), "sgraffito-status");
+        assert (status != nullptr);
+        auto* keyboard = findChildOfTypeDeep<SuiteUI::PlayableKeyboardStrip> (editor.get());
+        assert (keyboard != nullptr);
+        assert (status->getY() >= keyboard->getBottom());   // the bar sits below the keyboard
+
+        // The idle hint shows before any pointer movement.
+        auto* statusText = dynamic_cast<juce::Label*> (status);
+        assert (statusText != nullptr);
+        assert (statusText->getText() == "Hover a control for help.");
+
+        // Every control carries a help text (spot checks across all three pages).
+        assert (findLabelledSliderDeep (editor.get(), "LEVEL") != nullptr
+                && ! findLabelledSliderDeep (editor.get(), "LEVEL")->getHelpText().isEmpty());
+        assert (! findLabelledSliderDeep (editor.get(), "SLICE COUNT")->getHelpText().isEmpty());
+        assert (! findLabelledSliderDeep (editor.get(), "GRAIN SIZE")->getHelpText().isEmpty());
+        assert (! findTextButtonDeep (editor.get(), "LOAD SOUND")->getHelpText().isEmpty());
+
+        // A synthesised pointer move over a knob shows that knob's text.
+        auto makeEvent = [] (juce::Component& c)
+        {
+            const auto centre = c.getLocalBounds().getCentre().toFloat();
+            return juce::MouseEvent (juce::Desktop::getInstance().getMainMouseSource(), centre,
+                                     juce::ModifierKeys(), 1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+                                     &c, &c, juce::Time::getCurrentTime(), centre,
+                                     juce::Time::getCurrentTime(), 1, false);
+        };
+
+        auto* level = findLabelledSliderDeep (editor.get(), "LEVEL");
+        const auto levelText = level->getHelpText();
+        sgraffito->showHelp (makeEvent (*level));
+        assert (statusText->getText() == levelText);
+
+        // A move over something without a help text returns to the idle hint.
+        sgraffito->showHelp (makeEvent (*editor));
+        assert (statusText->getText() == "Hover a control for help.");
+
+        const auto renderDir = juce::SystemStats::getEnvironmentVariable ("SUITE_RENDER_DIR", {});
+        if (renderDir.isNotEmpty())
+            assert (PluginTest::writeDeterministicPng (*editor,
+                                                       juce::File (renderDir).getChildFile ("sgraffito-status-bar.png")));
+
+        processor.editorBeingDeleted (editor.get());
+        pass ("testStatusBarShowsHelp");
+    }
+
+    // Plan 10 phase 1: LOAD SOUND sits at the waveform view's top-right. The button is a
+    // child of the waveform view; the old layout used the view's editor-relative bounds,
+    // which pushed the button to the waveform's vertical middle.
+    void testLoadButtonSitsTopRight()
+    {
+        Processor processor;
+        std::unique_ptr<juce::AudioProcessorEditor> editor (processor.createEditorAndMakeActive());
+        assert (editor != nullptr);
+        static_cast<SgraffitoEditor*> (editor.get())->setPage (0);
+
+        auto* button = findTextButtonDeep (editor.get(), "LOAD SOUND");
+        assert (button != nullptr);
+        auto* parent = button->getParentComponent();
+        assert (parent != nullptr);
+        assert (parent != editor.get());   // the button lives inside the waveform view
+
+        // Waveform-local coordinates: inside the top strip, against the right edge.
+        std::printf ("load button local bounds: x %d, y %d, %dx%d (view %dx%d)\n",
+                     button->getX(), button->getY(),
+                     button->getWidth(), button->getHeight(),
+                     parent->getWidth(), parent->getHeight());
+        assert (button->getY() <= 8);
+        assert (button->getRight() >= parent->getWidth() - 8);
+
+        const auto renderDir = juce::SystemStats::getEnvironmentVariable ("SUITE_RENDER_DIR", {});
+        if (renderDir.isNotEmpty())
+            assert (PluginTest::writeDeterministicPng (*editor,
+                                                       juce::File (renderDir).getChildFile ("sgraffito-load-button.png")));
+
+        processor.editorBeingDeleted (editor.get());
+        pass ("testLoadButtonSitsTopRight");
+    }
+
+    // Plan 10 phase 2 (decision G1): mode-only controls are disabled — dimmed, never
+    // hidden — outside the mode they serve; common controls stay enabled everywhere.
+    void testModeAffinity()
+    {
+        Processor processor;
+        std::unique_ptr<juce::AudioProcessorEditor> editor (processor.createEditorAndMakeActive());
+        assert (editor != nullptr);
+        auto* sgraffito = static_cast<SgraffitoEditor*> (editor.get());
+
+        auto enabled = [&] (const char* caption)
+        {
+            auto* slider = findLabelledSliderDeep (editor.get(), caption);
+            assert (slider != nullptr);
+            return slider->isEnabled();
+        };
+
+        struct Case { int mode; const char* on; std::initializer_list<const char*> off; };
+        const Case cases[] = {
+            // Scrub: level (common) stays on; every mode-only control is off.
+            { 0, "LEVEL", { "SLICE COUNT", "GRAIN SIZE", "GRAIN DENSITY", "GRAIN SPREAD",
+                            "SWELL TIME", "SWELL CROSSFADE" } },
+            { 1, "SLICE COUNT", { "GRAIN SIZE", "GRAIN DENSITY", "GRAIN SPREAD",
+                                  "SWELL TIME", "SWELL CROSSFADE" } },
+            { 2, "GRAIN SIZE",  { "SLICE COUNT", "SWELL TIME", "SWELL CROSSFADE" } },
+            { 3, "SWELL TIME",  { "SLICE COUNT", "GRAIN SIZE", "GRAIN DENSITY" } },
+        };
+
+        for (const auto& c : cases)
+        {
+            sgraffito->setPage (1);
+            // The host-automation path drives the mode through the parameter.
+            PluginTest::setParameter (processor.apvts, SgraffitoProcessor::modeId, (float) c.mode);
+            assert (enabled (c.on));
+            for (auto* caption : c.off)
+                assert (! enabled (caption));
+        }
+
+        // Per-mode TEXTURE renders (suite rule R9): this change intentionally dims
+        // controls, so the renders are the record of the new look.
+        const auto renderDir = juce::SystemStats::getEnvironmentVariable ("SUITE_RENDER_DIR", {});
+        if (renderDir.isNotEmpty())
+        {
+            sgraffito->setPage (1);
+            for (int m = 0; m < 4; ++m)
+            {
+                PluginTest::setParameter (processor.apvts, SgraffitoProcessor::modeId, (float) m);
+                assert (PluginTest::writeDeterministicPng (*editor,
+                            juce::File (renderDir).getChildFile ("sgraffito-mode-" + juce::String (m) + ".png")));
+            }
+        }
+
+        processor.editorBeingDeleted (editor.get());
+        pass ("testModeAffinity");
+    }
+
     // Every knob belongs to exactly one page; an unlisted one floats over all of them.
     void testPageVisibility()
     {
@@ -1016,6 +1228,47 @@ namespace
         pass ("testKeyChangesPitch");
     }
 
+    // Plan 10 phase 4 (decision G4): Root Key is the pitch centre. The root key's note
+    // plays the sample at its natural pitch; key 60 with Root Key 72 plays an octave
+    // lower. The old pitch centre was a fixed middle C, so the knob did nothing.
+    void testRootKeyTransposes()
+    {
+        auto renderAtRoot = [] (float rootKey)
+        {
+            Processor processor;
+            processor.prepareToPlay (sampleRate, blockSize);
+            setParameter (processor.apvts, Processor::rootKeyId, rootKey);
+
+            juce::AudioBuffer<float> testBuffer (2, 48000);
+            for (int ch = 0; ch < 2; ++ch)
+                for (int i = 0; i < 48000; ++i)
+                    testBuffer.setSample (ch, i,
+                        0.5f * (float) std::sin (2.0 * juce::MathConstants<double>::pi * 440.0 * i / sampleRate));
+
+            processor.loadedSample = std::make_unique<LoadedSample>();
+            processor.loadedSample->buffer = testBuffer;
+            processor.loadedSample->sourceSampleRate = sampleRate;
+            processor.sampleBuffer.store (&processor.loadedSample->buffer, std::memory_order_release);
+
+            return renderNote (processor, 40, 60);
+        };
+
+        auto crossings = [] (const std::vector<float>& output)
+        {
+            int count = 0;
+            for (size_t n = 1; n < output.size() && n < 2048; ++n)
+                if (output[n - 1] <= 0.0f && output[n] > 0.0f)
+                    ++count;
+            return count;
+        };
+
+        const int natural = crossings (renderAtRoot (60.0f));
+        const int octaveDown = crossings (renderAtRoot (72.0f));
+        std::printf ("root key: natural %d crossings, root 72 %d crossings\n", natural, octaveDown);
+        assert (octaveDown + 3 <= natural);   // an octave lower: about half the crossings
+        pass ("testRootKeyTransposes");
+    }
+
     // ------------------------------------------------------------------
     // T2: the Cloud-crackle-and-silence regressions.
 
@@ -1153,6 +1406,149 @@ namespace
 
         assert (freed);
         pass ("testTapeStopReleaseFreesVoice");
+    }
+
+    // Plan 10 phase 3: Attack and Release are real on direct notes.
+
+    /** A direct note-on must run its attack ramp. The old direct path allocated with
+        envStart = 0, tens of thousands of samples behind the playhead, so the ramp was
+        always finished and ATTACK did nothing. */
+    void testAttackShapesDirectNotes()
+    {
+        auto renderAttack = [&] (float attackMs)
+        {
+            Processor processor;
+            processor.prepareToPlay (sampleRate, blockSize);
+            setParameter (processor.apvts, Processor::attackId, attackMs);
+            setParameter (processor.apvts, Processor::swingId, 50.0f);   // straight
+            setParameter (processor.apvts, Processor::humaniseId, 0.0f);
+            setParameter (processor.apvts, Processor::layBackId, 0.0f);
+            setParameter (processor.apvts, Processor::regionSpanId, 100.0f);
+            setParameter (processor.apvts, Processor::regionLengthId, 100.0f);
+
+            juce::AudioBuffer<float> testBuffer (2, 48000);
+            for (int ch = 0; ch < 2; ++ch)
+                for (int i = 0; i < 48000; ++i)
+                    testBuffer.setSample (ch, i,
+                        0.5f * (float) std::sin (2.0 * juce::MathConstants<double>::pi * 440.0 * i / sampleRate));
+
+            processor.loadedSample = std::make_unique<LoadedSample>();
+            processor.loadedSample->buffer = testBuffer;
+            processor.loadedSample->sourceSampleRate = sampleRate;
+            processor.sampleBuffer.store (&processor.loadedSample->buffer, std::memory_order_release);
+
+            juce::MidiBuffer midi;
+            midi.addEvent (juce::MidiMessage::noteOn (1, 60, 0.8f), 0);
+
+            double sum = 0.0;
+            for (int block = 0; block < 3; ++block)   // 1536 samples: inside a 400 ms ramp
+            {
+                juce::AudioBuffer<float> audio (2, blockSize);
+                audio.clear();
+                processor.processBlock (audio, midi);
+                midi.clear();
+
+                for (int n = 0; n < blockSize; ++n)
+                    sum += std::abs (audio.getSample (0, n));
+            }
+
+            return (float) (sum / (3.0 * blockSize));
+        };
+
+        const float fastRms = renderAttack (1.0f);
+        const float slowRms = renderAttack (400.0f);
+        std::printf ("attack: fast %.4f, slow %.4f\n", fastRms, slowRms);
+        assert (slowRms < 0.5f * fastRms);
+        pass ("testAttackShapesDirectNotes");
+    }
+
+    /** Release shapes the tail even with the default 400 ms tape stop (decision G2):
+        the envelope release and the ramp both run, and the voice ends when both are
+        done. The old tape-only branch never set envEnd, so Release did nothing. */
+    void testReleaseShapesTapeStopTail()
+    {
+        auto lifetimeBlocks = [&] (float releaseMs)
+        {
+            Processor processor;
+            processor.prepareToPlay (sampleRate, blockSize);
+            setParameter (processor.apvts, Processor::releaseId, releaseMs);
+            setParameter (processor.apvts, Processor::regionSpanId, 100.0f);
+            setParameter (processor.apvts, Processor::regionLengthId, 100.0f);   // the one-shot region end must not cut the tail short
+            // Tape Stop Time stays at its 400 ms default.
+
+            juce::AudioBuffer<float> testBuffer (2, 48000);
+            for (int ch = 0; ch < 2; ++ch)
+                for (int i = 0; i < 48000; ++i)
+                    testBuffer.setSample (ch, i,
+                        0.5f * (float) std::sin (2.0 * juce::MathConstants<double>::pi * 440.0 * i / sampleRate));
+
+            processor.loadedSample = std::make_unique<LoadedSample>();
+            processor.loadedSample->buffer = testBuffer;
+            processor.loadedSample->sourceSampleRate = sampleRate;
+            processor.sampleBuffer.store (&processor.loadedSample->buffer, std::memory_order_release);
+
+            juce::AudioBuffer<float> audio (2, blockSize);
+            audio.clear();
+
+            juce::MidiBuffer midiOn;
+            midiOn.addEvent (juce::MidiMessage::noteOn (1, 60, 0.8f), 0);
+            processor.processBlock (audio, midiOn);
+
+            juce::MidiBuffer midiOff;
+            midiOff.addEvent (juce::MidiMessage::noteOff (1, 60, 0.8f), 0);
+            processor.processBlock (audio, midiOff);
+
+            for (int block = 0; block < 110; ++block)   // 2000 ms is 94 blocks
+            {
+                audio.clear();
+                juce::MidiBuffer none;
+                processor.processBlock (audio, none);
+
+                if (processor.voicePool.countActive() == 0)
+                    return block + 1;
+            }
+
+            return 110;
+        };
+
+        const int shortBlocks = lifetimeBlocks (200.0f);
+        const int longBlocks = lifetimeBlocks (2000.0f);
+        std::printf ("release under tape stop: 200 ms -> %d blocks, 2000 ms -> %d blocks\n",
+                     shortBlocks, longBlocks);
+        assert (longBlocks >= shortBlocks * 2);
+        pass ("testReleaseShapesTapeStopTail");
+    }
+
+    /** The waveform view's envelope preview responds to Attack and Release (decision G3). */
+    void testEnvelopeOverlayPaints()
+    {
+        Processor processor;
+        processor.prepareToPlay (sampleRate, blockSize);   // loads the embedded default sample
+
+        std::unique_ptr<juce::AudioProcessorEditor> editor (processor.createEditorAndMakeActive());
+        assert (editor != nullptr);
+        static_cast<SgraffitoEditor*> (editor.get())->setPage (0);
+
+        setParameter (processor.apvts, Processor::attackId, 5.0f);
+        setParameter (processor.apvts, Processor::releaseId, 200.0f);
+        const auto shortEnvelope = PluginTest::paintComponent (*editor);
+
+        setParameter (processor.apvts, Processor::attackId, 400.0f);
+        setParameter (processor.apvts, Processor::releaseId, 4000.0f);
+        const auto longEnvelope = PluginTest::paintComponent (*editor);
+
+        const int changed = PluginTest::countChangedPixels (const_cast<juce::Image&> (shortEnvelope),
+                                                            const_cast<juce::Image&> (longEnvelope));
+        std::printf ("envelope overlay: %d sampled pixels changed\n", changed);
+        assert (changed > 0);
+
+        const auto renderDir = juce::SystemStats::getEnvironmentVariable ("SUITE_RENDER_DIR", {});
+        if (renderDir.isNotEmpty())
+            assert (PluginTest::writeDeterministicPng (*editor,
+                                                       juce::File (renderDir).getChildFile ("sgraffito-envelope.png")));
+
+        processor.editorBeingDeleted (editor.get());
+        pass ("testEnvelopeOverlayPaints");
     }
 
     // ------------------------------------------------------------------
@@ -1610,6 +2006,43 @@ namespace
         processor.sampleMissing.store (false, std::memory_order_release);
         processor.editorBeingDeleted (editor.get());
         pass ("testMissingSampleOverlayPaints");
+    }
+
+    /** Plan 10 phase 6 (decision G6): the sample switch-back rule, pinned on the code
+        path the bank uses. A preset that carries a sample switches back to it even after
+        a user sample was loaded; a preset without one keeps the current sample (delta
+        semantics); INIT resets to the embedded factory default. */
+    void testPresetSampleSwitchBack()
+    {
+        Processor processor;
+        processor.prepareToPlay (sampleRate, blockSize);
+
+        const auto userWav = writeTestWav ("switch-back.wav", 0.5f);
+
+        // Preset A: an embedded sample, exactly as the factory bank carries it.
+        auto presetA = deltaTree (Processor::modeId, 2.0);
+        presetA.setProperty (Processor::samplePathProperty, "embedded:grain_4k.wav", nullptr);
+        processor.applyPresetState (presetA);
+        assert (processor.loadedSample->sourcePath == "embedded:grain_4k.wav");
+
+        // The user loads their own sample over the preset's one.
+        processor.loadSample (userWav);
+        assert (processor.loadedSample->sourcePath == userWav.getFullPathName());
+
+        // Re-selecting preset A switches the sample back.
+        processor.applyPresetState (presetA);
+        assert (processor.loadedSample->sourcePath == "embedded:grain_4k.wav");
+
+        // A preset without a sample reference keeps the current sample (delta semantics).
+        processor.loadSample (userWav);
+        processor.applyPresetState (deltaTree (Processor::modeId, 1.0));
+        assert (processor.loadedSample->sourcePath == userWav.getFullPathName());
+
+        // INIT (the empty tree) resets to the embedded factory default.
+        processor.applyPresetState (juce::ValueTree ("PARAMETERS"));
+        assert (processor.loadedSample->sourcePath == Processor::embeddedSampleUri);
+
+        pass ("testPresetSampleSwitchBack");
     }
 
     /** Two background loads raced: the latest request wins and the older install is
@@ -2140,15 +2573,22 @@ int main (int argc, char** argv)
     testRenderBaseline();  // Move this up - needs GUI context
     testEditor();
     testPageVisibility();
+    testLoadButtonSitsTopRight();
+    testModeAffinity();
+    testStatusBarShowsHelp();
     testModulationParameters();
     testDefaultRoutingIsSilent();
     testModulationReachesAudio();
     testModulationStaysInRange();
     testModesProduceDifferentAudio();
     testKeyChangesPitch();
+    testRootKeyTransposes();
     testScrubPlaysAtSampleRate();
     testCloudSustainsInStereo();
     testTapeStopReleaseFreesVoice();
+    testAttackShapesDirectNotes();
+    testReleaseShapesTapeStopTail();
+    testEnvelopeOverlayPaints();
     testPresetSampleLinkRoundTrip();
     testPresetSampleLinkLoads();
     testPresetWithoutSampleLeavesSample();
@@ -2160,6 +2600,7 @@ int main (int argc, char** argv)
     testRapidPresetSwitchingUnderAudio();
     testOldPresetCompatibility();
     testAsyncLoadLatestWins();
+    testPresetSampleSwitchBack();
     testAsyncLoadSurvivesDestruction();
     testRetirementQueue();
     testPendingNoteSteals();

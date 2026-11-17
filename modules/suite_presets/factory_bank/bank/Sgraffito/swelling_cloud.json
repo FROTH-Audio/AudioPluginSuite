@@ -1,11 +1,13 @@
 {
   "_name": "Swelling Cloud",
   "_category": "Evolution",
-  "_description": "Starts small, swells to full cloud.",
+  "_description": "Starts small, swells to a dense cloud.",
   "_plugin": "Sgraffito",
   "_pluginVersion": "1.0.0",
-  "_samplePath": "embedded:cloud_4k.wav",
-  "mode": 3,
-  "grainDensity": 2.0,
-  "swellTime": 500.0
+  "_samplePath": "embedded:swelling_cloud_4k.wav",
+  "attack": 200.0,
+  "release": 1500.0,
+  "grainSize": 45.0,
+  "grainDensity": 20.0,
+  "grainSpread": 70.0
 }

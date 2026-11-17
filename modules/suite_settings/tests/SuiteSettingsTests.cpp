@@ -122,30 +122,89 @@ int main (int argc, char** argv)
     }
 
     // 9. The dialog: constructs twice in one process (the old global-row version crashed right
-    //    here), paints, and the Sgraffito variant carries the extra sample-folder row.
+    //    here), paints with its children, and the Sgraffito variant carries the extra
+    //    sample-folder row.
     {
         Store store (fileA);
+        // Paints the dialog and its visible children (the plain paint() skips children).
         auto render = [] (SettingsDialog& dialog)
         {
-            const auto image = juce::Image (juce::Image::ARGB, dialog.getWidth(), dialog.getHeight(), true);
+            juce::Image image (juce::Image::ARGB, dialog.getWidth(), dialog.getHeight(), true);
+
             {
                 juce::Graphics g (image);   // scoped: JUCE 8+ shows the drawing only after release
-                dialog.paint (g);
+                dialog.paintEntireComponent (g, true);
             }
+
             return image;
+        };
+        // The dialog paints the suite's dark panel and readable text (plan 10 phase 5b):
+        // the caption rows must contain pixels that differ from the panel background.
+        auto textPixelsInCaptionRows = [&render] (SettingsDialog& dialog)
+        {
+            const auto image = render (dialog);
+            const auto background = SuiteUI::Colours::panel;
+            int textPixels = 0;
+
+            for (int y = 12; y < 70; ++y)
+                for (int x = 16; x < 300; ++x)
+                    if (image.getPixelAt (x, y) != background)
+                        ++textPixels;
+
+            return textPixels;
         };
 
         int childrenWithoutSampleRow = 0;
         {
             SettingsDialog dialog (store, false);
             childrenWithoutSampleRow = dialog.getNumChildComponents();
-            assert (render (dialog).getPixelAt (8, 8).getAlpha() > 0);   // the dialog painted
+
+            assert (render (dialog).getPixelAt (8, 8) == SuiteUI::Colours::panel);   // the suite paint runs
+            assert (textPixelsInCaptionRows (dialog) > 20);   // captions are actually drawn
         }
         int childrenWithSampleRow = 0;
         {
             SettingsDialog dialog (store, true);
             childrenWithSampleRow = dialog.getNumChildComponents();
-            assert (render (dialog).getPixelAt (8, 8).getAlpha() > 0);
+
+            assert (render (dialog).getPixelAt (8, 8) == SuiteUI::Colours::panel);
+            assert (textPixelsInCaptionRows (dialog) > 20);
+
+            // The Browse buttons carry their captions: full-intensity text pixels inside
+            // the button row (the phase 5b legibility fix, verified per pixel).
+            const auto dialogImage = render (dialog);
+            int textPixelsInBrowseRow = 0;
+
+            for (int x = 326; x < 402; ++x)
+                if (dialogImage.getPixelAt (x, 147) == SuiteUI::Colours::text)
+                    ++textPixelsInBrowseRow;
+
+            assert (textPixelsInBrowseRow > 0);
+
+            // The recorded render (suite rule R9). FileOutputStream appends to an existing
+            // file, so the stale render must go first - or every run archives another PNG
+            // in front of the new one and decoders read the oldest one (found here the
+            // hard way: the file kept showing the pre-caption dialog).
+            const auto renderDir = juce::SystemStats::getEnvironmentVariable ("SUITE_RENDER_DIR", {});
+            if (renderDir.isNotEmpty())
+            {
+                juce::File written (juce::File (renderDir).getChildFile ("settings-dialog.png"));
+                written.deleteFile();
+                juce::FileOutputStream stream (written, 200000);
+
+                if (stream.openedOk())
+                {
+                    juce::PNGImageFormat png;
+                    png.writeImageToStream (dialogImage, stream);
+                    stream.flush();
+                }
+
+                // The file must decode to the same image that was written.
+                auto reloaded = juce::ImageFileFormat::loadFrom (written);
+                assert (reloaded.isValid());
+                assert (reloaded.getPixelAt (8, 8) == SuiteUI::Colours::panel);
+                assert (reloaded.getPixelAt (380, 147) == dialogImage.getPixelAt (380, 147));
+            }
         }
         {
             // A third construction on the same store: the repeat is the regression guard.

@@ -4,7 +4,10 @@
   "_description": "Quick region scrub with humanised timing.",
   "_plugin": "Sgraffito",
   "_pluginVersion": "1.0.0",
+  "_samplePath": "embedded:scrubbed_memory_4k.wav",
   "mode": 0,
-  "glide": 50.0,
-  "humanise": 15.0
+  "regionSpan": 80.0,
+  "layBack": 12.0,
+  "humanise": 15.0,
+  "dust": 6.0
 }

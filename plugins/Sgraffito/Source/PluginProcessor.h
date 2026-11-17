@@ -270,6 +270,9 @@ public:
         return 0.0f;
     }
 
+    /** The rate the plugin was prepared at, for the editor's envelope preview. */
+    double getPreparedSampleRate() const noexcept { return preparedSampleRate; }
+
     /** The LFOs and routing, for the editor's panel and control display. */
     SuiteModulation::Router& getRouter() noexcept { return modulation; }
 
@@ -413,7 +416,7 @@ private:
     /** Post-allocation setup shared by the direct, ghost and pending note paths (plan 09 1.3):
         pitch from the key and PITCH FINE, the velocity curve, and the start position from
         the region the pool assigned. Everything else comes from VoicePool::allocateVoice. */
-    void setupAllocatedVoice (int idx, int key, float velocity);
+    void setupAllocatedVoice (int idx, int key, float velocity, float rootKeyMod);
 
     void handleNoteOn(int keyIn, float velocity, int samplePosition, float rootKeyMod, float layBackMod, float spanMod, float lengthMod, float humaniseMod, std::atomic<float> *sustainHoldParam, float releaseMs);
 

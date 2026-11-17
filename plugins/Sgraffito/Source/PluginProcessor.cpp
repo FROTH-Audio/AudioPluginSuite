@@ -267,13 +267,15 @@ void SgraffitoProcessor::queueGhost (int key, float ghostVelocity, double sample
     pendingNotes.push_back (ghost);
 }
 
-void SgraffitoProcessor::setupAllocatedVoice (int idx, int key, float velocity)
+void SgraffitoProcessor::setupAllocatedVoice (int idx, int key, float velocity, float rootKeyMod)
 {
     auto& voice = voicePool.voices[idx];
 
-    // Pitch: the key's distance from middle C, plus the fine tune in cents
-    // (plan 05.1: the key must change the pitch, and PITCH FINE must be audible).
-    const double semitones = (double) (key - 60) + (double) pitchFineParam->load() / 100.0;
+    // Pitch: the key's distance from the Root Key (the pitch centre, plan 10 phase 4 —
+    // the root key's note plays the sample at its natural pitch), plus the fine tune in
+    // cents. The old centre was a fixed middle C 60, so the Root Key knob changed nothing.
+    const int rootKey = juce::roundToInt (rootKeyMod);
+    const double semitones = (double) (key - rootKey) + (double) pitchFineParam->load() / 100.0;
     voice.rate = std::pow (2.0, semitones / 12.0);
 
     // Velocity curve: the curve is the exponent of the velocity (1.0 = linear).
@@ -355,12 +357,16 @@ void SgraffitoProcessor::handleNoteOn (int keyIn, float velocity, int samplePosi
     }
     else
     {
+        // The absolute stream position is the envelope's start (plan 10 phase 3): the
+        // default 0.0 put envStart tens of thousands of samples behind the playhead, so
+        // the attack ramp was always "finished" and ATTACK did nothing on direct notes.
         const int idx = voicePool.allocateVoice (key, velocity, spanMod, lengthMod,
-                                                 modeParam->load(), sliceCountParam->load());
+                                                 modeParam->load(), sliceCountParam->load(),
+                                                 (double) streamSample + (double) samplePosition);
 
         if (idx >= 0)
         {
-            setupAllocatedVoice (idx, key, velocity);
+            setupAllocatedVoice (idx, key, velocity, rootKeyMod);
 
             // Sustain Hold: latch release when note is held. If sustain hold is on, the voice
             // continues playing after note-off until the next note of the same key or a timeout.
@@ -857,7 +863,8 @@ void SgraffitoProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                     // The shared post-allocation setup (plan 09 1.3): pitch and velocity
                     // curve like every other path. envStart comes from allocateVoice's
                     // scheduledPos; envValue tracks the envelope for a later release.
-                    setupAllocatedVoice (ghostIdx, key, velocity);
+                    setupAllocatedVoice (ghostIdx, key, velocity,
+                                         modulated (ModTarget::RootKey, rootKeyParam->load()));
                     voicePool.voices[ghostIdx].envValue = 1.0f;
                 }
 
@@ -879,7 +886,8 @@ void SgraffitoProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 
             if (idx >= 0)
             {
-                setupAllocatedVoice (idx, key, velocity);
+                setupAllocatedVoice (idx, key, velocity,
+                                     modulated (ModTarget::RootKey, rootKeyParam->load()));
 
                 // envStart from the scheduled position, envValue for a later release. A
                 // note scheduled in the past (relative to the block start) plays now.
@@ -944,23 +952,13 @@ void SgraffitoProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                 const float envValue = voice.envelope (currentSampleIdx, attackParam->load(), releaseMs, preparedSampleRate);
                 voice.envValue = envValue;
 
-                // The release envelope has decayed to zero: the voice is done. envEnd is
-                // -1 until a release was requested, so the test is >= 0 (not > 0): a
-                // release at stream sample 0 used to leave a silent zombie holding its
-                // slot forever.
-                if (envValue <= 0.0f && voice.envEnd >= 0.0)
-                {
-                    voice.active = false;
-                    continue;
-                }
-
-                if (envValue <= 0.0f)
-                    continue;
-
                 // Tape stop: the ramp ticks per output sample (the old code ticked once
                 // per block - one sample's worth per tick, so a 400 ms ramp took minutes -
                 // and ignored the returned level, so released voices kept sounding at
-                // full level and piled up in the pool).
+                // full level and piled up in the pool). This must run before the
+                // envelope-zero checks below: a release envelope that hits zero while the
+                // ramp is still running would otherwise starve the ramp, and the voice
+                // would never finish (found by testTapeStopReleaseFreesVoice, plan 10).
                 float tapeLevel = 1.0f;
                 if (voice.tapeStopping)
                 {
@@ -968,11 +966,33 @@ void SgraffitoProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 
                     if (! voice.tapeStop.active())
                     {
-                        voice.active = false;
+                        // The ramp is over (plan 10 phase 3, decision G2: the voice ends
+                        // when BOTH the ramp and the release envelope are finished). The
+                        // envelope tail - if it is still falling - plays on silently at
+                        // the ramp's zero level until it too is done.
                         voice.tapeStopping = false;
-                        continue;
+
+                        if (envValue <= 0.0f && voice.envEnd >= 0.0)
+                        {
+                            voice.active = false;
+                            continue;
+                        }
                     }
                 }
+
+                // The release envelope has decayed to zero AND the tape-stop ramp (if any)
+                // has run out: the voice is done (plan 10 phase 3, decision G2). envEnd is
+                // -1 until a release was requested, so the test is >= 0 (not > 0): a
+                // release at stream sample 0 used to leave a silent zombie holding its
+                // slot forever.
+                if (envValue <= 0.0f && voice.envEnd >= 0.0 && ! voice.tapeStopping)
+                {
+                    voice.active = false;
+                    continue;
+                }
+
+                if (envValue <= 0.0f)
+                    continue;
 
                 // Swell starts its backwards read at the region end; the other modes
                 // already have their frame position from allocation.

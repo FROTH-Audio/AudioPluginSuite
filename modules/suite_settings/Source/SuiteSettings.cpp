@@ -90,31 +90,34 @@ namespace SuiteSettings
           tooltipWindow (this)
     {
         setWantsKeyboardFocus (false);
+        setLookAndFeel (&lookAndFeel);
 
         showTooltips = store.getBool (tooltipsKey, true);
         fallbackTempo = clampFallbackBpm (store.getDouble (fallbackTempoKey, defaultFallbackBpm));
         presetPath = store.getString (presetFolderKey ("SpectralDrift"), juce::String());
         samplePath = store.getString (sgraffitoSampleFolderKey, juce::String());
 
-        auto captionFont = juce::Font (juce::FontOptions (13.0f, juce::Font::bold));
-        auto valueFont = juce::Font (juce::FontOptions (14.0f));
+        auto captionFont = SuiteUI::uiFont (13.0f, true);
+        auto valueFont = SuiteUI::uiFont (14.0f);
         auto asCaption = [&captionFont] (juce::Label& label, const juce::String& text)
         {
             label.setFont (captionFont);
             label.setJustificationType (juce::Justification::centredLeft);
+            label.setColour (juce::Label::textColourId, SuiteUI::Colours::text);
             label.setText (text, juce::dontSendNotification);
         };
-        auto asValueText = [&valueFont] (juce::Label& label)
+        auto asValueText = [&valueFont] (juce::Label& label, juce::Colour colour)
         {
             label.setFont (valueFont);
             label.setJustificationType (juce::Justification::centredLeft);
+            label.setColour (juce::Label::textColourId, colour);
         };
 
         // Tooltips row: toggle and On/Off text.
         asCaption (tooltipsCaption, "Tooltips on controls");
         tooltipsToggle.setToggleState (showTooltips, juce::dontSendNotification);
         tooltipsToggle.onStateChange = [this] { applyTooltipsSetting(); };
-        asValueText (tooltipsValue);
+        asValueText (tooltipsValue, SuiteUI::Colours::text);
         addAndMakeVisible (tooltipsCaption);
         addAndMakeVisible (tooltipsToggle);
         addAndMakeVisible (tooltipsValue);
@@ -137,8 +140,10 @@ namespace SuiteSettings
 
         // User preset folder row.
         asCaption (presetFolderCaption, "User preset folder");
-        asValueText (presetFolderText);
+        asValueText (presetFolderText, SuiteUI::Colours::textDim);
         presetFolderBrowse.onClick = [this] { browse (false); };
+        presetFolderBrowse.setColour (juce::TextButton::buttonColourId, SuiteUI::Colours::panelLight);
+        presetFolderBrowse.setColour (juce::TextButton::textColourOffId, SuiteUI::Colours::text);
         addAndMakeVisible (presetFolderCaption);
         addAndMakeVisible (presetFolderText);
         addAndMakeVisible (presetFolderBrowse);
@@ -147,8 +152,10 @@ namespace SuiteSettings
         if (showSampleFolderRow)
         {
             asCaption (sampleFolderCaption, "Sgraffito sample search folder");
-            asValueText (sampleFolderText);
+            asValueText (sampleFolderText, SuiteUI::Colours::textDim);
             sampleFolderBrowse.onClick = [this] { browse (true); };
+            sampleFolderBrowse.setColour (juce::TextButton::buttonColourId, SuiteUI::Colours::panelLight);
+            sampleFolderBrowse.setColour (juce::TextButton::textColourOffId, SuiteUI::Colours::text);
             addAndMakeVisible (sampleFolderCaption);
             addAndMakeVisible (sampleFolderText);
             addAndMakeVisible (sampleFolderBrowse);
@@ -160,12 +167,18 @@ namespace SuiteSettings
         setSize (420, showSampleFolderRow ? 236 : 184);
     }
 
-    SettingsDialog::~SettingsDialog() = default;
+    SettingsDialog::~SettingsDialog()
+    {
+        setLookAndFeel (nullptr);
+    }
 
     void SettingsDialog::paint (juce::Graphics& g)
     {
-        g.fillAll (juce::Colours::white);
-        g.setColour (juce::Colours::black);
+        // The suite's dark panel, with the track colour as the border (plan 10 phase 5b).
+        // The suite look and feel supplies the control drawing, and every text colour is
+        // set explicitly, so no host look and feel can make this dialog unreadable again.
+        g.fillAll (SuiteUI::Colours::panel);
+        g.setColour (SuiteUI::Colours::track);
         g.drawRect (getLocalBounds().toFloat(), 1.0f);
     }
 
@@ -272,6 +285,7 @@ namespace SuiteSettings
     {
         auto options = juce::DialogWindow::LaunchOptions{};
         options.dialogTitle = "Settings";
+        options.dialogBackgroundColour = SuiteUI::Colours::panel;   // the title bar matches the content
         options.content = juce::OptionalScopedPointer<juce::Component> (
             new SettingsDialog (store, showSampleFolderRow), true);
         options.componentToCentreAround = centreAround;

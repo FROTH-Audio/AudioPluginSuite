@@ -8,6 +8,7 @@ if(SUITE_BUILD_TESTS)
         tests/SuiteSettingsTests.cpp
     )
 
+    suite_ui_add_to_target(SuiteSettingsTests)
     suite_settings_add_to_target(SuiteSettingsTests)
 
     target_link_libraries(SuiteSettingsTests PRIVATE

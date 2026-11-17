@@ -935,22 +935,22 @@ namespace
         using namespace CoreDSP::Sampler;
 
         // Full span: lowest key starts at 0, highest at end of sample.
-        const auto low = keyRegion (0, 60, 1.0, 0.1);
+        const auto low = keyRegion (0, 1.0, 0.1);
         assert (low.start == 0.0);
         assert (std::abs (low.length - 0.1) < 1e-9);
 
-        const auto high = keyRegion (127, 60, 1.0, 0.1);
+        const auto high = keyRegion (127, 1.0, 0.1);
         assert (std::abs (high.start + high.length - 1.0) < 1e-9);
 
         // Half span: the whole keyboard covers half the sample (start positions).
-        const auto half = keyRegion (0, 60, 0.5, 0.1);
+        const auto half = keyRegion (0, 0.5, 0.1);
         assert (half.start == 0.0);
 
-        const auto halfHigh = keyRegion (127, 60, 0.5, 0.1);
+        const auto halfHigh = keyRegion (127, 0.5, 0.1);
         assert (std::abs (halfHigh.start - 0.5) < 1e-9);
 
-        // Root key plays at natural pitch; its region position is in the middle.
-        const auto root = keyRegion (60, 60, 1.0, 0.1);
+        // Key 60's region position is in the middle of the span.
+        const auto root = keyRegion (60, 1.0, 0.1);
         assert (root.start > 0.0 && root.start < 1.0);
 
         std::puts ("[PASS] testKeyRegionMapping");

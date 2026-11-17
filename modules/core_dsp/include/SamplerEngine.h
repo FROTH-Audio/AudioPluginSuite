@@ -264,17 +264,23 @@ namespace CoreDSP::Sampler
             voice.noteHeld = false;
             voice.releaseStart = sampleIndex;
 
+            // The envelope's release always runs (plan 10 phase 3, decision G2): the
+            // Release parameter shapes the tail in every mode, and the tape-stop ramp
+            // (when Tape Stop Time is set) multiplies its own curve on top. The old
+            // tape-only branch never set envEnd, so Release did nothing at the default
+            // Tape Stop Time of 400 ms.
+            if (voice.envEnd < 0.0)
+            {
+                voice.releaseLevel = voice.envValue;
+                voice.envEnd = sampleIndex;
+            }
+
             if (tapeStopTimeMs > 0.0)
             {
                 voice.tapeStopping = true;
                 const auto curve = static_cast<TapeStopRamp::Curve> (
                     std::clamp (tapeStopCurve, 0, static_cast<int> (TapeStopRamp::Curve::slowThenFast)));
                 voice.tapeStop.start (tapeStopTimeMs, curve);
-            }
-            else if (voice.envEnd < 0.0)
-            {
-                voice.releaseLevel = voice.envValue;
-                voice.envEnd = sampleIndex;
             }
         }
 
@@ -310,7 +316,7 @@ namespace CoreDSP::Sampler
                 return chopRegion (slice, count);
             }
 
-            return keyRegion (key, 60, spanPercent / 100.0, lengthPercent / 100.0);
+            return keyRegion (key, spanPercent / 100.0, lengthPercent / 100.0);
         }
 
         int findVoiceToAllocate() noexcept

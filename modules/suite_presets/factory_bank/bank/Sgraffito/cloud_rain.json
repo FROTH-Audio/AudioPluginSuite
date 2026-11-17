@@ -1,12 +1,13 @@
 {
   "_name": "Cloud Rain",
   "_category": "Melodic",
-  "_description": "High pentatonic with long gates and drift.",
+  "_description": "High pentatonic with long gates and sparse grains.",
   "_plugin": "Sgraffito",
   "_pluginVersion": "1.0.0",
-  "_samplePath": "embedded:cloud_4k.wav",
-  "rootKey": 60,
+  "_samplePath": "embedded:cloud_rain_4k.wav",
   "scale": 3,
+  "release": 2000.0,
+  "grainSize": 120.0,
   "grainDensity": 4.0,
-  "swellTime": 200.0
+  "grainSpread": 60.0
 }

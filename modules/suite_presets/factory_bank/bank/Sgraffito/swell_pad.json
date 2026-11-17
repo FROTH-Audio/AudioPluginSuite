@@ -1,10 +1,14 @@
 {
   "_name": "Swell Pad",
   "_category": "Pads",
-  "_description": "Long crossfade swell with drift and noise.",
+  "_description": "Long soft swells with surface noise.",
   "_plugin": "Sgraffito",
   "_pluginVersion": "1.0.0",
+  "_samplePath": "embedded:swell_pad_4k.wav",
   "mode": 3,
-  "swellCrossfade": 150.0,
+  "attack": 250.0,
+  "release": 3000.0,
+  "memoryAmount": 30.0,
+  "memoryDecay": 20.0,
   "dust": 15.0
 }

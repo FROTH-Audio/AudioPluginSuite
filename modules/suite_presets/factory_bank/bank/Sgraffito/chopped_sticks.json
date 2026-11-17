@@ -4,7 +4,9 @@
   "_description": "Slice a sample into many short notes.",
   "_plugin": "Sgraffito",
   "_pluginVersion": "1.0.0",
+  "_samplePath": "embedded:chopped_sticks_4k.wav",
   "mode": 1,
-  "sliceCount": 8,
-  "grainDensity": 20.0
+  "velocityCurve": 1.3,
+  "release": 120.0,
+  "sliceCount": 8
 }
