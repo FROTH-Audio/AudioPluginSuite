@@ -1017,6 +1017,145 @@ namespace
     }
 
     // ------------------------------------------------------------------
+    // T2: the Cloud-crackle-and-silence regressions.
+
+    /** Scrub plays at the sample's own rate: the voice's state machine advanced once per
+        output *channel* before, so stereo output played everything at double speed and
+        ended one-shots after half the region. A whole-sample region must still be playing
+        past 25 000 samples (the old code finished at 24 000). */
+    void testScrubPlaysAtSampleRate()
+    {
+        Processor processor;
+        processor.prepareToPlay (sampleRate, blockSize);
+
+        // renderNote loads a one-second sine sample and sets Region Length to 100 %,
+        // so the whole sample is the region.
+        const auto output = renderNote (processor, 50);   // 50 x 512 = 25 600 samples
+
+        float latePeak = 0.0f;
+        const size_t lateStart = output.size() - 4 * blockSize;
+
+        for (size_t n = lateStart; n < output.size(); ++n)
+            latePeak = std::max (latePeak, std::abs (output[n]));
+
+        assert (latePeak > 0.05f);   // still sounding past 24 000 samples
+        pass ("testScrubPlaysAtSampleRate");
+    }
+
+    /** Cloud holds its level over a second, and both channels read the same grains.
+        The old per-channel state machine gave each side its own grain positions
+        (the crackle), and the binary memory gate faded every voice to true silence. */
+    void testCloudSustainsInStereo()
+    {
+        Processor processor;
+        processor.prepareToPlay (sampleRate, blockSize);
+        setParameter (processor.apvts, Processor::modeId, 2.0f);   // Cloud
+
+        // A quiet sine so four lanes summing cannot clip the assert range.
+        juce::AudioBuffer<float> testBuffer (2, 48000);
+        for (int ch = 0; ch < 2; ++ch)
+            for (int i = 0; i < 48000; ++i)
+                testBuffer.setSample (ch, i,
+                    0.25f * (float) std::sin (2.0 * juce::MathConstants<double>::pi * 440.0 * i / sampleRate));
+
+        processor.loadedSample = std::make_unique<LoadedSample>();
+        processor.loadedSample->buffer = testBuffer;
+        processor.loadedSample->sourceSampleRate = sampleRate;
+        processor.sampleBuffer.store (&processor.loadedSample->buffer, std::memory_order_release);
+
+        setParameter (processor.apvts, Processor::regionSpanId, 100.0f);
+        setParameter (processor.apvts, Processor::regionLengthId, 100.0f);
+
+        juce::AudioBuffer<float> audio (2, blockSize);
+
+        float earlyPeak = 0.0f;
+        float latePeak = 0.0f;
+        float maxChannelDifference = 0.0f;
+
+        for (int block = 0; block < 100; ++block)   // 100 x 512 = 51 200 samples, ~1.07 s
+        {
+            audio.clear();
+            juce::MidiBuffer midi;
+
+            if (block == 0)
+                midi.addEvent (juce::MidiMessage::noteOn (1, 60, 0.8f), 0);
+
+            processor.processBlock (audio, midi);
+
+            for (int n = 0; n < blockSize; ++n)
+            {
+                const float l = audio.getSample (0, n);
+                const float r = audio.getSample (1, n);
+                earlyPeak = block >= 5 && block < 15 ? std::max (earlyPeak, std::max (std::abs (l), std::abs (r))) : earlyPeak;
+                latePeak = block >= 85 && block < 95 ? std::max (latePeak, std::max (std::abs (l), std::abs (r))) : latePeak;
+                maxChannelDifference = std::max (maxChannelDifference, std::abs (l - r));
+            }
+        }
+
+        std::printf ("cloud: early peak %.4f, late peak %.4f, max L/R diff %.2e\n",
+                     earlyPeak, latePeak, maxChannelDifference);
+
+        // Sound at the start, and still sound a second later: the default Memory Amount
+        // of 20 % must not fade the note away (its floor is 80 %).
+        assert (earlyPeak > 0.05f);
+        assert (latePeak > 0.05f);
+
+        // Identical stereo reads: both channels follow the same grain positions.
+        assert (maxChannelDifference < 1.0e-6f);
+
+        // The cloud note still runs: its lanes only end on release.
+        assert (processor.voicePool.countActive() == CoreDSP::Sampler::cloudLanesPerNote);
+
+        pass ("testCloudSustainsInStereo");
+    }
+
+    /** A released note's tape stop runs in real time and frees the voice. The ramp
+        ticked once per block before (one sample's worth per tick), so the default
+        400 ms stop took minutes and the voice piled up in the pool at full level. */
+    void testTapeStopReleaseFreesVoice()
+    {
+        Processor processor;
+        processor.prepareToPlay (sampleRate, blockSize);
+
+        juce::AudioBuffer<float> testBuffer (2, 48000);
+        for (int ch = 0; ch < 2; ++ch)
+            for (int i = 0; i < 48000; ++i)
+                testBuffer.setSample (ch, i,
+                    0.5f * (float) std::sin (2.0 * juce::MathConstants<double>::pi * 440.0 * i / sampleRate));
+
+        processor.loadedSample = std::make_unique<LoadedSample>();
+        processor.loadedSample->buffer = testBuffer;
+        processor.loadedSample->sourceSampleRate = sampleRate;
+        processor.sampleBuffer.store (&processor.loadedSample->buffer, std::memory_order_release);
+
+        juce::AudioBuffer<float> audio (2, blockSize);
+        audio.clear();
+
+        juce::MidiBuffer midiOn;
+        midiOn.addEvent (juce::MidiMessage::noteOn (1, 60, 0.8f), 0);
+        processor.processBlock (audio, midiOn);
+        assert (processor.voicePool.countActive() > 0);
+
+        // The default Tape Stop Time is 400 ms: the released voice must be gone well
+        // inside a second of blocks.
+        juce::MidiBuffer midiOff;
+        midiOff.addEvent (juce::MidiMessage::noteOff (1, 60, 0.8f), 0);
+        processor.processBlock (audio, midiOff);
+
+        bool freed = false;
+        for (int block = 0; block < 60 && ! freed; ++block)   // 60 x 512 = 0.64 s
+        {
+            audio.clear();
+            juce::MidiBuffer none;
+            processor.processBlock (audio, none);
+            freed = processor.voicePool.countActive() == 0;
+        }
+
+        assert (freed);
+        pass ("testTapeStopReleaseFreesVoice");
+    }
+
+    // ------------------------------------------------------------------
     // Plan 07: sample-linked presets and sessions.
 
     /** Writes a one-second mono WAV of a constant value into the temp folder and returns it. */
@@ -2007,6 +2146,9 @@ int main (int argc, char** argv)
     testModulationStaysInRange();
     testModesProduceDifferentAudio();
     testKeyChangesPitch();
+    testScrubPlaysAtSampleRate();
+    testCloudSustainsInStereo();
+    testTapeStopReleaseFreesVoice();
     testPresetSampleLinkRoundTrip();
     testPresetSampleLinkLoads();
     testPresetWithoutSampleLeavesSample();

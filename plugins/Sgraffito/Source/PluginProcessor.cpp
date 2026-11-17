@@ -704,7 +704,11 @@ void SgraffitoProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                           modulated (ModTarget::Humanise, humaniseParam->load()),
                           sustainHoldParam, releaseMs);
         else
-            handleNoteOff (note.key, 0, modulated (ModTarget::SustainHold, sustainHoldParam->load()) > 0.5f, releaseMs, blockStartSample, tapeStopTimeParameter, tapeStopCurveParameter);
+            // The keyboard's note-off releases at this block's start (the old 0 made
+            // releaseVoice set envEnd = 0, which left a silent zombie in the pool).
+            handleNoteOff (note.key, (int) blockStartSample,
+                           modulated (ModTarget::SustainHold, sustainHoldParam->load()) > 0.5f,
+                           releaseMs, blockStartSample, tapeStopTimeParameter, tapeStopCurveParameter);
     }
 
     // Get the current sample buffer (atomic read).
@@ -724,70 +728,97 @@ void SgraffitoProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     // Chaos drift is not wired to the audio yet (a follow-up plan owns it, like the
     // other unwired texture parameters documented in AGENTS.md).
 
+    // Memory and surface settings for the whole block, hoisted out of the voice loop.
+    //
+    // Memory (the "sound disappears completely" bug): the note's gain fades toward
+    // (1 - amount) over the decay time, so amount 0 leaves the note alone. The old gate
+    // ("amount > 0.5" on a 0-100 % parameter whose default is 20) faded every voice's
+    // gain exponentially toward true silence, which silenced sustained notes after
+    // about a minute and left dead voices holding their pool slots.
+    const double memoryAmount = juce::jlimit (0.0, 1.0,
+        (double) modulated (ModTarget::MemoryAmount, memoryAmountParam->load()) / 100.0);
+    const double memoryTau = juce::jmax (0.01, (double) memoryDecayParam->load());
+    const double memoryFloor = 1.0 - memoryAmount;
+
+    // Surface effects (dust/crackle/wow/flutter): derived per block from the voice's own
+    // phase state. The old code multiplied their factors straight into voice.rate /
+    // voice.gain once per block, so any nonzero amount grew exponentially (crackle built
+    // up until the output clipped, wow's rate ran away and the grain wrap loops span).
+    // Amounts are 0-100 %; an amount of zero leaves the voice untouched.
+    const float dustAmount = juce::jlimit (0.0f, 1.0f,
+        modulated (ModTarget::Dust, apvts.getRawParameterValue (dustId)->load()) / 100.0f);
+    const float crackleAmount = juce::jlimit (0.0f, 1.0f,
+        modulated (ModTarget::Crackle, apvts.getRawParameterValue (crackleId)->load()) / 100.0f);
+    const float wowAmount = juce::jlimit (0.0f, 1.0f,
+        modulated (ModTarget::Wow, apvts.getRawParameterValue (wowId)->load()) / 100.0f);
+    const float flutterAmount = juce::jlimit (0.0f, 1.0f,
+        modulated (ModTarget::Flutter, apvts.getRawParameterValue (flutterId)->load()) / 100.0f);
+
+    // Phase rates in Hz (block-size independent): wow is a slow pitch wobble, flutter a
+    // faster level wobble. Dust and crackle take one deterministic step per block.
+    constexpr double wowHz = 1.5;
+    constexpr double flutterHz = 8.0;
+    constexpr double maxDustJitterFrames = 8.0;     // sparse specks, a few frames wide
+    constexpr float maxCrackleStep = 0.3f;          // +-30 % level steps at full amount
+    const double wowPhaseInc = wowHz * advanceSeconds;
+    const double flutterPhaseInc = flutterHz * advanceSeconds;
+
     for (int i = 0; i < CoreDSP::Sampler::maxVoices; ++i)
     {
         auto& voice = voicePool.voices[i];
         if (! voice.active)
             continue;
 
-        // Advance the tape-stop ramp; the per-sample loop keeps playing at voice.rate.
-        if (voice.tapeStopping)
-            voice.tapeStop.tick (preparedSampleRate);
-
-        // Apply memory trace: the note's layer fades over the memory decay time, once per
-        // block (memoryDecay seconds is the time constant).
-        if (modulated (ModTarget::MemoryAmount, memoryAmountParam->load()) > 0.5f)
+        // The memory fade is bounded: the note keeps its (1 - amount) floor, and only a
+        // full Memory Amount lets it decay to silence over the decay time.
+        if (memoryAmount > 0.0)
         {
-            const double tau = juce::jmax (0.01, (double) memoryDecayParam->load());  // seconds
-            voice.gain *= (float) std::exp (- (double) numSamples / (tau * preparedSampleRate));
+            const double decayed = std::exp (- (double) numSamples / (memoryTau * preparedSampleRate));
+            voice.gain = (float) (memoryFloor + ((double) voice.gain - memoryFloor) * decayed);
         }
 
-        // Swell reads backwards from the region end in the per-sample loop below.
-        // The swellTime/swellCrossfade crossfade is not wired to the audio yet
-        // (documented in AGENTS.md; a follow-up plan owns it).
+        // Surface factors are recomputed from the base values every block, never compounded.
+        voice.surfaceGainFactor = 1.0f;
+        voice.surfaceRateFactor = 1.0;
+        voice.surfaceReadOffset = 0.0;
 
-        // Surface effects: per-block modulation of playback rate and level for dust/crackle/wow/flutter.
-        // Moved from per-sample to block-rate for efficiency and stability (plan 05.2).
-        // These are applied after the main processing, before output.
-        if (modulated (ModTarget::Dust, apvts.getRawParameterValue(dustId)->load()) > 0.5f)
+        if (wowAmount > 0.0f)
         {
-            voice.surfaceState.phaseDust += 0.1;
-            if (voice.surfaceState.phaseDust >= 1.0)
-                voice.surfaceState.phaseDust -= 1.0;
-            const double phaseInc = voice.surfaceState.phaseDust * 0.001f;
-            voice.position += phaseInc;
-        }
-        if (modulated (ModTarget::Crackle, apvts.getRawParameterValue(crackleId)->load()) > 0.5f)
-        {
-            voice.surfaceState.phaseCrackle += 10.0;
-            if (voice.surfaceState.phaseCrackle >= 1.0)
-                voice.surfaceState.phaseCrackle -= 1.0;
-            const double phaseInc = voice.surfaceState.phaseCrackle * 0.01f;
-            voice.gain *= std::clamp (1.0 + phaseInc * 0.3, 0.7, 1.3);
-        }
-        if (modulated (ModTarget::Wow, apvts.getRawParameterValue(wowId)->load()) > 0.5f)
-        {
-            voice.surfaceState.phaseWow += 0.5;
-            if (voice.surfaceState.phaseWow >= 1.0)
-                voice.surfaceState.phaseWow -= 1.0;
-            const double phaseInc = voice.surfaceState.phaseWow * 0.0005f;
-            voice.rate *= std::clamp (1.0 + phaseInc * 0.2, 0.8, 1.2);
-        }
-        if (modulated (ModTarget::Flutter, apvts.getRawParameterValue(flutterId)->load()) > 0.5f)
-        {
-            voice.surfaceState.phaseFlutter += 5.0;
-            if (voice.surfaceState.phaseFlutter >= 1.0)
-                voice.surfaceState.phaseFlutter -= 1.0;
-            const double phaseInc = voice.surfaceState.phaseFlutter * 0.005f;
-            voice.gain *= std::clamp (1.0 + phaseInc * 0.5, 0.5, 1.5);
+            voice.surfaceState.phaseWow += wowPhaseInc;
+            voice.surfaceState.phaseWow -= std::floor (voice.surfaceState.phaseWow);
+            voice.surfaceRateFactor = 1.0 + (double) wowAmount * 0.02
+                * std::sin (voice.surfaceState.phaseWow * juce::MathConstants<double>::twoPi);
         }
 
-        // Release voice if tape stop complete after full block.
-        if (voice.tapeStopping && ! voice.tapeStop.active())
+        if (flutterAmount > 0.0f)
         {
-            voice.active = false;
-            voice.tapeStopping = false;
+            voice.surfaceState.phaseFlutter += flutterPhaseInc;
+            voice.surfaceState.phaseFlutter -= std::floor (voice.surfaceState.phaseFlutter);
+            voice.surfaceGainFactor *= 1.0f + flutterAmount * 0.05f * static_cast<float> (
+                std::sin (voice.surfaceState.phaseFlutter * juce::MathConstants<double>::twoPi));
         }
+
+        if (crackleAmount > 0.0f)
+        {
+            voice.surfaceState.sampleCounter += 1;
+            const double unit = CoreDSP::Sequencer::hashUnit (voice.noteId,
+                                                              (std::uint32_t) voice.surfaceState.sampleCounter);
+            voice.surfaceGainFactor *= 1.0f + crackleAmount * maxCrackleStep
+                                           * static_cast<float> (2.0 * unit - 1.0);
+        }
+
+        // Dust: a bounded read jitter (a few frames), not a permanent position offset.
+        // The old code pushed voice.position itself, which accumulated without limit.
+        if (dustAmount > 0.0f)
+        {
+            const double unit = CoreDSP::Sequencer::hashUnit (voice.noteId,
+                                                              (std::uint32_t) voice.surfaceState.sampleCounter + 0x9E3779B9u);
+            voice.surfaceReadOffset = (unit - 0.5) * 2.0 * (double) dustAmount * maxDustJitterFrames;
+        }
+
+        // The tape-stop ramp ticks per output sample in the audio loop below, where its
+        // level factor is also applied. (It used to tick once per block - one sample's
+        // worth per tick, so a 400 ms ramp took minutes - and the level was ignored.)
     }
 
     // Lay back, swing and humanise: fire the pending notes whose scheduled position is due
@@ -864,12 +895,18 @@ void SgraffitoProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     }
 
     // AUDIO PLAYBACK: read from sample buffer and write to output.
-    // This is the critical missing piece - we must actually play audio!
+    // The voice state machine runs ONCE per output sample (the old loop ran it once per
+    // output *channel*, so stereo output advanced every voice twice as fast - Scrub,
+    // Chop and Swell played at double speed - and the second channel's pass read the
+    // grain state the first pass had already moved, which decorrelated L/R and crackled).
+    // Each voice is advanced once, then its contribution is read per channel: a mono
+    // sample feeds every output channel, a stereo sample keeps its own channels.
     if (samplePtr != nullptr && samplePtr->getNumSamples() > 0)
     {
         const auto* sample = static_cast<const juce::AudioBuffer<float>*>(samplePtr);
         const int sampleChannels = std::max (1, sample->getNumChannels());
-        const double sampleLength = (double) sample->getNumSamples();
+        const int numSampleFrames = sample->getNumSamples();
+        const double sampleLength = (double) numSampleFrames;
 
         // Cloud grain timing: grain size in milliseconds, density in grains per second.
         // The guards keep a grain at least one sample long and one grain per second at
@@ -880,128 +917,150 @@ void SgraffitoProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         const double grainInterval = juce::jmax (minGrainIntervalSamples, preparedSampleRate / (double) juce::jmax (1.0f, grainDensityParam->load()));
         const double grainSpread = juce::jlimit (0.0, 1.0, (double) grainSpreadParam->load() / 100.0);
 
-        for (int ch = 0; ch < numChannels; ++ch)
+        // The plugin is stereo-only; a host that offered more channels would leave the
+        // extras silent (the buffer is cleared), never out of bounds.
+        constexpr int maxOutChannels = 2;
+        const int outChannels = juce::jmin (numChannels, maxOutChannels);
+        const float* readPtrs[maxOutChannels] = {};
+        float* writePtrs[maxOutChannels] = {};
+
+        for (int ch = 0; ch < outChannels; ++ch)
         {
-            float* outPtr = buffer.getWritePointer(ch);
-            // A mono sample feeds every output channel (the embedded factory sample is mono).
-            const int srcCh = ch % sampleChannels;
-            const float* sampleData = sample->getReadPointer(srcCh);
-            
-            // Process each output sample - voices contribute to all samples in the block
-            for (int n = 0; n < numSamples; ++n)
+            readPtrs[ch] = sample->getReadPointer (ch % sampleChannels);
+            writePtrs[ch] = buffer.getWritePointer (ch);
+        }
+
+        for (int n = 0; n < numSamples; ++n)
+        {
+            const double currentSampleIdx = blockStartSample + static_cast<double> (n);
+
+            for (int i = 0; i < CoreDSP::Sampler::maxVoices; ++i)
             {
-                float outputValue = 0.0f;
-                
-                const double currentSampleIdx = blockStartSample + static_cast<double>(n);
-                
-                // Process each active voice for this sample
-                for (int i = 0; i < CoreDSP::Sampler::maxVoices; ++i)
+                auto& voice = voicePool.voices[i];
+                if (! voice.active)
+                    continue;
+
+                // Envelope value at this sample, cached for a later release.
+                const float envValue = voice.envelope (currentSampleIdx, attackParam->load(), releaseMs, preparedSampleRate);
+                voice.envValue = envValue;
+
+                // The release envelope has decayed to zero: the voice is done. envEnd is
+                // -1 until a release was requested, so the test is >= 0 (not > 0): a
+                // release at stream sample 0 used to leave a silent zombie holding its
+                // slot forever.
+                if (envValue <= 0.0f && voice.envEnd >= 0.0)
                 {
-                    auto& voice = voicePool.voices[i];
-                    if (!voice.active)
-                        continue;
-                    
-                    // Get envelope value at this sample
-                    const float envValue = voice.envelope(currentSampleIdx, attackParam->load(), releaseMs, preparedSampleRate);
-                    
-                    // Cache the current envelope value: releaseVoice reads it as the release level,
-                    // so a note-off fades from where the envelope actually is.
-                    voice.envValue = envValue;
-                    
-                    // The release envelope has decayed to zero: the voice is done.
-                    if (envValue <= 0.0f && voice.envEnd > 0.0)
+                    voice.active = false;
+                    continue;
+                }
+
+                if (envValue <= 0.0f)
+                    continue;
+
+                // Tape stop: the ramp ticks per output sample (the old code ticked once
+                // per block - one sample's worth per tick, so a 400 ms ramp took minutes -
+                // and ignored the returned level, so released voices kept sounding at
+                // full level and piled up in the pool).
+                float tapeLevel = 1.0f;
+                if (voice.tapeStopping)
+                {
+                    tapeLevel = voice.tapeStop.tick (preparedSampleRate);
+
+                    if (! voice.tapeStop.active())
                     {
                         voice.active = false;
+                        voice.tapeStopping = false;
                         continue;
                     }
+                }
 
-                    if (envValue <= 0.0f)
-                        continue;
+                // Swell starts its backwards read at the region end; the other modes
+                // already have their frame position from allocation.
+                if (! voice.positionInitialised)
+                {
+                    voice.positionInitialised = true;
+                    if (voice.mode == 3)
+                        voice.position = voice.regionEnd * sampleLength - 1.0;
+                }
 
-                    // Swell starts its backwards read at the region end; the other modes
-                    // already have their frame position from allocation.
-                    if (! voice.positionInitialised)
+                const double regionStartF = voice.regionStart * sampleLength;
+                const double regionEndF = voice.regionEnd * sampleLength;
+                const double regionLenF = juce::jmax (1.0, regionEndF - regionStartF);
+
+                if (voice.mode == 2)
+                {
+                    // Cloud: each lane fires grains on a density grid, reads them with a
+                    // half-sine window, and advances through the region (wrapping).
+                    if (! voice.grainActive && currentSampleIdx >= voice.nextGrainSample)
                     {
-                        voice.positionInitialised = true;
-                        if (voice.mode == 3)
-                            voice.position = voice.regionEnd * sampleLength - 1.0;
+                        voice.grainActive = true;
+                        voice.grainStartSample = currentSampleIdx;
+                        voice.grainDurationSamples = grainSizeSamples;
+                        voice.grainPosition = CoreDSP::Sampler::cloudGrainPosition (
+                            voice.noteId, voice.grainIndex, voice.cloudLane,
+                            voice.regionStart, voice.regionEnd, grainSpread,
+                            numSampleFrames);
+                        voice.nextGrainSample = currentSampleIdx + grainInterval;
                     }
 
-                    const double regionStartF = voice.regionStart * sampleLength;
-                    const double regionEndF = voice.regionEnd * sampleLength;
-                    const double regionLenF = juce::jmax (1.0, regionEndF - regionStartF);
-
-                    if (voice.mode == 2)
+                    if (voice.grainActive)
                     {
-                        // Cloud: each lane fires grains on a density grid, reads them with a
-                        // half-sine window, and advances through the region (wrapping).
-                        if (! voice.grainActive && currentSampleIdx >= voice.nextGrainSample)
+                        const double progress = (currentSampleIdx - voice.grainStartSample)
+                                                / voice.grainDurationSamples;
+
+                        if (progress >= 1.0)
                         {
-                            voice.grainActive = true;
-                            voice.grainStartSample = currentSampleIdx;
-                            voice.grainDurationSamples = grainSizeSamples;
-                            voice.grainPosition = CoreDSP::Sampler::cloudGrainPosition (
-                                voice.noteId, voice.grainIndex, voice.cloudLane,
-                                voice.regionStart, voice.regionEnd, grainSpread,
-                                sample->getNumSamples());
-                            voice.nextGrainSample = currentSampleIdx + grainInterval;
-                        }
-
-                        if (voice.grainActive)
-                        {
-                            const double progress = (currentSampleIdx - voice.grainStartSample)
-                                                    / voice.grainDurationSamples;
-
-                            if (progress >= 1.0)
-                            {
-                                voice.grainActive = false;
-                                ++voice.grainIndex;
-                            }
-                            else
-                            {
-                                while (voice.grainPosition >= regionEndF)
-                                    voice.grainPosition -= regionLenF;
-                                while (voice.grainPosition < regionStartF)
-                                    voice.grainPosition += regionLenF;
-
-                                const int grainSample = (int) voice.grainPosition;
-                                if (grainSample >= 0 && grainSample < sample->getNumSamples())
-                                {
-                                    const double window = std::sin (progress * juce::MathConstants<double>::pi);
-                                    outputValue += (float) (sampleData[grainSample] * window)
-                                                   * voice.gain * voice.velocity * envValue;
-                                }
-
-                                voice.grainPosition += voice.rate
-                                                       * CoreDSP::Sampler::cloudLaneDetune (voice.cloudLane);
-                            }
-                        }
-                    }
-                    else
-                    {
-                        // Scrub / Chop / Swell: read the current position, then advance one
-                        // frame per output sample (backwards for Swell). The voice ends as a
-                        // one-shot when it runs past its region.
-                        const int readIndex = (int) voice.position;
-                        if (readIndex >= 0 && readIndex < sample->getNumSamples())
-                            outputValue += sampleData[readIndex] * voice.gain * voice.velocity * envValue;
-
-                        if (voice.mode == 3)
-                        {
-                            voice.position -= voice.rate;
-                            if (voice.position <= regionStartF)
-                                voice.active = false;
+                            voice.grainActive = false;
+                            ++voice.grainIndex;
                         }
                         else
                         {
-                            voice.position += voice.rate;
-                            if (voice.position >= regionEndF)
-                                voice.active = false;
+                            while (voice.grainPosition >= regionEndF)
+                                voice.grainPosition -= regionLenF;
+                            while (voice.grainPosition < regionStartF)
+                                voice.grainPosition += regionLenF;
+
+                            const double window = std::sin (progress * juce::MathConstants<double>::pi);
+                            const double level = window * voice.gain * voice.velocity * envValue
+                                                 * tapeLevel * voice.surfaceGainFactor;
+
+                            // Linear interpolation: the old integer truncation stepped
+                            // between frames, an audible crackle at high rates.
+                            for (int ch = 0; ch < outChannels; ++ch)
+                                writePtrs[ch][n] += CoreDSP::Sampler::readLinear (readPtrs[ch], numSampleFrames, voice.grainPosition)
+                                                    * (float) level;
+
+                            voice.grainPosition += voice.rate * voice.surfaceRateFactor
+                                                   * CoreDSP::Sampler::cloudLaneDetune (voice.cloudLane);
                         }
                     }
                 }
-                
-                outPtr[n] = outputValue;
+                else
+                {
+                    // Scrub / Chop / Swell: read the current position once (interpolated,
+                    // with the dust jitter), advance one frame per output sample (backwards
+                    // for Swell), and end as a one-shot at the region end.
+                    const double readPos = voice.position + voice.surfaceReadOffset;
+                    const double level = voice.gain * voice.velocity * envValue
+                                         * tapeLevel * voice.surfaceGainFactor;
+
+                    for (int ch = 0; ch < outChannels; ++ch)
+                        writePtrs[ch][n] += CoreDSP::Sampler::readLinear (readPtrs[ch], numSampleFrames, readPos)
+                                            * (float) level;
+
+                    if (voice.mode == 3)
+                    {
+                        voice.position -= voice.rate * voice.surfaceRateFactor;
+                        if (voice.position <= regionStartF)
+                            voice.active = false;
+                    }
+                    else
+                    {
+                        voice.position += voice.rate * voice.surfaceRateFactor;
+                        if (voice.position >= regionEndF)
+                            voice.active = false;
+                    }
+                }
             }
         }
     }

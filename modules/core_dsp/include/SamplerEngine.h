@@ -137,6 +137,14 @@ namespace CoreDSP::Sampler
         std::uint32_t noteId = 0;           // shared by all four lanes of a cloud note
         std::uint32_t startOrder = 0;       // monotonic, used by oldest-voice stealing
 
+        // Per-block surface factors, recomputed by the processor from the phase state below
+        // every block. They are read per sample and never compound into rate or gain: the
+        // old code multiplied their effects straight into voice.rate / voice.gain once per
+        // block, so any nonzero amount grew exponentially until the output clipped.
+        float surfaceGainFactor = 1.0f;     // crackle/flutter level factor for this block
+        double surfaceRateFactor = 1.0;     // wow rate factor for this block
+        double surfaceReadOffset = 0.0;     // dust read jitter, in frames
+
         int cloudLane = -1;
         std::uint32_t grainIndex = 0;
         bool grainActive = false;
