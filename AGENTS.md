@@ -30,8 +30,8 @@ Four audio plugins written with JUCE 9.0.5 in C++17. Formats: VST3 on Windows an
 | Dynamic Saturation Companion | `plugins/DynamicSaturation` | audio effect | `CoreDSP::Saturation` | amber `#FF9F1C` |
 | Micro-Timing Chaos Sequencer | `plugins/MicroTimingChaos` | MIDI effect, with stereo pass-through | `CoreDSP::Chaos::LorenzAttractor`, `CoreDSP::Sequencer` | lime `#7DFF5A` |
 | Sgraffito Memory Sampler | `plugins/Sgraffito` | Memory sampler (memory traces, tape-stop, granular cloud) | `CoreDSP::Sampler::DriftEngine`, `CoreDSP::Sampler::VoicePool`, `CoreDSP::Sampler::quantizeToScale` | slate `#9aa0a6` |
-| Stereo Tool Effect | `plugins/StereoTool` | audio effect | `CoreDSP::Stereo` (mid/side, width, drive) | violet `#B18CFF` (provisional) |
-| MIDI Chord Arp Scale Tool | `plugins/MidiEffect` | MIDI effect, with stereo pass-through | `CoreDSP::Chords`, `CoreDSP::Sampler::quantizeToScale` | teal `#4ECDC4` (provisional) |
+| Stereo Tool Effect | `plugins/StereoTool` | audio effect | `CoreDSP::Stereo` (mid/side, width, drive) | violet `#B18CFF` |
+| MIDI Chord Arp Scale Tool | `plugins/MidiEffect` | MIDI effect, with stereo pass-through | `CoreDSP::Chords`, `CoreDSP::Sampler::quantizeToScale` | teal `#4ECDC4` |
 
 - Manufacturer name `FROTH Audio` (shown by hosts; set by `COMPANY_NAME` in `modules/suite_plugin/SuitePlugin.cmake`), manufacturer code `Asui`, bundle IDs `com.audiosuite.<name>` (kept: they are part of the plugin identity, section 7).
 - Plugin code `Sgrf`. Codes and parameter IDs are saved in sessions

@@ -46,13 +46,13 @@ FROTH Audio makes plugins that work on sound at the level of its structure: the 
 <td>Traces in memory, frozen in time.<br>Memory traces, tape stop, ghost notes, scale lock and a granular cloud.</td>
 </tr>
 <tr>
-<td></td>
-<td><b>Stereo Tool Effect</b><br><sub>Stereo tool (brand lockup pending)</sub></td>
+<td align="center"><img src="modules/suite_ui/brand/lockup_stereo_tool.png" width="200" alt="FROTH Audio Stereo Tool Effect"></td>
+<td><b>Stereo Tool Effect</b><br><sub>Stereo tool</sub></td>
 <td>Widen, narrow or saturate a stereo image.<br>Mid/side width, tanh drive and a dry/wet mix.</td>
 </tr>
 <tr>
-<td></td>
-<td><b>MIDI Chord Arp Scale Tool</b><br><sub>MIDI effect (brand lockup pending)</sub></td>
+<td align="center"><img src="modules/suite_ui/brand/lockup_midi_effect.png" width="200" alt="FROTH Audio MIDI Chord Arp Scale Tool"></td>
+<td><b>MIDI Chord Arp Scale Tool</b><br><sub>MIDI effect</sub></td>
 <td>Every note becomes a chord.<br>Scale quantisation, chord qualities, arp ordering, octave and velocity shaping.</td>
 </tr>
 </table>

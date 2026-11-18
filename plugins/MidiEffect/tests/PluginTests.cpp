@@ -191,6 +191,29 @@ namespace
         checkEditor (processor);
         pass ("testEditor");
     }
+
+    /** Writes the editor render when SUITE_RENDER_DIR is set (plan 05 R9). */
+    void testRenderBaseline()
+    {
+        const auto folder = juce::SystemStats::getEnvironmentVariable ("SUITE_RENDER_DIR", {});
+
+        if (folder.isEmpty())
+        {
+            std::printf ("[SKIP] editor renders: set SUITE_RENDER_DIR to write them\n");
+            return;
+        }
+
+        Processor processor;
+        processor.prepareToPlay (sampleRate, blockSize);
+
+        std::unique_ptr<juce::AudioProcessorEditor> editor (processor.createEditor());
+        assert (editor != nullptr);
+        const juce::File file (juce::File (folder).getChildFile ("midieffect-default.png"));
+        assert (PluginTest::writeDeterministicPng (*editor, file));
+        processor.editorBeingDeleted (editor.get());
+
+        pass ("testRenderBaseline");
+    }
 }
 
 int main()
@@ -207,6 +230,7 @@ int main()
     testRetriggerReleasesPreviousChord();
     testAudioPassThrough();
     testEditor();
+    testRenderBaseline();
 
     std::puts ("All MIDI Chord/Arp/Scale Tool plugin tests passed.");
     return 0;
