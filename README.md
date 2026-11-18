@@ -1,9 +1,9 @@
 <p align="center">
-  <img src="docs/images/froth-audio-suite.png" alt="FROTH Audio: Spectral Drift Shifter, Dynamic Saturation Companion, Micro-Timing Chaos, Sgraffito, Stereo Tool Effect and MIDI Chord Arp Scale Tool" width="100%">
+  <img src="docs/images/froth-audio-suite.png" alt="FROTH Audio plugin suite banner" width="100%">
 </p>
 
 <p align="center">
-  <b>Six plugins that bend phase, drive and groove.</b><br>
+  <b>Plugins that bend phase, drive and groove.</b><br>
   VST3, Audio Unit and Standalone. Each plugin has its own accent colour and a live visualiser.
 </p>
 
@@ -147,7 +147,7 @@ Spectral Drift, Dynamic Saturation and Micro-Timing Chaos share a preset system 
 
 Spectral Drift's `freeze` is on only in the `Freeze` factory category; Dynamic Saturation's `drive` 24 + `fold` 50 appears only in `Extreme`; and Micro-Timing Chaos keeps host sync off and `bpm` at 120 in every factory preset. Micro-Timing Chaos's `lerpCurve` state property (not a parameter) round-trips through presets and the factory bank.
 
-**Sgraffito's sample follows the preset.** Sgraffito presets and host sessions carry a `samplePath` property on the `<PARAMETERS>` tree (not a parameter): an absolute file path or an `embedded:` URI. A preset with the property loads that sample; a preset without it leaves the sample alone, like a parameter the preset does not touch; INIT (and host program 0) resets the sample to the embedded factory default. File samples load in the background: the current sample keeps playing until the load is installed, so the interface never stalls on a big file (embedded samples and INIT load immediately). A path that cannot be found is searched for by file name in `userDocuments/AudioSuite/Sgraffito/Samples`; if it is still not found, the current sample keeps playing and the waveform view draws a "Sample missing - click to locate" overlay — clicking it opens the sample browser. Loading a sample marks the session dirty for the bar's SAVE indicator — intended, because the sample is part of the preset. Five factory presets (the cloud group) ship the embedded cloud sample variant.
+**Sgraffito's sample follows the preset.** Sgraffito presets and host sessions carry a `samplePath` property on the `<PARAMETERS>` tree (not a parameter): an absolute file path or an `embedded:` URI. A preset with the property loads that sample; a preset without it leaves the sample alone, like a parameter the preset does not touch; INIT (and host program 0) resets the sample to the embedded factory default. File samples load in the background: the current sample keeps playing until the load is installed, so the interface never stalls on a big file (embedded samples and INIT load immediately). A path that cannot be found is searched for by file name in `userDocuments/AudioSuite/Sgraffito/Samples`; if it is still not found, the current sample keeps playing and the waveform view draws a "Sample missing - click to locate" overlay — clicking it opens the sample browser. Loading a sample marks the session dirty for the bar's SAVE indicator - intended, because the sample is part of the preset. Every factory preset ships its own generated sample (see the bank's [README](modules/suite_presets/factory_bank/README.md)), so selecting a preset always loads the sample it was made with.
 
 ### Spectral Drift Shifter
 
@@ -294,6 +294,74 @@ The Lerp Curve group has two tabs. **Curve** is the editor above, with a live ma
 
 The left side of the editor shows the attractor's path, the step grid, and the LFO and routing panel at the bottom. Filled columns are the steps that fire, and the outlined column is the playhead. Each dot is a recent note. Its height shows its timing shift, and its size shows its velocity. Hover any control to see what it does in the line at the bottom of the window.
 
+### Sgraffito Memory Sampler
+
+A memory sampler. You load a sample, and the keyboard plays it: each key reads one region of the sample's timeline. Four playback modes reinterpret the sample, and the texture controls age it like a tape machine with memory traces — the longer a note plays, the quieter it gets. The plugin receives MIDI (its own keyboard strip included); there is no audio input.
+
+**Sample and mode**
+
+| Control | Range | Default | Description |
+|---|---|---|---|
+| **Mode** | Scrub, Chop, Cloud, Swell | Scrub | How the keyboard plays the sample. Scrub plays each key's region forward. Chop divides the sample into equal slices, one per key. Cloud plays grains that wrap around the region. Swell reads the region backwards. |
+| **Region Span** | 0 – 100 % | 100 % | How far across the sample the keyboard's regions reach. A key's region starts at its position times this value. |
+| **Region Length** | 1 – 100 % | 25 % | Width of each key's region, as a share of the sample. |
+| **Root Key** | 24 – 96 | C3 (60) | The pitch centre: this note plays the sample at its natural pitch, and Scale Lock centres on it. It does not move the region. |
+| **Pitch Fine** | −100 – +100 ct | 0 | Fine tuning of every note. |
+| **Level** | −60 – +6 dB | 0 dB | Output level of the whole plugin. |
+| **Velocity Curve** | 0.5 – 2.0 | 1.0 | How note velocity maps to loudness: 1.0 is linear, higher emphasises soft notes. |
+
+**Pitch**
+
+| Control | Range | Default | Description |
+|---|---|---|---|
+| **Scale Lock** | on / off | off | Quantises incoming notes to the selected scale, centred on Root Key. |
+| **Scale** | Chromatic, Major, Minor, Minor Pentatonic, Dorian, Whole Tone | Minor | The scale Scale Lock quantises to. |
+| **Glide** | 0 – 500 ms | 50 ms | Reserved for glide between successive notes (not wired yet). |
+
+**Envelope and tape stop**
+
+| Control | Range | Default | Description |
+|---|---|---|---|
+| **Attack** | 1 – 500 ms | 5 ms | Rise time of every note's volume envelope. |
+| **Release** | 10 – 5000 ms | 200 ms | Fall time of the volume envelope after a note-off. The tape-stop fade runs on top of this. |
+| **Tape Stop Time** | 0 – 5000 ms | 400 ms | On note-off, the level falls to zero over this time, shaped by the curve. Runs in every mode. |
+| **Tape Stop Curve** | Linear, Exponential, Slow Then Fast | Exponential | The shape of the tape-stop fade. |
+
+**Texture** (the TEXTURE page groups these into five framed rows)
+
+| Control | Range | Default | Description |
+|---|---|---|---|
+| **Memory Amount** | 0 – 100 % | 20 % | How far each note fades toward this floor over the decay time. 0 % keeps notes at full level. |
+| **Memory Decay** | 0 – 60 s | 10 s | Time constant of the memory fade. |
+| **Slice Count** | 2 – 32 | 16 | Chop mode: number of equal slices across the sample. |
+| **Drift Amount / Drift Speed** | 0 – 100 % / 0.01 – 2.0 | 0 % / 0.1 | Reserved for the Lorenz chaos drift (not wired yet). |
+| **Lay Back** | 0 – 30 ms | 0 ms | Delays every note by this many milliseconds. |
+| **Swing** | 50 – 75 % | 50 % | Repeated notes of one key alternate straight and swung; the swung copy is delayed up to half a beat. |
+| **Humanise** | 0 – 15 ms | 0 ms | Randomised per-note timing offset, patterned by the Shuffle Seed. |
+| **Shuffle Seed** | 0 – 9999 | 1 | Reshuffles the humanise pattern. |
+| **Ghost On** | on / off | off | Ghost notes: a quiet delayed copy fires when a note plays below the threshold. |
+| **Ghost Threshold** | 1 – 100 % | 40 % | Ghost notes fire below this velocity. |
+| **Ghost Level** | −40 – 0 dB | −12 dB | Level of the ghost copy. |
+| **Ghost Delay** | 0 – 50 ms | 15 ms | Delay of the ghost copy. |
+| **Grain Size** | 5 – 300 ms | 60 ms | Cloud mode: grain length. |
+| **Grain Density** | 1 – 60 /s | 12 /s | Cloud mode: grains per second per lane. |
+| **Grain Spread** | 0 – 100 % | 40 % | Cloud mode: how far apart the four grain lanes start. |
+| **Sustain Hold** | on / off | off | Note-offs latch; the next note of the same key releases. |
+| **Swell Time** | 50 – 4000 ms | 800 ms | Swell mode: the reverse swell envelope. |
+| **Swell Crossfade** | 5 – 200 ms | 40 ms | Swell mode: the wrap crossfade. |
+| **Dust** | 0 – 100 % | 0 % | Vinyl surface: read jitter, a few frames of speck. |
+| **Crackle** | 0 – 100 % | 0 % | Vinyl surface: random level steps. |
+| **Wow** | 0 – 100 % | 0 % | Vinyl surface: slow pitch wobble. |
+| **Flutter** | 0 – 100 % | 0 % | Vinyl surface: fast level wobble. |
+
+Controls that only one mode can use — Slice Count in Chop, the three grain knobs in Cloud, the two swell knobs in Swell — are disabled (dimmed, never hidden) in the other modes.
+
+**Loading a sample.** The LOAD SOUND button sits at the top-right corner of the waveform view on the SOUND page and opens a WAV or AIFF browser. The chosen file loads in the background: the current sample keeps playing until the load is installed, so the interface never stalls on a big file. The loaded sample travels with the session and with presets — see [Presets](#presets-optional-bank) for the rule, and the "Sample missing - click to locate" overlay when a carried path cannot be found.
+
+**Modulation.** Two LFOs and six routing slots move 24 of the controls; the LFOs and routing are described in [Modulation](#modulation). Sgraffito has no beat of its own, so a synced LFO runs at the host tempo (120 BPM when there is no playhead).
+
+The editor has three pages. SOUND shows the sample's waveform with each key's region, the Chop slice lines, the envelope preview of the displayed key, and the Root Key value box (`C3 (60)`). TEXTURE groups the texture controls into framed rows. MOD holds the LFO and routing panel. A playable keyboard strip sits at the bottom of every page, and the line below it shows the help text of the control under the pointer — hover any control to see what it does.
+
 ### Latency
 
 | Plugin | Reported latency | Why |
@@ -301,6 +369,7 @@ The left side of the editor shows the attractor's path, the step grid, and the L
 | Spectral Drift Shifter | 2048 samples (≈ 46 ms at 44.1 kHz) | Overlap-add FFT frame length. The dry signal is delayed to match, so the mix stays phase-aligned. |
 | Dynamic Saturation Companion | Oversampler latency, reported automatically | The 2× oversampling filter. The dry signal is delayed to match, so the mix stays aligned. |
 | Micro-Timing Chaos | 50 ms | Early steps are held back by this much so they can be sent on time. The host compensates. |
+| Sgraffito Memory Sampler | 0 samples | The sample plays from memory, starting at the note-on. Ghost copies and delayed notes (Lay Back, Humanise) are scheduled inside the block they are due, rather than pre-delayed. |
 
 ---
 
