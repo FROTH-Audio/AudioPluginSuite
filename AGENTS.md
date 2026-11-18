@@ -166,11 +166,13 @@ Before 2026-11-08 the list was 9 entries: CoreDSPTests, SuiteUI_Tests, SuiteModu
 
 Parameter IDs are `static constexpr const char*` members of each processor. Defaults and ranges below are what `createParameterLayout()` defines. Each float uses a `NormalisableRange`, and some use a log or skew. The plugin tests check these values with `checkRange`, so a change here must change the test too.
 
-### 4.1 Spectral Drift Shifter (47 parameters)
+### 4.1 Spectral Drift Shifter (48 parameters)
 
-The 13 controls below are the original sound parameters. The remaining 34 are the two LFOs and six modulation
-routings added by `SuiteModulation::Router` (`lfo1Rate` … `mod6Delay`), appended last so the original order never
-moves. At defaults every routing amount is 0, so the sound is bit-identical to the 13-parameter version.
+The 12 controls below are the original sound parameters. The next 34 are the two LFOs and six modulation
+routings added by `SuiteModulation::Router` (`lfo1Rate` … `mod6Delay`), and the last two are the sidechain
+ducking (plan 06 idea 2.5). All three groups are appended in that order, so the original order never
+moves. At defaults every routing amount is 0 and the sidechain amount is 0, so the sound is bit-identical
+to the pre-modulation version.
 The drift LFO always runs its sine shape: the old `lfoShape` parameter was removed in plan 05.1 pass 2
 (owner decision: no hidden parameters), so old sessions and presets that set it simply ignore that value.
 
@@ -188,6 +190,8 @@ The drift LFO always runs its sine shape: the old `lfoShape` parameter was remov
 | `outputGain` | Output Gain | −12 – +12 dB | 0 dB | Applied to the whole output after the engines |
 | `mix` | Mix | 0 – 100 % | 100 % | Dry is delayed by the frame latency |
 | `freeze` | Freeze | bool | off | Holds captured magnitudes, phases still advance |
+| `sidechainAmount` | Sidechain Amount | 0 – 100 % | 0 % | How hard the sidechain bus ducks the target. Appended after the routing (plan 06 idea 2.5) |
+| `sidechainTarget` | Sidechain Target | Drift, Gate | Drift | What the sidechain ducks. Appended after the routing |
 
 With plan 05.1 pass 2 the drift is driven by the routed LFOs: a new **Drift** routing target
 (append-only, index 12 in the target list) receives the routed LFO's value (−1 … +1 around no
@@ -195,6 +199,16 @@ drift), which the depth, spread and stereo-phase parameters scale and spread acr
 With no routing assigned there is no drift. The old `driftRateHz` internal oscillator and the
 `lfoShape` parameter are gone; the engine's per-bin drift reads a per-frame history of the
 routed value, bin k lagging k × `binSpread` frames behind.
+
+Sidechain ducking (plan 06 idea 2.5): a second input bus named *Sidechain*, declared disabled
+by default (mono or stereo when a host enables it). A `CoreDSP::Saturation::EnvelopeFollower`
+peak detector (5 ms attack, 150 ms release) over the sidechain channels ducks the target:
+**Drift** multiplies `driftDepth` by (1 − duck), **Gate** sweeps `gateDb` toward 0 dB, thinning
+the wet spectrum from the bottom. The duck is a per-block setting read by both channels; the
+amount defaults to 0, so the defaults are bit-identical to the committed sound. When the
+sidechain bus is enabled the block buffer also carries the sidechain channels behind the main
+ones: the per-channel loop and the channel-clear loop are bounded by the main output bus, not
+the buffer's channel count.
 
 Latency reported: 2048 samples (`setLatencySamples`). Tail length: 0.
 

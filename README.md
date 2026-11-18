@@ -186,6 +186,13 @@ Phase spread and offset it across the bins and channels.
 
 Mix, feedback, feedback damping and output gain are smoothed per sample, so modulating them does not click.
 
+**Sidechain.** The plugin has a second, optional input bus named *Sidechain* (off until a host routes it). A peak follower on the sidechain — fast attack, breathing release — ducks the target while the sidechain sounds, so the effect breathes with a kick or a vocal routed into it.
+
+| Control | Range | Default | Description |
+|---|---|---|---|
+| **Sidechain Amount** | 0 – 100 % | 0 % | How hard the sidechain ducks the target. 0 % leaves the sound unchanged. |
+| **Sidechain Target** | Drift / Gate | Drift | What the sidechain ducks: **Drift** flattens the routed drift, **Gate** sweeps the gate threshold up so the wet spectrum thins from the bottom. |
+
 The display shows the input spectrum (dim) over the output spectrum (bright). Until audio arrives it says *Waiting for audio*, so a silent input is clearly an input problem and not a broken display.
 
 ### Dynamic Saturation Companion
