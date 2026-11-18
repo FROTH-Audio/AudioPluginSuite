@@ -12,6 +12,7 @@
 #include <cstdio>
 
 #include "SuiteModulationControls.h"
+#include "SuiteModulationPanel.h"
 #include "SuiteModulationRouter.h"
 
 namespace
@@ -300,6 +301,25 @@ namespace
 
         pass ("testControlDisplayShowsValueWithoutNotifying");
     }
+    // Plan 10 finding #10 (DS owner report): editors stack other content above or below
+    // the panel, so the panel's preferred height must contain all of its rows.
+    void testPanelPreferredHeightFitsItsRows()
+    {
+        StubProcessor stub;
+        juce::AudioProcessorValueTreeState apvts (stub, nullptr, "PARAMETERS", makeLayout());
+        SuiteModulation::Router router (apvts, targets, numTargets, "sync");
+        router.prepare (sampleRate);
+
+        SuiteModulation::ModulationPanel::Style style;
+        SuiteModulation::ModulationPanel panel (router, style);
+        panel.setBounds (0, 0, 400, panel.getPreferredHeight());
+        panel.resized();
+
+        for (int i = 0; i < panel.getNumChildComponents(); ++i)
+            assert (panel.getChildComponent (i)->getBottom() <= panel.getPreferredHeight());
+
+        pass ("testPanelPreferredHeightFitsItsRows");
+    }
 }  // namespace
 
 int main()
@@ -317,6 +337,7 @@ int main()
     testSampleAndHoldHoldsOneValuePerCycle();
     testOutOfRangeIndicesDoNothing();
     testControlDisplayShowsValueWithoutNotifying();
+    testPanelPreferredHeightFitsItsRows();
 
     std::puts ("All SuiteModulation tests passed.");
     return 0;

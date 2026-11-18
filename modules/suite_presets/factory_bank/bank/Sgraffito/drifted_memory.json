@@ -1,10 +1,13 @@
 {
   "_name": "Drifted Memory",
   "_category": "Ambient",
-  "_description": "Memory trace that drifts across the sample.",
+  "_description": "A memory trace that fades slowly across the sample.",
   "_plugin": "Sgraffito",
   "_pluginVersion": "1.0.0",
-  "memoryDecay": 10.0,
-  "driftAmount": 50.0,
-  "grainSpread": 25.0
+  "_samplePath": "embedded:drifted_memory_4k.wav",
+  "regionSpan": 70.0,
+  "regionLength": 60.0,
+  "memoryAmount": 60.0,
+  "memoryDecay": 25.0,
+  "wow": 10.0
 }

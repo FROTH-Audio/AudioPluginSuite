@@ -4,6 +4,7 @@
   "_description": "A clean reference: 60% span, 40% length.",
   "_plugin": "Sgraffito",
   "_pluginVersion": "1.0.0",
+  "_samplePath": "embedded:init_cloud_4k.wav",
   "regionSpan": 60.0,
   "regionLength": 40.0
 }

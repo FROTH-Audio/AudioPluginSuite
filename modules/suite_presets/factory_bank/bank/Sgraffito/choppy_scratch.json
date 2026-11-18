@@ -4,7 +4,10 @@
   "_description": "Fast chops with pitch fine control.",
   "_plugin": "Sgraffito",
   "_pluginVersion": "1.0.0",
+  "_samplePath": "embedded:choppy_scratch_4k.wav",
   "mode": 1,
-  "glide": 20.0,
+  "pitchFine": 40.0,
+  "release": 100.0,
+  "humanise": 8.0,
   "sliceCount": 16
 }

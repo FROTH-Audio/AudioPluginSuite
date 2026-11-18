@@ -16,6 +16,7 @@ namespace
     constexpr int pageSelectorWidth = 240;
     constexpr int groupGap = 8;
     constexpr int keyboardHeight = 48;
+    constexpr int statusHeight = 22;   // the status bar's strip, below the keyboard (plan 10 phase 5)
 
     const juce::Image& brandLockup()
     {
@@ -47,9 +48,23 @@ SgraffitoEditor::SgraffitoEditor (SgraffitoProcessor& p)
 {
     setLookAndFeel (&lookAndFeel);
 
+    // Status bar (plan 10 phase 5): below the keyboard; the help text of the control
+    // under the pointer, or the idle hint. The settings' tooltips toggle gates it.
+    showHelpTexts = SuiteSettings::shared().getBool (SuiteSettings::tooltipsKey, true);
+    statusLabel.setFont (SuiteUI::uiFont (11.0f));
+    statusLabel.setColour (juce::Label::textColourId, SuiteUI::Colours::textDim);
+    statusLabel.setJustificationType (juce::Justification::centredLeft);
+    statusLabel.setComponentID ("sgraffito-status");
+    statusLabel.setText (idleHelpText, juce::dontSendNotification);
+    addAndMakeVisible (statusLabel);
+    addMouseListener (&helpTracker, true);
+    helpTracker.onMove = [this] (const juce::MouseEvent& e) { showHelp (e); };
+
     // The bar exists before setSize(), because setSize() runs resized().
     presetBar = std::make_unique<SuitePresets::PresetBar> (processor, juce::Colour (0xff9aa0a6));
     presetBar->onPresetLoaded = [this] { repaint(); };
+    // The sample switch-back rule of record (plan 10 phase 6, decision G6).
+    presetBar->setHelpText ("Applying a preset loads the sample it was made with; presets without a sample keep the current one, and INIT restores the factory sample.");
     addAndMakeVisible (*presetBar);
     
     // Sample loading button: inside the waveform preview on the SOUND page (owner
@@ -190,8 +205,18 @@ SgraffitoEditor::SgraffitoEditor (SgraffitoProcessor& p)
     // Choice attachments via SegmentedSelector.
     modeAttachment = std::make_unique<juce::ParameterAttachment> (
         *apvts.getParameter (SgraffitoProcessor::modeId),
-        [this] (float value) { modeSelector.setSelectedIndex (juce::roundToInt (value)); });
-    modeSelector.onChange = [this] (int index) { modeAttachment->setValueAsCompleteGesture ((float) index); };
+        [this] (float value)
+        {
+            modeSelector.setSelectedIndex (juce::roundToInt (value));
+            currentMode = juce::roundToInt (value);
+            updateModeAffinity();
+        });
+    modeSelector.onChange = [this] (int index)
+    {
+        currentMode = index;
+        updateModeAffinity();
+        modeAttachment->setValueAsCompleteGesture ((float) index);
+    };
     modeAttachment->sendInitialUpdate();
 
     scaleAttachment = std::make_unique<juce::ParameterAttachment> (
@@ -205,6 +230,47 @@ SgraffitoEditor::SgraffitoEditor (SgraffitoProcessor& p)
         [this] (float value) { tapeStopCurveSelector.setSelectedIndex (juce::roundToInt (value)); });
     tapeStopCurveSelector.onChange = [this] (int index) { tapeStopCurveAttachment->setValueAsCompleteGesture ((float) index); };
     tapeStopCurveAttachment->sendInitialUpdate();
+
+    // Help texts for the status bar (plan 10 phase 5): one string per control, honest
+    // about anything not wired yet. Captions after the phase 4 decision (no rename).
+    SuiteUI::describe (modeSelector, "Playback mode: Scrub plays the region forward, Chop slices it, Cloud granulates it, Swell reads it backwards.");
+    SuiteUI::describe (regionSpanSlider, "How far across the sample the keyboard's regions reach. Region start = key position x this value.");
+    SuiteUI::describe (regionLengthSlider, "Width of each key's region, as a share of the sample.");
+    SuiteUI::describe (rootKeySlider, "Pitch centre and Scale Lock centre: this note plays the sample at its natural pitch. Does not move the region.");
+    SuiteUI::describe (pitchFineSlider, "Fine tuning of every note, in cents.");
+    SuiteUI::describe (scaleLockButton, "Quantise incoming notes to the selected scale, centred on Root Key.");
+    SuiteUI::describe (scaleSelector, "The scale Scale Lock quantises to.");
+    SuiteUI::describe (glideSlider, "Reserved for glide between successive notes (not wired yet).");
+    SuiteUI::describe (levelSlider, "Output level of the whole plugin.");
+    SuiteUI::describe (velocityCurveSlider, "How note velocity maps to loudness: 1.0 is linear, higher emphasises soft notes.");
+    SuiteUI::describe (attackSlider, "Rise time of every note's volume envelope.");
+    SuiteUI::describe (releaseSlider, "Fall time of the volume envelope after a note-off. Tape Stop (TEXTURE page) fades on top of this.");
+    SuiteUI::describe (tapeStopTimeSlider, "On note-off, the level falls to zero over this time, shaped by the curve. Runs in every mode.");
+    SuiteUI::describe (tapeStopCurveSelector, "The shape of the tape-stop fade: linear, exponential, or slow then fast.");
+    SuiteUI::describe (memoryAmountSlider, "How far each note fades toward this floor over the Memory Decay time. 0 % keeps notes at full level.");
+    SuiteUI::describe (memoryDecaySlider, "Time constant of the memory fade, in seconds.");
+    SuiteUI::describe (driftAmountSlider, "Reserved for the Lorenz chaos drift (not wired yet).");
+    SuiteUI::describe (driftSpeedSlider, "Reserved for the Lorenz chaos drift (not wired yet).");
+    SuiteUI::describe (layBackSlider, "Delays every note by this many milliseconds.");
+    SuiteUI::describe (swingSlider, "Repeated notes of one key alternate straight and swung; the swung copy is delayed up to half a beat.");
+    SuiteUI::describe (humaniseSlider, "Randomised per-note timing offset up to this many milliseconds.");
+    SuiteUI::describe (shuffleSeedSlider, "Reshuffles the humanise pattern.");
+    SuiteUI::describe (ghostOnButton, "Ghost notes: a quiet delayed copy fires when a note plays below the threshold.");
+    SuiteUI::describe (ghostThresholdSlider, "Ghost notes fire below this velocity.");
+    SuiteUI::describe (ghostLevelSlider, "Level of the ghost copy, in dB.");
+    SuiteUI::describe (ghostDelaySlider, "Delay of the ghost copy, in milliseconds.");
+    SuiteUI::describe (sliceCountSlider, "Chop mode: number of equal slices across the sample.");
+    SuiteUI::describe (grainSizeSlider, "Cloud mode: grain length.");
+    SuiteUI::describe (grainDensitySlider, "Cloud mode: grains per second per lane.");
+    SuiteUI::describe (grainSpreadSlider, "Cloud mode: how far apart the four grain lanes start.");
+    SuiteUI::describe (sustainHoldButton, "Note-offs latch; the next note of the same key releases.");
+    SuiteUI::describe (swellTimeSlider, "Swell mode: the reverse swell envelope (shaping wired by plan 05.4).");
+    SuiteUI::describe (swellCrossfadeSlider, "Swell mode: the wrap crossfade (shaping wired by plan 05.4).");
+    SuiteUI::describe (dustSlider, "Vinyl surface: read jitter, a few frames of speck.");
+    SuiteUI::describe (crackleSlider, "Vinyl surface: random level steps.");
+    SuiteUI::describe (wowSlider, "Vinyl surface: slow pitch wobble.");
+    SuiteUI::describe (flutterSlider, "Vinyl surface: fast level wobble.");
+    SuiteUI::describe (loadSampleButton, "Load a WAV or AIFF sample from disk.");
 
     pageSelector.setOptions ({ "SOUND", "TEXTURE", "MOD" });
     pageSelector.onChange = [this] (int index) { setPage (index); };
@@ -294,8 +360,19 @@ SgraffitoEditor::SgraffitoEditor (SgraffitoProcessor& p)
 
 SgraffitoEditor::~SgraffitoEditor()
 {
+    removeMouseListener (&helpTracker);
     stopTimer();
     setLookAndFeel (nullptr);
+}
+
+void SgraffitoEditor::showHelp (const juce::MouseEvent& e)
+{
+    const auto text = e.eventComponent != nullptr ? e.eventComponent->getHelpText() : juce::String();
+
+    if (showHelpTexts && text.isNotEmpty())
+        statusLabel.setText (text, juce::dontSendNotification);
+    else
+        statusLabel.setText (idleHelpText, juce::dontSendNotification);
 }
 
 void SgraffitoEditor::browseForSample()
@@ -430,7 +507,10 @@ void SgraffitoEditor::resized()
     pageSelector.setBounds (headerArea.removeFromRight (pageSelectorWidth)
                                 .withSizeKeepingCentre (pageSelectorWidth, pageSelectorHeight));
 
-    // The playable keyboard sits at the very bottom of every page.
+    // The playable keyboard sits at the bottom of every page, with the status bar below
+    // it (plan 10 phase 5): the bar is the very last strip of the window.
+    statusLabel.setBounds (area.removeFromBottom (statusHeight));
+    area.removeFromBottom (groupGap);
     keyboard.setBounds (area.removeFromBottom (keyboardHeight));
     area.removeFromBottom (groupGap);
 
@@ -456,7 +536,10 @@ void SgraffitoEditor::layoutSoundPage (juce::Rectangle<int> area)
     // LOAD SOUND sits inside the preview, at its top-right: the sample's home is the
     // waveform, and the missing-sample overlay below it opens the same browse flow.
     // A pill-height button, centred in its corner strip (rule R3: never fill a row).
-    loadSampleButton.setBounds (waveformView.getBounds()
+    // Local bounds: the button is a child of the waveform view, and the view's top edge
+    // sits ~104 px down in editor coordinates — the old getBounds() pushed the button
+    // to the waveform's vertical middle (plan 10 phase 1).
+    loadSampleButton.setBounds (waveformView.getLocalBounds()
                                     .removeFromTop (SuiteUI::pillHeight + 10)
                                     .removeFromRight (loadButtonWidth + 10)
                                     .withSizeKeepingCentre (loadButtonWidth, SuiteUI::pillHeight));
@@ -482,6 +565,22 @@ void SgraffitoEditor::layoutSoundPage (juce::Rectangle<int> area)
 
     // Scale: full-width selector.
     scaleSelector.setBounds (area.removeFromTop (SuiteUI::pillHeight).reduced (8, 0));
+}
+
+void SgraffitoEditor::updateModeAffinity()
+{
+    // Mode-only controls (plan 10 phase 2, decision G1: disable, never hide — the layout
+    // stays stable and the control stays discoverable). Everything else on the TEXTURE
+    // page is common: memory, drift, lay-back/swing/humanise, ghosts, tape stop, shuffle
+    // seed and the surface controls run on every mode's voices.
+    const std::initializer_list<std::pair<SuiteUI::LabelledSlider*, int>> affinity = {
+        { &sliceCountSlider, 1 },                                       // Chop
+        { &grainSizeSlider, 2 }, { &grainDensitySlider, 2 }, { &grainSpreadSlider, 2 }, // Cloud
+        { &swellTimeSlider, 3 }, { &swellCrossfadeSlider, 3 },          // Swell
+    };
+
+    for (const auto& entry : affinity)
+        entry.first->setEnabled (entry.second == currentMode);
 }
 
 void SgraffitoEditor::layoutTexturePage (juce::Rectangle<int> area)
@@ -516,12 +615,15 @@ void SgraffitoEditor::layoutTexturePage (juce::Rectangle<int> area)
 
     // TAPE & MEMORY: the curve selector spans two cells as a suite-height pill, so its long
     // option labels fit without filling the row (the old bounds made it a giant switch).
+    // Slice Count joins the row's last cell (plan 10 phase 2): it belongs with the
+    // scratch tools, not in the CLOUD group.
     auto tapeInner = innerArea (tapeMemory);
-    const int tapeCell = tapeInner.getWidth() / 5;
+    const int tapeCell = tapeInner.getWidth() / 6;
     tapeStopTimeSlider.setBounds (tapeInner.removeFromLeft (tapeCell).reduced (4));
     layoutPill (tapeInner.removeFromLeft (2 * tapeCell), tapeStopCurveSelector, juce::jmin (2 * tapeCell - 12, 300));
     memoryAmountSlider.setBounds (tapeInner.removeFromLeft (tapeCell).reduced (4));
     memoryDecaySlider.setBounds (tapeInner.removeFromLeft (tapeCell).reduced (4));
+    sliceCountSlider.setBounds (tapeInner.removeFromLeft (tapeCell).reduced (4));
 
     // DRIFT & TIMING: six cells.
     auto driftInner = innerArea (driftTiming);
@@ -541,10 +643,9 @@ void SgraffitoEditor::layoutTexturePage (juce::Rectangle<int> area)
     ghostLevelSlider.setBounds (ghostInner.removeFromLeft (ghostCell).reduced (4));
     ghostDelaySlider.setBounds (ghostInner.removeFromLeft (ghostCell).reduced (4));
 
-    // CLOUD.
+    // CLOUD: the three grain knobs (slice count moved to the tape row, plan 10 phase 2).
     auto cloudInner = innerArea (cloud);
-    const int cloudCell = cloudInner.getWidth() / 4;
-    sliceCountSlider.setBounds (cloudInner.removeFromLeft (cloudCell).reduced (4));
+    const int cloudCell = cloudInner.getWidth() / 3;
     grainSizeSlider.setBounds (cloudInner.removeFromLeft (cloudCell).reduced (4));
     grainDensitySlider.setBounds (cloudInner.removeFromLeft (cloudCell).reduced (4));
     grainSpreadSlider.setBounds (cloudInner.removeFromLeft (cloudCell).reduced (4));

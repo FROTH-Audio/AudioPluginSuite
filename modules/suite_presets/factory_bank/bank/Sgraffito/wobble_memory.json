@@ -1,10 +1,13 @@
 {
   "_name": "Wobble Memory",
   "_category": "Experimental",
-  "_description": "Drift with LFO modulating the root key.",
+  "_description": "LFO 1 bends the pitch centre over a wobbled sample.",
   "_plugin": "Sgraffito",
   "_pluginVersion": "1.0.0",
+  "_samplePath": "embedded:wobble_memory_4k.wav",
+  "wow": 20.0,
   "lfo1Sync": 1,
+  "lfo1Division": 3,
   "mod1Target": 3,
   "mod1Amount": 30.0
 }

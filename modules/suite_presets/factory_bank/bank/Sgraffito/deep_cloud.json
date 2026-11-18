@@ -4,8 +4,12 @@
   "_description": "Low pentatonic, dense and slow.",
   "_plugin": "Sgraffito",
   "_pluginVersion": "1.0.0",
-  "_samplePath": "embedded:cloud_4k.wav",
-  "rootKey": 36,
+  "_samplePath": "embedded:deep_cloud_4k.wav",
+  "rootKey": 84,
   "scale": 4,
+  "attack": 120.0,
+  "release": 1500.0,
+  "grainSize": 140.0,
+  "grainDensity": 16.0,
   "grainSpread": 30.0
 }

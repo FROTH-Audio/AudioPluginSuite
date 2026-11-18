@@ -28,10 +28,11 @@ namespace CoreDSP::Sampler
     /** Linear key map: low keys start early in the sample, high keys start late.
 
         `span` is the share of the sample the whole keyboard covers (0 to 1).
-        `length` is each key's region length (0 to 1). Root key plays at its natural
-        pitch; pitch shifting is handled separately by the plugin.
+        `length` is each key's region length (0 to 1). The map is keyed by the played key
+        only; pitch is handled separately by the plugin (plan 10 phase 4 removed the dead
+        rootKey argument — it was never read here).
     */
-    inline Region keyRegion (int key, int rootKey, double span, double length) noexcept
+    inline Region keyRegion (int key, double span, double length) noexcept
     {
         const double position = (double) key / 127.0;   // key 0 → 0, key 127 → 1
         const double maxStart = 1.0 - std::clamp (length, 0.0, 1.0);

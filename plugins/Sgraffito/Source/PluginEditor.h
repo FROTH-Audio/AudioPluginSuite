@@ -10,6 +10,7 @@
 #include "SuiteHeaderMenu.h"
 #include "SuiteLookAndFeel.h"
 #include "SuiteWidgets.h"
+#include "SuiteHelp.h"
 #include "SuiteBrand.h"
 #include "SuiteModulationPanel.h"
 #include "SuiteModulationControls.h"
@@ -104,6 +105,37 @@ public:
 
             const float px = plot.getX() + (float) x;
             g.drawLine (px, mid - hi * half, px, mid - lo * half);
+        }
+
+        // Envelope preview (plan 10 phase 3, decision G3): the volume envelope a note on
+        // the displayed (root) key's region gets — attack rise, sustain plateau, release
+        // fall — laid across the region. The root key plays the sample at its natural
+        // rate (plan 10 phase 4), so the region's playback time is its frame count; the
+        // attack and release widths are their milliseconds as a share of that time.
+        if (! processor.isSampleMissing())
+        {
+            const double sampleRate = processor.getPreparedSampleRate();
+            const double attackMs = processor.getParamValue (SgraffitoProcessor::attackId);
+            const double releaseMs = processor.getParamValue (SgraffitoProcessor::releaseId);
+            const double regionPlaybackSamples = juce::jmax (1.0, (regionEnd - regionStart) * numSamples);
+            const double attackFrac = std::clamp (attackMs * sampleRate / 1000.0 / regionPlaybackSamples, 0.0, 1.0);
+            const double releaseFrac = std::clamp (releaseMs * sampleRate / 1000.0 / regionPlaybackSamples,
+                                                   0.0, 1.0 - attackFrac);
+
+            const float envBase = plot.getCentreY();          // zero level: the envelope starts and ends at silence
+            const float envTop = plot.getY() + plot.getHeight() * 0.08f;
+            auto xAt = [&] (double fraction) { return (float) (regionX0 + fraction * (regionX1 - regionX0)); };
+
+            // A thin accent line, not a filled wedge: the waveform stays readable and the
+            // shape (attack rise, sustain, release fall) is what the owner asked to see.
+            juce::Path envelopePath;
+            envelopePath.startNewSubPath (xAt (0.0), envBase);
+            envelopePath.lineTo (xAt (attackFrac), envTop);
+            envelopePath.lineTo (xAt (1.0 - releaseFrac), envTop);
+            envelopePath.lineTo (xAt (1.0), envBase);
+
+            g.setColour (accent.withAlpha (0.65f));
+            g.strokePath (envelopePath, juce::PathStrokeType (1.5f));
         }
 
         // Caption.
@@ -201,6 +233,11 @@ public:
     void setPage (int page);
     int getPage() const noexcept { return page; }
 
+    /** Writes the control under the pointer's help text into the status bar (plan 10
+        phase 5); without a text (or with the settings' tooltips off) the idle hint shows.
+        Public so the status-bar test can drive it with a synthesised mouse event. */
+    void showHelp (const juce::MouseEvent&);
+
 private:
     void timerCallback() override;
 
@@ -215,11 +252,23 @@ private:
     void layoutTexturePage (juce::Rectangle<int> area);
     void layoutModPage (juce::Rectangle<int> area);
 
+    /** Enables only the controls the current mode can use (plan 10 phase 2, decision G1:
+        mode-only controls are disabled — dimmed, never hidden — in the other modes). */
+    void updateModeAffinity();
+    int currentMode = 0;
+
     SgraffitoProcessor& processor;
 
     // Declared first so it is destroyed last, after every component that uses it.
     SuiteUI::SuiteLookAndFeel lookAndFeel { juce::Colour (0xff9aa0a6) };
     std::vector<Group> groups;
+
+    // Status bar: the help text of the control under the pointer, below the keyboard
+    // (plan 10 phase 5). The tracker is added as a mouse listener with children.
+    SuiteUI::HelpTracker helpTracker;
+    juce::Label statusLabel;
+    juce::String idleHelpText { "Hover a control for help." };
+    bool showHelpTexts = true;
 
     // Preset bar (right of the header).
     std::unique_ptr<SuitePresets::PresetBar> presetBar;
@@ -273,7 +322,8 @@ private:
     std::unique_ptr<SuiteModulation::ControlDisplay> controls;  // built in the constructor, once the sliders exist
     SuiteUI::LabelledSlider sliceCountSlider { "SLICE COUNT", juce::Slider::RotaryVerticalDrag };
     
-    // Sample loading button (top right of header, next to preset bar).
+    // Sample loading button (top-right inside the waveform preview on the SOUND page;
+    // a child of the waveform view, so it follows the page's visibility).
     juce::TextButton loadSampleButton { "LOAD SOUND" };
     std::unique_ptr<juce::FileChooser> sampleChooser;
     

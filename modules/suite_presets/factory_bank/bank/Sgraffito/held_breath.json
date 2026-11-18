@@ -4,8 +4,10 @@
   "_description": "Latched voices holding through the memory decay.",
   "_plugin": "Sgraffito",
   "_pluginVersion": "1.0.0",
+  "_samplePath": "embedded:held_breath_4k.wav",
   "attack": 150.0,
   "release": 2500.0,
   "memoryAmount": 40.0,
+  "memoryDecay": 30.0,
   "sustainHold": 1
 }

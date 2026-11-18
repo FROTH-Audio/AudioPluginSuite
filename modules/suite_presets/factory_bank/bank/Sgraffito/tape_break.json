@@ -4,8 +4,12 @@
   "_description": "Chopped tape stop with dust and crackle.",
   "_plugin": "Sgraffito",
   "_pluginVersion": "1.0.0",
+  "_samplePath": "embedded:tape_break_4k.wav",
   "mode": 1,
   "tapeStopTime": 300.0,
+  "memoryAmount": 45.0,
+  "memoryDecay": 6.0,
+  "sliceCount": 8,
   "dust": 5.0,
   "crackle": 8.0
 }

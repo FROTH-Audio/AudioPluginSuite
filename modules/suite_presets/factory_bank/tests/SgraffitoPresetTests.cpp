@@ -51,8 +51,10 @@ int main()
             assert (processor.apvts.state.getProperty (SgraffitoProcessor::samplePathProperty).toString() == uri);
         }
 
-        // The cloud presets actually shipped: five of them reference the variant.
-        assert (embeddedCount == 5);
+        // Plan 10 phase 7: every preset ships its own generated sample, so switching
+        // presets always switches the sample (finding #7/#8). The per-URI load above is
+        // the typo guard: an unknown resource name would silently keep the current sample.
+        assert (embeddedCount == 20);
         PresetTest::pass ("embeddedSamples");
     }
 

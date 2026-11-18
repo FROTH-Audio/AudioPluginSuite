@@ -2,6 +2,7 @@
 
 #include <juce_gui_basics/juce_gui_basics.h>
 #include <juce_core/juce_core.h>
+#include <SuiteLookAndFeel.h>
 #include <memory>
 #include <string>
 
@@ -102,6 +103,12 @@ namespace SuiteSettings
         juce::String presetPath;
         juce::String samplePath;
 
+        // Declared first so it is destroyed last, after every component that uses it.
+        // The suite look is component-scoped on purpose (plan 10 phase 5b): a top-level
+        // dialog otherwise inherits the host's look and feel, whose text colours can be
+        // invisible on this panel.
+        SuiteUI::SuiteLookAndFeel lookAndFeel { juce::Colour (0xff9aa0a6) };
+
         juce::TooltipWindow tooltipWindow;
 
         juce::Label        tooltipsCaption;
@@ -111,10 +118,10 @@ namespace SuiteSettings
         juce::Slider       tempoSlider;
         juce::Label        presetFolderCaption;
         juce::Label        presetFolderText;
-        juce::TextButton   presetFolderBrowse;
+        juce::TextButton   presetFolderBrowse { "BROWSE" };
         juce::Label        sampleFolderCaption;
         juce::Label        sampleFolderText;
-        juce::TextButton   sampleFolderBrowse;
+        juce::TextButton   sampleFolderBrowse { "BROWSE" };
         std::unique_ptr<juce::FileChooser> chooser;   // kept alive while the dialog is up
 
     };

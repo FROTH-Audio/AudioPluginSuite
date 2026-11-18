@@ -306,11 +306,18 @@ void DynamicSaturationEditor::layoutModPage (juce::Rectangle<int> area)
     auto meterColumn = area.removeFromRight (56);
     outputMeterR.setBounds (meterColumn.removeFromRight (26).reduced (4, 6));
     outputMeterL.setBounds (meterColumn.removeFromRight (26).reduced (4, 6));
-    transferCurve.setBounds (area.reduced (4, 0));
 
-    area.removeFromTop (groupGap);
-    modulationGroupBounds = area;
-    modulation.setBounds (area.withTrimmedTop (groupTitleHeight + 4).reduced (12, 6));
+    // The curve preview sits above the modulation group, not behind it: the old layout
+    // gave the curve the whole page and let the group draw over it. The split mirrors
+    // SpectralDrift's MOD page; the group gets its natural height.
+    const int groupHeight = groupTitleHeight + 4 + modulation.getPreferredHeight() + 12;
+    auto groupArea = area.removeFromBottom (groupHeight);
+
+    transferCurve.setBounds (area.reduced (4, 0));
+    area.removeFromBottom (groupGap);
+
+    modulationGroupBounds = groupArea;
+    modulation.setBounds (groupArea.withTrimmedTop (groupTitleHeight + 4).reduced (12, 6));
 }
 
 void DynamicSaturationEditor::timerCallback()

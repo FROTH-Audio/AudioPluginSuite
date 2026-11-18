@@ -240,6 +240,11 @@ namespace SuiteModulation
 
     ModulationPanel::~ModulationPanel() = default;
 
+    int ModulationPanel::getPreferredHeight() const
+    {
+        return lfoBlockHeight + gap + headingHeight + Router::slotCount * slotRowHeight;
+    }
+
     void ModulationPanel::refresh()
     {
         for (int lfo = 0; lfo < Router::lfoCount; ++lfo)
