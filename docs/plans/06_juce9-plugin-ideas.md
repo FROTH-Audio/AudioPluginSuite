@@ -40,41 +40,29 @@ Each idea lists what it is, the JUCE 9 modules it would use, the framework fit, 
 
 **Risk.** A new shape adds parameters. The parameter IDs are permanent (AGENTS.md section 7), so the shape must be appended to the choice list, never inserted.
 
-### 2.2 OSC modulation bus (cross-plugin and external control)
+### 2.9 A Stereo Tool Effect (new effect)
 
-**What.** The routing module can receive modulation values from an external source over OSC (Open Sound Control), for example from a DAW script, a phone app, Max or a hardware controller. One plugin can also send its LFO values out, so a Micro-Timing Chaos LFO could drive a Spectral Drift parameter in another track.
+**What.** A stereo audio effect that processes left and right channels together: mid/side encoding, stereo width control, correlated/uncorrelated balance, and a shared DSP block (saturation, filter, or distortion) that can be applied independently or linked. Intended as a stereo widening / balance / creative tool that slots into the same framework as the existing effects.
 
-**JUCE modules.** `juce_osc`.
+**JUCE modules.** `juce_dsp` (mid/side splitting, all-pass filters, buffers). No new modules needed.
 
-**Framework fit.** Medium-high. It adds a source type to `suite_modulation`, with a network thread that writes into atomics the audio thread reads. The audio thread must never lock (AGENTS.md section 7).
+**Framework fit.** High. The engine goes in `core_dsp` (a shared `StereoTool` class that handles mid/side, width, and the chosen DSP operation). The UI reuses `suite_ui` widgets (knobs for width, mix, dry/wet) and the level meter. The plugin reuses the same `suite_modulation` routing if desired, but it is optional.
 
-**Effort.** M to L. **First step.** A send-only OSC output of the LFO value, tested with an OSC monitor, before any receive path.
+**Effort.** M. **First step.** A `core_dsp` test that takes a stereo signal, splits to mid/side, applies a chosen operation (e.g. tanh saturation), and reconstructs stereo — verifying the mid/side math is lossless.
 
-**Risk.** Network input is untrusted. Bind to localhost by default and make the port a visible setting. Discuss this with the owner before a receive path is built.
+**Risk.** Mid/side decoding can fold energy if the width control is pushed beyond ±100 %. Guard the control range and report latency through `getLatencySamples`.
 
-### 2.3 Cabinet and IR loader (new effect)
+### 2.11 A creative MIDI Chord/Arp/Scale Tool (MIDI effect)
 
-**What.** A convolution cabinet or room simulator: load an impulse response, with the suite's visual style and the same Mix and Output controls.
+**What.** A MIDI effect that takes incoming MIDI notes and re-harmsonises them: generates chords from a single note, arpeggiates with custom patterns, and quantises to a scale. Features: chord root/scale selector, arpeggio pattern editor (step sequence), velocity shaping, and octave transposition. Can be synced to the host tempo or run freely.
 
-**JUCE modules.** `juce_dsp` (convolution is already linked by the plugins).
+**JUCE modules.** `juce_midi` (note processing), `juce_audio_processors` (plugin format). No new modules needed.
 
-**Framework fit.** High. The engine goes in `core_dsp`, and the UI reuses `suite_ui` widgets and the level meter.
+**Framework fit.** High. This is a MIDI-effect sibling to MicroTimingChaos: it reuses the same `suite_modulation` router for any parameters (rate, swing, velocity), its UI reuses `suite_ui` widgets (pop-up scales, knob-based pattern editor), and the plugin recipe makes it a target-table-only addition. The `ModTarget` table for this plugin would include Scale, Root, and Chord quality — all append-only.
 
-**Effort.** M. **First step.** A `core_dsp` convolution wrapper with a test that a unit impulse returns the impulse response.
+**Effort.** M. **First step.** A `core_dsp` test (pure function, no GUI) that takes a MIDI note number and a scale degree, returns the transposed note, verifying the scale-quantisation logic. Follow with a stub processor that routes a MIDI note through the chord generator and checks the output note IDs.
 
-**Risk.** Latency is the IR length, or uses partitioned convolution. Report it through `getLatencySamples` and the README latency table (AGENTS.md section 9).
-
-### 2.4 Multiband saturation (extends Dynamic Saturation)
-
-**What.** A version of Dynamic Saturation with two or three bands, each with its own drive and tone. It uses the existing shapers and envelope follower, split by crossovers.
-
-**JUCE modules.** `juce_dsp` (`LinkwitzRileyFilter` for the crossovers, in the local source).
-
-**Framework fit.** High. The shapers and `EnvelopeFollower` already exist in `SaturationEngine.h`. Linkwitz-Riley crossovers are IIR filters, so they add no latency, but the bands are not phase-linear. A linear-phase split would add latency and would need `getLatencySamples` updated.
-
-**Effort.** M. **First step.** A two-band split in a `core_dsp` test that sums back to the input at unity.
-
-**Risk.** Oversampling and crossovers interact. Re-check the output ceiling (AGENTS.md section 7).
+**Risk.** Chord generation can produce enharmonic equivalents that confuse the host. Keep the scale engine simple (diatonic only, no modes initially) and test every key-degree pair.
 
 ### 2.5 Sidechain-driven spectral ducking (extends Spectral Drift)
 
@@ -88,34 +76,41 @@ Each idea lists what it is, the JUCE 9 modules it would use, the framework fit, 
 
 **Risk.** Some hosts show sidechain buses awkwardly. Test in one DAW before advertising it.
 
-### 2.6 Animated visualiser (UI)
+### 2.4 Multiband saturation (extends Dynamic Saturation)
 
-**What.** Smooth transitions when the owner switches the SOUND and MOD pages, and when a preset is loaded.
+**What.** A version of Dynamic Saturation with two or three bands, each with its own drive and tone. It uses the existing shapers and envelope follower, split by crossovers.
 
-**JUCE modules.** `juce_animation`.
+**JUCE modules.** `juce_dsp` (`LinkwitzRileyFilter` for the crossovers, in the local source).
 
-**Framework fit.** Medium. It goes in `suite_ui` and is shared by every plugin.
+**Framework fit.** High. The shapers and `EnvelopeFollower` already exist in `SaturationEngine.h`. Linkwitz-Riley crossovers are IIR filters, so they add no latency, but the bands are not phase-linear. A linear-phase split would add latency and would need `getLatencySamples` updated.
 
-**Effort.** S to M. **First step.** Animate only the page switch, then check the editor render baseline.
+**Effort.** M. **First step.** A two-band split in a `core_dsp` test that sums back to the input at unity.
 
-**Risk.** Animation changes what a headless render produces. The byte-identical render check (AGENTS.md sections 8 and 9) would need a new baseline. Do this after the renderer measurement (`docs/plans/01_juce9-upgrade-opportunities.md`, item 1).
+**Risk.** Oversampling and crossovers interact. Re-check the output ceiling (AGENTS.md section 7).
 
-### 2.7 Scripted modulation curves (idea, deferred)
+### 2.10 A creative Loop Player (new instrument / effect)
 
-**What.** Users write small expressions or scripts that become modulation curves, editing them in the editor.
+**What.** A loop player that records, triggers, and plays back audio loops with configurable start/end, speed, direction (forward/backward/alternating), and quantisation to the host tempo. Can run in effect mode (processes incoming audio) or instrument mode (plays loops polyphonically). UI: a grid of loop slots, a transport row, and a length/rate editor.
 
-**JUCE modules.** `juce_javascript`.
+**JUCE modules.** `juce_dsp` (sample-accurate position, pitch-shifting), `juce_audio_processors` (ios/audio unit compatibility). No new modules needed.
 
-**Framework fit.** Low for now. A script engine would have to run off the audio thread, and its results would have to reach the audio thread through atomics, as the rest of the UI does.
+**Framework fit.** Medium. The loop player is a new plugin that reuses `suite_ui` for its grid and controls, and its DSP can share the `core_dsp` envelope follower and saturation shapers if desired. The plugin recipe makes it a target-table-only addition.
 
-**Effort.** L. **Recommendation.** Not now. It adds a large surface for bugs and for security review.
+**Effort.** L to M. **First step.** A `core_dsp` test that reads a buffer from start to end with looping, verifying that a repeated 1-bar loop at double speed plays exactly two bars before the playhead laps itself.
 
-### 2.8 Other modules, not recommended
+**Risk.** Latency from buffer allocation and from the playhead position quantisation. Report it through `getLatencySamples` and the README latency table. Polyphonic loop triggering can cause voice-stealing bugs — test with many simultaneous loops.
 
-- `juce_video`: no use in an audio effect.
-- `juce_analytics`: collects usage data. Not recommended for a privacy-minded suite, and it would need a privacy notice.
-- `juce_product_unlocking`: relevant only if the suite is sold. The licence note in AGENTS.md section 10 says GPL redistribution uses the JUCE GPLv3 option. Raise it with the owner before choosing any unlock scheme.
-- `juce_midi_ci`: MIDI capability negotiation, aimed at controllers and synths. No fit here.
+### 2.3 Cabinet and IR loader (new effect)
+
+**What.** A convolution cabinet or room simulator: load an impulse response, with the suite's visual style and the same Mix and Output controls.
+
+**JUCE modules.** `juce_dsp` (convolution is already linked by the plugins).
+
+**Framework fit.** High. The engine goes in `core_dsp`, and the UI reuses `suite_ui` widgets and the level meter.
+
+**Effort.** M. **First step.** A `core_dsp` convolution wrapper with a test that a unit impulse returns the impulse response.
+
+**Risk.** Latency is the IR length, or uses partitioned convolution. Report it through `getLatencySamples` and the README latency table (AGENTS.md section 9).
 
 ---
 
@@ -123,19 +118,25 @@ Each idea lists what it is, the JUCE 9 modules it would use, the framework fit, 
 
 1. **Framework groundwork** (`docs/plans/00_framework-readiness.md`): the plugin recipe and state versioning. Both are done. The open part is R3 (`02_framework-refactor-3-editor-ui.md`). Without these, each idea costs a full copy of a plugin.
 2. **2.1 Pendulum modulator.** Smallest change that tests the new modulation-source path in all three plugins.
-3. **2.3 Cabinet and IR loader.** The first new plugin, using the new recipe.
-4. **2.2 OSC bus**, after a security decision from the owner.
-5. **2.4 Multiband saturation**, as a new plugin or a Dynamic Saturation mode.
-6. **2.5 and 2.6** as time allows.
+3. **2.9 Stereo Tool Effect.** Mid/side processing; reuses core DSP and suite_ui.
+4. **2.11 MIDI Chord/Arp/Scale Tool.** MIDI re-harmoniser; chord/arpeggio/scale logic.
+5. **2.5 Sidechain-driven spectral ducking**, after a DAW test.
+6. **2.4 Multiband saturation**, as a new plugin or a Dynamic Saturation mode.
+7. **2.10 Loop Player.** Loop recording/playback; new plugin with grid UI.
+8. **2.3 Cabinet and IR loader.** The first new plugin, using the new recipe.
 
 ## 4. Open questions for the owner
 
 - Which plugin ideas do you want? Pick any number, or none.
-- Is network control (2.2) acceptable, with a localhost-only default?
 - Should a new plugin get its own product name and plugin code now, or only once it is finished? Plugin codes are permanent once released (AGENTS.md section 7).
+- **Effect 2.9 should implement its own new mid/side logic** rather than reusing Dynamic Saturation's shapers — the mid/side math is distinctive enough to warrant a dedicated core_dsp module.
+- **2.10 for now only effect mode** — instrument mode (polyphonic loop triggering) can be added later once the core effect is stable and the latency is well measured.
+- **2.11 everything creative** — chord generation, arpeggio patterns, and scale quantisation are all creative by nature; no need to narrow the scope.
+- **2.1 could be shared in the future** — the pendulum modulator is a generic LFO shape source; it could be shared across all plugins once the parameter layout is stable, but for now it is a physics modulator only.
+- **2.5 built in** — sidechain-driven spectral ducking should be built into Spectral Drift rather than as a separate plugin — the envelope follower and sidechain bus are already part of that processor's design.
 
 ## Notes for the next agent
 
 - This is a menu. Do not start an idea without an owner choice.
-- Ideas with network input (2.2, OSC) need the owner's security decision first, as this file says.
+- Ideas with network input need the owner's security decision first, as this file says.
 - Check each idea's framework dependency (`00`, `02`, `03`) before you estimate it.
