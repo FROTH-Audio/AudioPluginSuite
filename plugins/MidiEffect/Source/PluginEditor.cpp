@@ -37,6 +37,11 @@ MidiEffectEditor::MidiEffectEditor (MidiEffectProcessor& p)
     for (auto* combo : { &scaleCombo, &chordCombo, &arpCombo })
         combo->setJustificationType (juce::Justification::centred);
 
+    // Built after the items exist, so the first update selects the parameter's current choice.
+    scaleAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (processor.apvts, MidiEffectProcessor::scaleId, scaleCombo);
+    chordAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (processor.apvts, MidiEffectProcessor::chordId, chordCombo);
+    arpAttachment   = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (processor.apvts, MidiEffectProcessor::arpId, arpCombo);
+
     addAndMakeVisible (rootCtrl);
     addAndMakeVisible (octaveCtrl);
     addAndMakeVisible (velocityCtrl);

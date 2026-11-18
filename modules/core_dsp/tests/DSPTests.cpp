@@ -1166,6 +1166,75 @@ namespace
         std::puts ("[PASS] testMidSideStereo");
     }
 
+    /** Plan 06 idea 2.4 first step: the 2-way Linkwitz-Riley split. Below the crossover the
+        low band carries the signal, above it the high band does, and the two bands sum back
+        to the input's magnitude through the crossover's all-pass phase. */
+    void testTwoBandSplit()
+    {
+        namespace Mb = CoreDSP::Multiband;
+
+        constexpr double sampleRate = 48000.0;
+        constexpr float crossover = 800.0f;
+
+        // Measures the peak of low, of high and of low+high over a settled window.
+        auto probe = [&] (double hz)
+        {
+            Mb::TwoBandSplit split;
+            split.prepare (sampleRate, crossover);
+
+            float peakLow = 0.0f, peakHigh = 0.0f, peakSum = 0.0f, peakIn = 0.0f;
+            for (int n = 0; n < 48000; ++n)   // 1 s: the LR4 settles well within it
+            {
+                const double phase = 2.0 * pi * hz * (double) n / sampleRate;
+                const float in = 0.5f * (float) std::sin (phase);
+                float low = 0.0f, high = 0.0f;
+                split.process (0, in, low, high);
+
+                if (n >= 24000)   // the settled second half-second
+                {
+                    peakLow = juce::jmax (peakLow, std::abs (low));
+                    peakHigh = juce::jmax (peakHigh, std::abs (high));
+                    peakSum = juce::jmax (peakSum, std::abs (low + high));
+                    peakIn = juce::jmax (peakIn, std::abs (in));
+                }
+            }
+            return std::array<float, 4> { peakIn, peakLow, peakHigh, peakSum };
+        };
+
+        // Two octaves below the crossover: the low band carries the signal, the high band is down.
+        {
+            const auto below = probe (200.0);
+            assert (below[1] > 0.85f * below[0]);   // low ≈ input
+            assert (below[2] < 0.1f * below[0]);    // high is 48 dB down, in the floor by now
+        }
+
+        // Two octaves above: the high band carries it.
+        {
+            const auto above = probe (3200.0);
+            assert (above[2] > 0.85f * above[0]);   // high ≈ input
+            assert (above[1] < 0.1f * above[0]);
+        }
+
+        // At the crossover both bands sit 6 dB down, and the sum carries the input's magnitude
+        // (the LR4 sum is all-pass), sample for sample.
+        {
+            Mb::TwoBandSplit split;
+            split.prepare (sampleRate, crossover);
+            const double hz = 800.0;
+            for (int n = 0; n < 24000; ++n)
+            {
+                const double phase = 2.0 * pi * hz * (double) n / sampleRate;
+                const float in = 0.5f * (float) std::sin (phase);
+                float low = 0.0f, high = 0.0f;
+                split.process (0, in, low, high);
+                if (n >= 12000)
+                    assert (std::abs (std::abs (low + high) - std::abs (in)) < 0.02f);
+            }
+        }
+
+        std::puts ("[PASS] testTwoBandSplit");
+    }
+
     /** Plan 06 idea 2.11 first step: chord tone intervals and the scale-quantisation the
         MIDI Chord/Arp/Scale Tool reuses (CoreDSP::SamplerMaps::quantizeToScale). */
     void testChordsAndScaleQuantise()
@@ -1293,6 +1362,7 @@ int main()
     testVoicePool();
     testMidSideStereo();
     testChordsAndScaleQuantise();
+    testTwoBandSplit();
 
     std::puts ("All CoreDSP unit tests passed.");
     return 0;

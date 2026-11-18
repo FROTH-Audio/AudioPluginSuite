@@ -34,7 +34,10 @@ private:
     juce::AudioProcessorValueTreeState::SliderAttachment rootAttachment     { processor.apvts, MidiEffectProcessor::rootId,     rootCtrl.slider };
     juce::AudioProcessorValueTreeState::SliderAttachment octaveAttachment   { processor.apvts, MidiEffectProcessor::octaveId,   octaveCtrl.slider };
     juce::AudioProcessorValueTreeState::SliderAttachment velocityAttachment { processor.apvts, MidiEffectProcessor::velocityId, velocityCtrl.slider };
-    juce::AudioProcessorValueTreeState::ComboBoxAttachment scaleAttachment  { processor.apvts, MidiEffectProcessor::scaleId,    scaleCombo };
-    juce::AudioProcessorValueTreeState::ComboBoxAttachment chordAttachment  { processor.apvts, MidiEffectProcessor::chordId,    chordCombo };
-    juce::AudioProcessorValueTreeState::ComboBoxAttachment arpAttachment    { processor.apvts, MidiEffectProcessor::arpId,      arpCombo };
+
+    // Built in the constructor after the combos' items exist, so their first update selects
+    // the parameter's current choice (an in-class attachment would attach to an empty combo).
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> scaleAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> chordAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> arpAttachment;
 };

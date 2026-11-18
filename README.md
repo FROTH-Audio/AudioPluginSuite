@@ -55,6 +55,11 @@ FROTH Audio makes plugins that work on sound at the level of its structure: the 
 <td><b>MIDI Chord Arp Scale Tool</b><br><sub>MIDI effect</sub></td>
 <td>Every note becomes a chord.<br>Scale quantisation, chord qualities, arp ordering, octave and velocity shaping.</td>
 </tr>
+<tr>
+<td align="center"><img src="modules/suite_ui/brand/lockup_multiband_saturation.png" width="200" alt="FROTH Audio Multiband Saturation"></td>
+<td><b>Multiband Saturation</b><br><sub>Saturation</sub></td>
+<td>Saturate the lows and the highs separately.<br>A two-band split, each band with its own drive, envelope and tone.</td>
+</tr>
 </table>
 
 ---
@@ -69,6 +74,9 @@ FROTH Audio makes plugins that work on sound at the level of its structure: the 
   - [Dynamic Saturation Companion](#dynamic-saturation-companion)
   - [Micro-Timing Chaos](#micro-timing-chaos)
   - [Sgraffito Memory Sampler](#sgraffito-memory-sampler)
+  - [Stereo Tool Effect](#stereo-tool-effect)
+  - [MIDI Chord Arp Scale Tool](#midi-chord-arp-scale-tool)
+  - [Multiband Saturation](#multiband-saturation)
   - [Latency](#latency)
 - [For developers](#for-developers)
   - [Requirements](#requirements)
@@ -369,6 +377,50 @@ Controls that only one mode can use — Slice Count in Chop, the three grain kno
 
 The editor has three pages. SOUND shows the sample's waveform with each key's region, the Chop slice lines, the envelope preview of the displayed key, and the Root Key value box (`C3 (60)`). TEXTURE groups the texture controls into framed rows. MOD holds the LFO and routing panel. A playable keyboard strip sits at the bottom of every page, and the line below it shows the help text of the control under the pointer — hover any control to see what it does.
 
+### Stereo Tool Effect
+
+A stereo tool. It splits the input into mid and side, saturates each band with a tanh drive, rescales the side component by the width control, and mixes the result against the dry input.
+
+| Control | Range | Default | Description |
+|---|---|---|---|
+| **Width** | −100 – +100 % | 0 % | Scales the side component: 0 leaves the stereo image unchanged, −100 folds to mono, +100 doubles the side energy. |
+| **Drive** | 0 – 24 dB | 0 dB | Tanh saturation on the mid and side. 0 dB is transparent; below 0 is a clean gain reduction, above 0 drives the loud parts toward the rails. |
+| **Mix** | 0 – 100 % | 100 % | Dry/wet balance. |
+
+At the defaults the plugin is transparent (the mid/side round trip skips work when neither the drive nor the width touches the signal). No latency is added.
+
+### MIDI Chord Arp Scale Tool
+
+A MIDI effect. Incoming notes are quantised to one of six scales (the same scales the rest of the suite uses), chorded, and sent on; audio passes through untouched.
+
+| Control | Range | Default | Description |
+|---|---|---|---|
+| **Root Note** | 24 – 84 | C4 (60) | The key centre the scale quantisation works from. |
+| **Scale** | Chromatic, Major, Minor, Minor Pentatonic, Dorian, Whole Tone | Minor | Notes are quantised to the nearest scale tone. |
+| **Chord Quality** | Major, Minor, Dim, Aug, Sus2, Sus4, Minor 7, Major 7 | Major | The chord built on the quantised note. |
+| **Arp Pattern** | Up, Down, Alternate, Random | Up | The order the chord's notes are emitted in (a step-clock arpeggiator is the planned follow-up). |
+| **Octave** | −2 – +2 | 0 | Transposes the chord. |
+| **Velocity** | 0 – 150 % | 100 % | Scales the note-on velocity. |
+
+A note-off releases the whole chord, and a retrigger releases the previous chord first, so nothing sticks.
+
+### Multiband Saturation
+
+A two-band saturator. A Linkwitz-Riley crossover splits the signal; the low band and the high band each get their own drive, envelope and tone, then recombine (the bands sum back to the input's level through the crossover's all-pass phase).
+
+| Control | Range | Default | Description |
+|---|---|---|---|
+| **Saturation Mode** | Tube / Tape / Diode | Tube | The transfer curve, shared by both bands. |
+| **Crossover** | 80 Hz – 8 kHz (log) | 500 Hz | The split point. |
+| **Drive Low / Drive High** | 0 – 24 dB each | 6 dB | Pre-gain into the shaper, per band. |
+| **Envelope Sensitivity** | 0 – 1 | 0.5 | How strongly each band's envelope pushes its drive harder: Dynamic Drive = Drive × (1 + Sensitivity × Envelope). |
+| **Attack / Release** | 1 – 100 ms / 50 – 2000 ms | 5 ms / 150 ms | Both bands' envelope times. |
+| **Tone Low / Tone High** | −1 – +1 each | 0 | Tilt around 1 kHz, per band. |
+| **Mix** | 0 – 100 % | 100 % | Dry/wet balance. |
+| **Output Level** | −12 – +6 dB | 0 dB | Output level. |
+
+The band sum is clamped to the rails, so the output cannot exceed full scale. The first pass runs at base rate, so no latency is added.
+
 ### Latency
 
 | Plugin | Reported latency | Why |
@@ -377,6 +429,9 @@ The editor has three pages. SOUND shows the sample's waveform with each key's re
 | Dynamic Saturation Companion | Oversampler latency, reported automatically | The 2× oversampling filter. The dry signal is delayed to match, so the mix stays aligned. |
 | Micro-Timing Chaos | 50 ms | Early steps are held back by this much so they can be sent on time. The host compensates. |
 | Sgraffito Memory Sampler | 0 samples | The sample plays from memory, starting at the note-on. Ghost copies and delayed notes (Lay Back, Humanise) are scheduled inside the block they are due, rather than pre-delayed. |
+| Stereo Tool Effect | 0 samples | No latency: the mid/side maths and the shaper are memoryless, and the dry path is mixed in place. |
+| MIDI Chord Arp Scale Tool | 0 samples | MIDI is processed in the block it arrives in; audio passes through untouched. |
+| Multiband Saturation | 0 samples | The Linkwitz-Riley split adds no latency (first pass runs at base rate). |
 
 ---
 
@@ -444,24 +499,25 @@ Plugin formats are chosen automatically: VST3 and Standalone everywhere, plus AU
 ctest --test-dir build -C Release --output-on-failure
 ```
 
-**Default build** (`SUITE_PRESET_BANK=OFF`): sixteen CTest entries run eleven test executables:
+**Default build** (`SUITE_PRESET_BANK=OFF`): eighteen CTest entries run thirteen test executables:
 
 | Executable | Scope | Tests |
 |---|---|---|
-| `CoreDSPTests` | DSP primitives in `modules/core_dsp` | 37 |
+| `CoreDSPTests` | DSP primitives in `modules/core_dsp` | 38 |
 | `SuiteState_Tests` | Versioned saved state in `modules/suite_state` | 8 |
 | `SuiteModulationTests` | Shared LFOs, routing and the control display in `modules/suite_modulation` | 10 |
 | `SuiteSettingsTests` | Settings store and dialog in `modules/suite_settings` | 9 |
 | `SuiteUITests` | Shared widgets and look and feel | 9 |
-| `SpectralDriftTests` | Spectral Drift processor and editor | 26 |
+| `SpectralDriftTests` | Spectral Drift processor and editor | 29 |
 | `DynamicSaturationTests` | Dynamic Saturation processor and editor | 24 |
 | `MicroTimingChaosTests` | Micro-Timing Chaos processor and editor | 45 |
 | `SgraffitoTests` | Sgraffito processor and editor | 50 |
 | `StereoToolTests` | Stereo Tool Effect processor and editor | 6 |
 | `MidiEffectTests` | MIDI Chord Arp Scale Tool processor and editor | 8 |
-| `PluginHostTests` (×5) | Each built VST3 bundle, loaded through JUCE's own plugin host | 1 per plugin |
+| `MultibandSaturationTests` | Multiband Saturation processor and editor | 7 |
+| `PluginHostTests` (×6) | Each built VST3 bundle, loaded through JUCE's own plugin host | 1 per plugin |
 
-**Bank build** (`SUITE_PRESET_BANK=ON`): twenty CTest entries — the sixteen public entries plus one `*_PresetTests` executable per plugin that has bank entries (bank ranges, apply/reset, editor, menu model, MIDI sanity). With `SUITE_PRESET_BANK_AS_PROGRAMS=ON`, the program-list virtuals are also exercised inside the plugin preset tests.
+**Bank build** (`SUITE_PRESET_BANK=ON`): twenty-two CTest entries — the eighteen public entries plus one `*_PresetTests` executable per plugin that has bank entries (bank ranges, apply/reset, editor, menu model, MIDI sanity). With `SUITE_PRESET_BANK_AS_PROGRAMS=ON`, the program-list virtuals are also exercised inside the plugin preset tests.
 
 The tests use `assert` with `NDEBUG` undefined, so they also check in Release builds. Without that, every check would be compiled out.
 

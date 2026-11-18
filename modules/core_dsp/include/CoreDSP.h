@@ -13,6 +13,7 @@
 #include "ChordEngine.h"
 #include "ModulationEngine.h"
 #include "ModulationTiming.h"
+#include "MultibandEngine.h"
 #include "SamplerEngine.h"
 #include "SamplerMaps.h"
 #include "SaturationEngine.h"

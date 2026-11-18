@@ -82,6 +82,7 @@ if(SUITE_BUILD_PLUGINS)
     add_subdirectory(plugins/Sgraffito)
     add_subdirectory(plugins/StereoTool)
     add_subdirectory(plugins/MidiEffect)
+    add_subdirectory(plugins/MultibandSaturation)
 
     if(SUITE_BUILD_TESTS)
         add_subdirectory(tests/host)

@@ -22,7 +22,7 @@ New plugins cost about one day of processor/editor scaffolding work, plus DSP an
 
 ## 1. What this project is
 
-Four audio plugins written with JUCE 9.0.5 in C++17. Formats: VST3 on Windows and macOS, Audio Unit on macOS, and Standalone on both.
+Seven audio plugins written with JUCE 9.0.5 in C++17. Formats: VST3 on Windows and macOS, Audio Unit on macOS, and Standalone on both.
 
 | Plugin | Folder | Kind | DSP core | Editor accent |
 |---|---|---|---|---|
@@ -32,6 +32,7 @@ Four audio plugins written with JUCE 9.0.5 in C++17. Formats: VST3 on Windows an
 | Sgraffito Memory Sampler | `plugins/Sgraffito` | Memory sampler (memory traces, tape-stop, granular cloud) | `CoreDSP::Sampler::DriftEngine`, `CoreDSP::Sampler::VoicePool`, `CoreDSP::Sampler::quantizeToScale` | slate `#9aa0a6` |
 | Stereo Tool Effect | `plugins/StereoTool` | audio effect | `CoreDSP::Stereo` (mid/side, width, drive) | violet `#B18CFF` |
 | MIDI Chord Arp Scale Tool | `plugins/MidiEffect` | MIDI effect, with stereo pass-through | `CoreDSP::Chords`, `CoreDSP::Sampler::quantizeToScale` | teal `#4ECDC4` |
+| Multiband Saturation | `plugins/MultibandSaturation` | audio effect | `CoreDSP::Multiband::TwoBandSplit`, `CoreDSP::Saturation` shapers/followers | coral `#FF6B6B` |
 
 - Manufacturer name `FROTH Audio` (shown by hosts; set by `COMPANY_NAME` in `modules/suite_plugin/SuitePlugin.cmake`), manufacturer code `Asui`, bundle IDs `com.audiosuite.<name>` (kept: they are part of the plugin identity, section 7).
 - Plugin code `Sgrf`. Codes and parameter IDs are saved in sessions
@@ -138,24 +139,25 @@ $CM = "C:\Program Files\Microsoft Visual Studio\18\Community\Common7\IDE\CommonE
 - Build records for the pre-refactor baseline are in `build/baselines/phase0-pre-refactor/`, and the converted tree in `build/baselines/phase1-after-suite_add_plugin/`. They are generated and not committed (`build/` is ignored). To regenerate: `git archive 0d21400` into `build/baselines/src`, configure that tree with `-DFETCHCONTENT_SOURCE_DIR_JUCE=<repo>/build/_deps/juce-src` so JUCE is not fetched again, build Release, then save `Defs.txt`, `Info.txt`, `<Name>_resources.rc`, the VST3 file list and the source lists from each `.vcxproj`.
 - Asset embedding: `juce_add_binary_data(MicroTimingChaosAssets ...)` builds a `BinaryData` target that the plugin and its test executable link. Add new icons or textures to its `SOURCES` list, then reference them by the generated name (`file_name_with_underscores`, for example `bpm_sync_active_svg`).
 
-Last verified status (2026-11-18, review of the new-plugin commits): JUCE 9.0.5. Clean Release build: 0 errors (warning count checked against the ~90 pre-existing baseline). All CTest entries pass (20/20 with the factory bank on).
+Last verified status (2026-11-18, plan 06 idea 2.4): JUCE 9.0.5. Clean Release build: 0 errors (warnings: the pre-existing `-Winconsistent-missing-override` set on the preset-state overrides; the new targets add none). All CTest entries pass (22/22 with the factory bank on).
 
-- Default build (`SUITE_PRESET_BANK=OFF`): 16 entries - CoreDSPTests, SuiteState_Tests, SuiteModulation_Tests, SuiteUI_Tests, SuiteSettingsTests, the six plugin test executables, and the five VST3 host-load tests.
-- Bank build (`SUITE_PRESET_BANK=ON`): 20 entries - the 16 public entries plus the four factory-preset test executables (`SpectralDrift_PresetTests`, `DynamicSaturation_PresetTests`, `MicroTimingChaos_PresetTests`, `Sgraffito_PresetTests`). StereoTool and MidiEffect have no factory presets yet, and `suite_add_plugin` skips their preset-test target until `<Name>PresetTests.cpp` exists.
-- Bank with host program list (`SUITE_PRESET_BANK_AS_PROGRAMS=ON`): still 20 entries; the program-list virtuals are exercised inside the plugin preset tests via `runProgramList`.
+- Default build (`SUITE_PRESET_BANK=OFF`): 18 entries - CoreDSPTests, SuiteState_Tests, SuiteModulation_Tests, SuiteUI_Tests, SuiteSettingsTests, the seven plugin test executables, and the six VST3 host-load tests.
+- Bank build (`SUITE_PRESET_BANK=ON`): 22 entries - the 18 public entries plus the four factory-preset test executables (`SpectralDrift_PresetTests`, `DynamicSaturation_PresetTests`, `MicroTimingChaos_PresetTests`, `Sgraffito_PresetTests`). StereoTool, MidiEffect and MultibandSaturation have no factory presets yet, and `suite_add_plugin` skips their preset-test target until `<Name>PresetTests.cpp` exists.
+- Bank with host program list (`SUITE_PRESET_BANK_AS_PROGRAMS=ON`): still 22 entries; the program-list virtuals are exercised inside the plugin preset tests via `runProgramList`.
 
 All test executables pass:
-- CoreDSPTests (37 functions)
+- CoreDSPTests (38 functions)
 - SuiteStateTests (8 functions)
 - SuiteModulationTests (10 functions)
 - SuiteSettingsTests (9 functions) - new in Plan 08 Phase 4
 - SuiteUITests (9 functions)
-- SpectralDriftTests (26 functions)
+- SpectralDriftTests (29 functions)
 - DynamicSaturationTests (24 functions)
 - MicroTimingChaosTests (45 functions)
 - SgraffitoTests (50 functions)
 - StereoToolTests (6 functions) - new 2026-11 (plan 06 idea 2.9)
 - MidiEffectTests (8 functions) - new 2026-11 (plan 06 idea 2.11)
+- MultibandSaturationTests (7 functions) - new 2026-11 (plan 06 idea 2.4)
 - [PluginName]_PresetTests for each plugin (factory bank)
 
 Before 2026-11-08 the list was 9 entries: CoreDSPTests, SuiteUI_Tests, SuiteModulation_Tests, the three plugin test executables, and the three VST3 host-load tests. SuiteUI_Tests also passed against JUCE 8.0.6, the previous pin, which is the version CI ran (last checked 2026-11-06, not re-run since). macOS is not verified on JUCE 9.
@@ -301,6 +303,32 @@ DS already smooths drive, mix and output level for 50 ms, and its other targets 
 
 Synced LFOs in both effects use a tempo-locked beat clock (`beatClock += numSamples × tempo / 60 / sampleRate`), not the host's PPQ. The tempo is the host's when the host reports one, clamped to 20–300 BPM (`SuiteModulation::hostTempoOrDefault`). With no playhead (Standalone) it is 120 BPM. The clock only accumulates, so it does not jump on loop or relocate, and it keeps moving while the host still reports a tempo with the transport stopped. The routing Delay clock runs from `prepareToPlay` and is not restarted on transport start.
 
+### 4.5 Multiband Saturation (11 parameters)
+
+A two-band saturator (plan 06 idea 2.4, first pass). The 11 controls below are all the parameters;
+the shared Router's 34 are not in the layout yet — the plugin links `suite_modulation` (MODULATION
+in CMake) so adding them later is a target-table-only change.
+
+| ID | Name | Range | Default | Notes |
+|---|---|---|---|---|
+| `mode` | Saturation Mode | choice: Tube, Tape, Diode | Tube | Shared by both bands |
+| `crossover` | Crossover | 80 – 8000 Hz, log (1 kHz centre) | 500 Hz | The LR4 split point, updated per block |
+| `driveLow` | Drive Low | 0 – 24 dB | 6 dB | Low-band pre-gain, smoothed 50 ms |
+| `driveHigh` | Drive High | 0 – 24 dB | 6 dB | High-band pre-gain, smoothed 50 ms |
+| `sensitivity` | Envelope Sensitivity | 0 – 1 | 0.5 | Dynamic Drive = Drive × (1 + Sens × Env), per band |
+| `attack` | Attack | 1 – 100 ms, skew 0.35 | 5 ms | Both bands' envelope rise |
+| `release` | Release | 50 – 2000 ms, skew 0.4 | 150 ms | Both bands' envelope fall |
+| `toneLow` | Tone Low | −1 – +1 | 0 | Tilt around 1 kHz on the shaped low band (smoothed 50 ms) |
+| `toneHigh` | Tone High | −1 – +1 | 0 | Tilt around 1 kHz on the shaped high band (smoothed 50 ms) |
+| `mix` | Mix | 0 – 100 % | 100 % | Smoothed 50 ms |
+| `outputLevel` | Output Level | −12 – +6 dB | 0 dB | Smoothed 50 ms |
+
+Latency reported: 0 (base-rate first pass; the plan's oversampling-and-crossover interaction risk
+stays open). Tail length: 0. The band sum is clamped to ±1 before the mix and output level (the
+Dynamic Saturation ceiling rule). First pass notes: the envelopes are per channel and per band
+(no stereo link), the tube bias is the shared default (0.2), there is no fold, and the tone
+control's pivot is the fixed 1 kHz of `CoreDSP::Saturation::ToneControl`.
+
 ## 5. Plugin behaviour
 
 ### 5.1 Spectral Drift engine
@@ -404,7 +432,7 @@ MTC's `lerpCurve` state property (not a parameter) round-trips through presets a
 
 ## 6. Test architecture
 
-Twenty CTest entries run eleven executables: `CoreDSPTests` (37 test functions), `SuiteUI_Tests` (`SuiteUITests`, 9), `SuiteModulation_Tests` (`SuiteModulationTests`, 10), `SuiteSettingsTests` (`SuiteSettingsTests`, 9), `SpectralDriftTests` (26), `DynamicSaturationTests` (24), `MicroTimingChaosTests` (45), `SgraffitoTests` (50), `StereoToolTests` (6), `MidiEffectTests` (8), and `PluginHostTests`, which has one ctest entry per plugin (5). With the factory bank on, four preset-test executables join them (one per plugin that has bank entries). The README has the full list.
+Twenty-two CTest entries run thirteen executables: `CoreDSPTests` (38 test functions), `SuiteUI_Tests` (`SuiteUITests`, 9), `SuiteModulation_Tests` (`SuiteModulationTests`, 10), `SuiteSettingsTests` (`SuiteSettingsTests`, 9), `SpectralDriftTests` (29), `DynamicSaturationTests` (24), `MicroTimingChaosTests` (45), `SgraffitoTests` (50), `StereoToolTests` (6), `MidiEffectTests` (8), `MultibandSaturationTests` (7), and `PluginHostTests`, which has one ctest entry per plugin (6). With the factory bank on, four preset-test executables join them (one per plugin that has bank entries). The README has the full list.
 
 **Module tests** (`modules/suite_modulation/tests/SuiteModulationTests.cpp`): the router, with a stub processor (no plugin). They cover the routed LFO, the zero case (bit for bit), bipolar amounts, whole-number targets, Host Sync ignoring Tempo, the one-bar period, sample and hold, out-of-range indices, and the control display (values set without notifying), plus the modulation panel's preferred height (every child stays inside it; plan 10 phase 9). Not covered: the control display skipping a slider the mouse holds, since the test cannot press a mouse button. The panel and scope are checked only by the MicroTimingChaos editor test.
 
