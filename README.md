@@ -159,6 +159,9 @@ Spectral Drift's `freeze` is on only in the `Freeze` factory category; Dynamic S
 
 ### Spectral Drift Shifter
 
+<img src="docs/manuals/spectraldrift-sound.png" alt="Spectral Drift Shifter screenshot" width="480">
+
+The [user manual](plugins/SpectralDrift/MANUAL.md) walks through the two pages and the sidechain.
 An audio effect that breaks the input into 2048-point FFT frames, drifts the phase of each frequency bin with an LFO, shapes the magnitudes, and resynthesises the result.
 
 **Drift**
@@ -205,6 +208,9 @@ The display shows the input spectrum (dim) over the output spectrum (bright). Un
 
 ### Dynamic Saturation Companion
 
+<img src="docs/manuals/dynamicsaturation-sound.png" alt="Dynamic Saturation Companion screenshot" width="520">
+
+The [user manual](plugins/DynamicSaturation/MANUAL.md) walks through the two pages and the curve preview.
 An audio effect with a saturation stage whose drive follows the signal envelope:
 
 > Dynamic Drive = Drive × (1 + Sensitivity × Envelope)
@@ -247,6 +253,9 @@ The shaped output is held to ±1 before the output level, so the stage never exc
 
 ### Micro-Timing Chaos
 
+<img src="docs/manuals/microtimingchaos-sequence.png" alt="Micro-Timing Chaos screenshot" width="653">
+
+The [user manual](plugins/MicroTimingChaos/MANUAL.md) walks through the three pages, the lerp curve and the step grid.
 A MIDI step sequencer. It generates its own notes, and it passes incoming notes through. Audio passes through unchanged, so the plugin can sit on any track.
 
 The pattern decides which steps fire. Density and Seed set it, and it repeats every *Pattern Length* steps. A Lorenz attractor moves once per step, so a step gets the same chaos at any tempo. Its three coordinates each drive one thing:
@@ -311,6 +320,9 @@ The left side of the editor shows the attractor's path, the step grid, and the L
 
 ### Sgraffito Memory Sampler
 
+<img src="docs/manuals/sgraffito-sound.png" alt="Sgraffito Memory Sampler screenshot" width="587">
+
+The [user manual](plugins/Sgraffito/MANUAL.md) walks through the three pages, the four modes and sample loading.
 A memory sampler. You load a sample, and the keyboard plays it: each key reads one region of the sample's timeline. Four playback modes reinterpret the sample, and the texture controls age it like a tape machine with memory traces — the longer a note plays, the quieter it gets. The plugin receives MIDI (its own keyboard strip included); there is no audio input.
 
 **Sample and mode**
@@ -379,6 +391,9 @@ The editor has three pages. SOUND shows the sample's waveform with each key's re
 
 ### Stereo Tool Effect
 
+<img src="docs/manuals/stereotool-default.png" alt="Stereo Tool Effect screenshot" width="427">
+
+The [user manual](plugins/StereoTool/MANUAL.md) is a short walkthrough with a screenshot.
 A stereo tool. It splits the input into mid and side, saturates each band with a tanh drive, rescales the side component by the width control, and mixes the result against the dry input.
 
 | Control | Range | Default | Description |
@@ -391,6 +406,9 @@ At the defaults the plugin is transparent (the mid/side round trip skips work wh
 
 ### MIDI Chord Arp Scale Tool
 
+<img src="docs/manuals/midieffect-default.png" alt="MIDI Chord Arp Scale Tool screenshot" width="480">
+
+The [user manual](plugins/MidiEffect/MANUAL.md) walks through how a note becomes a chord.
 A MIDI effect. Incoming notes are quantised to one of six scales (the same scales the rest of the suite uses), chorded, and sent on; audio passes through untouched.
 
 | Control | Range | Default | Description |
@@ -406,6 +424,9 @@ A note-off releases the whole chord, and a retrigger releases the previous chord
 
 ### Multiband Saturation
 
+<img src="docs/manuals/multibandsaturation-default.png" alt="Multiband Saturation screenshot" width="507">
+
+The [user manual](plugins/MultibandSaturation/MANUAL.md) is a short walkthrough with a screenshot.
 A two-band saturator. A Linkwitz-Riley crossover splits the signal; the low band and the high band each get their own drive, envelope and tone, then recombine (the bands sum back to the input's level through the crossover's all-pass phase).
 
 | Control | Range | Default | Description |

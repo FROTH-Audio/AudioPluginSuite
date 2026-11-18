@@ -572,16 +572,18 @@ namespace
         }
 
         // Per-mode TEXTURE renders (suite rule R9): this change intentionally dims
-        // controls, so the renders are the record of the new look.
+        // controls, so the renders are the record of the new look. The names carry the
+        // mode, so the user manual can show them without a translation table.
         const auto renderDir = juce::SystemStats::getEnvironmentVariable ("SUITE_RENDER_DIR", {});
         if (renderDir.isNotEmpty())
         {
+            const char* modeNames[4] = { "scrub", "chop", "cloud", "swell" };
             sgraffito->setPage (1);
             for (int m = 0; m < 4; ++m)
             {
                 PluginTest::setParameter (processor.apvts, SgraffitoProcessor::modeId, (float) m);
                 assert (PluginTest::writeDeterministicPng (*editor,
-                            juce::File (renderDir).getChildFile ("sgraffito-mode-" + juce::String (m) + ".png")));
+                            juce::File (renderDir).getChildFile ("sgraffito-texture-mode-" + juce::String (modeNames[m]) + ".png")));
             }
         }
 
@@ -637,6 +639,24 @@ namespace
             assert (PluginTest::writeDeterministicPng (*editor, file));
             processor.editorBeingDeleted (editor.get());
         }
+
+        // The four playback modes, each on the SOUND page, for the user manual (plan 10-era
+        // renders only cover the pages).
+        for (int mode = 0; mode < 4; ++mode)
+        {
+            setParameter (processor.apvts, Processor::modeId, (float) mode);
+
+            std::unique_ptr<juce::AudioProcessorEditor> editor (processor.createEditor());
+            assert (editor != nullptr);
+            static_cast<SgraffitoEditor*> (editor.get())->setPage (0);
+
+            const juce::File file (juce::File (folder).getChildFile (
+                std::array<const char*, 4> { "sgraffito-mode-scrub.png", "sgraffito-mode-chop.png",
+                                             "sgraffito-mode-cloud.png", "sgraffito-mode-swell.png" }[(size_t) mode]));
+            assert (PluginTest::writeDeterministicPng (*editor, file));
+            processor.editorBeingDeleted (editor.get());
+        }
+        setParameter (processor.apvts, Processor::modeId, 0.0f);
 
         pass ("testRenderBaseline");
     }

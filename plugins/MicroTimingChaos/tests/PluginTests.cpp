@@ -1465,13 +1465,19 @@ namespace
             auto* mtcEditor = static_cast<MicroTimingChaosEditor*> (editor.get());
             mtcEditor->setPage (renderPage);
 
-            // On the drift page both lerp views are rendered (plan 05 R9).
+            // On the drift page both lerp views are rendered (plan 05 R9), each to its
+            // own file, so the user manual can show both.
             if (renderPage == 1)
+            {
+                mtcEditor->setLerpView (0);
+                assert (PluginTest::writeDeterministicPng (*editor,
+                    juce::File (folder).getChildFile ("microtimingchaos-drift-curve.png")));
                 mtcEditor->setLerpView (1);
+            }
 
             const juce::File file (juce::File (folder).getChildFile (
                 renderPage == 0 ? "microtimingchaos-sequence.png"
-                                : renderPage == 1 ? "microtimingchaos-drift.png" : "microtimingchaos-mod.png"));
+                                : renderPage == 1 ? "microtimingchaos-drift-preview.png" : "microtimingchaos-mod.png"));
             assert (PluginTest::writeDeterministicPng (*editor, file));
             processor.editorBeingDeleted (editor.get());
         }
