@@ -1,0 +1,12 @@
+{
+  "_name": "Descending Runner",
+  "_category": "Arp",
+  "_description": "Fast descending 8ths with a falling spread.",
+  "_plugin": "MidiEffect",
+  "_pluginVersion": "1.0.0",
+  "arpMode": 1,
+  "stepRate": 0,
+  "gateLength": 50.0,
+  "velocityCurve": 1,
+  "octaveSpread": -0.5
+}

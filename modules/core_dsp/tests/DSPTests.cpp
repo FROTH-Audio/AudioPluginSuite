@@ -1288,6 +1288,75 @@ namespace
         std::puts ("[PASS] testChordsAndScaleQuantise");
     }
 
+    /** Plan 6.1: the step-clock arp helpers, and the appended Scattered pattern. */
+    void testArpHelpers()
+    {
+        namespace Ch = CoreDSP::Chords;
+
+        // Step lengths in beats: straight values and triplets.
+        assert (std::abs (Ch::arpStepBeats (0) - 0.5) < 1.0e-12);
+        assert (std::abs (Ch::arpStepBeats (1) - 1.0 / 3.0) < 1.0e-12);
+        assert (std::abs (Ch::arpStepBeats (2) - 0.25) < 1.0e-12);
+        assert (std::abs (Ch::arpStepBeats (3) - 1.0 / 6.0) < 1.0e-12);
+        assert (std::abs (Ch::arpStepBeats (4) - 0.125) < 1.0e-12);
+
+        // Octave lift: 0 spread stays put; +1 crawls up an octave per pass through the tones.
+        assert (Ch::arpOctaveLift (0.0f, 3) == 0);
+        assert (Ch::arpOctaveLift (1.0f, 0) == 0);
+        assert (Ch::arpOctaveLift (1.0f, 1) == 12);
+        assert (Ch::arpOctaveLift (1.0f, 2) == 24);
+        assert (Ch::arpOctaveLift (-1.0f, 1) == -12);
+        assert (Ch::arpOctaveLift (0.5f, 1) == 12);   // lround rounds half away from zero
+        assert (Ch::arpOctaveLift (0.5f, 2) == 12);
+
+        // Velocity curves across 8 steps: Flat is 1, Linear and Exponential run 0.2..1
+        // with the direction flipping which end starts.
+        assert (Ch::arpCurveValue (0, true, 3, 8) == 1.0f);
+        assert (std::abs (Ch::arpCurveValue (1, true, 0, 8) - 0.2f) < 1.0e-6f);
+        assert (std::abs (Ch::arpCurveValue (1, true, 7, 8) - 1.0f) < 1.0e-6f);
+        assert (std::abs (Ch::arpCurveValue (1, false, 0, 8) - 1.0f) < 1.0e-6f);
+        assert (std::abs (Ch::arpCurveValue (1, false, 7, 8) - 0.2f) < 1.0e-6f);
+        assert (std::abs (Ch::arpCurveValue (2, true, 7, 8) - 1.0f) < 1.0e-6f);
+        assert (std::abs (Ch::arpCurveValue (2, true, 0, 8) - 0.2f) < 1.0e-6f);
+        // Exponential descending at step 3 of 8: s = 1 - 3/7 -> 0.2 + 0.8 s^2.
+        assert (std::abs (Ch::arpCurveValue (2, false, 3, 8) - (0.2f + 0.8f * (4.0f / 7.0f) * (4.0f / 7.0f))) < 1.0e-6f);
+
+        // Random velocity is deterministic, in [0.2, 1], and changes across cycles.
+        const float r0 = Ch::arpRandomVelocity (64, 3, 0);
+        assert (r0 == Ch::arpRandomVelocity (64, 3, 0));
+        assert (r0 >= 0.2f && r0 <= 1.0f);
+        assert (Ch::arpRandomVelocity (64, 3, 0) != Ch::arpRandomVelocity (64, 3, 1)
+             || Ch::arpRandomVelocity (64, 5, 0) != Ch::arpRandomVelocity (64, 5, 2));
+
+        // Scattered: deterministic, a permutation of the input, unused slots marked.
+        const int up[4] = { 60, 64, 67, -1 };
+        int scatteredA[4], scatteredB[4], random[4];
+        Ch::orderArp (Ch::ArpPattern::scattered, 3, up, scatteredA, 7);
+        Ch::orderArp (Ch::ArpPattern::scattered, 3, up, scatteredB, 7);
+        Ch::orderArp (Ch::ArpPattern::random, 3, up, random, 7);
+        for (int i = 0; i < 4; ++i)
+            assert (scatteredA[i] == scatteredB[i]);
+        assert (scatteredA[3] == -1);
+        int sum = 0, sumIn = 0;
+        for (int i = 0; i < 3; ++i) { sum += scatteredA[i]; sumIn += up[i]; }
+        assert (sum == sumIn);
+
+        // The scattered stream is a different shuffle from the random one (checked across
+        // several seeds, since the two can coincide by chance for a single one).
+        bool everDiffers = false;
+        for (std::uint32_t trialSeed = 0; trialSeed < 24 && ! everDiffers; ++trialSeed)
+        {
+            Ch::orderArp (Ch::ArpPattern::scattered, 3, up, scatteredA, trialSeed);
+            Ch::orderArp (Ch::ArpPattern::random, 3, up, random, trialSeed);
+            for (int i = 0; i < 3; ++i)
+                if (scatteredA[i] != random[i])
+                    everDiffers = true;
+        }
+        assert (everDiffers);
+
+        std::puts ("[PASS] testArpHelpers");
+    }
+
     void testVoicePool()
     {
         using namespace CoreDSP::Sampler;
@@ -1362,6 +1431,7 @@ int main()
     testVoicePool();
     testMidSideStereo();
     testChordsAndScaleQuantise();
+    testArpHelpers();
     testTwoBandSplit();
 
     std::puts ("All CoreDSP unit tests passed.");

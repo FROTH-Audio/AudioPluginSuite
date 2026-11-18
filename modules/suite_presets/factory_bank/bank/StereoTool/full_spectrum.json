@@ -1,0 +1,14 @@
+{
+  "_name": "Full Spectrum",
+  "_category": "All-genre",
+  "_description": "Wide but controlled over tape drive.",
+  "_plugin": "StereoTool",
+  "_pluginVersion": "1.0.0",
+  "drive": 7.0,
+  "character": 1,
+  "transientAttack": 30.0,
+  "transientRelease": 250.0,
+  "transientAmount": 30.0,
+  "sideFilter": 1,
+  "sideCrossover": 200.0
+}

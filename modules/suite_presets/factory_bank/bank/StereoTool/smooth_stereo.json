@@ -1,0 +1,12 @@
+{
+  "_name": "Smooth Stereo",
+  "_category": "Pop",
+  "_description": "Soft, slow dynamic movement.",
+  "_plugin": "StereoTool",
+  "_pluginVersion": "1.0.0",
+  "drive": 4.0,
+  "character": 3,
+  "transientAttack": 80.0,
+  "transientRelease": 300.0,
+  "transientAmount": 20.0
+}

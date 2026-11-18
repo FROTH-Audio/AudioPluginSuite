@@ -3,6 +3,8 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_gui_basics/juce_gui_basics.h>
 
+#include <memory>
+
 #include "PluginProcessor.h"
 #include "SuiteLookAndFeel.h"
 #include "SuiteWidgets.h"
@@ -17,17 +19,72 @@ public:
     void resized() override;
 
 private:
+    /** A caption above a combo box, in one grid cell. */
+    class ComboCell : public juce::Component
+    {
+    public:
+        explicit ComboCell (const char* captionText)
+        {
+            label.setText (captionText, juce::dontSendNotification);
+            label.setFont (SuiteUI::uiFont (13.0f, true));
+            label.setColour (juce::Label::textColourId, SuiteUI::Colours::textDim);
+            label.setJustificationType (juce::Justification::centred);
+            addAndMakeVisible (label);
+            box.setJustificationType (juce::Justification::centred);
+            addAndMakeVisible (box);
+        }
+
+        juce::ComboBox box;
+        juce::Label label;
+
+        void resized() override
+        {
+            auto area = getLocalBounds();
+            label.setBounds (area.removeFromTop (16));
+            area.removeFromTop (2);
+            box.setBounds (area.removeFromBottom (28).reduced (8, 0));
+        }
+    };
+
     StereoToolProcessor& processor;
 
     // Declared first so it is destroyed last, after every component that uses it.
     // Provisional accent (owner may pick a permanent one before release).
     SuiteUI::SuiteLookAndFeel lookAndFeel { juce::Colour (0xffB18CFF) };
 
-    SuiteUI::LabelledSlider widthCtrl { "WIDTH", juce::Slider::RotaryVerticalDrag };
-    SuiteUI::LabelledSlider driveCtrl { "DRIVE", juce::Slider::RotaryVerticalDrag };
-    SuiteUI::LabelledSlider mixCtrl   { "MIX",   juce::Slider::RotaryVerticalDrag };
+    // CHARACTER group: the shaper and the transient follower.
+    SuiteUI::LabelledSlider driveCtrl   { "DRIVE",   juce::Slider::RotaryVerticalDrag };
+    SuiteUI::LabelledSlider attackCtrl  { "ATTACK",  juce::Slider::RotaryVerticalDrag };
+    SuiteUI::LabelledSlider releaseCtrl { "RELEASE", juce::Slider::RotaryVerticalDrag };
+    SuiteUI::LabelledSlider amountCtrl  { "AMOUNT",  juce::Slider::RotaryVerticalDrag };
+    ComboCell characterCell { "CHARACTER" };
+    ComboCell targetCell    { "TARGET" };
 
-    juce::AudioProcessorValueTreeState::SliderAttachment widthAttachment { processor.apvts, StereoToolProcessor::widthId, widthCtrl.slider };
-    juce::AudioProcessorValueTreeState::SliderAttachment driveAttachment { processor.apvts, StereoToolProcessor::driveId, driveCtrl.slider };
-    juce::AudioProcessorValueTreeState::SliderAttachment mixAttachment   { processor.apvts, StereoToolProcessor::mixId,   mixCtrl.slider };
+    // IMAGE group: the stereo image controls.
+    SuiteUI::LabelledSlider widthCtrl    { "WIDTH",    juce::Slider::RotaryVerticalDrag };
+    SuiteUI::LabelledSlider mixCtrl      { "MIX",      juce::Slider::RotaryVerticalDrag };
+    SuiteUI::LabelledSlider midFocusCtrl { "MID FOCUS", juce::Slider::RotaryVerticalDrag };
+    SuiteUI::LabelledSlider crossoverCtrl { "CROSSOVER", juce::Slider::RotaryVerticalDrag };
+    ComboCell filterCell { "SIDE FILTER" };
+
+    // Built in the constructor after the combos' items exist, so their first update selects
+    // the parameter's current choice (an in-class attachment would attach to an empty combo).
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> driveAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> attackAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> releaseAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> amountAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> widthAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> mixAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> midFocusAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> crossoverAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> characterAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> targetAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> filterAttachment;
+
+    juce::Rectangle<int> characterGroupBounds, imageGroupBounds;
+
+    // Preset bar (Pro builds: visible, public build: height 0 so layout unchanged)
+    std::unique_ptr<SuitePresets::PresetBar> presetBar;
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (StereoToolEditor)
 };

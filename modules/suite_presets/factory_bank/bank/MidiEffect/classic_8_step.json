@@ -1,0 +1,8 @@
+{
+  "_name": "Classic 8-Step",
+  "_category": "Arp",
+  "_description": "Even 16ths at the default gate and velocity.",
+  "_plugin": "MidiEffect",
+  "_pluginVersion": "1.0.0",
+  "arpMode": 1
+}

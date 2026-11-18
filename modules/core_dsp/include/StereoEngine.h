@@ -49,4 +49,57 @@ namespace CoreDSP::Stereo
             return x;
         return x + a * (std::tanh (gain * x) - x);
     }
+
+    /** The saturation characters of the Stereo Tool (plan 6.1). Tube is the original
+        saturate() above, exactly; the others share its blend structure
+        (x + amount * (shape(gain * x) - x)) with a different curve. */
+    enum class Character { tube = 0, tape, diode, console, clip };
+
+    /** Character saturation, plan 6.1. Same contract as saturate(): amount 0 (or a tiny
+        gain) is the identity, and every curve is bounded, so the output never exceeds the
+        rails by more than the input did. Leave saturate() untouched: the CoreDSP tests and
+        the plugin's default path depend on it bit for bit. */
+    inline float saturateCharacter (float x, float amount01, float gain, Character character) noexcept
+    {
+        if (amount01 <= 0.0f)
+            return x;
+        const float a = std::clamp (amount01, 0.0f, 1.0f);
+        if (gain <= 1.0e-6f)
+            return x;
+
+        float shaped = 0.0f;
+
+        switch (character)
+        {
+            case Character::tape:
+            {
+                // Symmetric cubic soft clip on the driven, clamped input; rails at +/-1.
+                const float u = std::clamp (gain * x, -1.0f, 1.0f);
+                shaped = 1.5f * (u - (u * u * u) / 3.0f);
+                break;
+            }
+            case Character::diode:
+            {
+                // Exponential for positive excursions, a tighter knee for negative ones.
+                const float u = gain * x;
+                shaped = u >= 0.0f ? 1.0f - std::exp (-u) : std::exp (1.4f * u) - 1.0f;
+                break;
+            }
+            case Character::console:
+                // A gentler tanh blend: three quarters of the tube's bend, so the same
+                // drive keeps more of the clean level.
+                shaped = x + 0.75f * (std::tanh (gain * x) - x);
+                break;
+            case Character::clip:
+                // Hard clip at +/-0.9 on the driven signal.
+                shaped = std::clamp (gain * x, -0.9f, 0.9f);
+                break;
+            case Character::tube:
+            default:
+                shaped = std::tanh (gain * x);
+                break;
+        }
+
+        return x + a * (shaped - x);
+    }
 }

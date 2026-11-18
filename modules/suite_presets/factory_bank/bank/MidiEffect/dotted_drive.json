@@ -1,0 +1,11 @@
+{
+  "_name": "Dotted Drive",
+  "_category": "Techno",
+  "_description": "Fast 32nds, spread up.",
+  "_plugin": "MidiEffect",
+  "_pluginVersion": "1.0.0",
+  "arpMode": 1,
+  "stepRate": 4,
+  "gateLength": 75.0,
+  "octaveSpread": 0.4
+}

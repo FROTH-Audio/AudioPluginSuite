@@ -1,0 +1,12 @@
+{
+  "_name": "Dynamic Width",
+  "_category": "Groove",
+  "_description": "Width blooms on transients.",
+  "_plugin": "StereoTool",
+  "_pluginVersion": "1.0.0",
+  "drive": 3.0,
+  "transientAttack": 10.0,
+  "transientRelease": 400.0,
+  "transientAmount": 60.0,
+  "transientTarget": 0
+}

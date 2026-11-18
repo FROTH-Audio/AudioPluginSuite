@@ -1,0 +1,13 @@
+{
+  "_name": "Aggressive Width",
+  "_category": "Electronic",
+  "_description": "Hard width throw on transients.",
+  "_plugin": "StereoTool",
+  "_pluginVersion": "1.0.0",
+  "width": 40.0,
+  "drive": 10.0,
+  "transientAttack": 5.0,
+  "transientRelease": 800.0,
+  "transientAmount": 100.0,
+  "transientTarget": 0
+}

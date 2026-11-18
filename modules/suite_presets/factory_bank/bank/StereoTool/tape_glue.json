@@ -1,0 +1,9 @@
+{
+  "_name": "Tape Glue",
+  "_category": "Classic",
+  "_description": "Smooth tape-style glue.",
+  "_plugin": "StereoTool",
+  "_pluginVersion": "1.0.0",
+  "drive": 9.0,
+  "character": 1
+}

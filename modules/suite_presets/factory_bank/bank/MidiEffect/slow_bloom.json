@@ -1,0 +1,13 @@
+{
+  "_name": "Slow Bloom",
+  "_category": "Ambient",
+  "_description": "Wide, slow, accented from the bottom.",
+  "_plugin": "MidiEffect",
+  "_pluginVersion": "1.0.0",
+  "velocity": 80.0,
+  "arpMode": 1,
+  "gateLength": 90.0,
+  "velocityCurve": 2,
+  "velocityDirection": 0,
+  "octaveSpread": 0.5
+}

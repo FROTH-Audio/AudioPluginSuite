@@ -1,0 +1,8 @@
+{
+  "_name": "Tube Warmth",
+  "_category": "Vintage",
+  "_description": "Warm tube drive.",
+  "_plugin": "StereoTool",
+  "_pluginVersion": "1.0.0",
+  "drive": 6.0
+}

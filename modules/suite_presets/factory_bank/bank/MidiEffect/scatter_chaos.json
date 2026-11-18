@@ -1,0 +1,12 @@
+{
+  "_name": "Scatter Chaos",
+  "_category": "Experimental",
+  "_description": "Scattered 32nds with random velocity.",
+  "_plugin": "MidiEffect",
+  "_pluginVersion": "1.0.0",
+  "arp": 4,
+  "arpMode": 1,
+  "stepRate": 4,
+  "gateLength": 70.0,
+  "velocityCurve": 3
+}

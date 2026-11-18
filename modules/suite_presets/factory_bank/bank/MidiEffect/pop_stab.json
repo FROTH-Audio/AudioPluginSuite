@@ -1,0 +1,12 @@
+{
+  "_name": "Pop Stab",
+  "_category": "Pop",
+  "_description": "Punchy 8ths with hot velocity.",
+  "_plugin": "MidiEffect",
+  "_pluginVersion": "1.0.0",
+  "velocity": 130.0,
+  "arpMode": 1,
+  "stepRate": 0,
+  "gateLength": 70.0,
+  "velocityCurve": 2
+}

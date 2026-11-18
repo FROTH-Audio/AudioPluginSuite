@@ -1,0 +1,11 @@
+{
+  "_name": "Minor Drift",
+  "_category": "Ambient",
+  "_description": "Sparse minor 16ths, spread down.",
+  "_plugin": "MidiEffect",
+  "_pluginVersion": "1.0.0",
+  "arpMode": 1,
+  "gateLength": 40.0,
+  "velocityCurve": 2,
+  "octaveSpread": -0.3
+}

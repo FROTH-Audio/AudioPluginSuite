@@ -1,0 +1,9 @@
+{
+  "_name": "Hard Clip Drive",
+  "_category": "Rock",
+  "_description": "Aggressive hard clipping.",
+  "_plugin": "StereoTool",
+  "_pluginVersion": "1.0.0",
+  "drive": 18.0,
+  "character": 4
+}

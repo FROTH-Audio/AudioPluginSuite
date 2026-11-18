@@ -1,0 +1,9 @@
+{
+  "_name": "Console Clean",
+  "_category": "Pop",
+  "_description": "Gentle console colour.",
+  "_plugin": "StereoTool",
+  "_pluginVersion": "1.0.0",
+  "drive": 3.0,
+  "character": 3
+}
