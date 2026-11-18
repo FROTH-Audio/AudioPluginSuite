@@ -70,7 +70,7 @@ modules/
     include/SuiteModulationPanel.h    ModulationPanel: LFO strips and the six routing rows (uses SuiteUI::LabelledSlider)
     include/SuiteModulationControls.h ControlDisplay: shows modulated values on sliders, skips the one under the mouse
     Source/*.cpp                  Implementations
-    tests/SuiteModulationTests.cpp  SuiteModulationTests (9 test functions), with a stub processor
+    tests/SuiteModulationTests.cpp  SuiteModulationTests (10 test functions), with a stub processor
     suite_modulation.cmake        suite_modulation_add_to_target(<target>): adds sources + include dir. Needs suite_ui_add_to_target on the same target
   suite_ui/                       Shared UI. NOT a library target, see section 8
     include/SuiteLookAndFeel.h    SuiteUI::Colours: the neutral palette shared by all plugins, SuiteLookAndFeel (LookAndFeel_V4), and kRefreshHz (the 60 Hz editor timer rate)
@@ -145,7 +145,7 @@ Last verified status (2026-11-16, Plan 08 Phase 4): JUCE 9.0.5. Clean Release bu
 All test executables pass:
 - CoreDSPTests (35 functions)
 - SuiteStateTests (8 functions)
-- SuiteModulationTests (9 functions)
+- SuiteModulationTests (10 functions)
 - SuiteSettingsTests (9 functions) - new in Plan 08 Phase 4
 - SuiteUITests (9 functions)
 - SpectralDriftTests (26 functions)
@@ -386,9 +386,9 @@ MTC's `lerpCurve` state property (not a parameter) round-trips through presets a
 
 ## 6. Test architecture
 
-Twelve CTest entries run nine executables: `CoreDSPTests` (35 test functions), `SuiteUI_Tests` (`SuiteUITests`, 9), `SuiteModulation_Tests` (`SuiteModulationTests`, 9), `SuiteSettingsTests` (`SuiteSettingsTests`, 9), `SpectralDriftTests` (26), `DynamicSaturationTests` (24), `MicroTimingChaosTests` (45), `SgraffitoTests` (50), and `PluginHostTests`, which has one ctest entry per plugin (3). With the factory bank on, four preset-test executables join them (one per plugin). The README has the full list.
+Twelve CTest entries run nine executables: `CoreDSPTests` (35 test functions), `SuiteUI_Tests` (`SuiteUITests`, 9), `SuiteModulation_Tests` (`SuiteModulationTests`, 10), `SuiteSettingsTests` (`SuiteSettingsTests`, 9), `SpectralDriftTests` (26), `DynamicSaturationTests` (24), `MicroTimingChaosTests` (45), `SgraffitoTests` (50), and `PluginHostTests`, which has one ctest entry per plugin (3). With the factory bank on, four preset-test executables join them (one per plugin). The README has the full list.
 
-**Module tests** (`modules/suite_modulation/tests/SuiteModulationTests.cpp`): the router, with a stub processor (no plugin). They cover the routed LFO, the zero case (bit for bit), bipolar amounts, whole-number targets, Host Sync ignoring Tempo, the one-bar period, sample and hold, out-of-range indices, and the control display (values set without notifying). Not covered: the control display skipping a slider the mouse holds, since the test cannot press a mouse button. The panel and scope are checked only by the MicroTimingChaos editor test.
+**Module tests** (`modules/suite_modulation/tests/SuiteModulationTests.cpp`): the router, with a stub processor (no plugin). They cover the routed LFO, the zero case (bit for bit), bipolar amounts, whole-number targets, Host Sync ignoring Tempo, the one-bar period, sample and hold, out-of-range indices, and the control display (values set without notifying), plus the modulation panel's preferred height (every child stays inside it; plan 10 phase 9). Not covered: the control display skipping a slider the mouse holds, since the test cannot press a mouse button. The panel and scope are checked only by the MicroTimingChaos editor test.
 
 **Assertions.** Every test file starts with `#undef NDEBUG` before `<cassert>`. Release builds (what CI uses) would otherwise compile every `assert` away. Keep this in every new test file.
 
@@ -439,7 +439,7 @@ Mouse events in tests use the 15-argument `juce::MouseEvent` constructor, which 
 - **The control display is a module class, not editor code.** `ControlDisplay` takes the router and the list of sliders, and it reads Host Sync through the router. Whole-number targets are rounded inside the router, so the display and the sequencer agree.
 - **Modulation applies before the lerp curve**, so a modulated Chaos moves along the curve.
 - **The routing and LFO settings are plain APVTS parameters**, so they automate, save and restore like the rest.
-- **Effects use a SOUND/MOD page switch**, not a permanent panel. Both show the visualiser on both pages and the `ModulationPanel` on the MOD page. `setPage` only touches visibility, so switching pages never changes a parameter. Since plan 05 the windows are SD 720×660 and DS 780×680 (plan 05.1 added the pan control and the stereo output bar to DS).
+- **Effects use a SOUND/MOD page switch**, not a permanent panel. Both show the visualiser on both pages and the `ModulationPanel` on the MOD page. `setPage` only touches visibility, so switching pages never changes a parameter. Since plan 05 the windows are SD 720×660 and DS 780×680 (plan 05.1 added the pan control and the stereo output bar to DS). Since plan 10 phase 9 the effects stack the visualiser above the modulation group on the MOD page instead of overlapping it, and `ModulationPanel::getPreferredHeight()` exposes the group's natural height (the LFO block + routing heading + slot rows) so editors don't hardcode the module's internal constants.
 - **Synced LFOs in the effects use a tempo-locked beat clock that follows the host tempo** (120 BPM when there is no playhead), not the host PPQ. The clock only accumulates, so it never jumps on loop or relocate. The routing Delay clock runs from `prepareToPlay` and is not restarted on transport start.
 - **Spectral Drift smooths mix, feedback, feedback damping and output gain per sample** (20 ms). These four are consumed per sample in the engine, so block-rate modulation would zip or click; smoothing removes it. The smoothers are advanced once per block into per-sample curves (`mixCurve` and so on), and both channels read the same curves. Advancing them inside the channel loop made the right channel use the next block's ramp, which skewed the stereo image during ramps. `testOutputGainRampMatchesChannels` guards this. Everything else in SD is frame- or block-rate. DS needed no DSP change: it already smooths drive/mix/output level and its other targets are block-rate by construction.
 - **The engine's `processSample` keeps its single-argument behaviour bit-identical.** A two-argument overload takes `PerSampleSettings` (mix, feedback, damping); the old form forwards the raw settings, so all existing CoreDSP tests and the reconstruction test are unchanged.

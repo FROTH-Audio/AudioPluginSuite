@@ -29,6 +29,11 @@ namespace SuiteModulation
         void resized() override;
         void paint(juce::Graphics&) override;
 
+        /** The natural height: the LFO block, the routing heading and the six slot rows.
+            Editors that stack other content (a visualiser, a curve) above or below the
+            group give it this height; a taller bounds just leaves space under the rows. */
+        int getPreferredHeight() const;
+
         /** Called from the editor's timer. Enables the rate or division that applies, and refreshes the scopes. */
         void refresh();
 
