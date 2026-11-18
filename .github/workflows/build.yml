@@ -18,10 +18,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-            - name: Windows MSVC
-            os: windows-latest
+          - name: Windows MSVC
             # No -G: CMake picks the newest Visual Studio installed on the runner.
             # Pinning a year breaks whenever GitHub updates the runner image.
+            os: windows-latest
             configure: cmake -S . -B build -A x64 -DSUITE_PRESET_BANK=ON
           - name: macOS Xcode
             # macos-15 uses the runner's default Xcode (selected in the step below). Apple clang is run
