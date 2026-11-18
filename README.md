@@ -1,9 +1,9 @@
 <p align="center">
-  <img src="docs/images/froth-audio-suite.png" alt="FROTH Audio: Spectral Drift Shifter, Dynamic Saturation Companion, Micro-Timing Chaos and Sgraffito" width="100%">
+  <img src="docs/images/froth-audio-suite.png" alt="FROTH Audio plugin suite banner" width="100%">
 </p>
 
 <p align="center">
-  <b>Four plugins that bend phase, drive and groove.</b><br>
+  <b>Plugins that bend phase, drive and groove.</b><br>
   VST3, Audio Unit and Standalone. Each plugin has its own accent colour and a live visualiser.
 </p>
 
