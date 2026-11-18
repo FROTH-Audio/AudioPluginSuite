@@ -140,7 +140,7 @@ namespace
         for (const char* rateId : { Processor::lfo1RateId, Processor::lfo2RateId })
             checkRange (processor.apvts, rateId, 0.02f, 20.0f, 0.25f);
         for (const char* shapeId : { Processor::lfo1ShapeId, Processor::lfo2ShapeId })
-            checkRange (processor.apvts, shapeId, 0.0f, 6.0f, 0.0f);
+            checkRange (processor.apvts, shapeId, 0.0f, 7.0f, 0.0f);
         for (const char* syncId : { Processor::lfo1SyncId, Processor::lfo2SyncId })
             checkRange (processor.apvts, syncId, 0.0f, 1.0f, 0.0f);
         for (const char* divisionId : { Processor::lfo1DivisionId, Processor::lfo2DivisionId })

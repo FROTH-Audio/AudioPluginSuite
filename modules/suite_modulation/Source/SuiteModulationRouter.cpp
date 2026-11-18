@@ -26,7 +26,7 @@ namespace SuiteModulation
                      [](float s, float e, float v) { return std::log(v / s) / std::log(e / s); } };
         }
 
-        juce::StringArray lfoShapeNames() { return { "Sine", "Triangle", "Saw", "Square", "Sample & Hold", "Random", "Noise" }; }
+        juce::StringArray lfoShapeNames() { return { "Sine", "Triangle", "Saw", "Square", "Sample & Hold", "Random", "Noise", "Pendulum" }; }
         juce::StringArray divisionNames() { return { "4 bars", "2 bars", "1 bar", "1/2", "1/4", "1/8", "1/16" }; }
         juce::StringArray sourceNames() { return { "LFO 1", "LFO 2" }; }
 

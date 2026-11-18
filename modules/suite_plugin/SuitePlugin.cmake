@@ -208,9 +208,16 @@ function(suite_add_plugin)
 
     #---- Pro preset test executable ----
     # Only in a bank build. It compiles the plugin sources, the factory bank and one test file, so the
-    # bank is checked against the live APVTS ranges of this plugin.
+    # bank is checked against the live APVTS ranges of this plugin. New plugins join the bank only
+    # once they have factory presets, so the test file's existence gates the target.
     if(SUITE_BUILD_TESTS AND SUITE_PRESET_BANK)
         set(presetTestSources ${CMAKE_SOURCE_DIR}/modules/suite_presets/factory_bank/tests/${SAP_NAME}PresetTests.cpp)
+        if(NOT EXISTS "${presetTestSources}")
+            message(STATUS "suite_add_plugin(${SAP_NAME}): no factory-bank preset tests yet (${SAP_NAME}PresetTests.cpp is missing), skipping the preset test target")
+            set(presetTestSources)
+        endif()
+    endif()
+    if(SUITE_BUILD_TESTS AND SUITE_PRESET_BANK AND presetTestSources)
         foreach(src IN LISTS SAP_SOURCES)
             if("${src}" MATCHES "\\.cpp$")
                 list(APPEND presetTestSources ${src})

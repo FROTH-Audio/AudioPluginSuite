@@ -48,7 +48,7 @@ namespace SuiteModulation
         const std::array<const char*, Router::slotCount> modAmountIds { "mod1Amount", "mod2Amount", "mod3Amount", "mod4Amount", "mod5Amount", "mod6Amount" };
         const std::array<const char*, Router::slotCount> modDelayIds { "mod1Delay", "mod2Delay", "mod3Delay", "mod4Delay", "mod5Delay", "mod6Delay" };
 
-        juce::StringArray shapeNames() { return { "Sine", "Triangle", "Saw", "Square", "Sample & Hold", "Random", "Noise" }; }
+        juce::StringArray shapeNames() { return { "Sine", "Triangle", "Saw", "Square", "Sample & Hold", "Random", "Noise", "Pendulum" }; }
         juce::StringArray divisionNames() { return { "4 bars", "2 bars", "1 bar", "1/2", "1/4", "1/8", "1/16" }; }
         juce::StringArray sourceNames() { return { "LFO 1", "LFO 2" }; }
 

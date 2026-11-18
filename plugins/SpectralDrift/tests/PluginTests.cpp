@@ -58,12 +58,12 @@ namespace
 
         // The 34 shared LFO and routing parameters.
         checkRange (processor.apvts, Processor::lfo1RateId, 0.02f, 20.0f, 0.25f);
-        checkRange (processor.apvts, Processor::lfo1ShapeId, 0.0f, 6.0f, 0.0f);
+        checkRange (processor.apvts, Processor::lfo1ShapeId, 0.0f, 7.0f, 0.0f);
         checkRange (processor.apvts, Processor::lfo1SyncId, 0.0f, 1.0f, 0.0f);
         checkRange (processor.apvts, Processor::lfo1DivisionId, 0.0f, 6.0f, 4.0f);
         checkRange (processor.apvts, Processor::lfo1OffsetId, -100.0f, 100.0f, 0.0f);
         checkRange (processor.apvts, Processor::lfo2RateId, 0.02f, 20.0f, 0.25f);
-        checkRange (processor.apvts, Processor::lfo2ShapeId, 0.0f, 6.0f, 0.0f);
+        checkRange (processor.apvts, Processor::lfo2ShapeId, 0.0f, 7.0f, 0.0f);
         checkRange (processor.apvts, Processor::lfo2SyncId, 0.0f, 1.0f, 0.0f);
         checkRange (processor.apvts, Processor::lfo2DivisionId, 0.0f, 6.0f, 4.0f);
         checkRange (processor.apvts, Processor::lfo2OffsetId, -100.0f, 100.0f, 0.0f);
@@ -617,7 +617,7 @@ namespace
         Processor processor;
 
         checkRange (processor.apvts, Processor::lfo1RateId, 0.02f, 20.0f, 0.25f);
-        checkRange (processor.apvts, Processor::lfo1ShapeId, 0.0f, 6.0f, 0.0f);
+        checkRange (processor.apvts, Processor::lfo1ShapeId, 0.0f, 7.0f, 0.0f);
         checkRange (processor.apvts, Processor::lfo1SyncId, 0.0f, 1.0f, 0.0f);
         checkRange (processor.apvts, Processor::lfo1DivisionId, 0.0f, 6.0f, 4.0f);
         checkRange (processor.apvts, Processor::lfo1OffsetId, -100.0f, 100.0f, 0.0f);

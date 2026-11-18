@@ -1,38 +1,47 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
+#include "StereoEngine.h"
+
 StereoToolProcessor::StereoToolProcessor()
     : AudioProcessor (BusesProperties()
-                      .withInput ("Input", juce::AudioChannelSet::stereo(), true)
-                      .withOutput ("Output", juce::AudioChannelSet::stereo(), true)),
+                          .withInput ("Input", juce::AudioChannelSet::stereo(), true)
+                          .withOutput ("Output", juce::AudioChannelSet::stereo(), true)),
       apvts (*this, nullptr, "PARAMETERS", createParameterLayout())
 {
+    widthParam = apvts.getRawParameterValue (widthId);
+    driveParam = apvts.getRawParameterValue (driveId);
+    mixParam   = apvts.getRawParameterValue (mixId);
 }
 
 juce::AudioProcessorValueTreeState::ParameterLayout StereoToolProcessor::createParameterLayout()
 {
     std::vector<std::unique_ptr<juce::RangedAudioParameter>> params;
 
-    // Width: -100 to +100 %, where 0 = correlated stereo
-    // +100 = fully uncorrelated, -100 = mono (both channels identical)
+    // Width -100..+100 %: 0 leaves the stereo image unchanged, -100 folds to mono,
+    // +100 doubles the side energy. The engine clamps, so the decode never folds.
     params.push_back (std::make_unique<juce::AudioParameterFloat> (
-        juce::ParameterID { widthId, 1 }, "Width", juce::NormalisableRange<float> (-100.0f, 100.0f, 0.0f), 0.0f, "%"));
+        juce::ParameterID { widthId, 1 }, "Width",
+        juce::NormalisableRange<float> (-100.0f, 100.0f, 0.1f), 0.0f, "%"));
 
-    // Mix: dry/wet in % (0-100)
+    // Drive in dB. 0 dB is transparent; below 0 is a clean gain reduction, above 0
+    // saturates with a unity small-signal gain.
     params.push_back (std::make_unique<juce::AudioParameterFloat> (
-        juce::ParameterID { mixId, 1 }, "Mix", juce::NormalisableRange<float> (0.0f, 100.0f, 1.0f), 100.0f, "%"));
+        juce::ParameterID { driveId, 1 }, "Drive",
+        juce::NormalisableRange<float> (-24.0f, 24.0f, 0.1f), 0.0f, "dB"));
 
-    // Drive: tanh saturation gain in dB
+    // Mix 0..100 %: 0 is the dry input, 100 the fully processed signal.
     params.push_back (std::make_unique<juce::AudioParameterFloat> (
-        juce::ParameterID { driveId, 1 }, "Drive", juce::NormalisableRange<float> (-24.0f, 24.0f, 0.1f), 0.0f, "dB"));
+        juce::ParameterID { mixId, 1 }, "Mix",
+        juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 100.0f, "%"));
 
     return { params.begin(), params.end() };
 }
 
-void StereoToolProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
+void StereoToolProcessor::prepareToPlay (double, int samplesPerBlock)
 {
-    // Prepare temp buffer
-    msBuffer.setSize (2, samplesPerBlock, false, false, true);
+    dryBuffer.setSize (2, samplesPerBlock, false, false, true);
+    dryBuffer.clear();
 }
 
 bool StereoToolProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
@@ -41,77 +50,74 @@ bool StereoToolProcessor::isBusesLayoutSupported (const BusesLayout& layouts) co
         && layouts.getMainOutputChannelSet() == juce::AudioChannelSet::stereo();
 }
 
-void StereoToolProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
+void StereoToolProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer&)
 {
     juce::ScopedNoDenormals noDenormals;
 
-    auto* leftChannel  = buffer.getWritePointer  (0);
-    auto* rightChannel = buffer.getWritePointer (1);
-
     const int numSamples = buffer.getNumSamples();
+    if (numSamples <= 0 || buffer.getNumChannels() < 2)
+        return;
 
-    // Save original samples for dry/wet mix
-    juce::AudioBuffer<float> original (2, numSamples);
-    for (int ch = 0; ch < 2; ++ch)
-        for (int i = 0; i < numSamples; ++i)
-            original.setSample (ch, i, ch == 0 ? buffer.getSample (ch, i) : buffer.getSample (ch, i));
+    // Hosts may exceed the announced block size; grow the scratch buffer if so (rare path).
+    if (numSamples > dryBuffer.getNumSamples())
+        dryBuffer.setSize (2, numSamples, false, true, true);
 
-    // --- 1. Split to mid/side ---
-    // mid = (left + right) / 2
-    // side = (left - right) / 2
-    for (int i = 0; i < numSamples; ++i)
+    auto* left  = buffer.getWritePointer (0);
+    auto* right = buffer.getWritePointer (1);
+
+    // Settings for this block.
+    const float width = juce::jlimit (-100.0f, 100.0f, widthParam->load()) / 100.0f;
+    const float sideGain = CoreDSP::Stereo::sideGain (width);
+
+    const float driveDb = juce::jlimit (-24.0f, 24.0f, driveParam->load());
+    const float mix = juce::jlimit (0.0f, 100.0f, mixParam->load()) / 100.0f;
+
+    // Drive amount: 0 dB is transparent. Negative Drive is a clean gain reduction; positive
+    // Drive interpolates towards tanh pre-gain drive (CoreDSP::Stereo::saturate), so loud
+    // parts sit near the rails and the small-signal level rises, as a drive knob should.
+    const float cleanGain = driveDb < 0.0f ? juce::Decibels::decibelsToGain (driveDb) : 1.0f;
+    const float satAmount = driveDb > 0.0f ? driveDb / 24.0f : 0.0f;
+    const float satGain   = driveDb > 0.0f ? juce::Decibels::decibelsToGain (driveDb) : 1.0f;
+
+    // When neither the drive nor the width touches the signal, the wet path is mathematically
+    // the input. Taking it out keeps the plugin bit-exact at the defaults (the mid/side round
+    // trip alone is not bit-exact in float) and skips the work.
+    const bool identityPath = satAmount == 0.0f && cleanGain == 1.0f && sideGain == 1.0f;
+    if (identityPath && mix == 1.0f)
+        return;
+
+    // Dry copy for the mix at the end, into the pre-sized scratch buffer (no allocation).
+    dryBuffer.copyFrom (0, 0, buffer, 0, 0, numSamples);
+    dryBuffer.copyFrom (1, 0, buffer, 1, 0, numSamples);
+    auto* dryL = dryBuffer.getWritePointer (0);
+    auto* dryR = dryBuffer.getWritePointer (1);
+
+    for (int n = 0; n < numSamples; ++n)
     {
-        const float l = leftChannel[i];
-        const float r = rightChannel[i];
-        msBuffer.setSample (0, i, (l + r) * 0.5f);  // mid
-        msBuffer.setSample (1, i, (l - r) * 0.5f);  // side
-    }
+        float m = 0.0f, s = 0.0f;
+        CoreDSP::Stereo::encode (left[n], right[n], m, s);
 
-    // --- 2. Apply tanh saturation to mid/side ---
-    const float driveGain = juce::Decibels::decibelsToGain (driveParam ? *driveParam : 0.0f);
-    for (int i = 0; i < numSamples; ++i)
-    {
-        const float m = msBuffer.getSample (0, i);
-        const float s = msBuffer.getSample (1, i);
-        const float satM = std::tanh (driveGain * m);
-        const float satS = std::tanh (driveGain * s);
-        msBuffer.setSample (0, i, satM);
-        msBuffer.setSample (1, i, satS);
-    }
+        if (satAmount > 0.0f)
+        {
+            m = CoreDSP::Stereo::saturate (m, satAmount, satGain);
+            s = CoreDSP::Stereo::saturate (s, satAmount, satGain);
+        }
+        else
+        {
+            m *= cleanGain;
+            s *= cleanGain;
+        }
 
-    // --- 3. Width control (correlated/uncorrelated balance) ---
-    // width = 0: correlated stereo (side = 0, output = original)
-    // width > 0: add uncorrelated component (widen)
-    // width < 0: make more correlated (narrow)
-    const float w = jlimit (-1.0f, 1.0f, widthParam ? *widthParam : 0.0f) / 100.0f;
+        s *= sideGain;
 
-    for (int i = 0; i < numSamples; ++i)
-    {
-        const float m = msBuffer.getSample (0, i);
-        const float s = msBuffer.getSample (1, i);
+        float outL = 0.0f, outR = 0.0f;
+        CoreDSP::Stereo::decode (m, s, outL, outR);
 
-        // Width control: out = mid + w * side
-        // This preserves total level approx and controls correlation
-        float outL = m + w * s;  // left = mid + width * side
-        float outR = m - w * s;  // right = mid - width * side
-
-        leftChannel[i]  = outL;
-        rightChannel[i] = outR;
-    }
-
-    // --- 4. Apply dry/wet mix ---
-    const float wet = mixParam ? juce::jlimit (0.0f, 100.0f, *mixParam) / 100.0f : 1.0f;
-    const float dry = 1.0f - wet;
-
-    // Mix dry (original) with wet (width-processed signal)
-    for (int i = 0; i < numSamples; ++i)
-    {
-        leftChannel[i]  = leftChannel[i]  * dry + original.getSample (0, i) * wet;
-        rightChannel[i] = rightChannel[i] * dry + original.getSample (1, i) * wet;
+        left[n]  = (1.0f - mix) * dryL[n] + mix * outL;
+        right[n] = (1.0f - mix) * dryR[n] + mix * outR;
     }
 }
 
-//==============================================================================
 juce::AudioProcessorEditor* StereoToolProcessor::createEditor()
 {
     return new StereoToolEditor (*this);
@@ -119,10 +125,16 @@ juce::AudioProcessorEditor* StereoToolProcessor::createEditor()
 
 void StereoToolProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
-    destData = SuiteState::write (apvts, 1);
+    destData = SuiteState::write (apvts, stateVersion);
 }
 
 void StereoToolProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
-    SuiteState::read (data, sizeInBytes, apvts, 1, {});
+    SuiteState::read (data, sizeInBytes, apvts, stateVersion, migrations);
+}
+
+//==============================================================================
+juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
+{
+    return new StereoToolProcessor();
 }

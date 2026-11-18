@@ -4,6 +4,8 @@ Written for: the owner, as a menu of options to choose from. Ideas only, nothing
 
 Status: proposal. Module names were checked in the local JUCE 9.0.5 source (`cmake-build-juce9/_deps/juce-src/modules`). Effort is a rough guess for one developer who knows this codebase.
 
+**Status 2026-11-18 (after the owner picked the order):** 2.1's first step is done — the pendulum is a tested `CoreDSP::Modulation` shape and selectable in every plugin through the shared router (appended as index 7). 2.9 and 2.11 exist as first-pass plugins: the mid/side engine (`CoreDSP::Stereo`, lossless-tested), the chord engine and the scale quantisation (reusing `CoreDSP::Sampler`) live in `core_dsp`; both plugins are minimal first steps (2.9: width/drive/mix, no routing yet; 2.11: chord-on-note-on, arp ordering without a step clock). Their accents and the pending follow-up work (routing, preset bank entries, lockups, a step-clock arp) are listed in the CHANGELOG.
+
 ---
 
 ## 1. The framework idea

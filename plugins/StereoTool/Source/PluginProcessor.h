@@ -4,27 +4,36 @@
 
 #include <atomic>
 #include <vector>
-#include <array>
 
 #include "SuiteState.h"
 
 /**
-    Stereo Tool Effect - mid/side encoding, width control, tanh saturation.
+    Stereo Tool Effect (plan 06 idea 2.9).
 
-    Processing pipeline:
-    1. Split to mid/side (MS matrix)
-    2. Apply tanh saturation per channel
-    3. Width control (correlated/uncorrelated balance)
-    4. Recompose to stereo
-    5. Dry/wet mix with latency-aligned dry signal
+    Pipeline per block:
+    1. Mid/side split (CoreDSP::Stereo::encode).
+    2. Tanh saturation on mid and side (transparent at Drive 0 dB: negative Drive is a clean
+       gain reduction, positive Drive interpolates towards the saturator).
+    3. Width: the side component is scaled by CoreDSP::Stereo::sideGain (width/100), so a
+       width of 0 leaves the image unchanged, -100 folds to mono, +100 doubles the side.
+    4. Mid/side decode back to left/right.
+    5. Dry/wet mix against the unprocessed input.
+
+    No latency is added, so getLatencySamples stays 0.
 */
 class StereoToolProcessor : public juce::AudioProcessor
 {
 public:
     // Parameter IDs are saved in sessions. Never rename or reuse one after a release.
     static constexpr const char* widthId = "width";
-    static constexpr const char* mixId   = "mix";
     static constexpr const char* driveId = "drive";
+    static constexpr const char* mixId   = "mix";
+
+    juce::AudioProcessorValueTreeState apvts;
+
+    // Bump stateVersion when the saved state changes, and add a migration from the old version.
+    int stateVersion = 1;
+    std::vector<SuiteState::Migration> migrations;
 
     StereoToolProcessor();
     ~StereoToolProcessor() override = default;
@@ -32,12 +41,12 @@ public:
     void prepareToPlay (double sampleRate, int samplesPerBlock) override;
     void releaseResources() override {}
     bool isBusesLayoutSupported (const BusesLayout& layouts) const override;
-    void processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages) override;
+    void processBlock (juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
 
     juce::AudioProcessorEditor* createEditor() override;
     bool hasEditor() const override { return true; }
 
-    const juce::String getName() const override { return "StereoTool"; }
+    const juce::String getName() const override { return "Stereo Tool Effect"; }
     bool acceptsMidi() const override { return false; }
     bool producesMidi() const override { return false; }
     double getTailLengthSeconds() const override { return 0.0; }
@@ -51,21 +60,13 @@ public:
     void getStateInformation (juce::MemoryBlock& destData) override;
     void setStateInformation (const void* data, int sizeInBytes) override;
 
-    // Width in % (-100 to +100, where 0 = correlated stereo)
-    // +100 = fully uncorrelated, -100 = mono (both channels identical)
-    float width{0.0f};
-    float mix{1.0f};      // dry/wet mix in % (0-100)
-    float drive{0.0f};    // saturation drive in dB
-
 private:
     static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
 
-    // Mid/side processing buffers
-    juce::AudioBuffer<float> msBuffer; // temp buffer for MS processing
-    float lastLeft{0}, lastRight{0}; // for latency alignment
+    // Scratch buffer for the dry signal, sized in prepareToPlay. The audio thread never allocates.
+    juce::AudioBuffer<float> dryBuffer;
 
-    // Parameter pointers
-    std::atomic<float>* widthParam{nullptr};
-    std::atomic<float>* mixParam{nullptr};
-    std::atomic<float>* driveParam{nullptr};
+    std::atomic<float>* widthParam = nullptr;
+    std::atomic<float>* driveParam = nullptr;
+    std::atomic<float>* mixParam   = nullptr;
 };

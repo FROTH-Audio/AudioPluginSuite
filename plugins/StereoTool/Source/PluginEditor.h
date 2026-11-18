@@ -19,16 +19,15 @@ public:
 private:
     StereoToolProcessor& processor;
 
-    // Look and feel with suite accent colour
-    SuiteUI::SuiteLookAndFeel lookAndFeel { juce::Colour (0xff9aa0a6) };
+    // Declared first so it is destroyed last, after every component that uses it.
+    // Provisional accent (owner may pick a permanent one before release).
+    SuiteUI::SuiteLookAndFeel lookAndFeel { juce::Colour (0xffB18CFF) };
 
-    // Width control: -100 to +100 % (0 = correlated stereo)
-    SuiteUI::LabelledWidthCtrl widthCtrl { "WIDTH", juce::Slider::RotaryVerticalDrag };
-    SuiteUI::LabelledSlider mixCtrl { "MIX", juce::Slider::RotaryVerticalDrag };
+    SuiteUI::LabelledSlider widthCtrl { "WIDTH", juce::Slider::RotaryVerticalDrag };
     SuiteUI::LabelledSlider driveCtrl { "DRIVE", juce::Slider::RotaryVerticalDrag };
+    SuiteUI::LabelledSlider mixCtrl   { "MIX",   juce::Slider::RotaryVerticalDrag };
 
-    // Parameters attachments
-    juce::AudioProcessorValueTreeState::SliderAttachment widthAttach { processor.apvts, StereoToolProcessor::widthId, widthCtrl.slider };
-    juce::AudioProcessorValueTreeState::SliderAttachment mixAttach  { processor.apvts, StereoToolProcessor::mixId,   mixCtrl.slider };
-    juce::AudioProcessorValueTreeState::SliderAttachment driveAttach{ processor.apvts, StereoToolProcessor::driveId, driveCtrl.slider };
+    juce::AudioProcessorValueTreeState::SliderAttachment widthAttachment { processor.apvts, StereoToolProcessor::widthId, widthCtrl.slider };
+    juce::AudioProcessorValueTreeState::SliderAttachment driveAttachment { processor.apvts, StereoToolProcessor::driveId, driveCtrl.slider };
+    juce::AudioProcessorValueTreeState::SliderAttachment mixAttachment   { processor.apvts, StereoToolProcessor::mixId,   mixCtrl.slider };
 };

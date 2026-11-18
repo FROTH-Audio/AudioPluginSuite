@@ -10,6 +10,7 @@
 #include <cmath>
 
 #include "ChaosEngine.h"
+#include "ChordEngine.h"
 #include "ModulationEngine.h"
 #include "ModulationTiming.h"
 #include "SamplerEngine.h"
@@ -17,6 +18,7 @@
 #include "SaturationEngine.h"
 #include "SequencerEngine.h"
 #include "SpectralEngine.h"
+#include "StereoEngine.h"
 
 namespace CoreDSP
 {

@@ -19,33 +19,22 @@ public:
 private:
     MidiEffectProcessor& processor;
 
-    // Look and feel with suite accent colour
-    SuiteUI::SuiteLookAndFeel lookAndFeel { juce::Colour (0xff9aa0a6) };
+    // Declared first so it is destroyed last, after every component that uses it.
+    // Provisional accent (owner may pick a permanent one before release).
+    SuiteUI::SuiteLookAndFeel lookAndFeel { juce::Colour (0xff4ECDC4) };
 
-    // Scale pop-up
+    SuiteUI::LabelledSlider rootCtrl     { "ROOT",     juce::Slider::RotaryVerticalDrag };
+    SuiteUI::LabelledSlider octaveCtrl   { "OCTAVE",   juce::Slider::RotaryVerticalDrag };
+    SuiteUI::LabelledSlider velocityCtrl { "VELOCITY", juce::Slider::RotaryVerticalDrag };
+
     juce::ComboBox scaleCombo;
-    juce::Label scaleLabel { "SCALE" };
-
-    // Chord quality pop-up
     juce::ComboBox chordCombo;
-    juce::Label chordLabel { "CHORD" };
-
-    // Arpeggio pattern pop-up
     juce::ComboBox arpCombo;
-    juce::Label arpLabel { "ARP" };
 
-    // Root note display
-    juce::Label rootLabel { "ROOT" };
-    juce::Slider rootSlider { juce::Slider::LinearVertical };
-    juce::AudioProcessorValueTreeState::SliderAttachment rootAttach { processor.apvts, MidiEffectProcessor::rootId, rootSlider.slider };
-
-    // Velocity display
-    juce::ComboBox velCombo;
-    juce::Label velLabel { "VEL" };
-
-    // Parameters attachments
-    juce::AudioProcessorValueTreeState::SliderAttachment scaleAttach { processor.apvts, MidiEffectProcessor::scaleId, scaleCombo }; // needs adjustment
-    juce::AudioProcessorValueTreeState::SliderAttachment chordAttach { processor.apvts, MidiEffectProcessor::chordId, chordCombo }; // needs adjustment
-    juce::AudioProcessorValueTreeState::SliderAttachment arpAttach { processor.apvts, MidiEffectProcessor::arpId, arpCombo }; // needs adjustment
-    juce::AudioProcessorValueTreeState::SliderAttachment velAttach { processor.apvts, MidiEffectProcessor::velocityId, velCombo }; // needs adjustment
+    juce::AudioProcessorValueTreeState::SliderAttachment rootAttachment     { processor.apvts, MidiEffectProcessor::rootId,     rootCtrl.slider };
+    juce::AudioProcessorValueTreeState::SliderAttachment octaveAttachment   { processor.apvts, MidiEffectProcessor::octaveId,   octaveCtrl.slider };
+    juce::AudioProcessorValueTreeState::SliderAttachment velocityAttachment { processor.apvts, MidiEffectProcessor::velocityId, velocityCtrl.slider };
+    juce::AudioProcessorValueTreeState::ComboBoxAttachment scaleAttachment  { processor.apvts, MidiEffectProcessor::scaleId,    scaleCombo };
+    juce::AudioProcessorValueTreeState::ComboBoxAttachment chordAttachment  { processor.apvts, MidiEffectProcessor::chordId,    chordCombo };
+    juce::AudioProcessorValueTreeState::ComboBoxAttachment arpAttachment    { processor.apvts, MidiEffectProcessor::arpId,      arpCombo };
 };

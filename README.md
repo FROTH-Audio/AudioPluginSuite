@@ -1,9 +1,9 @@
 <p align="center">
-  <img src="docs/images/froth-audio-suite.png" alt="FROTH Audio: Spectral Drift Shifter, Dynamic Saturation Companion, Micro-Timing Chaos and Sgraffito" width="100%">
+  <img src="docs/images/froth-audio-suite.png" alt="FROTH Audio: Spectral Drift Shifter, Dynamic Saturation Companion, Micro-Timing Chaos, Sgraffito, Stereo Tool Effect and MIDI Chord Arp Scale Tool" width="100%">
 </p>
 
 <p align="center">
-  <b>Four plugins that bend phase, drive and groove.</b><br>
+  <b>Six plugins that bend phase, drive and groove.</b><br>
   VST3, Audio Unit and Standalone. Each plugin has its own accent colour and a live visualiser.
 </p>
 
@@ -44,6 +44,16 @@ FROTH Audio makes plugins that work on sound at the level of its structure: the 
 <td align="center"><img src="modules/suite_ui/brand/lockup_sgraffito.png" width="200" alt="FROTH Audio Sgraffito"></td>
 <td><b>Sgraffito Memory Sampler</b><br><sub>Memory sampler</sub></td>
 <td>Traces in memory, frozen in time.<br>Memory traces, tape stop, ghost notes, scale lock and a granular cloud.</td>
+</tr>
+<tr>
+<td></td>
+<td><b>Stereo Tool Effect</b><br><sub>Stereo tool (brand lockup pending)</sub></td>
+<td>Widen, narrow or saturate a stereo image.<br>Mid/side width, tanh drive and a dry/wet mix.</td>
+</tr>
+<tr>
+<td></td>
+<td><b>MIDI Chord Arp Scale Tool</b><br><sub>MIDI effect (brand lockup pending)</sub></td>
+<td>Every note becomes a chord.<br>Scale quantisation, chord qualities, arp ordering, octave and velocity shaping.</td>
 </tr>
 </table>
 
@@ -358,20 +368,24 @@ Plugin formats are chosen automatically: VST3 and Standalone everywhere, plus AU
 ctest --test-dir build -C Release --output-on-failure
 ```
 
-**Default build** (`SUITE_PRESET_BANK=OFF`): ten CTest entries run seven test executables:
+**Default build** (`SUITE_PRESET_BANK=OFF`): sixteen CTest entries run eleven test executables:
 
 | Executable | Scope | Tests |
 |---|---|---|
-| `CoreDSPTests` | DSP primitives in `modules/core_dsp` | 29 |
+| `CoreDSPTests` | DSP primitives in `modules/core_dsp` | 37 |
+| `SuiteState_Tests` | Versioned saved state in `modules/suite_state` | 8 |
+| `SuiteModulationTests` | Shared LFOs, routing and the control display in `modules/suite_modulation` | 10 |
+| `SuiteSettingsTests` | Settings store and dialog in `modules/suite_settings` | 9 |
 | `SuiteUITests` | Shared widgets and look and feel | 9 |
-| `SuiteModulationTests` | Shared LFOs, routing and the control display in `modules/suite_modulation` | 9 |
-| `SuiteState_Tests` | Versioned saved state in `modules/suite_state` | 9 |
-| `SpectralDriftTests` | Spectral Drift processor and editor | 22 |
-| `DynamicSaturationTests` | Dynamic Saturation processor and editor | 19 |
-| `MicroTimingChaosTests` | Micro-Timing Chaos processor and editor | 40 |
-| `PluginHostTests` (×3) | Each built VST3 bundle, loaded through JUCE's own plugin host | 1 per plugin |
+| `SpectralDriftTests` | Spectral Drift processor and editor | 26 |
+| `DynamicSaturationTests` | Dynamic Saturation processor and editor | 24 |
+| `MicroTimingChaosTests` | Micro-Timing Chaos processor and editor | 45 |
+| `SgraffitoTests` | Sgraffito processor and editor | 50 |
+| `StereoToolTests` | Stereo Tool Effect processor and editor | 6 |
+| `MidiEffectTests` | MIDI Chord Arp Scale Tool processor and editor | 8 |
+| `PluginHostTests` (×5) | Each built VST3 bundle, loaded through JUCE's own plugin host | 1 per plugin |
 
-**Bank build** (`SUITE_PRESET_BANK=ON`): thirteen CTest entries — the ten public entries plus one `*_PresetTests` executable per plugin (bank ranges, apply/reset, editor, menu model, MIDI sanity). With `SUITE_PRESET_BANK_AS_PROGRAMS=ON`, the program-list virtuals are also exercised inside the plugin preset tests.
+**Bank build** (`SUITE_PRESET_BANK=ON`): twenty CTest entries — the sixteen public entries plus one `*_PresetTests` executable per plugin that has bank entries (bank ranges, apply/reset, editor, menu model, MIDI sanity). With `SUITE_PRESET_BANK_AS_PROGRAMS=ON`, the program-list virtuals are also exercised inside the plugin preset tests.
 
 The tests use `assert` with `NDEBUG` undefined, so they also check in Release builds. Without that, every check would be compiled out.
 

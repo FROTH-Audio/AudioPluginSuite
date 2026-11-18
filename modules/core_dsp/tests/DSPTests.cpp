@@ -810,7 +810,9 @@ namespace
         assert (Mod::lfoValue (Mod::LfoShape::square, 0.75, seed) == -1.0f);
 
         // Every shape stays in [-1, 1], also for negative and large cycle counts.
-        for (int shape = 0; shape <= 3; ++shape)
+        // Covers every shape including the pendulum (index 7); the whole-cycle check below
+        // stays limited to the shapes that do not depend on the cycle index.
+        for (int shape = 0; shape <= 7; ++shape)
             for (double c = -5.0; c < 5.0; c += 0.01)
             {
                 const float v = Mod::lfoValue ((Mod::LfoShape) shape, c, seed);
@@ -1112,6 +1114,111 @@ namespace
         std::puts ("[PASS] testTapeStopRamp");
     }
 
+    /** Plan 06 idea 2.9 first step: mid/side encode/decode is exactly lossless, the width
+        control is transparent at 0, folds to mono at -1, doubles the side at +1, and the
+        tanh saturator stays bounded with a unity small-signal slope. */
+    void testMidSideStereo()
+    {
+        namespace St = CoreDSP::Stereo;
+
+        // Lossless round trip for a spread of pairs, including out-of-phase and DC inputs.
+        for (float l = -1.0f; l <= 1.0f; l += 0.25f)
+            for (float r = -1.0f; r <= 1.0f; r += 0.25f)
+            {
+                float mid = 0.0f, side = 0.0f, outL = 0.0f, outR = 0.0f;
+                St::encode (l, r, mid, side);
+                St::decode (mid, side, outL, outR);
+                assert (std::abs (outL - l) < 1e-6f);
+                assert (std::abs (outR - r) < 1e-6f);
+            }
+
+        // Width 0 is a no-op through the whole chain.
+        float mid = 0.0f, side = 0.0f;
+        St::encode (0.8f, -0.4f, mid, side);
+        const float gain0 = St::sideGain (0.0f);
+        float wl = 0.0f, wr = 0.0f;
+        St::decode (mid, side * gain0, wl, wr);
+        assert (std::abs (wl - 0.8f) < 1e-6f && std::abs (wr + 0.4f) < 1e-6f);
+
+        // Width -1 folds to mono: both channels carry the mid only.
+        const float gainMono = St::sideGain (-1.0f);
+        St::decode (mid, side * gainMono, wl, wr);
+        assert (wl == wr);
+
+        // Width +1 doubles the side component.
+        const float gainWide = St::sideGain (1.0f);
+        assert (gainWide == 2.0f);
+        St::decode (mid, side * gainWide, wl, wr);
+        assert (std::abs (wl - (mid + 2.0f * side)) < 1e-6f);
+
+        // The gain is guarded outside [-1, 1], so the decode never folds.
+        assert (St::sideGain (5.0f) == 2.0f);
+        assert (St::sideGain (-5.0f) == 0.0f);
+
+        // Saturator: transparent at amount 0, bounded at the rails with drive, monotonic.
+        assert (St::saturate (0.7f, 0.0f, 8.0f) == 0.7f);
+        assert (St::saturate (0.0f, 1.0f, 8.0f) == 0.0f);
+        const float driven = St::saturate (0.7f, 1.0f, 8.0f);
+        assert (driven > 0.95f && driven <= 1.0f + 1e-6f);   // a loud signal sits near the rail
+        const float quiet = St::saturate (0.01f, 1.0f, 8.0f);
+        assert (quiet > 0.01f && quiet < 0.08f);            // drive lifts small signals
+
+        std::puts ("[PASS] testMidSideStereo");
+    }
+
+    /** Plan 06 idea 2.11 first step: chord tone intervals and the scale-quantisation the
+        MIDI Chord/Arp/Scale Tool reuses (CoreDSP::SamplerMaps::quantizeToScale). */
+    void testChordsAndScaleQuantise()
+    {
+        namespace Ch = CoreDSP::Chords;
+        namespace Maps = CoreDSP::Sampler;
+
+        // A major chord on C4 (60) is 60, 64, 67.
+        int notes[4];
+        Ch::chordNotes (60, Ch::Quality::major, notes);
+        assert (notes[0] == 60 && notes[1] == 64 && notes[2] == 67);
+        assert (Ch::noteCount (Ch::Quality::major) == 3);
+
+        // A minor 7 on A3 (57) is 57, 60, 64, 67.
+        Ch::chordNotes (57, Ch::Quality::minor7, notes);
+        assert (notes[0] == 57 && notes[1] == 60 && notes[2] == 64 && notes[3] == 67);
+        assert (Ch::noteCount (Ch::Quality::minor7) == 4);
+
+        // Chords clamp to the MIDI range.
+        Ch::chordNotes (126, Ch::Quality::major, notes);
+        assert (notes[0] == 126 && notes[1] == 127 && notes[2] == 127);
+
+        // Arp ordering: down reverses, up keeps, alternate goes outer-in, random is
+        // deterministic for the same seed.
+        const int up[4] = { 60, 64, 67, -1 };
+        int out[4];
+        Ch::orderArp (Ch::ArpPattern::up, 3, up, out, 7);
+        assert (out[0] == 60 && out[1] == 64 && out[2] == 67 && out[3] == -1);
+        Ch::orderArp (Ch::ArpPattern::down, 3, up, out, 7);
+        assert (out[0] == 67 && out[1] == 64 && out[2] == 60);
+        Ch::orderArp (Ch::ArpPattern::alternate, 3, up, out, 7);
+        assert (out[0] == 60 && out[1] == 67 && out[2] == 64);
+        int randomA[4], randomB[4];
+        Ch::orderArp (Ch::ArpPattern::random, 3, up, randomA, 7);
+        Ch::orderArp (Ch::ArpPattern::random, 3, up, randomB, 7);
+        for (int i = 0; i < 4; ++i)
+            assert (randomA[i] == randomB[i]);
+        // The random order is a permutation of the input.
+        int sumA = 0, sumIn = 0;
+        for (int i = 0; i < 3; ++i) { sumA += randomA[i]; sumIn += up[i]; }
+        assert (sumA == sumIn);
+
+        // Scale quantisation: 61 in C major (root 60, scale 1) snaps to 60 — the
+        // strict-diff search keeps the first best (the root) on a tie.
+        assert (Maps::quantizeToScale (61, 60, 1) == 60);
+        assert (Maps::quantizeToScale (61, 60, 0) == 61);   // chromatic: unchanged
+        assert (Maps::quantizeToScale (64, 60, 1) == 64);   // already in the scale (E)
+        assert (Maps::quantizeToScale (65, 60, 1) == 65);   // F is in C major
+        assert (Maps::quantizeToScale (66, 60, 1) == 65);   // F# sits nearer F (65) than G (67)
+
+        std::puts ("[PASS] testChordsAndScaleQuantise");
+    }
+
     void testVoicePool()
     {
         using namespace CoreDSP::Sampler;
@@ -1184,6 +1291,8 @@ int main()
     testMemoryTrace();
     testTapeStopRamp();
     testVoicePool();
+    testMidSideStereo();
+    testChordsAndScaleQuantise();
 
     std::puts ("All CoreDSP unit tests passed.");
     return 0;
