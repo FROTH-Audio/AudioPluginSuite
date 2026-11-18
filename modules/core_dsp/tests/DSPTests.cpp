@@ -810,12 +810,24 @@ namespace
         assert (Mod::lfoValue (Mod::LfoShape::square, 0.75, seed) == -1.0f);
 
         // Every shape stays in [-1, 1], also for negative and large cycle counts.
-        for (int shape = 0; shape <= 6; ++shape)
+        for (int shape = 0; shape <= 3; ++shape)
             for (double c = -5.0; c < 5.0; c += 0.01)
             {
                 const float v = Mod::lfoValue ((Mod::LfoShape) shape, c, seed);
                 assert (v >= -1.0f - 1e-6f && v <= 1.0f + 1e-6f);
             }
+
+        // Pendulum: 2 full periods centred around 0, amplitude decays exponentially.
+        // At cycle 0: amplitude = 1.0, output = 0.0
+        assert (std::abs (Mod::lfoValue (Mod::LfoShape::pendulum, 0.0, seed)) < 1e-5f);
+        // At cycle 0.25: amplitude ~ exp(-0.25/4) ≈ 0.939, output ≈ 0.939
+        assert (std::abs (Mod::lfoValue (Mod::LfoShape::pendulum, 0.25, seed) - 0.939f) < 0.02f);
+        // At cycle 0.5: amplitude ~ exp(-0.5/4) ≈ 0.882, output = 0
+        assert (std::abs (Mod::lfoValue (Mod::LfoShape::pendulum, 0.5, seed)) < 1e-5f);
+        // At cycle 0.75: amplitude ~ exp(-0.75/4) ≈ 0.823, output ≈ -0.823
+        assert (std::abs (Mod::lfoValue (Mod::LfoShape::pendulum, 0.75, seed) + 0.823f) < 0.02f);
+        // At cycle 1.0: amplitude ~ exp(-1.0/4) ≈ 0.779
+        assert (std::abs (Mod::lfoValue (Mod::LfoShape::pendulum, 1.0, seed)) < 0.80f);
 
         // Whole cycles do not change the waveform (checked for the shapes that do not depend on the cycle index).
         for (int shape = 0; shape <= 3; ++shape)

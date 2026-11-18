@@ -24,6 +24,7 @@ namespace CoreDSP::Modulation
         sampleAndHold = 4,
         random = 5,
         noise = 6,
+        pendulum = 7,
         count
     };
 
@@ -83,6 +84,16 @@ namespace CoreDSP::Modulation
 
             case LfoShape::noise:
                 return gridLevel (seed + 0x9E37u, std::floor (cycles * 32.0));
+
+            case LfoShape::pendulum:
+            {
+                // Simple pendulum model: decaying oscillation.
+                // phase is unwrapped cycle count; output is amplitude * sin(2π * phase).
+                // The amplitude decays exponentially with time constant tau=4.0 cycles.
+                const double tau = 4.0;
+                const double amplitude = std::exp (-std::abs (cycles) / tau);
+                return (float) (amplitude * std::sin (2.0 * 3.14159265358979323846 * (cycles - std::floor (cycles))));
+            }
 
             case LfoShape::count:
                 break;
