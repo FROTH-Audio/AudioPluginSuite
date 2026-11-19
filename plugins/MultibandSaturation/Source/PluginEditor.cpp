@@ -42,7 +42,7 @@ MultibandSaturationEditor::MultibandSaturationEditor (MultibandSaturationProcess
 
     // Rule #3 (plan 11): three options, so a pill.
     modeCell.setOptions ({ "Tube", "Tape", "Diode" });
-    modeCell.attachToParameter (processor.apvts.getParameter (MultibandSaturationProcessor::modeId));
+    SuiteUI::attachSelector (modeCell, *processor.apvts.getParameter (MultibandSaturationProcessor::modeId), modeAttachment);
 
     crossoverCtrl.setHelpText ("The Linkwitz-Riley split point between the two bands.");
     driveLowCtrl.setHelpText ("Pre-gain of the low band's shaper.");

@@ -1,8 +1,6 @@
 #include "SuiteWidgets.h"
 #include "SuiteLookAndFeel.h"
 
-#include <juce_audio_processors/juce_audio_processors.h>
-
 #include <cmath>
 
 namespace SuiteUI
@@ -394,35 +392,10 @@ namespace SuiteUI
         addAndMakeVisible (selector);
     }
 
-    LabelledSelector::~LabelledSelector() = default;
-
     void LabelledSelector::setOptions (const juce::StringArray& labels)
     {
         selector.setOptions (labels);
         repaint();
-    }
-
-    void LabelledSelector::attachToParameter (juce::RangedAudioParameter* parameter)
-    {
-        if (parameter == nullptr)
-        {
-            attachment.reset();
-            return;
-        }
-
-        // The denormalised value of a choice parameter is its 0-based index (plan 11
-        // D1). setValueAsCompleteGesture on clicks; the callback updates the display
-        // on automation and on sendInitialUpdate.
-        attachment = std::make_unique<juce::ParameterAttachment> (
-            *parameter,
-            [this] (float value) { selector.setSelectedIndex (juce::roundToInt (value)); });
-
-        selector.onChange = [this] (int)
-        {
-            attachment->setValueAsCompleteGesture ((float) selector.getSelectedIndex());
-        };
-
-        attachment->sendInitialUpdate();
     }
 
     void LabelledSelector::resized()

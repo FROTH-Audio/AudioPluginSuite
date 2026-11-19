@@ -6,12 +6,6 @@
 #include <functional>
 #include <vector>
 
-namespace juce
-{
-    class ParameterAttachment;      // juce_audio_processors
-    class RangedAudioParameter;
-}
-
 namespace SuiteUI
 {
     /**
@@ -126,23 +120,18 @@ namespace SuiteUI
     };
 
     /** A caption above a SegmentedSelector pill (plan 11 D1): the suite's switch for a choice
-        parameter with six or fewer options. attachToParameter() wires it to a choice
-        parameter (0-based, denormalised index), so automation shows and clicks become
-        complete gestures. Without a parameter it works as a plain selector. */
+        parameter with six or fewer options. The editors attach it to a choice parameter
+        through SuiteUI::attachSelector (SuiteSelectorAttachment.h), which keeps this module
+        free of the juce_audio_processors dependency. */
     class LabelledSelector : public juce::Component
     {
     public:
         LabelledSelector (const juce::String& caption, juce::Colour accentColour);
-        ~LabelledSelector() override;   // out-of-line: the attachment is forward-declared
 
         juce::Label label;
         SegmentedSelector selector;
 
         void setOptions (const juce::StringArray& labels);
-
-        /** Wires the selector to a choice parameter. Null keeps it manual. Call after
-            setOptions; the current parameter value selects the segment. */
-        void attachToParameter (juce::RangedAudioParameter* parameter);
 
         /** Manual update without notifying (an attached parameter will override it). */
         void setSelectedIndex (int index) { selector.setSelectedIndex (index); }
@@ -150,9 +139,6 @@ namespace SuiteUI
         int getSelectedIndex() const noexcept { return selector.getSelectedIndex(); }
 
         void resized() override;
-
-    private:
-        std::unique_ptr<juce::ParameterAttachment> attachment;
     };
 
     /** A slider with a caption above it. Rotary sliders get their value box below the knob. */

@@ -8,6 +8,7 @@
 #include "PluginProcessor.h"
 #include "SuiteHeaderMenu.h"
 #include "SuiteLookAndFeel.h"
+#include "SuiteSelectorAttachment.h"
 #include "SuiteWidgets.h"
 #include "SuitePresets.h"
 
@@ -60,6 +61,10 @@ private:
     SuiteUI::LabelledSlider outputCtrl     { "OUTPUT",     juce::Slider::RotaryVerticalDrag };
 
     SuiteUI::LabelledSelector modeCell { "MODE", juce::Colour (0xffFF6B6B) };
+
+    // The pill selector's parameter attachment (declared after the cell, so it is
+    // destroyed first — plan 11 D1, wired through SuiteUI::attachSelector).
+    std::unique_ptr<juce::ParameterAttachment> modeAttachment;
 
     juce::Rectangle<int> splitGroupBounds, shaperGroupBounds, visualBounds;
 

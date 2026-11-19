@@ -8,6 +8,7 @@
 #include "PluginProcessor.h"
 #include "SuiteHeaderMenu.h"
 #include "SuiteLookAndFeel.h"
+#include "SuiteSelectorAttachment.h"
 #include "SuiteWidgets.h"
 
 class MidiEffectEditor : public juce::AudioProcessorEditor,
@@ -86,6 +87,16 @@ private:
     SuiteUI::LabelledSelector syncCell  { "SYNC", juce::Colour (0xff4ECDC4) };
     SuiteUI::LabelledSelector curveCell { "VEL CURVE", juce::Colour (0xff4ECDC4) };
     SuiteUI::LabelledSelector dirCell   { "VEL DIR", juce::Colour (0xff4ECDC4) };
+
+    // The pill selectors' parameter attachments (declared after the cells, so they are
+    // destroyed first — plan 11 D1, wired through SuiteUI::attachSelector).
+    std::unique_ptr<juce::ParameterAttachment> scaleAttachment;
+    std::unique_ptr<juce::ParameterAttachment> arpAttachment;
+    std::unique_ptr<juce::ParameterAttachment> modeAttachment;
+    std::unique_ptr<juce::ParameterAttachment> rateAttachment;
+    std::unique_ptr<juce::ParameterAttachment> syncAttachment;
+    std::unique_ptr<juce::ParameterAttachment> curveCellAttachment;
+    std::unique_ptr<juce::ParameterAttachment> dirCellAttachment;
 
     // Built in the constructor after the combo's items exist, so its first update selects
     // the parameter's current choice (an in-class attachment would attach to an empty combo).

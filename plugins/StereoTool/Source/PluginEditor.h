@@ -9,6 +9,7 @@
 #include "PluginProcessor.h"
 #include "SuiteHeaderMenu.h"
 #include "SuiteLookAndFeel.h"
+#include "SuiteSelectorAttachment.h"
 #include "SuiteWidgets.h"
 
 class StereoToolEditor : public juce::AudioProcessorEditor,
@@ -89,6 +90,12 @@ private:
     SuiteUI::LabelledSlider midFocusCtrl { "MID FOCUS", juce::Slider::RotaryVerticalDrag };
     SuiteUI::LabelledSlider crossoverCtrl { "CROSSOVER", juce::Slider::RotaryVerticalDrag };
     SuiteUI::LabelledSelector filterCell { "SIDE FILTER", juce::Colour (0xffB18CFF) };
+
+    // The pill selectors' parameter attachments (declared after the cells, so they are
+    // destroyed first — plan 11 D1, wired through SuiteUI::attachSelector).
+    std::unique_ptr<juce::ParameterAttachment> characterAttachment;
+    std::unique_ptr<juce::ParameterAttachment> targetAttachment;
+    std::unique_ptr<juce::ParameterAttachment> filterAttachment;
 
     // Built in the constructor after the combo's items exist, so their first update selects
     // the parameter's current choice (an in-class attachment would attach to an empty combo).

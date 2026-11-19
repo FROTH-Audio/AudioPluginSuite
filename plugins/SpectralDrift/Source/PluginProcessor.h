@@ -144,10 +144,10 @@ public:
     void setStateInformation (const void*, int) override;
 
     // Preset system: StateHolder interface
-    juce::String getPresetPluginId() const { return "SpectralDrift"; }
+    juce::String getPresetPluginId() const override { return "SpectralDrift"; }
     int getPresetStateVersion() const override { return stateVersion; }
-    juce::AudioProcessorValueTreeState& getPresetStateTree() { return apvts; }
-    void applyPresetState (const juce::ValueTree&);
+    juce::AudioProcessorValueTreeState& getPresetStateTree() override { return apvts; }
+    void applyPresetState (const juce::ValueTree&) override;
 
     // The preset identity (plan 09 1.4): which factory preset or user file the bar last
     // applied. Message thread. Persisted as the presetSelection state property, so it

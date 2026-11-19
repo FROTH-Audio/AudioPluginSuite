@@ -73,13 +73,13 @@ MidiEffectEditor::MidiEffectEditor (MidiEffectProcessor& p)
     chordAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (apvts, MidiEffectProcessor::chordId, chordCell.box);
 
     // The pill selectors carry their own attachments (plan 11 D1).
-    scaleCell.attachToParameter (apvts.getParameter (MidiEffectProcessor::scaleId));
-    arpCell.attachToParameter (apvts.getParameter (MidiEffectProcessor::arpId));
-    modeCell.attachToParameter (apvts.getParameter (MidiEffectProcessor::arpModeId));
-    rateCell.attachToParameter (apvts.getParameter (MidiEffectProcessor::stepRateId));
-    syncCell.attachToParameter (apvts.getParameter (MidiEffectProcessor::hostSyncId));
-    curveCell.attachToParameter (apvts.getParameter (MidiEffectProcessor::velocityCurveId));
-    dirCell.attachToParameter (apvts.getParameter (MidiEffectProcessor::velocityDirectionId));
+    SuiteUI::attachSelector (scaleCell, *apvts.getParameter (MidiEffectProcessor::scaleId), scaleAttachment);
+    SuiteUI::attachSelector (arpCell, *apvts.getParameter (MidiEffectProcessor::arpId), arpAttachment);
+    SuiteUI::attachSelector (modeCell, *apvts.getParameter (MidiEffectProcessor::arpModeId), modeAttachment);
+    SuiteUI::attachSelector (rateCell, *apvts.getParameter (MidiEffectProcessor::stepRateId), rateAttachment);
+    SuiteUI::attachSelector (syncCell, *apvts.getParameter (MidiEffectProcessor::hostSyncId), syncAttachment);
+    SuiteUI::attachSelector (curveCell, *apvts.getParameter (MidiEffectProcessor::velocityCurveId), curveCellAttachment);
+    SuiteUI::attachSelector (dirCell, *apvts.getParameter (MidiEffectProcessor::velocityDirectionId), dirCellAttachment);
 
     // Help text for every control.
     rootCtrl.setHelpText ("The key centre the scale quantisation works from.");

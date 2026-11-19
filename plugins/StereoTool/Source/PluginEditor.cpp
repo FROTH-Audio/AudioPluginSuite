@@ -65,9 +65,9 @@ StereoToolEditor::StereoToolEditor (StereoToolProcessor& p)
     crossoverAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (apvts, StereoToolProcessor::sideCrossoverId, crossoverCtrl.slider);
 
     // The pill selectors carry their own attachments (plan 11 D1).
-    characterCell.attachToParameter (apvts.getParameter (StereoToolProcessor::characterId));
-    targetCell.attachToParameter (apvts.getParameter (StereoToolProcessor::transientTargetId));
-    filterCell.attachToParameter (apvts.getParameter (StereoToolProcessor::sideFilterId));
+    SuiteUI::attachSelector (characterCell, *apvts.getParameter (StereoToolProcessor::characterId), characterAttachment);
+    SuiteUI::attachSelector (targetCell, *apvts.getParameter (StereoToolProcessor::transientTargetId), targetAttachment);
+    SuiteUI::attachSelector (filterCell, *apvts.getParameter (StereoToolProcessor::sideFilterId), filterAttachment);
 
     for (auto* component : { static_cast<juce::Component*> (&driveCtrl), static_cast<juce::Component*> (&attackCtrl),
                              static_cast<juce::Component*> (&releaseCtrl), static_cast<juce::Component*> (&amountCtrl),
