@@ -8,9 +8,9 @@ suite_add_plugin(
     SOURCES         Source/PluginProcessor.cpp Source/PluginProcessor.h
                     Source/PluginEditor.cpp Source/PluginEditor.h
     TEST_SOURCES    tests/PluginTests.cpp
-    # R13: the gear menu's Settings... entry needs the shared settings store.
+    # R13: the menu's Settings... entry needs the shared settings store.
     SETTINGS
     # LOCKUP        ${CMAKE_SOURCE_DIR}/modules/suite_ui/brand/lockup_<lowercase name>.png
-    # LOCKUP is per-plugin authoring: add the row to tools/brand/lockups.py, run it, then
+    # LOCKUP is per-plugin authoring: add the row to the owner's tools/brand/lockups.py (not in this repo), run it, then
     # uncomment the line above (the About dialog shows the lockup when one is embedded).
 )

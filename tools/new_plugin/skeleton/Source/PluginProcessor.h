@@ -12,7 +12,7 @@
     __PRODUCT__.
 
     Starting point for a new plugin: one gain control, versioned saved state, the suite's shared
-    editor, the preset seam (R12) and the header gear menu (R13). Replace the processing and the
+    editor, the preset seam (R12) and the header hamburger menu (R13). Replace the processing and the
     parameters with the plugin's own.
 */
 class __NAME__Processor : public juce::AudioProcessor,

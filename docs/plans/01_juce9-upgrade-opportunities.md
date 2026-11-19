@@ -40,7 +40,7 @@ Status as of 2026-11-08. Windows checks are done and verified. Items that need a
 - **"Run the build-status test".** No such test exists. Dropped.
 - **"Run all 9 CTest tests".** The count is now 10, with `SuiteState_Tests`.
 - **"Add the new dynamic-saturation plugin".** Done. It is in the repo.
-- **"Add R3/R4/R5 to the plan" and "Add the R4/R5 sub-plans".** R3, R4 and R5 are in this file's table and in `docs/plans/README.md`. R4 has its own file (`03_presets.md`). R5 has no separate plan. Its work is listed under R5 above.
+- **"Add R3/R4/R5 to the plan" and "Add the R4/R5 sub-plans".** R3, R4 and R5 are in this file's table. R4 (presets) was delivered in 2026-11; its plan is finished and deleted, and the outcome is in `AGENTS.md` section 5.5. R5 has no separate plan. Its work is listed under R5 above.
 - **"Verify the build log has no warnings" and "Rebuild after any change".** Verified for this build. Rebuilding after a change is a rule, kept in `AGENTS.md`, not a task.
 
 ## R5: documentation (open)
@@ -59,6 +59,6 @@ Status as of 2026-11-08. Windows checks are done and verified. Items that need a
 
 **R3 (`02_framework-refactor-3-editor-ui.md`):** Implemented on 2026-11-08. Five of the six baseline renders are byte-identical after the change. The sixth, the MicroTimingChaos PREVIEW tab, differs on the first render of a fresh process, by three glyph-edge pixels. The owner chooses how to treat that view. Until then, R3 stays open.
 
-**R4 (`03_presets.md`):** not started. The owner decided on 2026-11-09 that plan 03 must not start yet. The seam work in commit 643ba78 (`suite_presets`, `StateHolder`, `PresetBar`, and the calls in the three processors and editors) was removed from the working tree. Commit 643ba78 is still in history; the owner decides whether to revert it.
+**R4 (presets):** delivered in 2026-11. The seam (`suite_presets`, `StateHolder`, `PresetBar`), the factory bank and the per-plugin preset tests are in place, and the plan that carried them is finished and deleted. The outcome is in `AGENTS.md` section 5.5.
 
 ## R0: open (needs a Mac, a CI run or a DAW)

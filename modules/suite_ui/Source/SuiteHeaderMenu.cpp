@@ -5,32 +5,26 @@ namespace SuiteUI
 {
     namespace
     {
-        /** The gear icon: a ring body plus eight teeth, drawn from a Path so no binary asset
+        /** The hamburger icon: three horizontal bars, drawn from a Path so no binary asset
             is needed. */
-        void drawGear (juce::Graphics& g, juce::Rectangle<float> area, juce::Colour colour)
+        void drawHamburger (juce::Graphics& g, juce::Rectangle<float> area, juce::Colour colour)
         {
             const auto centre = area.getCentre();
             const float size = juce::jmin (area.getWidth(), area.getHeight());
-            const float rBody = size * 0.32f;
-            const float rHole = size * 0.13f;
-            constexpr float twoPi = juce::MathConstants<float>::twoPi;
+            const float barWidth = size * 0.62f;
+            const float barHeight = juce::jmax (2.0f, size * 0.09f);
+            const float barGap = size * 0.15f;
 
-            juce::Path gear;
-            gear.addPieSegment (centre.x - rBody, centre.y - rBody, rBody * 2.0f, rBody * 2.0f,
-                                0.0f, twoPi, rHole / rBody);
+            juce::Path bars;
 
-            for (int i = 0; i < 8; ++i)
-            {
-                juce::Path tooth;
-                tooth.addRoundedRectangle (-size * 0.055f, -size * 0.46f,
-                                           size * 0.11f, size * 0.16f, 2.0f, 2.0f);
-                tooth.applyTransform (juce::AffineTransform::rotation (twoPi * (float) i / 8.0f)
-                                          .translated (centre.x, centre.y));
-                gear.addPath (tooth);
-            }
+            for (int i = -1; i <= 1; ++i)
+                bars.addRoundedRectangle (centre.x - barWidth * 0.5f,
+                                          centre.y + (float) i * barGap - barHeight * 0.5f,
+                                          barWidth, barHeight,
+                                          barHeight * 0.5f, barHeight * 0.5f);
 
             g.setColour (colour);
-            g.fillPath (gear);
+            g.fillPath (bars);
         }
     }
 
@@ -52,7 +46,7 @@ namespace SuiteUI
             g.fillEllipse (area);
         }
 
-        drawGear (g, area.reduced (3.0f),
+        drawHamburger (g, area.reduced (3.0f),
                   (isMouseOver() || isMouseButtonDown()) ? Colours::text : Colours::textDim);
     }
 

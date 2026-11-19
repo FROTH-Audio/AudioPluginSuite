@@ -4,13 +4,13 @@ Written for: the owner, as a menu of options to choose from. Ideas only, nothing
 
 Status: proposal. Module names were checked in the local JUCE 9.0.5 source (`cmake-build-juce9/_deps/juce-src/modules`). Effort is a rough guess for one developer who knows this codebase.
 
-**Status 2026-11-18 (after the owner picked the order):** 2.1's first step is done — the pendulum is a tested `CoreDSP::Modulation` shape and selectable in every plugin through the shared router (appended as index 7). 2.9 and 2.11 exist as first-pass plugins: the mid/side engine (`CoreDSP::Stereo`, lossless-tested), the chord engine and the scale quantisation (reusing `CoreDSP::Sampler`) live in `core_dsp`; both plugins are minimal first steps (2.9: width/drive/mix, no routing yet; 2.11: chord-on-note-on, arp ordering without a step clock). **2.5's first pass is done:** Spectral Drift has the optional Sidechain bus with a peak follower that ducks the drift or the gate (two appended parameters, transparent at the defaults, host-load tested). **2.4's first pass is done (owner decision: a new plugin):** Multiband Saturation, a seventh plugin with the two-band LR split in `core_dsp`, per-band drive/envelope/tone, base rate first pass. Brand lockups are generated and embedded (one `tools/brand/lockups.py` row each); what remains is listed in the CHANGELOG.
+**Status 2026-11-18 (after the owner picked the order):** 2.1's first step is done — the pendulum is a tested `CoreDSP::Modulation` shape and selectable in every plugin through the shared router (appended as index 7). 2.9 and 2.11 exist as first-pass plugins: the mid/side engine (`CoreDSP::Stereo`, lossless-tested), the chord engine and the scale quantisation (reusing `CoreDSP::Sampler`) live in `core_dsp`; both plugins are minimal first steps (2.9: width/drive/mix, no routing yet; 2.11: chord-on-note-on, arp ordering without a step clock). **2.5's first pass is done:** Spectral Drift has the optional Sidechain bus with a peak follower that ducks the drift or the gate (two appended parameters, transparent at the defaults, host-load tested). **2.4's first pass is done (owner decision: a new plugin):** Multiband Saturation, a seventh plugin with the two-band LR split in `core_dsp`, per-band drive/envelope/tone, base rate first pass. Brand lockups are generated and embedded (one `tools/brand/lockups.py` row each; the generator is the owner's local tool, not in this repository); what remains is listed in the CHANGELOG.
 
 ---
 
 ## 1. The framework idea
 
-Today the suite is three plugins that share a DSP header library (`modules/core_dsp`), a modulation module (`modules/suite_modulation`) and a UI module (`modules/suite_ui`). Each new plugin repeats the same processor and editor scaffolding by hand (see `docs/plans/00_framework-readiness.md`).
+Today the suite is eight plugins that share a DSP header library (`modules/core_dsp`), a modulation module (`modules/suite_modulation`) and a UI module (`modules/suite_ui`). Each new plugin repeats the same processor and editor scaffolding by hand (see `AGENTS.md` section 0).
 
 The framework idea is to make the suite a small platform:
 
@@ -18,7 +18,7 @@ The framework idea is to make the suite a small platform:
 - **Shared modulation** in `suite_modulation`. A plugin only supplies a target table. New modulation *sources* (for example a physics pendulum, or an external OSC source) would plug in the same way for every plugin.
 - **Shared look** in `suite_ui`, with one neutral palette and one accent colour per plugin. The editor base is now shared: MicroTimingChaos's LookAndFeel derives from `SuiteUI::SuiteLookAndFeel`, sharing fonts and layout setup, while keeping MTC-specific drawings (knobs, toggles, combo box).
 - **A plugin recipe**: a CMake function and a skeleton, so a new plugin is a few files and a target table, not a copy of an old plugin.
-- **Shared presets and state versioning**, so one preset format works for every plugin (`docs/plans/03_presets.md`).
+- **Shared presets and state versioning**, so one preset format works for every plugin (`AGENTS.md` section 5.5).
 
 The platform only pays off if new plugins are cheap to make. That is the first thing to build, before most of the ideas below.
 
@@ -118,7 +118,7 @@ Each idea lists what it is, the JUCE 9 modules it would use, the framework fit, 
 
 ## 3. Suggested order
 
-1. **Framework groundwork** (`docs/plans/00_framework-readiness.md`): the plugin recipe and state versioning. Both are done. The open part is R3 (`02_framework-refactor-3-editor-ui.md`). Without these, each idea costs a full copy of a plugin.
+1. **Framework groundwork** (`AGENTS.md` section 0): the plugin recipe and state versioning. Both are done, and so is R3 (the shared editor base). Without these, each idea costs a full copy of a plugin.
 2. **2.1 Pendulum modulator.** Smallest change that tests the new modulation-source path in all three plugins.
 3. **2.9 Stereo Tool Effect.** Mid/side processing; reuses core DSP and suite_ui.
 4. **2.11 MIDI Chord/Arp/Scale Tool.** MIDI re-harmoniser; chord/arpeggio/scale logic.

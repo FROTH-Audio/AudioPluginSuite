@@ -64,7 +64,7 @@ ones — the two bands respond independently.
 - No latency is added (base-rate processing; oversampling is a planned follow-up).
 - 15 factory presets ship with the plugin in bank builds; use the preset bar in the header
   to browse, save and load.
-- The gear menu in the header (right of the preset bar) opens Settings… (tooltips toggle,
+- The hamburger menu in the header (right of the preset bar) opens Settings… (tooltips toggle,
   fallback tempo, preset folder) and About….
 - Mode is a pill switch (plan 11 rule: a dropdown only for longer lists).
 - Modulation routing (the suite's LFOs and slots) is planned for a follow-up pass; the

@@ -273,7 +273,7 @@ private:
     // Preset bar (right of the header).
     std::unique_ptr<SuitePresets::PresetBar> presetBar;
 
-    // Gear at the far right of the header: settings and about (plan 08).
+    // menu at the far right of the header: settings and about (plan 08).
     SuiteUI::HeaderMenuButton headerMenu { juce::Colour (0xff9aa0a6) };
 
     // Page switch.

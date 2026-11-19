@@ -95,7 +95,7 @@ namespace
         pass ("testPresetSeam");
     }
 
-    // R12/R13: the preset bar and the gear menu are in the editor header, and the gear's two
+    // R12/R13: the preset bar and the menu menu are in the editor header, and the menu's two
     // dialogs build and paint. The dialogs themselves are async (plan 08), so this checks
     // their content rather than opening modal windows.
     void testHeaderContract()
@@ -105,7 +105,7 @@ namespace
         assert (editor != nullptr);
 
         SuitePresets::PresetBar* bar = nullptr;
-        SuiteUI::HeaderMenuButton* gear = nullptr;
+        SuiteUI::HeaderMenuButton* menu = nullptr;
 
         for (int i = 0; i < editor->getNumChildComponents(); ++i)
         {
@@ -115,17 +115,17 @@ namespace
                 bar = found;
 
             if (auto* found = dynamic_cast<SuiteUI::HeaderMenuButton*> (child))
-                gear = found;
+                menu = found;
         }
 
         assert (bar != nullptr);
-        assert (gear != nullptr);
-        assert (gear->onAbout != nullptr);
-        assert (gear->onSettings != nullptr);
+        assert (menu != nullptr);
+        assert (menu->onAbout != nullptr);
+        assert (menu->onSettings != nullptr);
 
-        // The gear is the rightmost element of the header, with the bar to its left.
-        assert (gear->getRight() > editor->getWidth() - 40);
-        assert (bar->getRight() <= gear->getX());
+        // The menu is the rightmost element of the header, with the bar to its left.
+        assert (menu->getRight() > editor->getWidth() - 40);
+        assert (bar->getRight() <= menu->getX());
 
         {
             SuiteUI::AboutPanel about ({}, "__PRODUCT__", "1.0.0", "__CODE__", "__NAME__");

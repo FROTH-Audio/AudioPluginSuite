@@ -243,7 +243,7 @@ CyclicalEditor::CyclicalEditor (CyclicalProcessor& p)
     SuiteUI::describe (triggerSelector, "Latch: a note runs until retriggered. Gate: only while held.");
     SuiteUI::describe (beatReadout, "The beat clock's position, for reference.");
 
-    // The header contract: preset bar (R12), page selector (R8), gear menu (R13).
+    // The header contract: preset bar (R12), page selector (R8), menu (R13).
     if (presetBar->getPreferredHeight() > 0)
         addAndMakeVisible (*presetBar);
     presetBar->onPresetLoaded = [this] { repaint(); };
@@ -400,7 +400,7 @@ void CyclicalEditor::resized()
 
     auto header = area.removeFromTop (headerHeight);
 
-    // The gear sits at the far right, right of the preset bar (plan 08 Q4).
+    // The menu button sits at the far right, right of the preset bar (plan 08 Q4).
     headerMenu.setBounds (header.removeFromRight (26).withSizeKeepingCentre (26, 26));
 
     if (presetBar->getPreferredHeight() > 0)

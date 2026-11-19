@@ -1,6 +1,6 @@
 # Plan R3: editor base and one look and feel
 
-Written for: a coding agent carrying out this refactor in the repository. Read `AGENTS.md` (sections 6, 7, 8, 9 and 15) and `docs/plans/00_framework-readiness.md` first. Do not commit. Do not push.
+Written for: a coding agent carrying out this refactor in the repository. Read `AGENTS.md` (sections 6, 7, 8, 9 and 15) first. Do not commit. Do not push.
 
 Status (2026-11-08): phases 0 to 4 are implemented and measured. Five of the six baseline views are byte-identical after the change. The sixth, the MicroTimingChaos PREVIEW tab, has one noisy first render (section 8). Owner decision needed on that view before this plan is closed.
 

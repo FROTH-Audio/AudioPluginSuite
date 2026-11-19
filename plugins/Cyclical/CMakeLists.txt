@@ -11,7 +11,7 @@ suite_add_plugin(
                     Source/LoopWaveformView.cpp Source/LoopWaveformView.h
                     Source/LoopSlot.h
     TEST_SOURCES    tests/PluginTests.cpp
-    # R13: the gear menu's Settings... entry needs the shared settings store.
+    # R13: the hamburger menu's Settings... entry needs the shared settings store.
     SETTINGS
     IS_SYNTH        NEEDS_MIDI_INPUT
     LOCKUP          ${CMAKE_SOURCE_DIR}/modules/suite_ui/brand/lockup_cyclical.png

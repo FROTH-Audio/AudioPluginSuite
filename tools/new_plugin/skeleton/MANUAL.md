@@ -11,7 +11,7 @@ The plugin code is `__CODE__`. The bundle id is `com.audiosuite.__LOWERCASENAME_
 <img src="../../docs/manuals/__LOWERCASENAME__-slots.png" alt="__PRODUCT__ SLOTS page" width="653">
 
 One paragraph per page: what the user sees, what each group does, and how the page switch (R8,
-top right of the header) gets there. The preset bar (R12) and the gear menu (R13) sit in the
+top right of the header) gets there. The preset bar (R12) and the hamburger menu (R13) sit in the
 header; say so once, then point at the sections below.
 
 ## Page: SLOTS
@@ -36,7 +36,7 @@ that it is dimmed (never hidden) elsewhere — the affinity rule, plan 10 G1.
 
 ## Settings and About
 
-The gear button at the far right of the header opens one menu (plan 08):
+The hamburger button at the far right of the header opens one menu (plan 08):
 
 - **Settings…** — tooltips, the no-playhead fallback tempo, and this plugin's user preset folder.
 - **About…** — brand lockup, product name and version, FROTH Audio, the plugin code, the JUCE

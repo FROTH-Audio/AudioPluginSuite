@@ -1,4 +1,5 @@
-"""Audit the factory bank against the rules in `docs/plans/03_presets.md` section 5.
+"""Audit the factory bank against the preset rules in `AGENTS.md` section 5.5 and
+`modules/suite_presets/factory_bank/README.md`.
 
 Checks the authoring data in `tools/preset_data.py` and, when they exist, the generated files
 under `modules/suite_presets/factory_bank/bank/`. Exits non-zero on the first rule that is

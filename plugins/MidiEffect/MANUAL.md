@@ -70,7 +70,26 @@ hold a key and re-strike it freely.
 - The reported latency is a fixed 50 ms, whatever the rate or gate.
 - 15 factory presets ship with the plugin in bank builds; use the preset bar in the header
   to browse, save and load.
-- The gear menu in the header (right of the preset bar) opens Settings… (tooltips toggle,
+- The hamburger menu in the header (right of the preset bar) opens Settings… (tooltips toggle,
   fallback tempo, preset folder) and About….
 - Scale, Pattern, Mode, Step Rate, Sync, Vel Curve and Vel Dir are pill switches (plan 11
   rule: a dropdown only for longer lists — Chord Quality keeps one, with eight options).
+
+## Using it in Ableton Live
+
+Live lists the plugin under **Plug-Ins**, not under **MIDI Effects**: Live's MIDI Effects
+browser holds native devices and Max for Live devices only, and no third-party VST3
+appears there. This is a Live limitation, not a plugin setting — the plugin is built and
+flagged as a MIDI effect (it also passes audio through, which is what keeps it loadable in
+Live's scanner; a MIDI-only VST3 without audio risks being dropped by some hosts).
+
+The Live workflow is the standard two-track routing Ableton documents for plugins that
+send MIDI:
+
+1. Put MIDI Chord Arp Scale Tool on a MIDI track, from the Plug-Ins browser.
+2. Feed it MIDI: a clip on that track, a keyboard, or another track routed in.
+3. Create a second MIDI track and set its **MIDI From** to the track holding the plugin.
+   Arm that track. An instrument on it now plays the chorded or arp'd notes.
+
+The plugin's audio pass-through is not part of this workflow — the notes you want come
+out of the plugin's MIDI output, into the second track's instrument.

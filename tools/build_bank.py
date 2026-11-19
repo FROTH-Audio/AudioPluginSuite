@@ -8,7 +8,7 @@ Writes, for every preset:
 Each preset is stored as a delta from the default state, both in the JSON files and in the
 `<PARAMETERS>` element of the bank XML. `applyPresetState()` resets every absent ID to its
 default, so a delta materialises the full state at load time. That is the one place this
-deviates from `docs/plans/03_presets.md`, which describes full explicit state; deltas keep the
+deviates from the full-explicit-state design recorded in `AGENTS.md` section 5.5; deltas keep the
 embedded asset small and survive a parameter being added.
 
 Run from the repository root:

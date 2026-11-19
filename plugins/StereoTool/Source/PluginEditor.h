@@ -113,7 +113,7 @@ private:
     // Visual + header (plan 11 4c/R13).
     MidSideMeter visualizer { processor };
     std::unique_ptr<SuitePresets::PresetBar> presetBar;
-    SuiteUI::HeaderMenuButton gearButton { juce::Colour (0xffB18CFF) };
+    SuiteUI::HeaderMenuButton headerMenu { juce::Colour (0xffB18CFF) };
 
     void timerCallback() override { visualizer.tick(); }
 

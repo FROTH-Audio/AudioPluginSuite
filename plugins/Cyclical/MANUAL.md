@@ -10,7 +10,7 @@ Cyclical is a four-slot loop instrument. Four loaded audio loops play with a reg
 a direction (forward, reverse or ping-pong), an optional granular mode and velocity scaling —
 locked to the host grid with a quantised start and swing. There is no recording and no audio
 input: the plugin is output-only, and the four fixed keys **C4, C#4, D4, D#4** (MIDI 60-63)
-trigger slots 1-4. The preset bar (R12) and the gear menu (R13) sit in the header; the page
+trigger slots 1-4. The preset bar (R12) and the hamburger menu (R13) sit in the header; the page
 switch (R8, top right) moves between the SLOTS and GLOBAL pages.
 
 ## Page: SLOTS
@@ -66,7 +66,7 @@ browser pointed at the user loop folder. The same file name is also searched in
 
 ## Settings and About
 
-The gear button at the far right of the header opens one menu (plan 08):
+The hamburger button at the far right of the header opens one menu (plan 08):
 
 - **Settings…** — tooltips on/off, the no-playhead fallback tempo, and the user preset folder.
 - **About…** — brand lockup, product name and version, FROTH Audio, the plugin code, the JUCE

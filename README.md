@@ -463,7 +463,7 @@ A two-band saturator. A Linkwitz-Riley crossover splits the signal; the low band
 | **Mix** | 0 – 100 % | 100 % | Dry/wet balance. |
 | **Output Level** | −12 – +6 dB | 0 dB | Output level. |
 
-The band sum is clamped to the rails, so the output cannot exceed full scale. The first pass runs at base rate, so no latency is added. The editor's dual-band visual shows each band's envelope with the crossover marked between the bars (log axis, frequency printed above) and input/output meters on the right. The controls sit in two groups — **SPLIT** (crossover and the shared mode) and **SHAPER** — with the suite's preset bar and gear menu in the header.
+The band sum is clamped to the rails, so the output cannot exceed full scale. The first pass runs at base rate, so no latency is added. The editor's dual-band visual shows each band's envelope with the crossover marked between the bars (log axis, frequency printed above) and input/output meters on the right. The controls sit in two groups — **SPLIT** (crossover and the shared mode) and **SHAPER** — with the suite's preset bar and hamburger menu in the header.
 
 ### Cyclical
 
@@ -570,26 +570,26 @@ Plugin formats are chosen automatically: VST3 and Standalone everywhere, plus AU
 ctest --test-dir build -C Release --output-on-failure
 ```
 
-**Default build** (`SUITE_PRESET_BANK=OFF`): twenty CTest entries run thirteen test executables:
+**Default build** (`SUITE_PRESET_BANK=OFF`): twenty CTest entries run fourteen test executables:
 
 | Executable | Scope | Tests |
 |---|---|---|
-| `CoreDSPTests` | DSP primitives in `modules/core_dsp` | 39 |
-| `SuiteState_Tests` | Versioned saved state in `modules/suite_state` | 8 |
+| `CoreDSPTests` | DSP primitives in `modules/core_dsp` | 47 |
+| `SuiteState_Tests` | Versioned saved state in `modules/suite_state` | 9 |
 | `SuiteModulationTests` | Shared LFOs, routing and the control display in `modules/suite_modulation` | 10 |
 | `SuiteSettingsTests` | Settings store and dialog in `modules/suite_settings` | 9 |
 | `SuiteUITests` | Shared widgets and look and feel | 10 |
 | `SpectralDriftTests` | Spectral Drift processor and editor | 29 |
 | `DynamicSaturationTests` | Dynamic Saturation processor and editor | 24 |
 | `MicroTimingChaosTests` | Micro-Timing Chaos processor and editor | 45 |
-| `SgraffitoTests` | Sgraffito processor and editor | 50 |
-| `StereoToolTests` | Stereo Tool Effect processor and editor | 15 |
-| `MidiEffectTests` | MIDI Chord Arp Scale Tool processor and editor | 18 |
-| `MultibandSaturationTests` | Multiband Saturation processor and editor | 8 |
+| `SgraffitoTests` | Sgraffito processor and editor | 51 |
+| `StereoToolTests` | Stereo Tool Effect processor and editor | 16 |
+| `MidiEffectTests` | MIDI Chord Arp Scale Tool processor and editor | 19 |
+| `MultibandSaturationTests` | Multiband Saturation processor and editor | 9 |
 | `CyclicalTests` | Cyclical processor and editor | 23 |
 | `PluginHostTests` (×7) | Each built VST3 bundle, loaded through JUCE's own plugin host | 1 per plugin |
 
-**Bank build** (`SUITE_PRESET_BANK=ON`): twenty-eight CTest entries — the twenty public entries plus one `*_PresetTests` executable per plugin that has bank entries (bank ranges, apply/reset, editor, menu model, audio sanity). With `SUITE_PRESET_BANK_AS_PROGRAMS=ON`, the program-list virtuals are also exercised inside the plugin preset tests.
+**Bank build** (`SUITE_PRESET_BANK=ON`): twenty-eight CTest entries - the twenty public entries plus eight `*_PresetTests` executables, one per plugin (bank ranges, apply/reset, editor, menu model, audio sanity). With `SUITE_PRESET_BANK_AS_PROGRAMS=ON`, the program-list virtuals are also exercised inside the plugin preset tests.
 
 The tests use `assert` with `NDEBUG` undefined, so they also check in Release builds. Without that, every check would be compiled out.
 
@@ -634,7 +634,7 @@ AudioPluginSuite/
 │   ├── brand.md                         The FROTH Audio brand: parts, colours, regenerating the artwork
 │   ├── images/froth-audio-suite.png     The README banner (generated)
 │   └── plans/                           Design plans and their status
-├── tools/brand/build.py            Generates the brand mark, the lockups and the README banner
+├── tools/brand/build.py            Owner's local brand generator (not in the repo): mark, lockups, banner
 ├── modules/
 │   ├── core_dsp/                        Header-only DSP primitives, no plugin code
 │   │   ├── include/                     CoreDSP.h, SaturationEngine.h, ChaosEngine.h, SpectralEngine.h,
@@ -697,7 +697,7 @@ Key decisions:
 - **Oversampling** in Dynamic Saturation is JUCE's half-band FIR at 2×. The dry path is delayed by the same amount, so the mix stays aligned.
 - **SuiteUI is compiled into each consumer** rather than linked as a library. A library bundles the JUCE modules it uses, and those then clash with the same modules linked again by the plugin (duplicate symbols at link time).
 - **LFOs and routing are shared.** `SuiteModulation::Router` holds the two LFOs, the six routing slots and their parameters. A plugin supplies a table of the controls the routing can move, and the module does the rest. The module is compiled into each consumer like SuiteUI, and it needs SuiteUI in the same target.
-- **The brand is generated.** `tools/brand/build.py` draws the mark, the lockups and the banner, so the artwork and the plugin colours come from one place.
+- **The brand is generated.** `tools/brand/build.py` draws the mark, the lockups and the banner, so the artwork and the plugin colours come from one place. The script is the owner's local tool and is not in this repository; the artwork it produces is.
 
 ### Adding a plugin
 
@@ -705,7 +705,7 @@ Key decisions:
 2. The plugin code must be four letters or digits, with at least one uppercase letter. It must not change once a plugin has been released, because hosts use it to identify saved sessions.
 3. Put the DSP in `modules/core_dsp/include/` as a header-only class, and add a test for it in `DSPTests.cpp`.
 4. Add `add_subdirectory(plugins/<Name>)` to the root `CMakeLists.txt`, under `if(SUITE_BUILD_PLUGINS)`, after the other plugins. Add `suite_add_host_test(<Name>)` in `tests/host/CMakeLists.txt`.
-5. Add its accent colour and lockup to `tools/brand/build.py`, then regenerate the artwork with `python -I tools/brand/build.py`.
+5. Ask the owner to add its accent colour and lockup to the brand generator (`tools/brand/build.py`, the owner's local tool, not in this repository) and regenerate the artwork.
 6. Add it to "the plugins" section in this README, to the table in this README, and to `CHANGELOG.md`.
 
 ### Continuous integration

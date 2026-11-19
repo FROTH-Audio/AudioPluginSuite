@@ -28,7 +28,7 @@ private:
     // setSize() runs resized(), which lays the bar out.
     std::unique_ptr<SuitePresets::PresetBar> presetBar;
 
-    // R13: one gear menu at the far right of the header, right of the preset bar.
+    // R13: one menu at the far right of the header, right of the preset bar.
     SuiteUI::HeaderMenuButton headerMenu { juce::Colour (0xff9aa0a6) };
 
     SuiteUI::LabelledSlider gainSlider { "GAIN", juce::Slider::RotaryVerticalDrag };

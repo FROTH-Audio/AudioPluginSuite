@@ -496,8 +496,8 @@ namespace
         pass ("testVisualSnapshot");
     }
 
-    /** R13: the header carries the preset bar and the gear menu, the gear's two actions are
-        wired, the gear sits at the far right of the header with the bar left of it, and both
+    /** R13: the header carries the preset bar and the menu menu, the menu's two actions are
+        wired, the menu sits at the far right of the header with the bar left of it, and both
         dialogs build and paint. */
     void testHeaderContract()
     {
@@ -506,7 +506,7 @@ namespace
         assert (editor != nullptr);
 
         SuitePresets::PresetBar* bar = nullptr;
-        SuiteUI::HeaderMenuButton* gear = nullptr;
+        SuiteUI::HeaderMenuButton* menu = nullptr;
 
         for (int i = 0; i < editor->getNumChildComponents(); ++i)
         {
@@ -516,16 +516,16 @@ namespace
                 bar = found;
 
             if (auto* found = dynamic_cast<SuiteUI::HeaderMenuButton*> (child))
-                gear = found;
+                menu = found;
         }
 
         assert (bar != nullptr);
-        assert (gear != nullptr);
-        assert (gear->onAbout != nullptr);
-        assert (gear->onSettings != nullptr);
+        assert (menu != nullptr);
+        assert (menu->onAbout != nullptr);
+        assert (menu->onSettings != nullptr);
 
-        assert (gear->getRight() > editor->getWidth() - 40);
-        assert (bar->getRight() <= gear->getX());
+        assert (menu->getRight() > editor->getWidth() - 40);
+        assert (bar->getRight() <= menu->getX());
 
         {
             SuiteUI::AboutPanel about ({}, "Stereo Tool Effect", "1.0.0", "Ster", "StereoTool");

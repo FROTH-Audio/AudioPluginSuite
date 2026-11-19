@@ -1,4 +1,4 @@
-﻿#include "PluginEditor.h"
+#include "PluginEditor.h"
 
 #include "BinaryData.h"
 #include "SuiteBrand.h"
@@ -249,7 +249,7 @@ void SpectralDriftEditor::resized()
     const int barWidth = 300;
     const int barHeight = presetBar != nullptr ? presetBar->getPreferredHeight() : 0;
 
-    // The gear sits at the far right of the header, right of the preset bar (plan 08 Q4).
+    // The menu button sits at the far right of the header, right of the preset bar (plan 08 Q4).
     headerMenu.setBounds (headerArea.removeFromRight (26).withHeight (26)
                             .withY (headerArea.getCentreY() - 13));
 

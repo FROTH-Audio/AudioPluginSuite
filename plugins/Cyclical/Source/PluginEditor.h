@@ -72,7 +72,7 @@ private:
     // R12: the factory preset bar, flat in the header.
     std::unique_ptr<SuitePresets::PresetBar> presetBar;
 
-    // R13: one gear menu at the far right of the header, right of the preset bar.
+    // R13: one menu at the far right of the header, right of the preset bar.
     SuiteUI::HeaderMenuButton headerMenu { juce::Colour (0xff8fa3b8) };
 
     // R8: the page switch at the top right of the header.

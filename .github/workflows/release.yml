@@ -55,6 +55,15 @@ jobs:
       - name: Run unit tests
         run: ctest --test-dir build -C Release --output-on-failure
 
+      # A release ships the bank, so its rules must pass before packaging.
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Audit factory bank
+        run: python tools/audit_bank.py
+
       - name: Package (Windows)
         if: runner.os == 'Windows'
         shell: pwsh

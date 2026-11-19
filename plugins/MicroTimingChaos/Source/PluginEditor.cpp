@@ -542,7 +542,7 @@ void MicroTimingChaosEditor::resized()
     const int barWidth = 360;
     const int barHeight = 34;
 
-    // The gear sits at the far right of the header, right of the preset bar (plan 08 Q4).
+    // The menu button sits at the far right of the header, right of the preset bar (plan 08 Q4).
     headerMenu.setBounds (titleBand.removeFromRight (28)
                             .withSizeKeepingCentre (28, 28));
 

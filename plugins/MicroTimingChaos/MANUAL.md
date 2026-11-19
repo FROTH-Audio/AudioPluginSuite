@@ -7,6 +7,9 @@ along a Lorenz attractor, so the groove never plays the same way twice — and t
 pattern gets the same chaos at any tempo. Audio passes through unchanged, so the plugin can
 sit on any track.
 
+A technical reference (every control, the LFO and routing details, latency, building and
+testing) is in [README.md](README.md).
+
 ## The three pages
 
 The editor has three pages: **SEQUENCE** (pattern, melody, transport and the step grid),

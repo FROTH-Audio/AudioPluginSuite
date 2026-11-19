@@ -140,7 +140,7 @@ private:
     // Preset bar (Pro builds: visible, public build: height 0 so layout unchanged)
     std::unique_ptr<SuitePresets::PresetBar> presetBar;
 
-    // Gear at the far right of the header: settings and about (plan 08).
+    // menu at the far right of the header: settings and about (plan 08).
     SuiteUI::HeaderMenuButton headerMenu { juce::Colour (0xff7dff5a) };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MicroTimingChaosEditor)

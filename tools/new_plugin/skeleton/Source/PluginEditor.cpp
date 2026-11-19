@@ -11,10 +11,10 @@ namespace
     constexpr int headerHeight = 44;
     constexpr int footerHeight = 26;
 
-    // Preset bar and gear share the header with the title (R12/R13).
+    // Preset bar and menu share the header with the title (R12/R13).
     constexpr int titleWidth = 200;
     constexpr int presetBarWidth = 260;
-    constexpr int gearSize = 26;
+    constexpr int menuSize = 26;
 }
 
 __NAME__Editor::__NAME__Editor (__NAME__Processor& p)
@@ -38,7 +38,7 @@ __NAME__Editor::__NAME__Editor (__NAME__Processor& p)
         addAndMakeVisible (*presetBar);
     presetBar->onPresetLoaded = [this] { repaint(); };
 
-    // R13: one gear menu with Settings... and About..., no separate buttons (plan 08 Q3).
+    // R13: one menu with Settings... and About..., no separate buttons (plan 08 Q3).
     addAndMakeVisible (headerMenu);
     headerMenu.onAbout = [this]
     {
@@ -83,8 +83,8 @@ void __NAME__Editor::resized()
 
     auto header = area.removeFromTop (headerHeight);
 
-    // R13: the gear sits at the far right of the header, right of the preset bar.
-    headerMenu.setBounds (header.removeFromRight (gearSize).withSizeKeepingCentre (gearSize, gearSize));
+    // R13: the menu button sits at the far right of the header, right of the preset bar.
+    headerMenu.setBounds (header.removeFromRight (menuSize).withSizeKeepingCentre (menuSize, menuSize));
 
     // R12: the bar sits flat in the header, right of the title.
     header.removeFromLeft (juce::jmin (titleWidth, header.getWidth()));

@@ -29,6 +29,8 @@ Thumbs.db
 .vscode/
 
 tools/brand/
+# Test output written when a test binary is run from the repository root
+test-settings/
 # Python bytecode
 __pycache__/
 *.pyc

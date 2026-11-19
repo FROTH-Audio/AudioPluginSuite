@@ -59,7 +59,7 @@ so you can watch the shape the follower applies.
   to browse, save and load.
 - Modulation routing (the suite's LFOs and slots) is planned for a follow-up pass; the
   plugin already links the shared module.
-- The gear menu in the header (right of the preset bar) opens Settings… (tooltips toggle,
+- The hamburger menu in the header (right of the preset bar) opens Settings… (tooltips toggle,
   fallback tempo, preset folder) and About….
 - Character, Target and Side Filter are pill switches (plan 11 rule: a dropdown only for
   longer lists).

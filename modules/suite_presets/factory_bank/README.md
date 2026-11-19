@@ -17,7 +17,7 @@ paid tier.
 factory_bank/
   include/PresetBank.h          PresetBank (getFactoryPresets, parseDelta) and PresetPrograms
   Source/PresetBank.cpp         Bank parse and program list; degrades to an empty bank without the flag
-  bank/AudioSuitePresets.xml    The embedded bank payload: 100 presets (26 SD / 26 DS / 28 MTC / 20 Sgraffito)
+  bank/AudioSuitePresets.xml    The embedded bank payload: 160 presets (26 SD / 26 DS / 28 MTC / 20 Sgraffito / 15 each for MidiEffect, StereoTool, MultibandSaturation and Cyclical)
   bank/<plugin>/<slug>.json     One delta JSON per factory preset (authoring source)
   tests/PresetTestUtils.h       Shared runBank*/runApply*/runProgramList/runMenuModel helpers
   tests/<Name>PresetTests.cpp   Per-plugin bank tests, registered by suite_add_plugin (bank build only)
@@ -40,13 +40,15 @@ into each consumer to avoid duplicate-symbol link errors with JUCE. The data tar
 
 ## Factory bank content
 
-The bank carries **100 factory presets**: 26 Spectral Drift, 26 Dynamic Saturation, 28
-Micro-Timing Chaos and 20 Sgraffito. Each plugin's list starts with its `INIT` preset
+The bank carries **160 factory presets**: 26 Spectral Drift, 26 Dynamic Saturation, 28
+Micro-Timing Chaos, 20 Sgraffito and 15 each for the MIDI Chord Arp Scale Tool, Stereo Tool
+Effect, Multiband Saturation and Cyclical. Each plugin's list starts with its `INIT` preset
 (name `INIT`, category `Utility`, description `The default state.`) — an empty delta, exempt
 from the not-default audit rule. New presets are appended at the end of each plugin's list;
 bank order is append-only once hosts cache program indices. Plan 05.3 F1.3 added five Sgraffito
-presets (Velvet Swing, Ghostly Echo, Held Breath, Fine Grained Drift, Slow Attack Tape); the
-suite total went from 95 to 100. The authoring source is `tools/preset_data.py` (`SCHEMA` +
+presets (Velvet Swing, Ghostly Echo, Held Breath, Fine Grained Drift, Slow Attack Tape), taking
+the suite from 95 to 100; plan 6.1 and plan 11 added the MIDI effect, stereo tool, Multiband
+Saturation and Cyclical lists, taking it to 160. The authoring source is `tools/preset_data.py` (`SCHEMA` +
 `PRESETS`). Regenerate with:
 
 ```

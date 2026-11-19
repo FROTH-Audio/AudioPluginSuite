@@ -113,7 +113,7 @@ private:
     // Visual + header (plan 11 4a/R13).
     ChordGridVisualizer visualizer { processor };
     std::unique_ptr<SuitePresets::PresetBar> presetBar;
-    SuiteUI::HeaderMenuButton gearButton { juce::Colour (0xff4ECDC4) };
+    SuiteUI::HeaderMenuButton headerMenu { juce::Colour (0xff4ECDC4) };
 
     void timerCallback() override { visualizer.repaint(); }
 

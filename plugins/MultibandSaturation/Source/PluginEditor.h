@@ -45,9 +45,9 @@ private:
     // Declared first so it is destroyed last, after every component that uses it.
     SuiteUI::SuiteLookAndFeel lookAndFeel { juce::Colour (0xffFF6B6B) };
 
-    // Preset bar and gear menu
+    // Preset bar and menu
     std::unique_ptr<SuitePresets::PresetBar> presetBar;
-    SuiteUI::HeaderMenuButton gearButton { juce::Colour (0xffFF6B6B) };
+    SuiteUI::HeaderMenuButton headerMenu { juce::Colour (0xffFF6B6B) };
 
     SuiteUI::LabelledSlider crossoverCtrl { "CROSSOVER", juce::Slider::RotaryVerticalDrag };
     SuiteUI::LabelledSlider driveLowCtrl   { "DRIVE LOW",  juce::Slider::RotaryVerticalDrag };
