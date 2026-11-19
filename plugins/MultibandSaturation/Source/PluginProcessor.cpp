@@ -1,6 +1,10 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
+#if SUITE_PRESET_BANK_AS_PROGRAMS
+ #include "PresetBank.h"
+#endif
+
 MultibandSaturationProcessor::MultibandSaturationProcessor()
     : AudioProcessor (BusesProperties()
                           .withInput ("Input", juce::AudioChannelSet::stereo(), true)
@@ -187,6 +191,124 @@ void MultibandSaturationProcessor::getStateInformation (juce::MemoryBlock& destD
 void MultibandSaturationProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
     SuiteState::read (data, sizeInBytes, apvts, stateVersion, migrations);
+
+    // The preset identity rides as a property (plan 09 1.4, D3): restore the bar's
+    // selection from the replaced state. A session without the property — every
+    // session saved before plan 09 — reads as Init.
+    lastPresetSelection = SuitePresets::decodePresetSelection (
+        apvts.state.getProperty (presetSelectionProperty).toString());
+}
+
+void MultibandSaturationProcessor::setPresetSelection (const SuitePresets::PresetSelection& selection)
+{
+    lastPresetSelection = selection;
+
+    // The lerpCurve / samplePath pattern (plan 09 1.4): keep the property in sync at
+    // change time, so the identity rides in every saved session and host program dump.
+    if (selection.kind == SuitePresets::PresetSelection::Kind::none)
+        apvts.state.removeProperty (presetSelectionProperty, nullptr);
+    else
+        apvts.state.setProperty (presetSelectionProperty,
+                                 SuitePresets::encodePresetSelection (selection), nullptr);
+}
+
+void MultibandSaturationProcessor::applyPresetState (const juce::ValueTree& tree)
+{
+    // Presets use resetMissing=true so absent parameters are set to default. The tree is
+    // encoded into the binary state format first, so it goes through the same read path
+    // as a saved session: version check, migrations, replaceState, resetMissing.
+    const juce::MemoryBlock block = SuiteState::detail::encodeXml (*tree.createXml());
+    const auto result = SuiteState::read (block.getData(), (int) block.getSize(), apvts, stateVersion,
+                                          migrations, {}, true);
+
+    // Applying any tree resets the preset identity (plan 09 1.4): the caller — the bar
+    // or the host-program bridge — re-states it right after, when it knows the preset.
+    if (result == SuiteState::LoadResult::loaded)
+        lastPresetSelection = {};
+
+#if SUITE_PRESET_BANK_AS_PROGRAMS
+    // A preset applied from the bar or a file is no longer one of the host programs.
+    if (result == SuiteState::LoadResult::loaded)
+        currentProgramIndex.store (-1, std::memory_order_relaxed);
+#else
+    juce::ignoreUnused (result);
+#endif
+}
+
+//==============================================================================
+// Host program list. Program 0 is Init; 1 to N are the factory presets in bank order. The list only
+// exists in a Pro build with SUITE_PRESET_BANK_AS_PROGRAMS on; otherwise the plugin reports one
+// program, as it did before the preset system.
+
+int MultibandSaturationProcessor::getNumPrograms()
+{
+#if SUITE_PRESET_BANK_AS_PROGRAMS
+    return SuitePresets::PresetPrograms::getNumPrograms (getPresetPluginId());
+#else
+    return 1;
+#endif
+}
+
+int MultibandSaturationProcessor::getCurrentProgram()
+{
+#if SUITE_PRESET_BANK_AS_PROGRAMS
+    return currentProgramIndex.load (std::memory_order_relaxed);
+#else
+    return 0;
+#endif
+}
+
+void MultibandSaturationProcessor::setCurrentProgram (int index)
+{
+#if SUITE_PRESET_BANK_AS_PROGRAMS
+    if (SuitePresets::PresetPrograms::applyProgram (*this, index))
+    {
+        currentProgramIndex.store (index, std::memory_order_relaxed);
+
+        // The host program and the bar's selection describe the same event (plan 09 1.4):
+        // program 0 is Init, program N is factory preset N-1 in bank order.
+        SuitePresets::PresetSelection selection;
+
+        if (index > 0)
+        {
+            selection.kind = SuitePresets::PresetSelection::Kind::factory;
+            selection.factoryIndex = index - 1;
+        }
+
+        setPresetSelection (selection);
+    }
+#else
+    juce::ignoreUnused (index);
+#endif
+}
+
+const juce::String MultibandSaturationProcessor::getProgramName (int index)
+{
+#if SUITE_PRESET_BANK_AS_PROGRAMS
+    return SuitePresets::PresetPrograms::getProgramName (getPresetPluginId(), index);
+#else
+    juce::ignoreUnused (index);
+    return {};
+#endif
+}
+
+void MultibandSaturationProcessor::changeProgramName (int, const juce::String&)
+{
+    // The factory programs are read-only.
+}
+
+void MultibandSaturationProcessor::getCurrentProgramStateInformation (juce::MemoryBlock& destData)
+{
+    getStateInformation (destData);
+}
+
+void MultibandSaturationProcessor::setCurrentProgramStateInformation (const void* data, int sizeInBytes)
+{
+    setStateInformation (data, sizeInBytes);
+
+#if SUITE_PRESET_BANK_AS_PROGRAMS
+    currentProgramIndex.store (-1, std::memory_order_relaxed);
+#endif
 }
 
 //==============================================================================

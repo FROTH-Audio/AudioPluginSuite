@@ -3,6 +3,7 @@
 #include "PluginTestUtils.h"
 #include "PluginEditor.h"
 #include "PluginProcessor.h"
+#include "SuiteSettings.h"
 
 namespace
 {
@@ -432,6 +433,61 @@ namespace
         pass ("testEditor");
     }
 
+    /** R13: the header carries the preset bar and the gear menu, the gear's two actions are
+        wired, the gear sits at the far right of the header with the bar left of it, and both
+        dialogs build and paint. */
+    void testHeaderContract()
+    {
+        Processor processor;
+        std::unique_ptr<juce::AudioProcessorEditor> editor (processor.createEditorAndMakeActive());
+        assert (editor != nullptr);
+
+        SuitePresets::PresetBar* bar = nullptr;
+        SuiteUI::HeaderMenuButton* gear = nullptr;
+
+        for (int i = 0; i < editor->getNumChildComponents(); ++i)
+        {
+            auto* child = editor->getChildComponent (i);
+
+            if (auto* found = dynamic_cast<SuitePresets::PresetBar*> (child))
+                bar = found;
+
+            if (auto* found = dynamic_cast<SuiteUI::HeaderMenuButton*> (child))
+                gear = found;
+        }
+
+        assert (bar != nullptr);
+        assert (gear != nullptr);
+        assert (gear->onAbout != nullptr);
+        assert (gear->onSettings != nullptr);
+
+        assert (gear->getRight() > editor->getWidth() - 40);
+        assert (bar->getRight() <= gear->getX());
+
+        {
+            SuiteUI::AboutPanel about ({}, "Stereo Tool Effect", "1.0.0", "Ster", "StereoTool");
+            const auto image = paintComponent (about);
+            assert (image.getPixelAt (8, 8) == SuiteUI::Colours::panel);
+        }
+
+        {
+            const auto file = juce::File::getCurrentWorkingDirectory()
+                                  .getChildFile ("StereoToolHeaderContractSettings.xml");
+            file.deleteFile();
+
+            SuiteSettings::Store store (file);
+            SuiteSettings::SettingsDialog dialog (store, false);
+            const auto image = paintComponent (dialog);
+            assert (image.getPixelAt (8, 8) == SuiteUI::Colours::panel);
+
+            file.deleteFile();
+        }
+
+        processor.editorBeingDeleted (editor.get());
+        editor.reset();
+        pass ("testHeaderContract");
+    }
+
     /** Writes the editor render when SUITE_RENDER_DIR is set (plan 05 R9). */
     void testRenderBaseline()
     {
@@ -475,6 +531,7 @@ int main()
     testSideFilter();
     testTransientFollower();
     testEditor();
+    testHeaderContract();
     testRenderBaseline();
 
     std::puts ("All Stereo Tool Effect plugin tests passed.");

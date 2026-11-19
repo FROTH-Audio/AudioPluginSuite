@@ -2,6 +2,7 @@
 
 #include "SuiteBrand.h"
 #include "BinaryData.h"
+#include "SuiteSettings.h"
 
 namespace
 {
@@ -19,7 +20,7 @@ namespace
     const juce::Image& brandLockup()
     {
         static const juce::Image image = juce::ImageCache::getFromMemory (BinaryData::lockup_stereo_tool_png,
-                                                                         BinaryData::lockup_stereo_tool_pngSize);
+                                                                          BinaryData::lockup_stereo_tool_pngSize);
         return image;
     }
 }
@@ -43,21 +44,12 @@ StereoToolEditor::StereoToolEditor (StereoToolProcessor& p)
     targetCell.box.addItemList ({ "Width", "Drive", "Both" }, 1);
     filterCell.box.addItemList ({ "Off", "High Pass", "Low Pass", "Band Pass" }, 1);
 
-    driveCtrl.slider.setTextValueSuffix (" dB");
     driveCtrl.slider.setNumDecimalPlacesToDisplay (1);
     attackCtrl.slider.setTextValueSuffix (" ms");
-    attackCtrl.slider.setNumDecimalPlacesToDisplay (1);
     releaseCtrl.slider.setTextValueSuffix (" ms");
-    releaseCtrl.slider.setNumDecimalPlacesToDisplay (1);
     amountCtrl.slider.setTextValueSuffix (" %");
-    amountCtrl.slider.setNumDecimalPlacesToDisplay (0);
     widthCtrl.slider.setTextValueSuffix (" %");
-    widthCtrl.slider.setNumDecimalPlacesToDisplay (1);
     mixCtrl.slider.setTextValueSuffix (" %");
-    mixCtrl.slider.setNumDecimalPlacesToDisplay (1);
-    midFocusCtrl.slider.setTextValueSuffix (" %");
-    midFocusCtrl.slider.setNumDecimalPlacesToDisplay (1);
-    crossoverCtrl.slider.setNumDecimalPlacesToDisplay (1);
 
     auto& apvts = processor.apvts;
 
@@ -72,29 +64,8 @@ StereoToolEditor::StereoToolEditor (StereoToolProcessor& p)
 
     // Built after the items exist, so the first update selects the parameter's current choice.
     characterAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (apvts, StereoToolProcessor::characterId, characterCell.box);
-    targetAttachment    = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (apvts, StereoToolProcessor::transientTargetId, targetCell.box);
-    filterAttachment    = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (apvts, StereoToolProcessor::sideFilterId, filterCell.box);
-
-    // Help text for every control.
-    driveCtrl.setHelpText ("Pre-gain into the shaper. 0 dB is transparent; below 0 is a clean gain reduction.");
-    driveCtrl.slider.setTooltip (driveCtrl.getHelpText());
-    attackCtrl.setHelpText ("How fast the follower rises on a transient.");
-    attackCtrl.slider.setTooltip (attackCtrl.getHelpText());
-    releaseCtrl.setHelpText ("How fast the follower falls after a transient.");
-    releaseCtrl.slider.setTooltip (releaseCtrl.getHelpText());
-    amountCtrl.setHelpText ("How hard the follower moves its target. 0 bypasses the follower.");
-    amountCtrl.slider.setTooltip (amountCtrl.getHelpText());
-    widthCtrl.setHelpText ("Scales the side component: -100 folds to mono, 0 is unchanged, +100 doubles the side.");
-    widthCtrl.slider.setTooltip (widthCtrl.getHelpText());
-    mixCtrl.setHelpText ("Dry/wet balance.");
-    mixCtrl.slider.setTooltip (mixCtrl.getHelpText());
-    midFocusCtrl.setHelpText ("Pulls the centre forward (+) or widens the image (-): mid = 1 + f, side = 1 - f.");
-    midFocusCtrl.slider.setTooltip (midFocusCtrl.getHelpText());
-    crossoverCtrl.setHelpText ("The side filter's corner frequency.");
-    crossoverCtrl.slider.setTooltip (crossoverCtrl.getHelpText());
-    characterCell.setHelpText ("The saturation curve on the mid and side.");
-    targetCell.setHelpText ("What the transient follower moves.");
-    filterCell.setHelpText ("A filter on the side component only, so the lows can stay mono. Off is a true bypass.");
+    targetAttachment   = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (apvts, StereoToolProcessor::transientTargetId, targetCell.box);
+    filterAttachment   = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (apvts, StereoToolProcessor::sideFilterId, filterCell.box);
 
     for (auto* component : { static_cast<juce::Component*> (&driveCtrl), static_cast<juce::Component*> (&attackCtrl),
                              static_cast<juce::Component*> (&releaseCtrl), static_cast<juce::Component*> (&amountCtrl),
@@ -103,6 +74,19 @@ StereoToolEditor::StereoToolEditor (StereoToolProcessor& p)
                              static_cast<juce::Component*> (&characterCell), static_cast<juce::Component*> (&targetCell),
                              static_cast<juce::Component*> (&filterCell) })
         addAndMakeVisible (component);
+
+    addAndMakeVisible (gearButton);
+
+    // Gear menu (R13): About… and Settings…, the same two actions every suite plugin has.
+    gearButton.onAbout = [this]
+    {
+        SuiteUI::showAboutDialog (brandLockup(), SUITE_PLUGIN_NAME, SUITE_PLUGIN_VERSION,
+                                  SUITE_PLUGIN_CODE, SUITE_PLUGIN_ID, this);
+    };
+    gearButton.onSettings = [this]
+    {
+        SuiteSettings::showSettingsDialog (SuiteSettings::shared(), this);
+    };
 
     if (presetBar->getPreferredHeight() > 0)
         addAndMakeVisible (*presetBar);
@@ -125,7 +109,7 @@ void StereoToolEditor::paint (juce::Graphics& g)
     // the product name, generated by tools/brand/lockups.py and embedded in the bundle).
     SuiteUI::drawBrandLockup (g, getLocalBounds().removeFromTop (headerHeight).reduced (16, 0), brandLockup());
 
-    // The two group frames and their titles.
+    // The two group frames and their titles (R5: 15 pt bold in the accent).
     g.setColour (lookAndFeel.getAccent());
     g.setFont (juce::Font (juce::FontOptions (15.0f, juce::Font::bold)));
     g.drawText ("CHARACTER", characterGroupBounds.withHeight (groupTitleHeight).translated (0, 4).reduced (12, 0),
@@ -144,10 +128,11 @@ void StereoToolEditor::resized()
 {
     auto area = getLocalBounds().reduced (16);
 
-    // Reserve space for the preset bar (300x30), right-aligned in the header band.
+    // Header: gear at the far right, the preset bar flat to its left (plan 05.1).
     auto headerArea = area.removeFromTop (headerHeight);
+    gearButton.setBounds (headerArea.removeFromRight (26).withHeight (26)
+                            .withY (headerArea.getCentreY() - 13));
     const int barHeight = presetBar != nullptr ? presetBar->getPreferredHeight() : 0;
-
     if (barHeight > 0)
         presetBar->setBounds (headerArea.removeFromRight (300).withHeight (barHeight)
                                 .withY (headerArea.getCentreY() - barHeight / 2));
@@ -166,11 +151,11 @@ void StereoToolEditor::resized()
         auto row2 = inner.removeFromBottom (SuiteUI::knobRowHeight);
 
         for (auto* cell : { static_cast<juce::Component*> (&characterCell), static_cast<juce::Component*> (&driveCtrl),
-                            static_cast<juce::Component*> (&attackCtrl), static_cast<juce::Component*> (&releaseCtrl) })
+                            static_cast<juce::Component*> (&attackCtrl),     static_cast<juce::Component*> (&releaseCtrl) })
             cell->setBounds (row1.removeFromLeft (cellWidth).reduced (3));
 
         for (auto* cell : { static_cast<juce::Component*> (&amountCtrl), static_cast<juce::Component*> (&targetCell),
-                            static_cast<juce::Component*> (nullptr), static_cast<juce::Component*> (nullptr) })
+                            static_cast<juce::Component*> (nullptr),    static_cast<juce::Component*> (nullptr) })
         {
             if (cell == nullptr)
                 break;
@@ -194,11 +179,18 @@ void StereoToolEditor::resized()
         }
 
         for (auto* cell : { static_cast<juce::Component*> (&filterCell), static_cast<juce::Component*> (&crossoverCtrl),
-                            static_cast<juce::Component*> (nullptr), static_cast<juce::Component*> (nullptr) })
+                            static_cast<juce::Component*> (nullptr),    static_cast<juce::Component*> (nullptr) })
         {
             if (cell == nullptr)
                 break;
             cell->setBounds (row2.removeFromLeft (cellWidth).reduced (3));
         }
     }
+}
+
+void StereoToolEditor::layoutGroup (juce::Rectangle<int> group, std::initializer_list<juce::Component*> cells)
+{
+    const int width = group.getWidth() / (int) cells.size();
+    for (auto* cell : cells)
+        cell->setBounds (group.removeFromLeft (width));
 }

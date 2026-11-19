@@ -8,6 +8,7 @@
 #include "MultibandEngine.h"
 #include "SaturationEngine.h"
 #include "SuiteState.h"
+#include "SuitePresets.h"   // StateHolder interface for presets
 
 /**
     Multiband Saturation (plan 06 idea 2.4, first pass).
@@ -21,7 +22,7 @@
     First pass: base-rate processing (no oversampling — the oversampling-and-crossover
     interaction is the plan's open risk, and 0 samples of latency are reported).
 */
-class MultibandSaturationProcessor : public juce::AudioProcessor
+class MultibandSaturationProcessor : public juce::AudioProcessor, public SuitePresets::StateHolder
 {
 public:
     // Parameter IDs are saved in sessions. Never rename or reuse one after a release.
@@ -61,14 +62,28 @@ public:
     bool producesMidi() const override { return false; }
     double getTailLengthSeconds() const override { return 0.0; }
 
-    int getNumPrograms() override { return 1; }
-    int getCurrentProgram() override { return 0; }
-    void setCurrentProgram (int) override {}
-    const juce::String getProgramName (int) override { return {}; }
-    void changeProgramName (int, const juce::String&) override {}
+    int getNumPrograms() override;
+    int getCurrentProgram() override;
+    void setCurrentProgram (int) override;
+    const juce::String getProgramName (int) override;
+    void changeProgramName (int, const juce::String&) override;
+    void getCurrentProgramStateInformation (juce::MemoryBlock&) override;
+    void setCurrentProgramStateInformation (const void*, int) override;
 
     void getStateInformation (juce::MemoryBlock& destData) override;
     void setStateInformation (const void* data, int sizeInBytes) override;
+
+    // Preset system: StateHolder interface
+    juce::String getPresetPluginId() const { return "MultibandSaturation"; }
+    int getPresetStateVersion() const override { return stateVersion; }
+    juce::AudioProcessorValueTreeState& getPresetStateTree() { return apvts; }
+    void applyPresetState (const juce::ValueTree&);
+
+    // The preset identity (plan 09 1.4). Message thread. Persisted as the presetSelection state property, so it
+    // survives the editor being reopened and rides in saved sessions.
+    SuitePresets::PresetSelection getPresetSelection() const override { return lastPresetSelection; }
+    void setPresetSelection (const SuitePresets::PresetSelection&) override;
+    static constexpr const char* presetSelectionProperty { "presetSelection" };
 
 private:
     static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
@@ -96,4 +111,13 @@ private:
     std::atomic<float>* toneHigh = nullptr;
     std::atomic<float>* mix = nullptr;
     std::atomic<float>* outputLevel = nullptr;
+
+    // Host program list (embedded bank + SUITE_PRESET_BANK_AS_PROGRAMS). -1 means a state that is not a
+    // factory program, for example a user preset.
+    std::atomic<int> currentProgramIndex { 0 };
+
+    // The preset identity (plan 09 1.4). Message thread only.
+    SuitePresets::PresetSelection lastPresetSelection;
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MultibandSaturationProcessor)
 };

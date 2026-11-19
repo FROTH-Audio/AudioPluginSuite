@@ -12,4 +12,5 @@ suite_add_plugin(
     TEST_SOURCES    tests/PluginTests.cpp
     LOCKUP          ${CMAKE_SOURCE_DIR}/modules/suite_ui/brand/lockup_midi_effect.png
     MODULATION
+    SETTINGS
 )

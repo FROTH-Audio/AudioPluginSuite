@@ -8,6 +8,7 @@
 #include "PluginProcessor.h"
 #include "SuiteLookAndFeel.h"
 #include "SuiteWidgets.h"
+#include "SuiteHeaderMenu.h"
 
 class MidiEffectEditor : public juce::AudioProcessorEditor
 {
@@ -49,7 +50,6 @@ private:
     MidiEffectProcessor& processor;
 
     // Declared first so it is destroyed last, after every component that uses it.
-    // Provisional accent (owner may pick a permanent one before release).
     SuiteUI::SuiteLookAndFeel lookAndFeel { juce::Colour (0xff4ECDC4) };
 
     // SHAPE group: the key, the chord and the output level.
@@ -92,8 +92,8 @@ private:
     // Preset bar (Pro builds: visible, public build: height 0 so layout unchanged)
     std::unique_ptr<SuitePresets::PresetBar> presetBar;
 
+    SuiteUI::HeaderMenuButton gearButton { juce::Colour (0xff4ECDC4) };
+
     /** Lays one group's 4x2 grid of cells inside its frame. */
     void layoutGroup (juce::Rectangle<int> group, std::initializer_list<juce::Component*> cells);
-
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MidiEffectEditor)
 };
