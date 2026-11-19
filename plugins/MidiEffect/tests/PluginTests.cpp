@@ -559,6 +559,56 @@ namespace
         pass ("testEditor");
     }
 
+    /** Plan 11 D7: the visual snapshot publishes the held key while the arp runs and
+        clears its sounding flags when the key ends. */
+    void testVisualSnapshot()
+    {
+        Processor processor;
+        processor.prepareToPlay (sampleRate, blockSize);
+        setParameter (processor.apvts, Processor::arpModeId, 1.0f);   // Arp
+
+        // Idle: no key published.
+        {
+            juce::MidiBuffer empty;
+            juce::AudioBuffer<float> audio (2, blockSize);
+            audio.clear();
+            processor.processBlock (audio, empty);
+            assert (processor.getArpSnapshot().key.load() == -1);
+        }
+
+        // A note-on publishes the key and its 8-step sequence.
+        {
+            juce::MidiBuffer midi;
+            midi.addEvent (juce::MidiMessage::noteOn (1, 60, 0.9f), 0);
+            juce::AudioBuffer<float> audio (2, blockSize);
+            audio.clear();
+            processor.processBlock (audio, midi);
+
+            assert (processor.getArpSnapshot().key.load() == 60);
+
+            int filled = 0;
+            for (int i = 0; i < Processor::arpSteps; ++i)
+                if (processor.getArpSnapshot().notes[(size_t) i].load() >= 0)
+                    ++filled;
+            assert (filled > 0);
+        }
+
+        // The note-off clears every sounding flag; the sequence stays for the display.
+        {
+            juce::MidiBuffer midi;
+            midi.addEvent (juce::MidiMessage::noteOff (1, 60), 0);
+            juce::AudioBuffer<float> audio (2, blockSize);
+            audio.clear();
+            processor.processBlock (audio, midi);
+
+            assert (processor.getArpSnapshot().key.load() == 60);
+            for (int i = 0; i < Processor::arpSteps; ++i)
+                assert (! processor.getArpSnapshot().sounding[(size_t) i].load());
+        }
+
+        pass ("testVisualSnapshot");
+    }
+
     /** R13: the header carries the preset bar and the gear menu, the gear's two actions are
         wired, the gear sits at the far right of the header with the bar left of it, and both
         dialogs build and paint. */
@@ -672,6 +722,7 @@ int main()
     testLatencyIsFixed();
     testAudioPassThrough();
     testEditor();
+    testVisualSnapshot();
     testHeaderContract();
     testRenderBaseline();
 

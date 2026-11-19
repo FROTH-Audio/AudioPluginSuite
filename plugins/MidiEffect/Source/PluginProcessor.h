@@ -57,6 +57,22 @@ public:
         step-count parameter). The pattern cycles while the key is held. */
     static constexpr int arpSteps = 8;
 
+    /** The visual snapshot (plan 11 D6/D7): the most recently triggered held key's notes,
+        published once per block on the audio thread and read on the message thread. No
+        locks. notes[i] < 0 marks an empty step; sounding[i] says that step's note is
+        currently on; step is the index of the step the clock last fired (-1 none); others
+        counts further keys whose notes are still sounding (drawn as markers only). */
+    struct ArpSnapshot
+    {
+        std::atomic<int> key { -1 };
+        std::atomic<int> step { 0 };
+        std::atomic<int> notes[arpSteps] {};
+        std::atomic<bool> sounding[arpSteps] {};
+        std::atomic<int> others { 0 };
+    };
+
+    const ArpSnapshot& getArpSnapshot() const noexcept { return arpSnapshot; }
+
     /** Latency reported to the host (plan 6.1): fixed at 50 ms, matching MicroTimingChaos, so
         it never changes with rate or gate. No event is scheduled before its grid time, so the
         value is conservative; the chord path emits at the note-on's position, as it always has. */
@@ -98,10 +114,10 @@ public:
     void setStateInformation (const void* data, int sizeInBytes) override;
 
     // Preset system: StateHolder interface
-    juce::String getPresetPluginId() const { return "MidiEffect"; }
+    juce::String getPresetPluginId() const override { return "MidiEffect"; }
     int getPresetStateVersion() const override { return stateVersion; }
-    juce::AudioProcessorValueTreeState& getPresetStateTree() { return apvts; }
-    void applyPresetState (const juce::ValueTree&);
+    juce::AudioProcessorValueTreeState& getPresetStateTree() override { return apvts; }
+    void applyPresetState (const juce::ValueTree&) override;
 
     // The preset identity (plan 09 1.4): which factory preset or user file the bar last
     // applied. Message thread. Persisted as the presetSelection state property, so it
@@ -178,6 +194,11 @@ private:
     void processArpBlock (juce::MidiBuffer& midi, juce::MidiBuffer& out, int numSamples);
     void releaseArpKey (int key, juce::MidiBuffer& out, int sample);
     void releaseAllArpKeys (juce::MidiBuffer& out, int sample);
+
+    // The visual snapshot (plan 11 D7). Audio thread, once per block, no locks.
+    int lastTriggeredKey = -1;
+    ArpSnapshot arpSnapshot;
+    void publishSnapshot();
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MidiEffectProcessor)
 };

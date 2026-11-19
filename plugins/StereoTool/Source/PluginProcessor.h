@@ -57,6 +57,20 @@ public:
 
     juce::AudioProcessorValueTreeState apvts;
 
+    /** The visual snapshot (plan 11 D7): the mid/side RMS of the last block, the transient
+        follower's envelope (0 while the amount is 0) and the input/output peaks. Audio
+        thread, no locks. */
+    struct MeterSnapshot
+    {
+        std::atomic<float> midLevel {};
+        std::atomic<float> sideLevel {};
+        std::atomic<float> followerEnvelope {};
+        std::atomic<float> inputPeak {};
+        std::atomic<float> outputPeak {};
+    };
+
+    const MeterSnapshot& getMeterSnapshot() const noexcept { return meterSnapshot; }
+
     // Bump stateVersion when the saved state changes, and add a migration from the old version.
     // Plan 6.1 is additive only: no ID moved, no range changed meaning, so the version stays 1
     // and an old state loads with the new parameters at their defaults.
@@ -91,10 +105,10 @@ public:
     void setStateInformation (const void*, int) override;
 
     // Preset system: StateHolder interface
-    juce::String getPresetPluginId() const { return "StereoTool"; }
+    juce::String getPresetPluginId() const override { return "StereoTool"; }
     int getPresetStateVersion() const override { return stateVersion; }
-    juce::AudioProcessorValueTreeState& getPresetStateTree() { return apvts; }
-    void applyPresetState (const juce::ValueTree&);
+    juce::AudioProcessorValueTreeState& getPresetStateTree() override { return apvts; }
+    void applyPresetState (const juce::ValueTree&) override;
 
     // The preset identity (plan 09 1.4): which factory preset or user file the bar last
     // applied. Message thread. Persisted as the presetSelection state property, so it
@@ -129,6 +143,9 @@ private:
     std::atomic<float>* midFocusParam         = nullptr;
     std::atomic<float>* sideFilterParam       = nullptr;
     std::atomic<float>* sideCrossoverParam    = nullptr;
+
+    // The visual snapshot (plan 11 D7). Audio thread, once per block, no locks.
+    MeterSnapshot meterSnapshot;
 
     // Host program list (embedded bank + SUITE_PRESET_BANK_AS_PROGRAMS). -1 means a state that is not a
     // factory program, for example a user preset.

@@ -161,6 +161,7 @@ void MidiEffectProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     {
         processArpBlock (midi, out, buffer.getNumSamples());
         midi.swapWith (out);
+        publishSnapshot();
         return;
     }
 
@@ -183,6 +184,7 @@ void MidiEffectProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
         if (message.isNoteOn())
         {
             const int key = message.getNoteNumber();
+            lastTriggeredKey = key;
 
             // A retrigger before the previous note-off releases the previous chord first,
             // so a fast retrigger never hangs notes (the MicroTimingChaos rule).
@@ -237,6 +239,72 @@ void MidiEffectProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     }
 
     midi.swapWith (out);
+    publishSnapshot();
+}
+
+/** Publishes the visual snapshot (plan 11 D6/D7): the most recently triggered held key's
+    notes, the arp clock's position and the count of other keys still sounding. Plain
+    atomics, no locks. Runs on the audio thread once per block. */
+void MidiEffectProcessor::publishSnapshot()
+{
+    const int key = lastTriggeredKey;
+    arpSnapshot.key.store (key, std::memory_order_relaxed);
+
+    int others = 0;
+    for (int k = 0; k < 128; ++k)
+    {
+        if (k == key)
+            continue;
+
+        if (arpVoices[(size_t) k].active && ! arpVoices[(size_t) k].sounding.empty())
+            ++others;
+        else if (heldChords[(size_t) k].count > 0)
+            ++others;
+    }
+    arpSnapshot.others.store (others, std::memory_order_relaxed);
+
+    for (int i = 0; i < arpSteps; ++i)
+    {
+        arpSnapshot.notes[(size_t) i].store (-1, std::memory_order_relaxed);
+        arpSnapshot.sounding[(size_t) i].store (false, std::memory_order_relaxed);
+    }
+
+    if (key < 0)
+        return;
+
+    if (arpModeParam->load() > 0.5f)
+    {
+        const auto& voice = arpVoices[(size_t) key];
+
+        for (int i = 0; i < arpSteps; ++i)
+        {
+            arpSnapshot.notes[(size_t) i].store (voice.sequence[(size_t) i], std::memory_order_relaxed);
+            arpSnapshot.sounding[(size_t) i].store (
+                std::find (voice.sounding.begin(), voice.sounding.end(),
+                           voice.sequence[(size_t) i]) != voice.sounding.end(),
+                std::memory_order_relaxed);
+        }
+
+        if (voice.nextStep > 0)
+        {
+            const auto fired = ((voice.nextStep - 1) % (std::int64_t) arpSteps
+                                + (std::int64_t) arpSteps) % (std::int64_t) arpSteps;
+            arpSnapshot.step.store ((int) fired, std::memory_order_relaxed);
+        }
+        else
+        {
+            arpSnapshot.step.store (-1, std::memory_order_relaxed);
+        }
+    }
+    else
+    {
+        const auto& held = heldChords[(size_t) key];
+        for (int i = 0; i < held.count && i < arpSteps; ++i)
+        {
+            arpSnapshot.notes[(size_t) i].store (held.notes[(size_t) i], std::memory_order_relaxed);
+            arpSnapshot.sounding[(size_t) i].store (true, std::memory_order_relaxed);
+        }
+    }
 }
 
 //==============================================================================
@@ -335,6 +403,7 @@ void MidiEffectProcessor::processArpBlock (juce::MidiBuffer& midi, juce::MidiBuf
         if (message.isNoteOn())
         {
             const int key = message.getNoteNumber();
+            lastTriggeredKey = key;
 
             // A retrigger before the previous note-off cuts the previous chord's notes
             // first (the existing rule).

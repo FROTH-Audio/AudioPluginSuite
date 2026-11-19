@@ -9,13 +9,14 @@ namespace
     // Plan 05 R4: the default window stays inside the suite budget (1000x700). The knob
     // size comes from the SuiteUI tokens (R1); never set slider bounds that exceed them.
     constexpr int editorWidth = 880;
-    constexpr int editorHeight = 560;
+    constexpr int editorHeight = 700;
     constexpr int headerHeight = 44;
     constexpr int footerHeight = 26;
     constexpr int groupGap = 8;   // the suite's one-gap rule (plan 05 R7)
     constexpr int groupTitleHeight = SuiteUI::groupTitleHeight;
     constexpr int groupInnerHeight = 2 * SuiteUI::knobRowHeight + groupGap;
     constexpr int groupHeight = groupTitleHeight + 4 + groupInnerHeight + 4;
+    constexpr int visualHeight = 130;
 
     const juce::Image& brandLockup()
     {
@@ -39,10 +40,11 @@ StereoToolEditor::StereoToolEditor (StereoToolProcessor& p)
     setResizable (true, true);
     setResizeLimits (editorWidth - 80, editorHeight - 80, 1200, 1200);
 
-    // The combo lists mirror the parameter choice lists; the attachment keeps them in sync.
-    characterCell.box.addItemList ({ "Tube", "Tape", "Diode", "Console", "Clip" }, 1);
-    targetCell.box.addItemList ({ "Width", "Drive", "Both" }, 1);
-    filterCell.box.addItemList ({ "Off", "High Pass", "Low Pass", "Band Pass" }, 1);
+    // The choice lists mirror the parameter choice lists. Rule #3 (plan 11): pills for
+    // three, four and five options, no dropdowns left.
+    characterCell.setOptions ({ "Tube", "Tape", "Diode", "Console", "Clip" });
+    targetCell.setOptions ({ "Width", "Drive", "Both" });
+    filterCell.setOptions ({ "Off", "High Pass", "Low Pass", "Band Pass" });
 
     driveCtrl.slider.setNumDecimalPlacesToDisplay (1);
     attackCtrl.slider.setTextValueSuffix (" ms");
@@ -62,17 +64,17 @@ StereoToolEditor::StereoToolEditor (StereoToolProcessor& p)
     midFocusAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (apvts, StereoToolProcessor::midFocusId, midFocusCtrl.slider);
     crossoverAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (apvts, StereoToolProcessor::sideCrossoverId, crossoverCtrl.slider);
 
-    // Built after the items exist, so the first update selects the parameter's current choice.
-    characterAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (apvts, StereoToolProcessor::characterId, characterCell.box);
-    targetAttachment   = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (apvts, StereoToolProcessor::transientTargetId, targetCell.box);
-    filterAttachment   = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (apvts, StereoToolProcessor::sideFilterId, filterCell.box);
+    // The pill selectors carry their own attachments (plan 11 D1).
+    characterCell.attachToParameter (apvts.getParameter (StereoToolProcessor::characterId));
+    targetCell.attachToParameter (apvts.getParameter (StereoToolProcessor::transientTargetId));
+    filterCell.attachToParameter (apvts.getParameter (StereoToolProcessor::sideFilterId));
 
     for (auto* component : { static_cast<juce::Component*> (&driveCtrl), static_cast<juce::Component*> (&attackCtrl),
                              static_cast<juce::Component*> (&releaseCtrl), static_cast<juce::Component*> (&amountCtrl),
                              static_cast<juce::Component*> (&widthCtrl), static_cast<juce::Component*> (&mixCtrl),
                              static_cast<juce::Component*> (&midFocusCtrl), static_cast<juce::Component*> (&crossoverCtrl),
                              static_cast<juce::Component*> (&characterCell), static_cast<juce::Component*> (&targetCell),
-                             static_cast<juce::Component*> (&filterCell) })
+                             static_cast<juce::Component*> (&filterCell), static_cast<juce::Component*> (&visualizer) })
         addAndMakeVisible (component);
 
     addAndMakeVisible (gearButton);
@@ -91,10 +93,13 @@ StereoToolEditor::StereoToolEditor (StereoToolProcessor& p)
     if (presetBar->getPreferredHeight() > 0)
         addAndMakeVisible (*presetBar);
     presetBar->onPresetLoaded = [this] { repaint(); };
+
+    startTimerHz (SuiteUI::kRefreshHz);
 }
 
 StereoToolEditor::~StereoToolEditor()
 {
+    stopTimer();
     setLookAndFeel (nullptr);
 }
 
@@ -136,6 +141,12 @@ void StereoToolEditor::resized()
     if (barHeight > 0)
         presetBar->setBounds (headerArea.removeFromRight (300).withHeight (barHeight)
                                 .withY (headerArea.getCentreY() - barHeight / 2));
+
+    area.removeFromTop (groupGap);
+
+    // The mid/side visual spans the window between the header and the groups (plan 11 4c).
+    visualBounds = area.removeFromTop (visualHeight);
+    visualizer.setBounds (visualBounds);
 
     area.removeFromTop (groupGap);
 
@@ -188,9 +199,79 @@ void StereoToolEditor::resized()
     }
 }
 
-void StereoToolEditor::layoutGroup (juce::Rectangle<int> group, std::initializer_list<juce::Component*> cells)
+//==============================================================================
+void StereoToolEditor::MidSideMeter::paint (juce::Graphics& g)
 {
-    const int width = group.getWidth() / (int) cells.size();
-    for (auto* cell : cells)
-        cell->setBounds (group.removeFromLeft (width));
+    const auto& snapshot = processor.getMeterSnapshot();
+    auto area = getLocalBounds().toFloat().reduced (4.0f);
+    const auto accent = dynamic_cast<SuiteUI::SuiteLookAndFeel*> (&getLookAndFeel()) != nullptr
+                            ? dynamic_cast<SuiteUI::SuiteLookAndFeel&> (getLookAndFeel()).getAccent()
+                            : SuiteUI::Colours::text;
+
+    g.setColour (SuiteUI::Colours::panel);
+    g.fillRoundedRectangle (area, 6.0f);
+    g.setColour (SuiteUI::Colours::panelEdge);
+    g.drawRoundedRectangle (area, 6.0f, 1.0f);
+
+    // The mid and side bars (plan 11 4c), left of the envelope trace.
+    auto meters = area.removeFromLeft (64.0f).reduced (10.0f, 10.0f);
+    const float barWidth = 18.0f;
+
+    for (const int band : { 0, 1 })
+    {
+        const float level = juce::jlimit (0.0f, 1.0f,
+            band == 0 ? snapshot.midLevel.load (std::memory_order_relaxed)
+                      : snapshot.sideLevel.load (std::memory_order_relaxed));
+
+        auto barArea = meters.withX (meters.getX() + (float) band * (barWidth + 6.0f)).withWidth (barWidth);
+        g.setColour (SuiteUI::Colours::track);
+        g.fillRoundedRectangle (barArea, 3.0f);
+
+        auto filled = barArea.withTop (barArea.getBottom() - juce::jlimit (0.0f, 1.0f, level * 2.0f) * barArea.getHeight());
+        g.setColour (accent);
+        g.fillRoundedRectangle (filled, 3.0f);
+
+        g.setColour (SuiteUI::Colours::textDim);
+        g.setFont (SuiteUI::uiFont (11.0f));
+        g.drawText (band == 0 ? "MID" : "SIDE",
+                    barArea.withTop (barArea.getBottom() + 2.0f).withHeight (14.0f),
+                    juce::Justification::centred);
+    }
+
+    // The transient follower's envelope, scrolled: the oldest point on the left.
+    auto trace = area.reduced (10.0f, 12.0f);
+
+    g.setColour (SuiteUI::Colours::track);
+    g.drawHorizontalLine ((int) trace.getCentreY(), trace.getX(), trace.getRight());
+
+    juce::Path path;
+    const int count = (int) envelopeHistory.size();
+    bool started = false;
+
+    for (int i = 0; i < count; ++i)
+    {
+        // Oldest first: the read position walks backwards from the head.
+        const float value = envelopeHistory[(size_t) ((historyHead + i) % count)];
+        const float x = trace.getX() + (float) i / (float) (count - 1) * trace.getWidth();
+        const float y = trace.getBottom() - juce::jlimit (0.0f, 1.0f, value) * trace.getHeight();
+
+        if (! started)
+        {
+            path.startNewSubPath (x, y);
+            started = true;
+        }
+        else
+        {
+            path.lineTo (x, y);
+        }
+    }
+
+    g.setColour (accent.withAlpha (0.25f));
+    g.strokePath (path, juce::PathStrokeType (5.0f));
+    g.setColour (accent);
+    g.strokePath (path, juce::PathStrokeType (1.5f));
+
+    g.setColour (SuiteUI::Colours::textDim);
+    g.setFont (SuiteUI::uiFont (11.0f));
+    g.drawText ("FOLLOWER", trace.getX() + 4.0f, trace.getY() - 1.0f, 80.0f, 12.0f, juce::Justification::centredLeft);
 }

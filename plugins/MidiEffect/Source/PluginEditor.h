@@ -6,11 +6,12 @@
 #include <memory>
 
 #include "PluginProcessor.h"
+#include "SuiteHeaderMenu.h"
 #include "SuiteLookAndFeel.h"
 #include "SuiteWidgets.h"
-#include "SuiteHeaderMenu.h"
 
-class MidiEffectEditor : public juce::AudioProcessorEditor
+class MidiEffectEditor : public juce::AudioProcessorEditor,
+                         private juce::Timer
 {
 public:
     explicit MidiEffectEditor (MidiEffectProcessor&);
@@ -20,7 +21,8 @@ public:
     void resized() override;
 
 private:
-    /** A caption above a combo box, in one grid cell. */
+    /** A caption above a combo box, in one grid cell. Kept for CHORD, the one choice
+        with more than six options (plan 11 rule #3). */
     class ComboCell : public juce::Component
     {
     public:
@@ -47,6 +49,21 @@ private:
         }
     };
 
+    /** The chord/arp visual (plan 11 4a, D6): an 8-step strip with the clock's current
+        step outlined and sounding steps filled, above a two-octave mini keyboard with
+        the last key's notes marked. Reads the processor's published snapshot on the
+        60 Hz timer; no locks. */
+    class ChordGridVisualizer : public juce::Component
+    {
+    public:
+        explicit ChordGridVisualizer (MidiEffectProcessor& p) : processor (p) {}
+
+        void paint (juce::Graphics&) override;
+
+    private:
+        MidiEffectProcessor& processor;
+    };
+
     MidiEffectProcessor& processor;
 
     // Declared first so it is destroyed last, after every component that uses it.
@@ -57,20 +74,20 @@ private:
     SuiteUI::LabelledSlider octaveCtrl   { "OCTAVE",   juce::Slider::RotaryVerticalDrag };
     SuiteUI::LabelledSlider velocityCtrl { "VELOCITY", juce::Slider::RotaryVerticalDrag };
     SuiteUI::LabelledSlider spreadCtrl   { "SPREAD",   juce::Slider::RotaryVerticalDrag };
-    ComboCell scaleCell { "SCALE" };
-    ComboCell chordCell { "CHORD" };
-    ComboCell arpCell   { "PATTERN" };
+    SuiteUI::LabelledSelector scaleCell { "SCALE", juce::Colour (0xff4ECDC4) };
+    SuiteUI::LabelledSelector arpCell   { "PATTERN", juce::Colour (0xff4ECDC4) };
+    ComboCell chordCell { "CHORD" };   // eight options: stays a dropdown (plan 11 rule #3)
 
     // ARP group: the step clock and the per-step velocity shape.
     SuiteUI::LabelledSlider tempoCtrl { "TEMPO", juce::Slider::RotaryVerticalDrag };
     SuiteUI::LabelledSlider gateCtrl  { "GATE",  juce::Slider::RotaryVerticalDrag };
-    ComboCell modeCell { "MODE" };
-    ComboCell rateCell { "STEP RATE" };
-    ComboCell syncCell { "SYNC" };
-    ComboCell curveCell { "VEL CURVE" };
-    ComboCell dirCell   { "VEL DIR" };
+    SuiteUI::LabelledSelector modeCell  { "MODE", juce::Colour (0xff4ECDC4) };
+    SuiteUI::LabelledSelector rateCell  { "STEP RATE", juce::Colour (0xff4ECDC4) };
+    SuiteUI::LabelledSelector syncCell  { "SYNC", juce::Colour (0xff4ECDC4) };
+    SuiteUI::LabelledSelector curveCell { "VEL CURVE", juce::Colour (0xff4ECDC4) };
+    SuiteUI::LabelledSelector dirCell   { "VEL DIR", juce::Colour (0xff4ECDC4) };
 
-    // Built in the constructor after the combos' items exist, so their first update selects
+    // Built in the constructor after the combo's items exist, so its first update selects
     // the parameter's current choice (an in-class attachment would attach to an empty combo).
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> rootAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> octaveAttachment;
@@ -78,22 +95,16 @@ private:
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> spreadAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> tempoAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> gateAttachment;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> scaleAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> chordAttachment;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> arpAttachment;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> modeAttachment;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> rateAttachment;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> syncAttachment;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> curveAttachment;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> dirAttachment;
 
-    juce::Rectangle<int> arpGroupBounds, shapeGroupBounds;
+    juce::Rectangle<int> arpGroupBounds, shapeGroupBounds, visualBounds;
 
-    // Preset bar (Pro builds: visible, public build: height 0 so layout unchanged)
+    // Visual + header (plan 11 4a/R13).
+    ChordGridVisualizer visualizer { processor };
     std::unique_ptr<SuitePresets::PresetBar> presetBar;
-
     SuiteUI::HeaderMenuButton gearButton { juce::Colour (0xff4ECDC4) };
 
-    /** Lays one group's 4x2 grid of cells inside its frame. */
-    void layoutGroup (juce::Rectangle<int> group, std::initializer_list<juce::Component*> cells);
+    void timerCallback() override { visualizer.repaint(); }
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MidiEffectEditor)
 };

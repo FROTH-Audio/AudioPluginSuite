@@ -101,6 +101,27 @@ namespace
         std::puts ("[PASS] testSegmentedSelectorClicksNotify");
     }
 
+    void testLabelledSelector()
+    {
+        SuiteUI::LabelledSelector cell ("MODE", juce::Colour (testAccent));
+        cell.setOptions ({ "A", "B", "C" });
+
+        assert (cell.label.getText() == "MODE");
+        assert (cell.getSelectedIndex() == 0);
+
+        // Manual updates work without a parameter and never notify.
+        cell.setSelectedIndex (2);
+        assert (cell.getSelectedIndex() == 2);
+
+        // The pill paints (caption above, selector below).
+        SuiteUI::SuiteLookAndFeel laf { juce::Colour (testAccent) };
+        cell.setLookAndFeel (&laf);
+        assert (paintAndCountVisiblePixels (cell, 160, SuiteUI::captionHeight + SuiteUI::pillHeight + 6) > 0);
+        cell.setLookAndFeel (nullptr);
+
+        std::puts ("[PASS] testLabelledSelector");
+    }
+
     void testLabelledSliders()
     {
         SuiteUI::LabelledSlider rotary ("DRIVE", juce::Slider::RotaryVerticalDrag);
@@ -289,6 +310,7 @@ int main()
 
     testSegmentedSelector();
     testSegmentedSelectorClicksNotify();
+    testLabelledSelector();
     testLabelledSliders();
     testLookAndFeelToggleButton();
     testSpectrumDisplay();

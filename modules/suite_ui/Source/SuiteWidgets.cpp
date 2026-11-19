@@ -1,6 +1,8 @@
 #include "SuiteWidgets.h"
 #include "SuiteLookAndFeel.h"
 
+#include <juce_audio_processors/juce_audio_processors.h>
+
 #include <cmath>
 
 namespace SuiteUI
@@ -377,6 +379,61 @@ namespace SuiteUI
         const int h = juce::jmin (sliderBounds, area.getHeight());
         const int w = juce::jmin (sliderBounds, juce::jmax (SuiteUI::valueBoxWidth, area.getWidth()));
         slider.setBounds (area.withSizeKeepingCentre (w, h));
+    }
+
+    //==============================================================================
+    LabelledSelector::LabelledSelector (const juce::String& caption, juce::Colour accentColour)
+        : selector (accentColour)
+    {
+        label.setText (caption, juce::dontSendNotification);
+        label.setJustificationType (juce::Justification::centred);
+        label.setFont (SuiteUI::uiFont (13.0f, true));
+        label.setColour (juce::Label::textColourId, SuiteUI::Colours::textDim);
+
+        addAndMakeVisible (label);
+        addAndMakeVisible (selector);
+    }
+
+    LabelledSelector::~LabelledSelector() = default;
+
+    void LabelledSelector::setOptions (const juce::StringArray& labels)
+    {
+        selector.setOptions (labels);
+        repaint();
+    }
+
+    void LabelledSelector::attachToParameter (juce::RangedAudioParameter* parameter)
+    {
+        if (parameter == nullptr)
+        {
+            attachment.reset();
+            return;
+        }
+
+        // The denormalised value of a choice parameter is its 0-based index (plan 11
+        // D1). setValueAsCompleteGesture on clicks; the callback updates the display
+        // on automation and on sendInitialUpdate.
+        attachment = std::make_unique<juce::ParameterAttachment> (
+            *parameter,
+            [this] (float value) { selector.setSelectedIndex (juce::roundToInt (value)); });
+
+        selector.onChange = [this] (int)
+        {
+            attachment->setValueAsCompleteGesture ((float) selector.getSelectedIndex());
+        };
+
+        attachment->sendInitialUpdate();
+    }
+
+    void LabelledSelector::resized()
+    {
+        auto area = getLocalBounds();
+        label.setBounds (area.removeFromTop (SuiteUI::captionHeight));
+
+        // The pill fills the cell width, centred in what remains (plan 05 R3: a selector
+        // is laid out centred, it never fills a row).
+        selector.setBounds (area.withSizeKeepingCentre (area.getWidth(), SuiteUI::pillHeight)
+                                .reduced (2, 0));
     }
 
     //==============================================================================

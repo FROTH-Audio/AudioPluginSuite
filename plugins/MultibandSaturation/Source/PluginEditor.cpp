@@ -16,6 +16,7 @@ namespace
     constexpr int groupTitleHeight = SuiteUI::groupTitleHeight;
     constexpr int groupInnerHeight = 2 * SuiteUI::knobRowHeight + groupGap;
     constexpr int groupHeight = groupTitleHeight + 4 + groupInnerHeight + 4;
+    constexpr int visualHeight = 130;
 
     const juce::Image& brandLockup()
     {
@@ -39,11 +40,21 @@ MultibandSaturationEditor::MultibandSaturationEditor (MultibandSaturationProcess
     setResizable (true, true);
     setResizeLimits (editorWidth - 60, editorHeight - 60, 1200, 1200);
 
-    modeCell.box.addItemList ({ "Tube", "Tape", "Diode" }, 1);
+    // Rule #3 (plan 11): three options, so a pill.
+    modeCell.setOptions ({ "Tube", "Tape", "Diode" });
+    modeCell.attachToParameter (processor.apvts.getParameter (MultibandSaturationProcessor::modeId));
 
-    // Built after the items exist, so the first update selects the parameter's current choice.
-    modeAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (
-        processor.apvts, MultibandSaturationProcessor::modeId, modeCell.box);
+    crossoverCtrl.setHelpText ("The Linkwitz-Riley split point between the two bands.");
+    driveLowCtrl.setHelpText ("Pre-gain of the low band's shaper.");
+    driveHighCtrl.setHelpText ("Pre-gain of the high band's shaper.");
+    toneLowCtrl.setHelpText ("Tilt around 1 kHz on the shaped low band.");
+    toneHighCtrl.setHelpText ("Tilt around 1 kHz on the shaped high band.");
+    sensitivityCtrl.setHelpText ("How far the envelopes push the drives.");
+    attackCtrl.setHelpText ("Envelope rise, both bands.");
+    releaseCtrl.setHelpText ("Envelope fall, both bands.");
+    mixCtrl.setHelpText ("Dry/wet balance.");
+    outputCtrl.setHelpText ("Output level after the mix.");
+    modeCell.setHelpText ("The saturation curve, shared by both bands.");
 
     addAndMakeVisible (crossoverCtrl);
     addAndMakeVisible (driveLowCtrl);
@@ -56,6 +67,7 @@ MultibandSaturationEditor::MultibandSaturationEditor (MultibandSaturationProcess
     addAndMakeVisible (mixCtrl);
     addAndMakeVisible (outputCtrl);
     addAndMakeVisible (modeCell);
+    addAndMakeVisible (visualizer);
 
     addAndMakeVisible (gearButton);
 
@@ -73,10 +85,13 @@ MultibandSaturationEditor::MultibandSaturationEditor (MultibandSaturationProcess
     if (presetBar->getPreferredHeight() > 0)
         addAndMakeVisible (*presetBar);
     presetBar->onPresetLoaded = [this] { repaint(); };
+
+    startTimerHz (SuiteUI::kRefreshHz);
 }
 
 MultibandSaturationEditor::~MultibandSaturationEditor()
 {
+    stopTimer();
     setLookAndFeel (nullptr);
 }
 
@@ -121,6 +136,12 @@ void MultibandSaturationEditor::resized()
 
     area.removeFromTop (groupGap);
 
+    // The dual-band visual spans the window between the header and the groups (plan 11 4b).
+    visualBounds = area.removeFromTop (visualHeight);
+    visualizer.setBounds (visualBounds);
+
+    area.removeFromTop (groupGap);
+
     splitGroupBounds = area.removeFromTop (groupHeight);
     area.removeFromTop (groupGap);
     shaperGroupBounds = area.removeFromTop (groupHeight);
@@ -148,4 +169,78 @@ void MultibandSaturationEditor::resized()
         for (auto* knob : { &sensitivityCtrl, &attackCtrl, &releaseCtrl, &mixCtrl, &outputCtrl })
             knob->setBounds (row2.removeFromLeft (cellWidth2));
     }
+}
+
+//==============================================================================
+MultibandSaturationEditor::DualBandVisualizer::DualBandVisualizer (MultibandSaturationProcessor& p)
+    : processor (p)
+{
+    addAndMakeVisible (inputMeter);
+    addAndMakeVisible (outputMeter);
+}
+
+void MultibandSaturationEditor::DualBandVisualizer::resized()
+{
+    auto area = getLocalBounds().reduced (4);
+    auto meters = area.removeFromRight (30).reduced (4, 6);
+    inputMeter.setBounds (meters.removeFromLeft (12));
+    outputMeter.setBounds (meters.removeFromLeft (12));
+}
+
+void MultibandSaturationEditor::DualBandVisualizer::paint (juce::Graphics& g)
+{
+    const auto& snapshot = processor.getBandSnapshot();
+    auto area = getLocalBounds().toFloat().reduced (4.0f);
+    const auto accent = dynamic_cast<SuiteUI::SuiteLookAndFeel*> (&getLookAndFeel()) != nullptr
+                            ? dynamic_cast<SuiteUI::SuiteLookAndFeel&> (getLookAndFeel()).getAccent()
+                            : SuiteUI::Colours::text;
+
+    g.setColour (SuiteUI::Colours::panel);
+    g.fillRoundedRectangle (area, 6.0f);
+    g.setColour (SuiteUI::Colours::panelEdge);
+    g.drawRoundedRectangle (area, 6.0f, 1.0f);
+
+    area.removeFromRight (34.0f);   // the meters' column
+
+    auto bars = area.removeFromTop (area.getHeight() * 0.62f).reduced (14.0f, 8.0f);
+    const float barWidth = bars.getWidth() * 0.28f;
+    auto lowArea = bars.withX (bars.getX() + bars.getWidth() * 0.10f).withWidth (barWidth);
+    auto highArea = bars.withX (bars.getX() + bars.getWidth() * 0.62f).withWidth (barWidth);
+
+    // The two band bars, low then high (plan 11 4b). The envelopes run 0..1 (the follower
+    // output over a band that starts at full scale), mapped like the suite's meters.
+    for (const int band : { 0, 1 })
+    {
+        const auto barArea = band == 0 ? lowArea : highArea;
+        g.setColour (SuiteUI::Colours::track);
+        g.fillRoundedRectangle (barArea, 3.0f);
+
+        const float envelope = juce::jlimit (0.0f, 1.0f, snapshot.envelope[(size_t) band].load (std::memory_order_relaxed));
+        auto filled = barArea.withTop (barArea.getBottom() - envelope * barArea.getHeight());
+        g.setColour (accent);
+        g.fillRoundedRectangle (filled, 3.0f);
+
+        g.setColour (SuiteUI::Colours::textDim);
+        g.setFont (SuiteUI::uiFont (11.0f));
+        g.drawText (band == 0 ? "LOW" : "HIGH",
+                    barArea.withTop (barArea.getBottom() + 2.0f).withHeight (14.0f),
+                    juce::Justification::centred);
+    }
+
+    // The crossover marker between the bars, on a log scale across the band axis.
+    const float crossoverHz = juce::jlimit (80.0f, 8000.0f, processor.apvts.getRawParameterValue (MultibandSaturationProcessor::crossoverId)->load (std::memory_order_relaxed));
+    const float crossoverX = bars.getX() + std::log (crossoverHz / 80.0f) / std::log (8000.0f / 80.0f) * bars.getWidth();
+
+    g.setColour (SuiteUI::Colours::text);
+    g.drawVerticalLine ((int) crossoverX, bars.getY(), bars.getBottom());
+
+    g.setColour (SuiteUI::Colours::textDim);
+    g.setFont (SuiteUI::uiFont (10.0f));
+    g.drawText (juce::String ((int) crossoverHz) + " Hz",
+                juce::Rectangle<float> (crossoverX - 30.0f, bars.getY() - 14.0f, 60.0f, 12.0f),
+                juce::Justification::centred);
+
+    // Input and output levels on the right (the reused suite meter).
+    inputMeter.setLevel (snapshot.inputPeak.load (std::memory_order_relaxed));
+    outputMeter.setLevel (snapshot.outputPeak.load (std::memory_order_relaxed));
 }

@@ -42,6 +42,17 @@ public:
 
     juce::AudioProcessorValueTreeState apvts;
 
+    /** The visual snapshot (plan 11 D7): each band's envelope (the larger of the two
+        channels) and the input/output peaks of the last block. Audio thread, no locks. */
+    struct BandSnapshot
+    {
+        std::atomic<float> envelope[2] {};   // [band]
+        std::atomic<float> inputPeak {};
+        std::atomic<float> outputPeak {};
+    };
+
+    const BandSnapshot& getBandSnapshot() const noexcept { return bandSnapshot; }
+
     // Bump stateVersion when the saved state changes, and add a migration from the old version.
     int stateVersion = 1;
     std::vector<SuiteState::Migration> migrations;
@@ -74,10 +85,10 @@ public:
     void setStateInformation (const void* data, int sizeInBytes) override;
 
     // Preset system: StateHolder interface
-    juce::String getPresetPluginId() const { return "MultibandSaturation"; }
+    juce::String getPresetPluginId() const override { return "MultibandSaturation"; }
     int getPresetStateVersion() const override { return stateVersion; }
-    juce::AudioProcessorValueTreeState& getPresetStateTree() { return apvts; }
-    void applyPresetState (const juce::ValueTree&);
+    juce::AudioProcessorValueTreeState& getPresetStateTree() override { return apvts; }
+    void applyPresetState (const juce::ValueTree&) override;
 
     // The preset identity (plan 09 1.4). Message thread. Persisted as the presetSelection state property, so it
     // survives the editor being reopened and rides in saved sessions.
@@ -111,6 +122,9 @@ private:
     std::atomic<float>* toneHigh = nullptr;
     std::atomic<float>* mix = nullptr;
     std::atomic<float>* outputLevel = nullptr;
+
+    // The visual snapshot (plan 11 D7). Audio thread, once per block, no locks.
+    BandSnapshot bandSnapshot;
 
     // Host program list (embedded bank + SUITE_PRESET_BANK_AS_PROGRAMS). -1 means a state that is not a
     // factory program, for example a user preset.

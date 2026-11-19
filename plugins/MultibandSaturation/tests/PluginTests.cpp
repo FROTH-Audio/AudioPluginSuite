@@ -184,6 +184,40 @@ namespace
         pass ("testEditor");
     }
 
+    /** Plan 11 D7: the band snapshot's envelopes rise with signal and stay at zero when idle. */
+    void testVisualSnapshot()
+    {
+        Processor processor;
+        processor.prepareToPlay (sampleRate, blockSize);
+
+        // Idle: no envelope movement.
+        {
+            juce::MidiBuffer midi;
+            juce::AudioBuffer<float> silence (2, blockSize);
+            silence.clear();
+            processor.processBlock (silence, midi);
+            assert (processor.getBandSnapshot().envelope[0].load() < 1.0e-6f);
+            assert (processor.getBandSnapshot().envelope[1].load() < 1.0e-6f);
+        }
+
+        // Signal: both bands see envelope movement (the input spans the crossover).
+        {
+            juce::MidiBuffer midi;
+            juce::AudioBuffer<float> audio (2, blockSize);
+            audio.clear();
+            addSine (audio, 0, sampleRate, 440.0, 0.5f, 0);
+            addSine (audio, 1, sampleRate, 440.0, 0.5f, 0);
+            processor.processBlock (audio, midi);
+
+            assert (processor.getBandSnapshot().envelope[0].load() > 0.01f);
+            assert (processor.getBandSnapshot().envelope[1].load() > 0.01f);
+            assert (processor.getBandSnapshot().inputPeak.load() > 0.1f);
+            assert (processor.getBandSnapshot().outputPeak.load() > 0.01f);
+        }
+
+        pass ("testVisualSnapshot");
+    }
+
     /** R13: the header carries the preset bar and the gear menu, the gear's two actions are
         wired, the gear sits at the far right of the header with the bar left of it, and both
         dialogs build and paint. */
@@ -275,6 +309,7 @@ int main()
     testMixZeroIsDry();
     testBandsShapeIndependently();
     testEditor();
+    testVisualSnapshot();
     testHeaderContract();
     testRenderBaseline();
 

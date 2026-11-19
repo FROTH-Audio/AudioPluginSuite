@@ -433,6 +433,69 @@ namespace
         pass ("testEditor");
     }
 
+    /** Plan 11 D7: the meter snapshot describes the signal — mid carries the correlated
+        sine, side rises only off-centre, the follower moves with amount 1, and everything
+        stays at zero when idle. */
+    void testVisualSnapshot()
+    {
+        // Idle at the defaults: the identity path still publishes the untouched input.
+        Processor idle;
+        idle.prepareToPlay (sampleRate, blockSize);
+        {
+            juce::MidiBuffer midi;
+            juce::AudioBuffer<float> silence (2, blockSize);
+            silence.clear();
+            idle.processBlock (silence, midi);
+            assert (idle.getMeterSnapshot().midLevel.load() < 1.0e-6f);
+            assert (idle.getMeterSnapshot().followerEnvelope.load() == 0.0f);
+        }
+
+        // A centred sine: everything lands in the mid channel.
+        Processor mono;
+        mono.prepareToPlay (sampleRate, blockSize);
+        {
+            juce::MidiBuffer midi;
+            juce::AudioBuffer<float> audio (2, blockSize);
+            audio.clear();
+            addSine (audio, 0, sampleRate, 440.0, 0.5f, 0);
+            addSine (audio, 1, sampleRate, 440.0, 0.5f, 0);
+            mono.processBlock (audio, midi);
+
+            assert (mono.getMeterSnapshot().midLevel.load() > 0.1f);
+            assert (mono.getMeterSnapshot().sideLevel.load() < 0.01f);
+        }
+
+        // An off-centre sine (L only): the side channel carries it.
+        Processor wide;
+        wide.prepareToPlay (sampleRate, blockSize);
+        {
+            juce::MidiBuffer midi;
+            juce::AudioBuffer<float> audio (2, blockSize);
+            audio.clear();
+            addSine (audio, 0, sampleRate, 440.0, 0.5f, 0);
+            wide.processBlock (audio, midi);
+
+            assert (wide.getMeterSnapshot().sideLevel.load() > 0.1f);
+        }
+
+        // The follower moves at amount 1 on a transient signal.
+        Processor transient;
+        transient.prepareToPlay (sampleRate, blockSize);
+        setParameter (transient.apvts, Processor::transientAmountId, 100.0f);
+        {
+            juce::MidiBuffer midi;
+            juce::AudioBuffer<float> audio (2, blockSize);
+            audio.clear();
+            addSine (audio, 0, sampleRate, 440.0, 0.9f, 0);
+            addSine (audio, 1, sampleRate, 440.0, 0.9f, 0);
+            transient.processBlock (audio, midi);
+
+            assert (transient.getMeterSnapshot().followerEnvelope.load() > 0.01f);
+        }
+
+        pass ("testVisualSnapshot");
+    }
+
     /** R13: the header carries the preset bar and the gear menu, the gear's two actions are
         wired, the gear sits at the far right of the header with the bar left of it, and both
         dialogs build and paint. */
@@ -531,6 +594,7 @@ int main()
     testSideFilter();
     testTransientFollower();
     testEditor();
+    testVisualSnapshot();
     testHeaderContract();
     testRenderBaseline();
 

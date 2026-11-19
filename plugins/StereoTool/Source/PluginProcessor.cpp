@@ -184,8 +184,37 @@ void StereoToolProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     const bool identityPath = satAmount == 0.0f && cleanGain == 1.0f && sideGain == 1.0f
                            && characterIndex == 0 && transientAmount == 0.0f
                            && midFocus == 0.0f && sideFilterIndex == 0;
+
+    // The visual snapshot's accumulators (plan 11 D7): mid/side RMS, peaks, follower level.
+    float midSum = 0.0f, sideSum = 0.0f, inputPeakNow = 0.0f, outputPeakNow = 0.0f, envLast = 0.0f;
+    const auto measureInputs = [&] (int n)
+    {
+        float m = 0.0f, s = 0.0f;
+        CoreDSP::Stereo::encode (left[n], right[n], m, s);
+        midSum += m * m;
+        sideSum += s * s;
+        inputPeakNow = juce::jmax (inputPeakNow, std::abs (left[n]), std::abs (right[n]));
+    };
+    const auto publishSnapshot = [&]
+    {
+        meterSnapshot.midLevel.store (std::sqrt (midSum / (float) numSamples), std::memory_order_relaxed);
+        meterSnapshot.sideLevel.store (std::sqrt (sideSum / (float) numSamples), std::memory_order_relaxed);
+        meterSnapshot.followerEnvelope.store (envLast, std::memory_order_relaxed);
+        meterSnapshot.inputPeak.store (inputPeakNow, std::memory_order_relaxed);
+        meterSnapshot.outputPeak.store (outputPeakNow, std::memory_order_relaxed);
+    };
+
     if (identityPath && mix == 1.0f)
+    {
+        // The meters still describe the untouched signal (plan 11 D7).
+        for (int n = 0; n < numSamples; ++n)
+        {
+            measureInputs (n);
+            outputPeakNow = juce::jmax (outputPeakNow, std::abs (left[n]), std::abs (right[n]));
+        }
+        publishSnapshot();
         return;
+    }
 
     // Dry copy for the mix at the end, into the pre-sized scratch buffer (no allocation).
     dryBuffer.copyFrom (0, 0, buffer, 0, 0, numSamples);
@@ -207,6 +236,7 @@ void StereoToolProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
         {
             const float env = juce::jlimit (0.0f, 1.0f,
                 transientEnv.process (juce::jmax (std::abs (left[n]), std::abs (right[n]))));
+            envLast = env;
 
             if (transientTarget != 1)   // Width or Both
                 sideGainN = CoreDSP::Stereo::sideGain (
@@ -225,6 +255,11 @@ void StereoToolProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
 
         float m = 0.0f, s = 0.0f;
         CoreDSP::Stereo::encode (left[n], right[n], m, s);
+
+        // The visual snapshot's mid/side accumulation (plan 11 D7).
+        midSum += m * m;
+        sideSum += s * s;
+        inputPeakNow = juce::jmax (inputPeakNow, std::abs (left[n]), std::abs (right[n]));
 
         if (satAmountN > 0.0f)
         {
@@ -262,7 +297,10 @@ void StereoToolProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
 
         left[n]  = (1.0f - mix) * dryL[n] + mix * outL;
         right[n] = (1.0f - mix) * dryR[n] + mix * outR;
+        outputPeakNow = juce::jmax (outputPeakNow, std::abs (left[n]), std::abs (right[n]));
     }
+
+    publishSnapshot();
 }
 
 juce::AudioProcessorEditor* StereoToolProcessor::createEditor()

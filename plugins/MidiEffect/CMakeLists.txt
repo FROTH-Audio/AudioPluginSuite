@@ -6,7 +6,7 @@ suite_add_plugin(
     DESCRIPTION     "MIDI effect that quantises incoming notes to a scale and builds chords from them."
     MANUFACTURER    Asui
     PLUGIN_CODE     Marc
-    IS_SYNTH        IS_MIDI_EFFECT  NEEDS_MIDI_INPUT
+    IS_MIDI_EFFECT  NEEDS_MIDI_INPUT
     SOURCES         Source/PluginProcessor.cpp Source/PluginProcessor.h
                     Source/PluginEditor.cpp Source/PluginEditor.h
     TEST_SOURCES    tests/PluginTests.cpp

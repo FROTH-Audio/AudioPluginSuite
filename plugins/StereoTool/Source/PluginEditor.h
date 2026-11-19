@@ -3,14 +3,16 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_gui_basics/juce_gui_basics.h>
 
+#include <array>
 #include <memory>
 
 #include "PluginProcessor.h"
+#include "SuiteHeaderMenu.h"
 #include "SuiteLookAndFeel.h"
 #include "SuiteWidgets.h"
-#include "SuiteHeaderMenu.h"
 
-class StereoToolEditor : public juce::AudioProcessorEditor
+class StereoToolEditor : public juce::AudioProcessorEditor,
+                         private juce::Timer
 {
 public:
     explicit StereoToolEditor (StereoToolProcessor&);
@@ -20,7 +22,8 @@ public:
     void resized() override;
 
 private:
-    /** A caption above a combo box, in one grid cell. */
+    /** A caption above a combo box, in one grid cell. Kept for choices the editor may
+        still show as a list (plan 11 D1 keeps dropdowns only above six options). */
     class ComboCell : public juce::Component
     {
     public:
@@ -47,6 +50,26 @@ private:
         }
     };
 
+    /** The stereo visual (plan 11 4c): mid/side level bars with a width indicator above a
+        scrolling trace of the transient follower's envelope. Reads the processor's
+        published snapshot on the 60 Hz timer; the trace's history lives here on the
+        message thread. No locks. */
+    class MidSideMeter : public juce::Component
+    {
+    public:
+        explicit MidSideMeter (StereoToolProcessor& p) : processor (p) {}
+
+        /** One timer tick: append the current envelope to the trace. */
+        void tick() { envelopeHistory[(size_t) historyHead] = processor.getMeterSnapshot().followerEnvelope.load (std::memory_order_relaxed); historyHead = (historyHead + 1) % (int) envelopeHistory.size(); repaint(); }
+
+        void paint (juce::Graphics&) override;
+
+    private:
+        StereoToolProcessor& processor;
+        std::array<float, 256> envelopeHistory {};
+        int historyHead = 0;
+    };
+
     StereoToolProcessor& processor;
 
     // Declared first so it is destroyed last, after every component that uses it.
@@ -57,17 +80,17 @@ private:
     SuiteUI::LabelledSlider attackCtrl  { "ATTACK",  juce::Slider::RotaryVerticalDrag };
     SuiteUI::LabelledSlider releaseCtrl { "RELEASE", juce::Slider::RotaryVerticalDrag };
     SuiteUI::LabelledSlider amountCtrl  { "AMOUNT",  juce::Slider::RotaryVerticalDrag };
-    ComboCell characterCell { "CHARACTER" };
-    ComboCell targetCell    { "TARGET" };
+    SuiteUI::LabelledSelector characterCell { "CHARACTER", juce::Colour (0xffB18CFF) };
+    SuiteUI::LabelledSelector targetCell    { "TARGET", juce::Colour (0xffB18CFF) };
 
     // IMAGE group: the stereo image controls.
     SuiteUI::LabelledSlider widthCtrl    { "WIDTH",    juce::Slider::RotaryVerticalDrag };
     SuiteUI::LabelledSlider mixCtrl      { "MIX",      juce::Slider::RotaryVerticalDrag };
     SuiteUI::LabelledSlider midFocusCtrl { "MID FOCUS", juce::Slider::RotaryVerticalDrag };
     SuiteUI::LabelledSlider crossoverCtrl { "CROSSOVER", juce::Slider::RotaryVerticalDrag };
-    ComboCell filterCell { "SIDE FILTER" };
+    SuiteUI::LabelledSelector filterCell { "SIDE FILTER", juce::Colour (0xffB18CFF) };
 
-    // Built in the constructor after the combos' items exist, so their first update selects
+    // Built in the constructor after the combo's items exist, so their first update selects
     // the parameter's current choice (an in-class attachment would attach to an empty combo).
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> driveAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> attackAttachment;
@@ -77,17 +100,15 @@ private:
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> mixAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> midFocusAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> crossoverAttachment;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> characterAttachment;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> targetAttachment;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> filterAttachment;
 
-    juce::Rectangle<int> characterGroupBounds, imageGroupBounds;
+    juce::Rectangle<int> characterGroupBounds, imageGroupBounds, visualBounds;
 
-    // Preset bar (Pro builds: visible, public build: height 0 so layout unchanged)
+    // Visual + header (plan 11 4c/R13).
+    MidSideMeter visualizer { processor };
     std::unique_ptr<SuitePresets::PresetBar> presetBar;
-
     SuiteUI::HeaderMenuButton gearButton { juce::Colour (0xffB18CFF) };
 
-    /** Lays one group's 4x2 grid of cells inside its frame. */
-    void layoutGroup (juce::Rectangle<int> group, std::initializer_list<juce::Component*> cells);
+    void timerCallback() override { visualizer.tick(); }
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (StereoToolEditor)
 };

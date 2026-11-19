@@ -141,6 +141,12 @@ void MultibandSaturationProcessor::processBlock (juce::AudioBuffer<float>& buffe
     for (auto& follower : envelopes)
         follower.setTimes (attackMs, releaseMs);
 
+    // The visual snapshot's per-block maxima restart each block (plan 11 D7).
+    bandSnapshot.envelope[0].store (0.0f, std::memory_order_relaxed);
+    bandSnapshot.envelope[1].store (0.0f, std::memory_order_relaxed);
+    bandSnapshot.inputPeak.store (0.0f, std::memory_order_relaxed);
+    bandSnapshot.outputPeak.store (0.0f, std::memory_order_relaxed);
+
     for (int n = 0; n < numSamples; ++n)
     {
         const float driveLowGain = driveLowSmoother.getNextValue();
@@ -173,7 +179,18 @@ void MultibandSaturationProcessor::processBlock (juce::AudioBuffer<float>& buffe
             // The sum is clamped to the rails (the Dynamic Saturation ceiling rule), then the
             // dry/wet mix and the output level. No added latency, so the dry path needs no delay.
             float wet = juce::jlimit (-1.0f, 1.0f, wetLow + wetHigh);
-            data[n] = (in + mixAmount * (wet - in)) * outputGain;
+            wet = (in + mixAmount * (wet - in)) * outputGain;
+            data[n] = wet;
+
+            // The visual snapshot's block maxima (plan 11 D7).
+            bandSnapshot.envelope[0].store (juce::jmax (bandSnapshot.envelope[0].load (std::memory_order_relaxed),
+                                                        std::abs (envLow)), std::memory_order_relaxed);
+            bandSnapshot.envelope[1].store (juce::jmax (bandSnapshot.envelope[1].load (std::memory_order_relaxed),
+                                                        std::abs (envHigh)), std::memory_order_relaxed);
+            bandSnapshot.inputPeak.store (juce::jmax (bandSnapshot.inputPeak.load (std::memory_order_relaxed),
+                                                      std::abs (in)), std::memory_order_relaxed);
+            bandSnapshot.outputPeak.store (juce::jmax (bandSnapshot.outputPeak.load (std::memory_order_relaxed),
+                                                       std::abs (wet)), std::memory_order_relaxed);
         }
     }
 }

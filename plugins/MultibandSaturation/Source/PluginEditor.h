@@ -6,11 +6,13 @@
 #include <memory>
 
 #include "PluginProcessor.h"
+#include "SuiteHeaderMenu.h"
 #include "SuiteLookAndFeel.h"
 #include "SuiteWidgets.h"
-#include "SuiteHeaderMenu.h"
+#include "SuitePresets.h"
 
-class MultibandSaturationEditor : public juce::AudioProcessorEditor
+class MultibandSaturationEditor : public juce::AudioProcessorEditor,
+                                  private juce::Timer
 {
 public:
     explicit MultibandSaturationEditor (MultibandSaturationProcessor&);
@@ -22,31 +24,21 @@ public:
 private:
     MultibandSaturationProcessor& processor;
 
-    /** A caption above a combo box, in one grid cell. */
-    class ComboCell : public juce::Component
+    /** The two-band visual (plan 11 4b): a bar per band (the block's envelope maximum)
+        with the crossover frequency marked between them, and input/output meters on the
+        right. Reads the processor's published snapshot on the 60 Hz timer; no locks. */
+    class DualBandVisualizer : public juce::Component
     {
     public:
-        explicit ComboCell (const char* captionText)
-        {
-            label.setText (captionText, juce::dontSendNotification);
-            label.setFont (SuiteUI::uiFont (13.0f, true));
-            label.setColour (juce::Label::textColourId, SuiteUI::Colours::textDim);
-            label.setJustificationType (juce::Justification::centred);
-            addAndMakeVisible (label);
-            box.setJustificationType (juce::Justification::centred);
-            addAndMakeVisible (box);
-        }
+        explicit DualBandVisualizer (MultibandSaturationProcessor& p);
 
-        juce::ComboBox box;
-        juce::Label label;
+        void paint (juce::Graphics&) override;
+        void resized() override;
 
-        void resized() override
-        {
-            auto area = getLocalBounds();
-            label.setBounds (area.removeFromTop (16));
-            area.removeFromTop (2);
-            box.setBounds (area.removeFromBottom (28).reduced (8, 0));
-        }
+    private:
+        MultibandSaturationProcessor& processor;
+        SuiteUI::LevelMeter inputMeter  { SuiteUI::Colours::textDim };
+        SuiteUI::LevelMeter outputMeter { SuiteUI::Colours::text };
     };
 
     // Declared first so it is destroyed last, after every component that uses it.
@@ -67,9 +59,9 @@ private:
     SuiteUI::LabelledSlider mixCtrl        { "MIX",        juce::Slider::RotaryVerticalDrag };
     SuiteUI::LabelledSlider outputCtrl     { "OUTPUT",     juce::Slider::RotaryVerticalDrag };
 
-    ComboCell modeCell { "MODE" };
+    SuiteUI::LabelledSelector modeCell { "MODE", juce::Colour (0xffFF6B6B) };
 
-    juce::Rectangle<int> splitGroupBounds, shaperGroupBounds;
+    juce::Rectangle<int> splitGroupBounds, shaperGroupBounds, visualBounds;
 
     juce::AudioProcessorValueTreeState::SliderAttachment crossoverAttachment { processor.apvts, MultibandSaturationProcessor::crossoverId,   crossoverCtrl.slider };
     juce::AudioProcessorValueTreeState::SliderAttachment driveLowAttachment   { processor.apvts, MultibandSaturationProcessor::driveLowId,    driveLowCtrl.slider };
@@ -82,7 +74,10 @@ private:
     juce::AudioProcessorValueTreeState::SliderAttachment mixAttachment        { processor.apvts, MultibandSaturationProcessor::mixId,         mixCtrl.slider };
     juce::AudioProcessorValueTreeState::SliderAttachment outputAttachment     { processor.apvts, MultibandSaturationProcessor::outputLevelId, outputCtrl.slider };
 
-    // Built in the constructor after the combo's items exist, so its first update selects
-    // the parameter's current choice (an in-class attachment would attach to an empty combo).
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> modeAttachment;
+    // Visual + header (plan 11 4b/R13).
+    DualBandVisualizer visualizer { processor };
+
+    void timerCallback() override { visualizer.repaint(); }
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MultibandSaturationEditor)
 };
