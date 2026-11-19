@@ -21,6 +21,10 @@ change or a relocation never makes the pattern drift.
 ## The controls
 
 The editor has two groups. **SHAPE** is the key and the chord; **ARP** is the clock.
+The panel between the header and the groups is the chord/arp visual: an 8-step strip (the
+clock's current step outlined, sounding steps filled, note names inside) above a
+two-octave keyboard with the last played key's notes marked. Notes held from other keys
+appear as a small "+n more" marker. It updates while you play.
 
 <img src="../../docs/manuals/midieffect-arp.png" alt="MIDI Chord Arp Scale Tool, Arp mode" width="587">
 
@@ -66,3 +70,7 @@ hold a key and re-strike it freely.
 - The reported latency is a fixed 50 ms, whatever the rate or gate.
 - 15 factory presets ship with the plugin in bank builds; use the preset bar in the header
   to browse, save and load.
+- The gear menu in the header (right of the preset bar) opens Settings… (tooltips toggle,
+  fallback tempo, preset folder) and About….
+- Scale, Pattern, Mode, Step Rate, Sync, Vel Curve and Vel Dir are pill switches (plan 11
+  rule: a dropdown only for longer lists — Chord Quality keeps one, with eight options).

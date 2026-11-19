@@ -1,0 +1,10 @@
+{
+  "_name": "Sub Keeper",
+  "_category": "Subtle",
+  "_description": "Only the low band works; the highs pass untouched.",
+  "_plugin": "MultibandSaturation",
+  "_pluginVersion": "1.0.0",
+  "crossover": 200.0,
+  "driveLow": 9.0,
+  "driveHigh": 0.0
+}

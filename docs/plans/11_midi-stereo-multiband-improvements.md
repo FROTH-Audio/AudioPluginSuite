@@ -1,5 +1,9 @@
 # 11_MidiEffect_StereoTool_Multiband_Improvements.md
 
+**Status: implemented 2026-11-19.** All phases done. Bank build CTest 28/28, `audit_bank.py` passes with 160 presets, renders under `build/renders/plan11-p45/` and committed under `docs/manuals/`. Open items: macOS/AU builds, a DAW load check, `SUITE_PRESET_BANK_AS_PROGRAMS=ON` run, desktop-session editor tests — as everywhere.
+
+---
+
 ## Objective
 Close the owner's five UI/preset requirements for MidiEffect, MultibandSaturation and StereoTool, on top of the already-landed plan 6.1a work.
 

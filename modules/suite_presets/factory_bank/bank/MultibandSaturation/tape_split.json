@@ -1,0 +1,11 @@
+{
+  "_name": "Tape Split",
+  "_category": "Character",
+  "_description": "Warm tape character over both bands.",
+  "_plugin": "MultibandSaturation",
+  "_pluginVersion": "1.0.0",
+  "mode": 1,
+  "driveLow": 7.0,
+  "driveHigh": 5.0,
+  "toneHigh": -0.2
+}

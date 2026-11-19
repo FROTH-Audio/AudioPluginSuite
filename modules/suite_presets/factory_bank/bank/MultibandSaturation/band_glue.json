@@ -1,0 +1,10 @@
+{
+  "_name": "Band Glue",
+  "_category": "Mix bus",
+  "_description": "Gentle tube glue on both bands.",
+  "_plugin": "MultibandSaturation",
+  "_pluginVersion": "1.0.0",
+  "driveLow": 3.0,
+  "driveHigh": 3.0,
+  "sensitivity": 0.4
+}

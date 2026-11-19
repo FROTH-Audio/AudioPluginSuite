@@ -10,7 +10,10 @@ transients.
 ## The controls
 
 The editor has two groups. **CHARACTER** is the shaper and the transient follower;
-**IMAGE** is the stereo image.
+**IMAGE** is the stereo image. The panel above the groups is the stereo visual: mid and
+side level bars on the left, and the transient follower's envelope scrolling across the
+right — the "FOLLOWER" trace moves up with each transient and decays over the Release time,
+so you can watch the shape the follower applies.
 
 ### CHARACTER
 
@@ -56,3 +59,7 @@ The editor has two groups. **CHARACTER** is the shaper and the transient followe
   to browse, save and load.
 - Modulation routing (the suite's LFOs and slots) is planned for a follow-up pass; the
   plugin already links the shared module.
+- The gear menu in the header (right of the preset bar) opens Settings… (tooltips toggle,
+  fallback tempo, preset folder) and About….
+- Character, Target and Side Filter are pill switches (plan 11 rule: a dropdown only for
+  longer lists).

@@ -153,7 +153,7 @@ Spectral Drift, Dynamic Saturation and Micro-Timing Chaos share a preset system 
 
 **Preset files** use the `.ausp` extension: UTF-8 XML (`<AudioSuitePreset formatVersion="1" plugin="..." pluginVersion="...">`, `<Meta>`, `<PARAMETERS suiteStateVersion="N">`). User presets are stored under `Documents/AudioSuite/<plugin>/Presets` (Windows) or the platform equivalent, and the plugin id and state version are checked on read — a preset saved with a newer plugin version is refused rather than partially applied.
 
-**Factory bank.** With `SUITE_PRESET_BANK=ON`, 145 factory presets are embedded in the plugin binary (`bank/AudioSuitePresets.xml`): 26 for Spectral Drift, 26 for Dynamic Saturation, 28 for Micro-Timing Chaos, 20 for Sgraffito, 15 each for MIDI Chord Arp Scale Tool, Stereo Tool and Cyclical (plan 6.1). Each preset is a delta from the default state, so absent parameters are set to their defaults at load time. The bank is checked by `tools/audit_bank.py` (unique names, in-range values, no preset equal to the default, category rules, Micro-Timing Chaos base patterns that fire at least one step, and a `samplePath` only as an `embedded:` URI — five Sgraffito presets ship the embedded cloud variant; file paths are rejected). Without the flag, the bank compiles as empty and the bar shows only user presets and INIT.
+**Factory bank.** With `SUITE_PRESET_BANK=ON`, 160 factory presets are embedded in the plugin binary (`bank/AudioSuitePresets.xml`): 26 for Spectral Drift, 26 for Dynamic Saturation, 28 for Micro-Timing Chaos, 20 for Sgraffito, and 15 each for MIDI Chord Arp Scale Tool, Stereo Tool, Multiband Saturation and Cyclical (plans 6.1 and 11). Each preset is a delta from the default state, so absent parameters are set to their defaults at load time. The bank is checked by `tools/audit_bank.py` (unique names, in-range values, no preset equal to the default, category rules, Micro-Timing Chaos base patterns that fire at least one step, and a `samplePath` only as an `embedded:` URI — five Sgraffito presets ship the embedded cloud variant; file paths are rejected). Without the flag, the bank compiles as empty and the bar shows only user presets and INIT.
 
 **Preset bar.** Each editor gains a header bar (right-aligned in the title area) that lists factory presets by category, INIT (reset-all-defaults) and SAVE. The bar is always visible (height 30); when the bank is empty it lists only user presets.
 
@@ -424,7 +424,7 @@ At the defaults the plugin is bit-transparent (the mid/side round trip skips wor
 <img src="docs/manuals/midieffect-default.png" alt="MIDI Chord Arp Scale Tool screenshot" width="587">
 
 The [user manual](plugins/MidiEffect/MANUAL.md) walks through how a note becomes a chord.
-A MIDI effect. Incoming notes are quantised to one of six scales (the same scales the rest of the suite uses), chorded, and sent on — either all at once or spread over an 8-step clock. Audio passes through untouched.
+A MIDI effect. Incoming notes are quantised to one of six scales (the same scales the rest of the suite uses), chorded, and sent on — either all at once or spread over an 8-step clock. Audio passes through untouched. The editor's chord/arp visual shows the held key's 8-step pattern and sounding notes over a two-octave keyboard.
 
 | Control | Range | Default | Description |
 |---|---|---|---|
@@ -463,7 +463,7 @@ A two-band saturator. A Linkwitz-Riley crossover splits the signal; the low band
 | **Mix** | 0 – 100 % | 100 % | Dry/wet balance. |
 | **Output Level** | −12 – +6 dB | 0 dB | Output level. |
 
-The band sum is clamped to the rails, so the output cannot exceed full scale. The first pass runs at base rate, so no latency is added.
+The band sum is clamped to the rails, so the output cannot exceed full scale. The first pass runs at base rate, so no latency is added. The editor's dual-band visual shows each band's envelope with the crossover marked between the bars (log axis, frequency printed above) and input/output meters on the right. The controls sit in two groups — **SPLIT** (crossover and the shared mode) and **SHAPER** — with the suite's preset bar and gear menu in the header.
 
 ### Cyclical
 
@@ -552,7 +552,7 @@ Plugin bundles are written to `build/plugins/<Name>/<Name>_artefacts/Release/`.
 |---|---|---|
 | `SUITE_BUILD_PLUGINS` | `ON` | Build the plugins, their editors and the host-level tests. Set to `OFF` to build only the DSP core and its tests, which is faster. |
 | `SUITE_BUILD_TESTS` | `ON` | Build and register the unit tests. |
-| `SUITE_PRESET_BANK` | `OFF` | Embed the factory preset bank into the plugin binaries (`factory_bank/bank/AudioSuitePresets.xml`, 100 presets: 26 SD / 26 DS / 28 MTC / 20 Sgraffito). The preset bar, `.ausp` files and user presets ship in every build; this flag only adds the embedded bank. |
+| `SUITE_PRESET_BANK` | `OFF` | Embed the factory preset bank into the plugin binaries (`factory_bank/bank/AudioSuitePresets.xml`, 160 presets: 26 SD / 26 DS / 28 MTC / 20 Sgraffito / 15 MidiEffect / 15 StereoTool / 15 Multiband / 15 Cyclical). The preset bar, `.ausp` files and user presets ship in every build; this flag only adds the embedded bank. |
 | `SUITE_PRESET_BANK_AS_PROGRAMS` | `OFF` | With `SUITE_PRESET_BANK=ON`, expose the factory bank as host programs (program 0 = Init, then one per preset). Bank order is append-only once hosts cache indices. |
 
 Example, DSP tests only:
@@ -570,7 +570,7 @@ Plugin formats are chosen automatically: VST3 and Standalone everywhere, plus AU
 ctest --test-dir build -C Release --output-on-failure
 ```
 
-**Default build** (`SUITE_PRESET_BANK=OFF`): eighteen CTest entries run thirteen test executables:
+**Default build** (`SUITE_PRESET_BANK=OFF`): twenty CTest entries run thirteen test executables:
 
 | Executable | Scope | Tests |
 |---|---|---|
@@ -578,18 +578,18 @@ ctest --test-dir build -C Release --output-on-failure
 | `SuiteState_Tests` | Versioned saved state in `modules/suite_state` | 8 |
 | `SuiteModulationTests` | Shared LFOs, routing and the control display in `modules/suite_modulation` | 10 |
 | `SuiteSettingsTests` | Settings store and dialog in `modules/suite_settings` | 9 |
-| `SuiteUITests` | Shared widgets and look and feel | 9 |
+| `SuiteUITests` | Shared widgets and look and feel | 10 |
 | `SpectralDriftTests` | Spectral Drift processor and editor | 29 |
 | `DynamicSaturationTests` | Dynamic Saturation processor and editor | 24 |
 | `MicroTimingChaosTests` | Micro-Timing Chaos processor and editor | 45 |
 | `SgraffitoTests` | Sgraffito processor and editor | 50 |
-| `StereoToolTests` | Stereo Tool Effect processor and editor | 14 |
-| `MidiEffectTests` | MIDI Chord Arp Scale Tool processor and editor | 17 |
-| `MultibandSaturationTests` | Multiband Saturation processor and editor | 7 |
+| `StereoToolTests` | Stereo Tool Effect processor and editor | 15 |
+| `MidiEffectTests` | MIDI Chord Arp Scale Tool processor and editor | 18 |
+| `MultibandSaturationTests` | Multiband Saturation processor and editor | 8 |
 | `CyclicalTests` | Cyclical processor and editor | 23 |
 | `PluginHostTests` (×7) | Each built VST3 bundle, loaded through JUCE's own plugin host | 1 per plugin |
 
-**Bank build** (`SUITE_PRESET_BANK=ON`): twenty-two CTest entries — the eighteen public entries plus one `*_PresetTests` executable per plugin that has bank entries (bank ranges, apply/reset, editor, menu model, MIDI sanity). With `SUITE_PRESET_BANK_AS_PROGRAMS=ON`, the program-list virtuals are also exercised inside the plugin preset tests.
+**Bank build** (`SUITE_PRESET_BANK=ON`): twenty-eight CTest entries — the twenty public entries plus one `*_PresetTests` executable per plugin that has bank entries (bank ranges, apply/reset, editor, menu model, audio sanity). With `SUITE_PRESET_BANK_AS_PROGRAMS=ON`, the program-list virtuals are also exercised inside the plugin preset tests.
 
 The tests use `assert` with `NDEBUG` undefined, so they also check in Release builds. Without that, every check would be compiled out.
 

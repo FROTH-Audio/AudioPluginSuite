@@ -1122,6 +1122,132 @@
       <PARAM id="sideCrossover" value="200"/>
     </PARAMETERS>
   </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="MultibandSaturation" pluginVersion="1.0.0">
+    <Meta name="Band Glue" category="Mix bus" author="FROTH Audio" description="Gentle tube glue on both bands."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="driveLow" value="3"/>
+      <PARAM id="driveHigh" value="3"/>
+      <PARAM id="sensitivity" value="0.4"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="MultibandSaturation" pluginVersion="1.0.0">
+    <Meta name="Low Weight" category="Bass" author="FROTH Audio" description="Driven low band, clean highs."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="driveLow" value="12"/>
+      <PARAM id="driveHigh" value="2"/>
+      <PARAM id="toneLow" value="-0.3"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="MultibandSaturation" pluginVersion="1.0.0">
+    <Meta name="Air Bands" category="Bright" author="FROTH Audio" description="Tape texture with a lifted top band."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="mode" value="1"/>
+      <PARAM id="crossover" value="1500"/>
+      <PARAM id="driveHigh" value="8"/>
+      <PARAM id="toneHigh" value="0.7"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="MultibandSaturation" pluginVersion="1.0.0">
+    <Meta name="Split Crunch" category="Drums" author="FROTH Audio" description="Hard drive on both bands, fast envelope."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="driveLow" value="18"/>
+      <PARAM id="driveHigh" value="16"/>
+      <PARAM id="attack" value="2"/>
+      <PARAM id="release" value="80"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="MultibandSaturation" pluginVersion="1.0.0">
+    <Meta name="Vocal Leveller" category="Vocal" author="FROTH Audio" description="Envelope control per band, gentle drive."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="driveLow" value="4"/>
+      <PARAM id="driveHigh" value="4"/>
+      <PARAM id="sensitivity" value="0.7"/>
+      <PARAM id="attack" value="8"/>
+      <PARAM id="release" value="120"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="MultibandSaturation" pluginVersion="1.0.0">
+    <Meta name="Tape Split" category="Character" author="FROTH Audio" description="Warm tape character over both bands."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="mode" value="1"/>
+      <PARAM id="driveLow" value="7"/>
+      <PARAM id="driveHigh" value="5"/>
+      <PARAM id="toneHigh" value="-0.2"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="MultibandSaturation" pluginVersion="1.0.0">
+    <Meta name="Diode Bite" category="Character" author="FROTH Audio" description="Aggressive diode edge in each band."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="mode" value="2"/>
+      <PARAM id="driveLow" value="14"/>
+      <PARAM id="driveHigh" value="10"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="MultibandSaturation" pluginVersion="1.0.0">
+    <Meta name="Sub Keeper" category="Subtle" author="FROTH Audio" description="Only the low band works; the highs pass untouched."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="crossover" value="200"/>
+      <PARAM id="driveLow" value="9"/>
+      <PARAM id="driveHigh" value="0"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="MultibandSaturation" pluginVersion="1.0.0">
+    <Meta name="High Sparkle" category="Bright" author="FROTH Audio" description="A bright, driven high band over a calm low."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="crossover" value="2500"/>
+      <PARAM id="driveHigh" value="10"/>
+      <PARAM id="toneHigh" value="0.9"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="MultibandSaturation" pluginVersion="1.0.0">
+    <Meta name="Dark Console" category="Lo-Fi" author="FROTH Audio" description="Dark tilt on both bands."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="driveLow" value="8"/>
+      <PARAM id="toneLow" value="-0.5"/>
+      <PARAM id="toneHigh" value="-0.7"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="MultibandSaturation" pluginVersion="1.0.0">
+    <Meta name="Parallel Bands" category="Subtle" author="FROTH Audio" description="Heavy drive mixed back, both bands."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="driveLow" value="12"/>
+      <PARAM id="driveHigh" value="12"/>
+      <PARAM id="mix" value="40"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="MultibandSaturation" pluginVersion="1.0.0">
+    <Meta name="Bass Punch" category="Bass" author="FROTH Audio" description="A fast envelope tightens the low band."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="crossover" value="300"/>
+      <PARAM id="driveLow" value="15"/>
+      <PARAM id="sensitivity" value="0.8"/>
+      <PARAM id="attack" value="1"/>
+      <PARAM id="release" value="60"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="MultibandSaturation" pluginVersion="1.0.0">
+    <Meta name="Gentle Two" category="Mix bus" author="FROTH Audio" description="Barely there, both bands."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="driveLow" value="2"/>
+      <PARAM id="driveHigh" value="2"/>
+      <PARAM id="sensitivity" value="0.2"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="MultibandSaturation" pluginVersion="1.0.0">
+    <Meta name="Extreme Split" category="Extreme" author="FROTH Audio" description="Maximum drive on both bands, diode mode."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="mode" value="2"/>
+      <PARAM id="driveLow" value="24"/>
+      <PARAM id="driveHigh" value="24"/>
+      <PARAM id="sensitivity" value="1"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="MultibandSaturation" pluginVersion="1.0.0">
+    <Meta name="Null Split" category="Utility" author="FROTH Audio" description="Fully dry: a transparent reference."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="mix" value="0"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="Cyclical" pluginVersion="1.0.0">
     <Meta name="Four on the Floor" category="Groove" author="FROTH Audio" description="Kick, hats, bass and chord locked to 16ths."/>
     <PARAMETERS suiteStateVersion="1" loop1Path="embedded:kick_4k.wav" loop2Path="embedded:hats_4k.wav" loop3Path="embedded:bass_4k.wav" loop4Path="embedded:chord_4k.wav">

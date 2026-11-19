@@ -164,6 +164,21 @@ SCHEMA = {
         "sideFilter": {"min": 0, "max": 3, "default": 0, "type": "choice"},
         "sideCrossover": {"min": 20.0, "max": 8000.0, "default": 200.0, "type": "float"},
     },
+    # Plan 11: Multiband Saturation, the two-band split (11 parameters; the shared Router's
+    # parameters are not in the layout yet, so no routing entries).
+    "MultibandSaturation": {
+        "mode": {"min": 0, "max": 2, "default": 0, "type": "choice"},
+        "crossover": {"min": 80.0, "max": 8000.0, "default": 500.0, "type": "float"},
+        "driveLow": {"min": 0.0, "max": 24.0, "default": 6.0, "type": "float"},
+        "driveHigh": {"min": 0.0, "max": 24.0, "default": 6.0, "type": "float"},
+        "sensitivity": {"min": 0.0, "max": 1.0, "default": 0.5, "type": "float"},
+        "attack": {"min": 1.0, "max": 100.0, "default": 5.0, "type": "float"},
+        "release": {"min": 50.0, "max": 2000.0, "default": 150.0, "type": "float"},
+        "toneLow": {"min": -1.0, "max": 1.0, "default": 0.0, "type": "float"},
+        "toneHigh": {"min": -1.0, "max": 1.0, "default": 0.0, "type": "float"},
+        "mix": {"min": 0.0, "max": 100.0, "default": 100.0, "type": "float"},
+        "outputLevel": {"min": -12.0, "max": 6.0, "default": 0.0, "type": "float"},
+    },
     # Plan 6.1: Cyclical, the four-slot loop instrument (35 parameters).
     "Cyclical": {
         "masterVolume": {"min": -24.0, "max": 12.0, "default": 0.0, "type": "float"},
@@ -356,6 +371,25 @@ PRESETS = {
         _preset("Bright Air", "Electronic", "Airy top, mono bottom.", character=2, drive=10.0, sideFilter=1, sideCrossover=6000.0),
         _preset("Narrow Focus", "Vocals", "Tight vocal centre.", character=3, drive=5.0, midFocus=80.0),
         _preset("Full Spectrum", "All-genre", "Wide but controlled over tape drive.", character=1, drive=7.0, transientAmount=30.0, transientAttack=30.0, transientRelease=250.0, sideFilter=1, sideCrossover=200.0),
+    ],
+    # Plan 11: Multiband Saturation, the two-band split. Every preset changes at least one
+    # parameter from the default. Bank order is append-only.
+    "MultibandSaturation": [
+        _preset("Band Glue", "Mix bus", "Gentle tube glue on both bands.", driveLow=3.0, driveHigh=3.0, sensitivity=0.4),
+        _preset("Low Weight", "Bass", "Driven low band, clean highs.", driveLow=12.0, driveHigh=2.0, toneLow=-0.3),
+        _preset("Air Bands", "Bright", "Tape texture with a lifted top band.", mode=1, driveHigh=8.0, toneHigh=0.7, crossover=1500.0),
+        _preset("Split Crunch", "Drums", "Hard drive on both bands, fast envelope.", driveLow=18.0, driveHigh=16.0, attack=2.0, release=80.0),
+        _preset("Vocal Leveller", "Vocal", "Envelope control per band, gentle drive.", driveLow=4.0, driveHigh=4.0, sensitivity=0.7, attack=8.0, release=120.0),
+        _preset("Tape Split", "Character", "Warm tape character over both bands.", mode=1, driveLow=7.0, driveHigh=5.0, toneHigh=-0.2),
+        _preset("Diode Bite", "Character", "Aggressive diode edge in each band.", mode=2, driveLow=14.0, driveHigh=10.0),
+        _preset("Sub Keeper", "Subtle", "Only the low band works; the highs pass untouched.", driveLow=9.0, driveHigh=0.0, crossover=200.0),
+        _preset("High Sparkle", "Bright", "A bright, driven high band over a calm low.", driveHigh=10.0, toneHigh=0.9, crossover=2500.0),
+        _preset("Dark Console", "Lo-Fi", "Dark tilt on both bands.", driveLow=8.0, toneLow=-0.5, toneHigh=-0.7),
+        _preset("Parallel Bands", "Subtle", "Heavy drive mixed back, both bands.", mix=40.0, driveLow=12.0, driveHigh=12.0),
+        _preset("Bass Punch", "Bass", "A fast envelope tightens the low band.", driveLow=15.0, sensitivity=0.8, attack=1.0, release=60.0, crossover=300.0),
+        _preset("Gentle Two", "Mix bus", "Barely there, both bands.", driveLow=2.0, driveHigh=2.0, sensitivity=0.2),
+        _preset("Extreme Split", "Extreme", "Maximum drive on both bands, diode mode.", mode=2, driveLow=24.0, driveHigh=24.0, sensitivity=1.0),
+        _preset("Null Split", "Utility", "Fully dry: a transparent reference.", mix=0.0),
     ],
     # Plan 6.1: the four-slot loop instrument. Every preset carries four embedded: loop
     # paths (the slot loading rides as state properties) and changes at least one

@@ -1,0 +1,10 @@
+{
+  "_name": "Parallel Bands",
+  "_category": "Subtle",
+  "_description": "Heavy drive mixed back, both bands.",
+  "_plugin": "MultibandSaturation",
+  "_pluginVersion": "1.0.0",
+  "driveLow": 12.0,
+  "driveHigh": 12.0,
+  "mix": 40.0
+}
