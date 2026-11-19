@@ -1,0 +1,17 @@
+{
+  "_name": "Gate Cutter",
+  "_category": "Groove",
+  "_description": "Gate mode chops the held notes.",
+  "_plugin": "Cyclical",
+  "_pluginVersion": "1.0.0",
+  "_loopPaths": [
+    "embedded:kick_4k.wav",
+    "embedded:hats_4k.wav",
+    "embedded:chord_4k.wav",
+    "embedded:vox_4k.wav"
+  ],
+  "quantize": 2,
+  "swing": 18.0,
+  "triggerMode": 1,
+  "slot4Granular": 1
+}

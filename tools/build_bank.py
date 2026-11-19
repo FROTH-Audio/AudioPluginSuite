@@ -76,6 +76,10 @@ def preset_json(plugin, preset):
     if "samplePath" in preset:
         data["_samplePath"] = preset["samplePath"]
 
+    # Cyclical (plan 6.1): the four slot loops ride as state properties.
+    if "loopPaths" in preset:
+        data["_loopPaths"] = preset["loopPaths"]
+
     # Keep the schema order in the JSON too, so a diff shows a new parameter in one place.
     params = preset["params"]
     for pid in parameter_order(plugin):
@@ -104,6 +108,8 @@ def preset_xml(plugin, preset, indent="  "):
     lines.append(f"{indent}  <PARAMETERS suiteStateVersion=\"{state_version_for(plugin)}\""
                  + (f" lerpCurve={xml_escape_attribute(preset['lerpCurve'])}" if "lerpCurve" in preset else "")
                  + (f" samplePath={xml_escape_attribute(preset['samplePath'])}" if "samplePath" in preset else "")
+                 + "".join(f" loop{index + 1}Path={xml_escape_attribute(path)}"
+                           for index, path in enumerate(preset.get("loopPaths", [])))
                  + ">")
 
     for pid in parameter_order(plugin):

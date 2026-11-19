@@ -1,0 +1,18 @@
+{
+  "_name": "Reverse Universe",
+  "_category": "Experimental",
+  "_description": "Three reversed loops behind a forward kick.",
+  "_plugin": "Cyclical",
+  "_pluginVersion": "1.0.0",
+  "_loopPaths": [
+    "embedded:kick_4k.wav",
+    "embedded:chord_4k.wav",
+    "embedded:vox_4k.wav",
+    "embedded:texture_4k.wav"
+  ],
+  "slot2Direction": 1,
+  "slot3Direction": 1,
+  "slot4Speed": 0.5,
+  "slot4Direction": 1,
+  "crossfadeLength": 120.0
+}

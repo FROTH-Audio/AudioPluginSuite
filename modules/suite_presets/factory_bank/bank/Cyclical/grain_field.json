@@ -1,0 +1,21 @@
+{
+  "_name": "Grain Field",
+  "_category": "Experimental",
+  "_description": "All four slots granular, two random ping-pong.",
+  "_plugin": "Cyclical",
+  "_pluginVersion": "1.0.0",
+  "_loopPaths": [
+    "embedded:chord_4k.wav",
+    "embedded:vox_4k.wav",
+    "embedded:perc_4k.wav",
+    "embedded:noise_4k.wav"
+  ],
+  "slot1Granular": 1,
+  "slot2Direction": 2,
+  "slot2PingRandom": 1,
+  "slot2Granular": 1,
+  "slot3Granular": 1,
+  "slot4Direction": 2,
+  "slot4PingRandom": 1,
+  "slot4Granular": 1
+}

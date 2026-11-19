@@ -75,6 +75,463 @@ namespace
     }
 
     //==============================================================================
+    // Loop playback (plan 6.1, Cyclical)
+
+    namespace LoopFixture
+    {
+        using namespace CoreDSP::Loop;
+
+        constexpr double loopRate = 48000.0;
+
+        /** A ramp loop: sample[i] = i, so every output value names the frame it read. */
+        struct RampLoop
+        {
+            juce::AudioBuffer<float> buffer;
+            std::array<const float*, 1> channelPointers {};
+            Source source;
+
+            explicit RampLoop (int frames) : buffer (1, frames)
+            {
+                for (int i = 0; i < frames; ++i)
+                    buffer.setSample (0, i, (float) i);
+
+                channelPointers[0] = buffer.getReadPointer (0);
+                source.channels = channelPointers.data();
+                source.numChannels = 1;
+                source.numFrames = frames;
+                source.sourceSampleRate = loopRate;
+            }
+
+            /** The time-mirrored copy of this loop (same length). */
+            RampLoop mirrored() const
+            {
+                RampLoop copy (source.numFrames);
+
+                for (int i = 0; i < source.numFrames; ++i)
+                    copy.buffer.setSample (0, i, buffer.getSample (0, source.numFrames - 1 - i));
+
+                copy.channelPointers[0] = copy.buffer.getReadPointer (0);
+                copy.source.channels = copy.channelPointers.data();
+                return copy;
+            }
+        };
+
+        /** Runs one voice into a fresh buffer and returns its samples. */
+        std::vector<float> run (Voice& voice, const Source& source, const Region& region,
+                                int samples, double pitchRatio = 1.0, double gain = 1.0,
+                                std::uint32_t seed = 1)
+        {
+            voice.prepare (loopRate);
+            voice.start (source, region, pitchRatio, gain, seed);
+
+            juce::AudioBuffer<float> out (1, samples);
+            out.clear();
+            voice.render (out, 0, samples);
+
+            return { out.getReadPointer (0), out.getReadPointer (0) + samples };
+        }
+    }
+
+    void testLoopDoubleSpeedLapsTwicePerBar()
+    {
+        using namespace LoopFixture;
+
+        // One bar: 48000 frames at 48 kHz. A ramp source names every frame it reads.
+        RampLoop loop (48000);
+        Region region;
+        region.startFrame = 0;
+        region.lengthFrames = 48000;
+        region.speed = 2.0;
+        region.direction = Direction::forward;
+        region.crossfadeFrames = 0;
+
+        Voice voice;
+        const auto out = run (voice, loop.source, region, 48000);
+
+        // One bar of output at speed 2 traverses the bar twice, and the second lap equals
+        // the first bit for bit (integral positions, crossfade 0). The 5 ms attack ramps
+        // the first lap in, so the identity is checked after it.
+        const int attackSamples = (int) std::lround (kAttackMs * 0.001 * loopRate);
+
+        for (int n = attackSamples; n < 24000; ++n)
+        {
+            assert (out[(size_t) n] == (float) (2 * n));
+            assert (out[(size_t) (n + 24000)] == out[(size_t) n]);
+        }
+
+        std::puts ("[PASS] testLoopDoubleSpeedLapsTwicePerBar");
+    }
+
+    void testLoopRegionBoundsAndClamping()
+    {
+        using namespace LoopFixture;
+
+        // Start/Length percents resolve to frames, with Start capped at 95 % and the
+        // effective length min(Length, 100 - Start).
+        auto frames = regionFrames (1000, 0.0f, 100.0f);
+        assert (frames[0] == 0 && frames[1] == 1000);
+
+        frames = regionFrames (1000, 50.0f, 100.0f);
+        assert (frames[0] == 500 && frames[1] == 500);          // length capped at 100 - start
+
+        frames = regionFrames (1000, 80.0f, 90.0f);
+        assert (frames[0] == 800 && frames[1] == 200);
+
+        frames = regionFrames (1000, 99.0f, 10.0f);
+        assert (frames[0] == 950 && frames[1] == 50);           // start capped at 95 %
+
+        frames = regionFrames (10, 0.0f, 5.0f);
+        assert (frames[0] == 0 && frames[1] == 1);              // minimum length of one frame
+
+        frames = regionFrames (1, 0.0f, 100.0f);
+        assert (frames[0] == 0 && frames[1] == 1);              // a one-frame buffer still plays
+
+        // No read outside the region: a ramp source names every frame it touches.
+        RampLoop loop (1000);
+        Region region;
+        region.startFrame = 500;
+        region.lengthFrames = 500;
+        region.crossfadeFrames = 0;
+
+        Voice voice;
+        const auto forward = run (voice, loop.source, region, 1000);
+        const int attackSamples = (int) std::lround (kAttackMs * 0.001 * loopRate);
+
+        for (int n = attackSamples; n < 1000; ++n)
+        {
+            const float sample = forward[(size_t) n];
+            if (sample < 500.0f || sample >= 1000.0f)
+            {
+                std::printf ("PROBE forward out of region n=%d sample=%f\n", n, (double) sample);
+                std::fflush (stdout);
+                assert (false);
+            }
+        }
+
+        region.direction = Direction::reverse;
+        const auto reverse = run (voice, loop.source, region, 1000);
+        for (int n = attackSamples; n < 1000; ++n)
+        {
+            const float sample = reverse[(size_t) n];
+            if (sample < 500.0f || sample >= 1000.0f)
+            {
+                std::printf ("PROBE reverse out of region n=%d sample=%f\n", n, (double) sample);
+                std::fflush (stdout);
+                assert (false);
+            }
+        }
+
+        std::puts ("[PASS] testLoopRegionBoundsAndClamping");
+    }
+
+    void testLoopReverseIsTheMirror()
+    {
+        using namespace LoopFixture;
+
+        RampLoop loop (4800);
+        Region region;
+        region.startFrame = 0;
+        region.lengthFrames = 4800;
+        region.crossfadeFrames = 0;
+
+        // At X = 0: reverse output is the forward output of the mirrored source (checked
+        // after the 5 ms attack, which the two runs ramp differently).
+        region.direction = Direction::forward;
+        Voice voice;
+        const auto forward = run (voice, loop.source, region, 4800);
+        const int attackSamples = (int) std::lround (kAttackMs * 0.001 * loopRate);
+
+        region.direction = Direction::reverse;
+        const auto reverse = run (voice, loop.source, region, 4800);
+        // The pairing crosses the two runs' attack ramps, so only the settled window
+        // (both samples past the 5 ms attack) is compared.
+        for (int n = attackSamples; n < 4800 - attackSamples; ++n)
+            assert (reverse[(size_t) n] == forward[(size_t) (4799 - n)]);
+
+        // At X > 0 the pre-rolls are mirrored too: reverse equals forward over the
+        // time-mirrored copy of the source, sample for sample.
+        const auto mirrored = loop.mirrored();
+        region.crossfadeFrames = 2400;
+
+        region.direction = Direction::forward;
+        const auto forwardMirrored = run (voice, mirrored.source, region, 4800);
+
+        region.direction = Direction::reverse;
+        const auto reverseOriginal = run (voice, loop.source, region, 4800);
+        for (int n = attackSamples; n < 4800; ++n)
+            assert (reverseOriginal[(size_t) n] == forwardMirrored[(size_t) n]);
+
+        std::puts ("[PASS] testLoopReverseIsTheMirror");
+    }
+
+    void testPingPongReflectsAtBounds()
+    {
+        using namespace LoopFixture;
+
+        RampLoop loop (100);
+        Region region;
+        region.startFrame = 0;
+        region.lengthFrames = 100;
+        region.direction = Direction::pingPong;
+        region.crossfadeFrames = 0;
+
+        Voice voice;
+        const auto out = run (voice, loop.source, region, 1000);
+        const int attackSamples = (int) std::lround (kAttackMs * 0.001 * loopRate);
+
+        // The steady state is a triangle of period 2 * (length - 1) = 198: it ascends to
+        // the upper bound, reflects without repeating it, and descends to the lower one.
+        const int period = 198;
+        auto triangle = [period] (int n)
+        {
+            const int phase = n % period;
+            return phase <= period / 2 ? phase : period - phase;
+        };
+
+        for (int n = attackSamples; n < 1000; ++n)
+        {
+            const float expected = (float) triangle (n);
+            if (out[(size_t) n] != expected)
+            {
+                std::printf ("PROBE ping-pong n=%d got=%f expected=%f\n", n, (double) out[(size_t) n], (double) expected);
+                std::fflush (stdout);
+                assert (false);
+            }
+        }
+
+        for (float sample : out)
+            assert (sample >= 0.0f && sample <= 99.0f);  // never outside the region
+
+        std::puts ("[PASS] testPingPongReflectsAtBounds");
+    }
+
+    void testPingRandomIsPerTriggerAndBounded()
+    {
+        using namespace LoopFixture;
+
+        RampLoop loop (400);
+        Region region;
+        region.startFrame = 0;
+        region.lengthFrames = 400;
+        region.direction = Direction::pingPong;
+        region.pingRandom = true;
+        region.crossfadeFrames = 0;
+
+        // Same seed: identical output (the turn points are drawn once per trigger).
+        Voice voice;
+        const auto a = run (voice, loop.source, region, 1600, 1.0, 1.0, 7);
+        const auto b = run (voice, loop.source, region, 1600, 1.0, 1.0, 7);
+        assert (a == b);
+
+        // The bounds stay constant for the voice and lie inside the region, inset from the
+        // ends (a, b in [0, 0.25) x length).
+        auto boundsOf = [] (const std::vector<float>& samples)
+        {
+            float lowest = samples.front(), highest = samples.front();
+            for (float sample : samples)
+            {
+                lowest = std::min (lowest, sample);
+                highest = std::max (highest, sample);
+            }
+            return std::pair<float, float> { lowest, highest };
+        };
+
+        // The turn points stay constant for the voice: the steady state (after the 5 ms
+        // attack) is exactly periodic with the period the bounds imply.
+        const int attack = (int) std::lround (kAttackMs * 0.001 * loopRate);
+        const auto steady = boundsOf ({ a.begin() + attack, a.end() });
+
+        assert (steady.first >= 0.0f && steady.first <= 100.0f);       // a in [0, 0.25) x length
+        assert (steady.second >= 299.0f && steady.second <= 399.0f);   // b in [0, 0.25) x length
+
+        const int period = 2 * (int) (steady.second - steady.first);
+        for (int n = attack + period; n < 1600; ++n)
+        {
+            if (a[(size_t) n] != a[(size_t) (n - period)])
+            {
+                std::printf ("PROBE ping-random not periodic n=%d\n", n);
+                std::fflush (stdout);
+                assert (false);
+            }
+        }
+
+        // Different seeds give different turn points (checked over a few pairs).
+        bool differs = false;
+        for (std::uint32_t seed = 0; seed < 8 && ! differs; ++seed)
+        {
+            const auto one = run (voice, loop.source, region, 1600, 1.0, 1.0, seed);
+            const auto two = run (voice, loop.source, region, 1600, 1.0, 1.0, seed + 100);
+            if (boundsOf (one) != boundsOf (two))
+                differs = true;
+        }
+        assert (differs);
+
+        // The rate is identical with the random on and off: every step of a ramp source
+        // moves exactly one frame, at the reflections too (a rate multiplier would detune
+        // each retrigger against pitchShift and the other slots). Checked on the steady
+        // state, after the attack ramp.
+        for (int n = attack + 1; n < 1600; ++n)
+            assert (std::abs (a[(size_t) n] - a[(size_t) (n - 1)]) == 1.0f);
+
+        region.pingRandom = false;
+        const auto plain = run (voice, loop.source, region, 1600, 1.0, 1.0, 7);
+        assert (boundsOf (plain).first == 0.0f && boundsOf (plain).second == 399.0f);
+
+        std::puts ("[PASS] testPingRandomIsPerTriggerAndBounded");
+    }
+
+    void testCrossfadeSeamContinuity()
+    {
+        using namespace LoopFixture;
+
+        // A genuinely loopable fixture: a 20 Hz sine whose period (2400 frames) divides the
+        // 48000-frame bar, so the seam's blend partner equals the main read and the blend
+        // sums to unity (the correlated case; the -3 dB uncorrelated dip is documented).
+        const int barFrames = 48000;
+        juce::AudioBuffer<float> sineBuffer (1, barFrames);
+        for (int i = 0; i < barFrames; ++i)
+            sineBuffer.setSample (0, i, 0.5f * (float) std::sin (2.0 * pi * 20.0 * (double) i / loopRate));
+
+        std::array<const float*, 1> sinePointers { sineBuffer.getReadPointer (0) };
+        Source sineSource;
+        sineSource.channels = sinePointers.data();
+        sineSource.numChannels = 1;
+        sineSource.numFrames = barFrames;
+        sineSource.sourceSampleRate = loopRate;
+
+        Region region;
+        region.startFrame = 0;
+        region.lengthFrames = barFrames;
+        region.direction = Direction::forward;
+
+        // 0 ms: the plain hard wrap, bit-exact (checked after the 5 ms attack, which
+        // attenuates the first lap).
+        region.crossfadeFrames = 0;
+        Voice voice;
+        const auto hardWrap = run (voice, sineSource, region, 2 * barFrames);
+        const int attack = (int) std::lround (kAttackMs * 0.001 * loopRate);
+        for (int n = attack; n < 2 * barFrames; ++n)
+            assert (hardWrap[(size_t) n] == sineBuffer.getSample (0, n % barFrames));
+
+        // 50 ms (2400 frames at 48 kHz): sample across the wrap (end -> start + X) and
+        // assert the step stays within the source's own maximum step, and the cycle's RMS
+        // is within +/-1 dB of the source's.
+        region.crossfadeFrames = 2400;
+        const auto blended = run (voice, sineSource, region, 2 * barFrames);
+
+        float sourceMaxStep = 0.0f;
+        for (int i = 1; i < barFrames; ++i)
+            sourceMaxStep = std::max (sourceMaxStep,
+                                      std::abs (sineBuffer.getSample (0, i) - sineBuffer.getSample (0, i - 1)));
+
+        for (std::size_t n = (std::size_t) (attack + 2); n < blended.size(); ++n)
+        {
+            const float step = std::abs (blended[n] - blended[(size_t) (n - 1)]);
+            assert (step <= sourceMaxStep * 1.05f + 1.0e-6f);
+        }
+
+        const double sourceRms = (double) rms ({ sineBuffer.getReadPointer (0),
+                                                 sineBuffer.getReadPointer (0) + barFrames }, barFrames);
+        const double outRms = (double) rms ({ blended.begin() + barFrames, blended.end() }, barFrames);
+        const double levelDb = 20.0 * std::log10 (outRms / sourceRms);
+        assert (std::abs (levelDb) <= 1.0);
+
+        std::puts ("[PASS] testCrossfadeSeamContinuity");
+    }
+
+    void testGranularIsDeterministicAndWindowed()
+    {
+        using namespace LoopFixture;
+
+        RampLoop loop (4800);
+        Region region;
+        region.startFrame = 0;
+        region.lengthFrames = 4800;
+        region.granular = true;
+        region.crossfadeFrames = 0;
+
+        const int grainSamples = (int) std::lround (kGrainMs * 0.001 * loopRate);   // 3840
+
+        // Same seed: identical output.
+        Voice voice;
+        const auto first = run (voice, loop.source, region, 3 * grainSamples, 1.0, 1.0, 5);
+        const auto second = run (voice, loop.source, region, 3 * grainSamples, 1.0, 1.0, 5);
+        assert (first == second);
+
+        // The first grain starts at start: with a rate of 1, sample n of the grain reads
+        // frame n of the region through the half-sine window (checked where the window is
+        // large enough to divide by).
+        for (int n : { 960, 1920, 2880 })
+        {
+            const double window = 0.5 * (1.0 - std::cos (2.0 * pi * (double) n / (double) grainSamples));
+            assert (window > 0.1);
+            const double expected = (double) first[(size_t) n] / window;
+            assert (std::abs (expected - (double) loop.buffer.getSample (0, n)) < 0.01);
+        }
+
+        // The window closes at the grain boundaries, so there is no step between grains.
+        for (int k = 1; k < 3; ++k)
+            assert (std::abs (first[(size_t) (k * grainSamples)]) < 1.0e-4);
+
+        // Grains stay inside the region and wrap within it: the ramp's values bound the reads.
+        for (float sample : first)
+            assert (sample >= 0.0f && sample <= 4799.0f);
+
+        std::puts ("[PASS] testGranularIsDeterministicAndWindowed");
+    }
+
+    void testVoiceReleaseCutAndRetriggerLifecycle()
+    {
+        using namespace LoopFixture;
+
+        RampLoop loop (4800);
+        Region region;
+        region.startFrame = 0;
+        region.lengthFrames = 4800;
+        region.crossfadeFrames = 0;
+
+        const int releaseSamples = (int) std::lround (kReleaseMs * 0.001 * loopRate);
+        const int cutSamples = (int) std::lround (kCutMs * 0.001 * loopRate);
+
+        Voice voice;
+        voice.prepare (loopRate);
+        voice.start (loop.source, region, 1.0, 1.0, 1);
+
+        juce::AudioBuffer<float> out (1, 1000);
+        out.clear();
+        voice.render (out, 0, 1000);
+        assert (voice.isActive());
+
+        // Gate note-off: a 5 ms fade, then the voice retires.
+        voice.release();
+        out.clear();
+        voice.render (out, 0, releaseSamples + 100);
+        assert (! voice.isActive());
+
+        // The fade is linear down from the last full level.
+        assert (out.getSample (0, 0) > out.getSample (0, releaseSamples / 2));
+        assert (out.getSample (0, releaseSamples / 2) > 0.0f);
+
+        // Retrigger cut: a 2 ms fade, then inactive; a fresh start plays from the top.
+        voice.start (loop.source, region, 1.0, 1.0, 1);
+        out.clear();
+        voice.render (out, 0, 500);
+        voice.cut();
+        out.clear();
+        voice.render (out, 0, cutSamples + 100);
+        assert (! voice.isActive());
+
+        voice.start (loop.source, region, 1.0, 1.0, 1);
+        out.clear();
+        voice.render (out, 0, 500);
+        assert (voice.isActive());
+        // The fresh traversal begins at frame 0: past the attack, sample n reads frame n.
+        assert (out.getSample (0, 300) == 300.0f);
+
+        std::puts ("[PASS] testVoiceReleaseCutAndRetriggerLifecycle");
+    }
+
+    //==============================================================================
     // Saturation
 
     void testSaturationCurves()
@@ -1432,6 +1889,14 @@ int main()
     testMidSideStereo();
     testChordsAndScaleQuantise();
     testArpHelpers();
+    testLoopDoubleSpeedLapsTwicePerBar();
+    testLoopRegionBoundsAndClamping();
+    testLoopReverseIsTheMirror();
+    testPingPongReflectsAtBounds();
+    testPingRandomIsPerTriggerAndBounded();
+    testCrossfadeSeamContinuity();
+    testGranularIsDeterministicAndWindowed();
+    testVoiceReleaseCutAndRetriggerLifecycle();
     testTwoBandSplit();
 
     std::puts ("All CoreDSP unit tests passed.");

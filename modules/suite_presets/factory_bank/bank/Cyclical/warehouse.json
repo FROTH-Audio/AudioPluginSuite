@@ -1,0 +1,17 @@
+{
+  "_name": "Warehouse",
+  "_category": "Electronic",
+  "_description": "Wide pan, long crossfade, driving kick.",
+  "_plugin": "Cyclical",
+  "_pluginVersion": "1.0.0",
+  "_loopPaths": [
+    "embedded:kick_4k.wav",
+    "embedded:bass_4k.wav",
+    "embedded:chord_4k.wav",
+    "embedded:drone_4k.wav"
+  ],
+  "pan": 30.0,
+  "slot1Speed": 2.0,
+  "slot3Speed": 0.5,
+  "crossfadeLength": 30.0
+}

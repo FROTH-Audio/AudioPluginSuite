@@ -11,6 +11,7 @@
 
 #include "ChaosEngine.h"
 #include "ChordEngine.h"
+#include "LoopEngine.h"
 #include "ModulationEngine.h"
 #include "ModulationTiming.h"
 #include "MultibandEngine.h"

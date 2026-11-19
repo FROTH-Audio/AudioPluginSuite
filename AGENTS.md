@@ -33,6 +33,7 @@ Seven audio plugins written with JUCE 9.0.5 in C++17. Formats: VST3 on Windows a
 | Stereo Tool Effect | `plugins/StereoTool` | audio effect | `CoreDSP::Stereo` (mid/side, width, drive, saturation characters, transient follower, side filter) | violet `#B18CFF` |
 | MIDI Chord Arp Scale Tool | `plugins/MidiEffect` | MIDI effect, with stereo pass-through | `CoreDSP::Chords` (chords, arp patterns, step-clock helpers), `CoreDSP::Sampler::quantizeToScale` | teal `#4ECDC4` |
 | Multiband Saturation | `plugins/MultibandSaturation` | audio effect | `CoreDSP::Multiband::TwoBandSplit`, `CoreDSP::Saturation` shapers/followers | coral `#FF6B6B` |
+| Cyclical | `plugins/Cyclical` | **instrument** (output-only, four MIDI keys) | `CoreDSP::Loop` (LoopEngine: regions, crossfaded seams, ping-pong, grains) | steel `#8FA3B8` |
 
 - Manufacturer name `FROTH Audio` (shown by hosts; set by `COMPANY_NAME` in `modules/suite_plugin/SuitePlugin.cmake`), manufacturer code `Asui`, bundle IDs `com.audiosuite.<name>` (kept: they are part of the plugin identity, section 7).
 - Plugin code `Sgrf`. Codes and parameter IDs are saved in sessions
@@ -44,8 +45,8 @@ Seven audio plugins written with JUCE 9.0.5 in C++17. Formats: VST3 on Windows a
 - **DSP engine** (Phase 4): Lorenz chaos drift, tape stop, ghost notes, scale lock, cloud granular mode. 71 parameters total (37 original + 34 new: 2 LFOs + 6 modulation slots + 21 creative parameters).
 - **Editor** (Phase 5, Sgraffito): 880×700 px window, SOUND/TEXTURE/MOD pages, 60 Hz timer, slate accent colour `#9aa0a6`.
 - **Modulation** (Phase 5): `SuiteModulation::Router` shared with other plugins, 2 LFOs, 6 routing slots (source/target/amount/delay). All parameters automatable, savable, restorable.
-- **Presets**: 130 factory presets (26 SD / 26 DS / 28 MTC / 20 Sgraffito / 15 MidiEffect / 15 StereoTool, plan 6.1) behind the `SUITE_PRESET_BANK` flag (full bank accepted by owner decision, 2026-11-12; five Sgraffito presets added by plan 05.3 F1.3; the two first-pass plugins joined in plan 6.1). Bank + programs (`SUITE_PRESET_BANK_AS_PROGRAMS`) maps Init=program 0, factory presets=programs 1..N.
-- **Test results**: 24/24 CTest entries pass with the factory bank on (2026-11-18, plan 6.1 verification; the default build is 18, the bank build adds six preset-test executables).
+- **Presets**: 145 factory presets (26 SD / 26 DS / 28 MTC / 20 Sgraffito / 15 MidiEffect / 15 StereoTool / 15 Cyclical, plan 6.1) behind the `SUITE_PRESET_BANK` flag (full bank accepted by owner decision, 2026-11-12; five Sgraffito presets added by plan 05.3 F1.3; the two first-pass plugins joined in plan 6.1, then Cyclical). Bank + programs (`SUITE_PRESET_BANK_AS_PROGRAMS`) maps Init=program 0, factory presets=programs 1..N.
+- **Test results**: 27/27 CTest entries pass with the factory bank on (2026-11-19, plan 6.1 Cyclical verification; the default build is 20, the bank build adds seven preset-test executables).
 
 ---
 
@@ -139,14 +140,14 @@ $CM = "C:\Program Files\Microsoft Visual Studio\18\Community\Common7\IDE\CommonE
 - Build records for the pre-refactor baseline are in `build/baselines/phase0-pre-refactor/`, and the converted tree in `build/baselines/phase1-after-suite_add_plugin/`. They are generated and not committed (`build/` is ignored). To regenerate: `git archive 0d21400` into `build/baselines/src`, configure that tree with `-DFETCHCONTENT_SOURCE_DIR_JUCE=<repo>/build/_deps/juce-src` so JUCE is not fetched again, build Release, then save `Defs.txt`, `Info.txt`, `<Name>_resources.rc`, the VST3 file list and the source lists from each `.vcxproj`.
 - Asset embedding: `juce_add_binary_data(MicroTimingChaosAssets ...)` builds a `BinaryData` target that the plugin and its test executable link. Add new icons or textures to its `SOURCES` list, then reference them by the generated name (`file_name_with_underscores`, for example `bpm_sync_active_svg`).
 
-Last verified status (2026-11-18, plan 06 idea 2.4): JUCE 9.0.5. Clean Release build: 0 errors (warnings: the pre-existing `-Winconsistent-missing-override` set on the preset-state overrides; the new targets add none). Last full CTest run: 22/22 with the factory bank on. The working tree now registers 24 bank entries (two uncommitted preset tests); those two have not been built or run here.
+Last verified status (2026-11-19, plan 6.1 Cyclical): JUCE 9.0.5. Release build: 0 errors (warnings: the pre-existing `-Winconsistent-missing-override` set on the preset-state overrides). Full CTest: 27/27 with the factory bank on; 20/20 default (verified in a throwaway dir); `tools/audit_bank.py` passes with 145 presets.
 
-- Default build (`SUITE_PRESET_BANK=OFF`): 18 entries - CoreDSPTests, SuiteState_Tests, SuiteModulation_Tests, SuiteUI_Tests, SuiteSettingsTests, the seven plugin test executables, and the six VST3 host-load tests.
-- Bank build (`SUITE_PRESET_BANK=ON`): **24** entries in the working tree — the 18 public entries plus **six** factory-preset test executables (`SpectralDrift_PresetTests`, `DynamicSaturation_PresetTests`, `MicroTimingChaos_PresetTests`, `Sgraffito_PresetTests`, and the uncommitted `MidiEffect_PresetTests` / `StereoTool_PresetTests`). From the committed baseline it is 22 (the first four). MultibandSaturation has no factory presets yet, and `suite_add_plugin` skips its preset-test target until `<Name>PresetTests.cpp` exists.
+- Default build (`SUITE_PRESET_BANK=OFF`): 20 entries - CoreDSPTests, SuiteState_Tests, SuiteModulation_Tests, SuiteUI_Tests, SuiteSettingsTests, the eight plugin test executables, and the seven VST3 host-load tests.
+- Bank build (`SUITE_PRESET_BANK=ON`): **27** entries - the 24 public entries (the eight plugin test executables among them) plus **seven** factory-preset test executables (`SpectralDrift_PresetTests`, `DynamicSaturation_PresetTests`, `MicroTimingChaos_PresetTests`, `Sgraffito_PresetTests`, `MidiEffect_PresetTests`, `StereoTool_PresetTests`, `Cyclical_PresetTests`). From the committed baseline (plan 6.1a is in; Cyclical is not) the increment is +3: `Cyclical_PluginTests`, `Cyclical_VST3_HostLoad` and `Cyclical_PresetTests`. MultibandSaturation has no factory presets yet, and `suite_add_plugin` skips its preset-test target until `<Name>PresetTests.cpp` exists.
 - Bank with host program list (`SUITE_PRESET_BANK_AS_PROGRAMS=ON`): the same entry count; the program-list virtuals are exercised inside the plugin preset tests via `runProgramList`.
 
 All test executables pass:
-- CoreDSPTests (38 functions)
+- CoreDSPTests (47 functions)
 - SuiteStateTests (8 functions)
 - SuiteModulationTests (10 functions)
 - SuiteSettingsTests (9 functions) - new in Plan 08 Phase 4
@@ -158,6 +159,7 @@ All test executables pass:
 - StereoToolTests (14 functions) - new 2026-11 (plan 06 idea 2.9), extended by plan 6.1
 - MidiEffectTests (17 functions) - new 2026-11 (plan 06 idea 2.11), extended by plan 6.1
 - MultibandSaturationTests (7 functions) - new 2026-11 (plan 06 idea 2.4)
+- CyclicalTests (23 functions) - new 2026-11-19 (plan 6.1)
 - [PluginName]_PresetTests for each plugin (factory bank)
 
 Before 2026-11-08 the list was 9 entries: CoreDSPTests, SuiteUI_Tests, SuiteModulation_Tests, the three plugin test executables, and the three VST3 host-load tests. SuiteUI_Tests also passed against JUCE 8.0.6, the previous pin, which is the version CI ran (last checked 2026-11-06, not re-run since). macOS is not verified on JUCE 9.
@@ -379,6 +381,33 @@ defaults stay bit-exact.
 Latency reported: 0. Tail length: 0. A transient at amount 1 and a full envelope boosts the drive
 by at most 12 dB (`maxTransientDriveBoostDb`).
 
+### 4.8 Cyclical (35 parameters)
+
+The four-slot loop instrument (plan 6.1). Five global parameters, seven per slot (× 4, in slot
+order so the bank order is stable), two playback. The loop references are **not** parameters:
+they ride as `loop1Path` … `loop4Path` attributes on `<PARAMETERS>` (the samplePath pattern).
+The per-slot IDs are `const char* x[4]` arrays with a literal size, which is the form
+`tools/audit_bank.py`'s coverage check parses.
+
+| ID | Name | Range | Default | Notes |
+|---|---|---|---|---|
+| `masterVolume` | Master Volume | −24 – +12 dB | 0 dB | Smoothed 20 ms |
+| `pan` | Pan | −100 – +100 % | 0 % | Constant-power law, −3 dB centre, smoothed 20 ms |
+| `quantize` | Quantize | Off, 1/16, 1/8, 1/4, 1/2, 1 Bar | Off | 4/4 grid; the host time signature is not read |
+| `swing` | Swing | −20 – +20 % | 0 % | Odd grid points, `Sequencer::swingBeats` |
+| `triggerMode` | Trigger Mode | Latch, Gate | Latch | Gate = plays only while the key is held |
+| `slotNStart` | Start | 0 – 100 % | 0 % | Capped at 95 %; effective length = min(Length, 100 − Start), via the shared `CoreDSP::Loop::regionFrames` |
+| `slotNLength` | Length | 5 – 100 % | 100 % | Share of the loaded loop |
+| `slotNSpeed` | Speed | 0.25 – 4.0 ×, skew 0.5 | 1.0 | × the sample-rate ratio; inert in granular mode |
+| `slotNDirection` | Direction | Forward, Reverse, Ping-Pong | Forward | |
+| `slotNPingRandom` | Ping Rand | bool | off | Ping-pong turn points redrawn per trigger; rate unchanged |
+| `slotNGranular` | Grain | bool | off | 80 ms grains, deterministic |
+| `slotNVelocity` | Velocity | 30 – 150 % | 100 % | Scales the note velocity; applies from the next trigger |
+| `pitchShift` | Pitch | int −12 – +12 | 0 | Simple detune (speed and pitch move together) |
+| `crossfadeLength` | Crossfade | 0 – 500 ms | 5 ms | Global loop-seam blend |
+
+Latency reported: 0. Tail length: 2.0 s.
+
 ## 5. Plugin behaviour
 
 ### 5.1 Spectral Drift engine
@@ -470,7 +499,7 @@ The factory bank (`modules/suite_presets/factory_bank/`, gated by `SUITE_PRESET_
 - `PresetMenuModel`: builds a `juce::PopupMenu` with Factory/User submenus grouped by category.
 - `PresetPrograms` (behind the separate `SUITE_PRESET_BANK_AS_PROGRAMS` flag): host program list where program 0 is Init and programs 1..N are the factory presets in bank order. Bank order is append-only once hosts cache indices.
 
-Factory presets are authored as JSON deltas in `tools/preset_data.py` (26 SD / 26 DS / 28 MTC / 20 Sgraffito / 15 MidiEffect / 15 StereoTool = 130, plan 6.1) and generated into `modules/suite_presets/factory_bank/bank/` by `tools/build_bank.py`. `tools/audit_bank.py` enforces the rules: unique names per plugin, ≥3 categories, every value inside the parameter's `NormalisableRange`, no preset equal to the default state, SD `freeze` only in `Freeze`, DS `drive` 24+`fold` 50 only in `Extreme`, MTC host `sync` off and `bpm` 120 in every factory preset, the base pattern must fire at least one step, factory presets may carry a `samplePath` only as an `embedded:` URI, never a file path (plan 07 Q3, revised in phase 4; checked in the authoring data, the generated XML attributes and the JSON files), and — since plan 05.2 — the authoring schema must cover every parameter the plugins expose (live IDs parsed from the sources, the shared Router's parameters included). Plan 05.3 F1.3 resolved the coverage findings: parameters no factory preset moves are now a recorded decision (levels/gains are never preset-authored; the structural LFO/routing slots stay at defaults), and Sgraffito gained five new presets.
+Factory presets are authored as JSON deltas in `tools/preset_data.py` (26 SD / 26 DS / 28 MTC / 20 Sgraffito / 15 MidiEffect / 15 StereoTool / 15 Cyclical = 145, plan 6.1) and generated into `modules/suite_presets/factory_bank/bank/` by `tools/build_bank.py`. `tools/audit_bank.py` enforces the rules: unique names per plugin, ≥3 categories, every value inside the parameter's `NormalisableRange`, no preset equal to the default state, SD `freeze` only in `Freeze`, DS `drive` 24+`fold` 50 only in `Extreme`, MTC host `sync` off and `bpm` 120 in every factory preset, the base pattern must fire at least one step, factory presets may carry a `samplePath` only as an `embedded:` URI, never a file path (plan 07 Q3, revised in phase 4; checked in the authoring data, the generated XML attributes and the JSON files), and — since plan 05.2 — the authoring schema must cover every parameter the plugins expose (live IDs parsed from the sources, the shared Router's parameters included). Plan 05.3 F1.3 resolved the coverage findings: parameters no factory preset moves are now a recorded decision (levels/gains are never preset-authored; the structural LFO/routing slots stay at defaults), and Sgraffito gained five new presets.
 
 `SUITE_PRESET_BANK_AS_PROGRAMS=OFF` (default build): plugins report `getNumPrograms() == 1`, `getProgramName() == ""`, exactly as before the preset system. With both flags on, the program virtuals map to `applyPresetState` / `getStateInformation`, and `currentProgramIndex` tracks the last applied program (-1 after any preset/state change that is not a factory program).
 
@@ -484,7 +513,7 @@ MTC's `lerpCurve` state property (not a parameter) round-trips through presets a
 
 ## 6. Test architecture
 
-Twenty-four CTest entries (bank build) run fifteen executables: `CoreDSPTests` (39 test functions), `SuiteUI_Tests` (`SuiteUITests`, 9), `SuiteModulation_Tests` (`SuiteModulationTests`, 10), `SuiteSettingsTests` (`SuiteSettingsTests`, 9), `SpectralDriftTests` (29), `DynamicSaturationTests` (24), `MicroTimingChaosTests` (45), `SgraffitoTests` (50), `StereoToolTests` (14), `MidiEffectTests` (17), `MultibandSaturationTests` (7), and `PluginHostTests`, which has one ctest entry per plugin (6). With the factory bank on, six preset-test executables join them (one per plugin that has bank entries: SpectralDrift, DynamicSaturation, MicroTimingChaos, Sgraffito, MidiEffect and StereoTool). The README has the full list.
+Twenty-seven CTest entries (bank build) run sixteen executables: `CoreDSPTests` (47 test functions), `SuiteUI_Tests` (`SuiteUITests`, 9), `SuiteModulation_Tests` (`SuiteModulationTests`, 10), `SuiteSettingsTests` (`SuiteSettingsTests`, 9), `SpectralDriftTests` (29), `DynamicSaturationTests` (24), `MicroTimingChaosTests` (45), `SgraffitoTests` (50), `StereoToolTests` (14), `MidiEffectTests` (17), `MultibandSaturationTests` (7), `CyclicalTests` (23), and `PluginHostTests`, which has one ctest entry per plugin (7). With the factory bank on, seven preset-test executables join them (one per plugin that has bank entries: SpectralDrift, DynamicSaturation, MicroTimingChaos, Sgraffito, MidiEffect, StereoTool and Cyclical). The README has the full list.
 
 **Module tests** (`modules/suite_modulation/tests/SuiteModulationTests.cpp`): the router, with a stub processor (no plugin). They cover the routed LFO, the zero case (bit for bit), bipolar amounts, whole-number targets, Host Sync ignoring Tempo, the one-bar period, sample and hold, out-of-range indices, and the control display (values set without notifying), plus the modulation panel's preferred height (every child stays inside it; plan 10 phase 9). Not covered: the control display skipping a slider the mouse holds, since the test cannot press a mouse button. The panel and scope are checked only by the MicroTimingChaos editor test.
 

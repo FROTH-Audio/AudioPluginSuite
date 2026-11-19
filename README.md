@@ -60,6 +60,11 @@ FROTH Audio makes plugins that work on sound at the level of its structure: the 
 <td><b>Multiband Saturation</b><br><sub>Saturation</sub></td>
 <td>Saturate the lows and the highs separately.<br>A two-band split, each band with its own drive, envelope and tone.</td>
 </tr>
+<tr>
+<td align="center"><img src="modules/suite_ui/brand/lockup_cyclical.png" width="200" alt="FROTH Audio Cyclical"></td>
+<td><b>Cyclical</b><br><sub>Loop instrument</sub></td>
+<td>Four loops, one instrument.<br>Regions, speed, reverse and ping-pong, granular playback, quantised to the host grid.</td>
+</tr>
 </table>
 
 ---
@@ -77,6 +82,7 @@ FROTH Audio makes plugins that work on sound at the level of its structure: the 
   - [Stereo Tool Effect](#stereo-tool-effect)
   - [MIDI Chord Arp Scale Tool](#midi-chord-arp-scale-tool)
   - [Multiband Saturation](#multiband-saturation)
+  - [Cyclical](#cyclical)
   - [Latency](#latency)
 - [For developers](#for-developers)
   - [Requirements](#requirements)
@@ -147,7 +153,7 @@ Spectral Drift, Dynamic Saturation and Micro-Timing Chaos share a preset system 
 
 **Preset files** use the `.ausp` extension: UTF-8 XML (`<AudioSuitePreset formatVersion="1" plugin="..." pluginVersion="...">`, `<Meta>`, `<PARAMETERS suiteStateVersion="N">`). User presets are stored under `Documents/AudioSuite/<plugin>/Presets` (Windows) or the platform equivalent, and the plugin id and state version are checked on read — a preset saved with a newer plugin version is refused rather than partially applied.
 
-**Factory bank.** With `SUITE_PRESET_BANK=ON`, 130 factory presets are embedded in the plugin binary (`bank/AudioSuitePresets.xml`): 26 for Spectral Drift, 26 for Dynamic Saturation, 28 for Micro-Timing Chaos, 20 for Sgraffito, and 15 each for MIDI Chord Arp Scale Tool and Stereo Tool (plan 6.1). Each preset is a delta from the default state, so absent parameters are set to their defaults at load time. The bank is checked by `tools/audit_bank.py` (unique names, in-range values, no preset equal to the default, category rules, Micro-Timing Chaos base patterns that fire at least one step, and a `samplePath` only as an `embedded:` URI — five Sgraffito presets ship the embedded cloud variant; file paths are rejected). Without the flag, the bank compiles as empty and the bar shows only user presets and INIT.
+**Factory bank.** With `SUITE_PRESET_BANK=ON`, 145 factory presets are embedded in the plugin binary (`bank/AudioSuitePresets.xml`): 26 for Spectral Drift, 26 for Dynamic Saturation, 28 for Micro-Timing Chaos, 20 for Sgraffito, 15 each for MIDI Chord Arp Scale Tool, Stereo Tool and Cyclical (plan 6.1). Each preset is a delta from the default state, so absent parameters are set to their defaults at load time. The bank is checked by `tools/audit_bank.py` (unique names, in-range values, no preset equal to the default, category rules, Micro-Timing Chaos base patterns that fire at least one step, and a `samplePath` only as an `embedded:` URI — five Sgraffito presets ship the embedded cloud variant; file paths are rejected). Without the flag, the bank compiles as empty and the bar shows only user presets and INIT.
 
 **Preset bar.** Each editor gains a header bar (right-aligned in the title area) that lists factory presets by category, INIT (reset-all-defaults) and SAVE. The bar is always visible (height 30); when the bank is empty it lists only user presets.
 
@@ -459,6 +465,32 @@ A two-band saturator. A Linkwitz-Riley crossover splits the signal; the low band
 
 The band sum is clamped to the rails, so the output cannot exceed full scale. The first pass runs at base rate, so no latency is added.
 
+### Cyclical
+
+<img src="docs/manuals/cyclical-slots.png" alt="Cyclical screenshot" width="653">
+
+The [user manual](plugins/Cyclical/MANUAL.md) walks through both pages.
+A four-slot loop instrument (plan 6.1). Four loaded audio loops play with a region, a speed, a direction (forward, reverse or ping-pong with randomised turn points), a granular mode and velocity scaling — quantised to the host grid with swing. No recording, no audio input: the four fixed keys C4–D#4 (MIDI 60–63) trigger slots 1–4.
+
+| Control | Range | Default | Description |
+|---|---|---|---|
+| **Master Volume** | −24 – +12 dB | 0 dB | Output level (smoothed 20 ms). |
+| **Pan** | −100 – +100 % | 0 % | Constant-power law. |
+| **Quantize** | Off / 1/16 / 1/8 / 1/4 / 1/2 / Bar | Off | Triggers start on the next grid point. |
+| **Swing** | −20 – +20 % | 0 % | Shifts odd grid points. |
+| **Trigger Mode** | Latch / Gate | Latch | Gate plays only while the key is held. |
+| **Start** | 0 – 100 % | 0 % | Where the slot's loop starts (capped at 95 %). |
+| **Length** | 5 – 100 % | 100 % | How much of the loop plays. |
+| **Speed** | 0.25 – 4.0 × | 1.0 | Tape varispeed; inert in granular mode. |
+| **Direction** | Forward / Reverse / Ping-Pong | Forward | Ping-pong turns at both bounds. |
+| **Ping Rand** | on / off | off | Randomises the ping-pong turn points per trigger; the rate is untouched. |
+| **Grain** | on / off | off | One 80 ms grain at a time, deterministic. |
+| **Velocity** | 30 – 150 % | 100 % | Scales the slot's key velocity. |
+| **Pitch** | −12 – +12 | 0 | Detunes all slots together (speed and pitch move). |
+| **Crossfade** | 0 – 500 ms | 5 ms | The loop-seam blend, shared by all slots. |
+
+Loops come from a 12-loop embedded library or the user's disk; the loaded loop travels with the session and with presets as a state property, and a path that cannot be found keeps the slot playing with a "Loop missing" overlay. A retrigger cuts the sounding loop into a 2 ms tail and starts fresh. No latency is added; the tail length is 2 s.
+
 ### Latency
 
 | Plugin | Reported latency | Why |
@@ -470,6 +502,7 @@ The band sum is clamped to the rails, so the output cannot exceed full scale. Th
 | Stereo Tool Effect | 0 samples | No latency: the mid/side maths and the shaper are memoryless, and the dry path is mixed in place. |
 | MIDI Chord Arp Scale Tool | 50 ms | Fixed, whatever the rate or gate (matching Micro-Timing Chaos), so host delay compensation stays stable. No event is scheduled before its grid time; the chord path emits at the note-on's position. |
 | Multiband Saturation | 0 samples | The Linkwitz-Riley split adds no latency (first pass runs at base rate). |
+| Cyclical | 0 samples | Playback reads the loaded loops directly; the 2 s tail is reported through `getTailLengthSeconds`, not latency. |
 
 ---
 
@@ -553,7 +586,8 @@ ctest --test-dir build -C Release --output-on-failure
 | `StereoToolTests` | Stereo Tool Effect processor and editor | 14 |
 | `MidiEffectTests` | MIDI Chord Arp Scale Tool processor and editor | 17 |
 | `MultibandSaturationTests` | Multiband Saturation processor and editor | 7 |
-| `PluginHostTests` (×6) | Each built VST3 bundle, loaded through JUCE's own plugin host | 1 per plugin |
+| `CyclicalTests` | Cyclical processor and editor | 23 |
+| `PluginHostTests` (×7) | Each built VST3 bundle, loaded through JUCE's own plugin host | 1 per plugin |
 
 **Bank build** (`SUITE_PRESET_BANK=ON`): twenty-two CTest entries — the eighteen public entries plus one `*_PresetTests` executable per plugin that has bank entries (bank ranges, apply/reset, editor, menu model, MIDI sanity). With `SUITE_PRESET_BANK_AS_PROGRAMS=ON`, the program-list virtuals are also exercised inside the plugin preset tests.
 

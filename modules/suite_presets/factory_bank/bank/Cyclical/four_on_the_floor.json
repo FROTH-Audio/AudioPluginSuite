@@ -1,0 +1,15 @@
+{
+  "_name": "Four on the Floor",
+  "_category": "Groove",
+  "_description": "Kick, hats, bass and chord locked to 16ths.",
+  "_plugin": "Cyclical",
+  "_pluginVersion": "1.0.0",
+  "_loopPaths": [
+    "embedded:kick_4k.wav",
+    "embedded:hats_4k.wav",
+    "embedded:bass_4k.wav",
+    "embedded:chord_4k.wav"
+  ],
+  "quantize": 1,
+  "slot3Speed": 2.0
+}

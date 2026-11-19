@@ -164,10 +164,31 @@ SCHEMA = {
         "sideFilter": {"min": 0, "max": 3, "default": 0, "type": "choice"},
         "sideCrossover": {"min": 20.0, "max": 8000.0, "default": 200.0, "type": "float"},
     },
+    # Plan 6.1: Cyclical, the four-slot loop instrument (35 parameters).
+    "Cyclical": {
+        "masterVolume": {"min": -24.0, "max": 12.0, "default": 0.0, "type": "float"},
+        "pan": {"min": -100.0, "max": 100.0, "default": 0.0, "type": "float"},
+        "quantize": {"min": 0, "max": 5, "default": 0, "type": "choice"},
+        "swing": {"min": -20.0, "max": 20.0, "default": 0.0, "type": "float"},
+        "triggerMode": {"min": 0, "max": 1, "default": 0, "type": "choice"},
+        **{f"slot{slot}{field}": spec
+           for slot in (1, 2, 3, 4)
+           for field, spec in {
+               "Start": {"min": 0.0, "max": 100.0, "default": 0.0, "type": "float"},
+               "Length": {"min": 5.0, "max": 100.0, "default": 100.0, "type": "float"},
+               "Speed": {"min": 0.25, "max": 4.0, "default": 1.0, "type": "float"},
+               "Direction": {"min": 0, "max": 2, "default": 0, "type": "choice"},
+               "PingRandom": {"min": 0, "max": 1, "default": 0, "type": "bool"},
+               "Granular": {"min": 0, "max": 1, "default": 0, "type": "bool"},
+               "Velocity": {"min": 30.0, "max": 150.0, "default": 100.0, "type": "float"},
+           }.items()},
+        "pitchShift": {"min": -12, "max": 12, "default": 0, "type": "int"},
+        "crossfadeLength": {"min": 0.0, "max": 500.0, "default": 5.0, "type": "float"},
+    },
 }
 
 
-def _preset(name, category, description, lerp_curve=None, sample_path=None, **params):
+def _preset(name, category, description, lerp_curve=None, sample_path=None, loop_paths=None, **params):
     preset = {"name": name, "category": category, "description": description, "params": params}
 
     # Micro-Timing Chaos only: the Lerp curve is a state property, not a parameter.
@@ -178,6 +199,11 @@ def _preset(name, category, description, lerp_curve=None, sample_path=None, **pa
     # allowed in the bank (revised Q3); the audit rejects anything else.
     if sample_path is not None:
         preset["samplePath"] = sample_path
+
+    # Cyclical only (plan 6.1): the four slot loops. Only `embedded:` URIs are allowed;
+    # the audit rejects anything else.
+    if loop_paths is not None:
+        preset["loopPaths"] = loop_paths
 
     return preset
 
@@ -330,5 +356,57 @@ PRESETS = {
         _preset("Bright Air", "Electronic", "Airy top, mono bottom.", character=2, drive=10.0, sideFilter=1, sideCrossover=6000.0),
         _preset("Narrow Focus", "Vocals", "Tight vocal centre.", character=3, drive=5.0, midFocus=80.0),
         _preset("Full Spectrum", "All-genre", "Wide but controlled over tape drive.", character=1, drive=7.0, transientAmount=30.0, transientAttack=30.0, transientRelease=250.0, sideFilter=1, sideCrossover=200.0),
+    ],
+    # Plan 6.1: the four-slot loop instrument. Every preset carries four embedded: loop
+    # paths (the slot loading rides as state properties) and changes at least one
+    # parameter. Bank order is append-only.
+    "Cyclical": [
+        _preset("Four on the Floor", "Groove", "Kick, hats, bass and chord locked to 16ths.",
+                loop_paths=["embedded:kick_4k.wav", "embedded:hats_4k.wav", "embedded:bass_4k.wav", "embedded:chord_4k.wav"],
+                quantize=1, slot3Speed=2.0),
+        _preset("Backbeat Stack", "Groove", "Snare, hats and bass interlock with swing.",
+                loop_paths=["embedded:snare_4k.wav", "embedded:hats_4k.wav", "embedded:bass_4k.wav", "embedded:perc_4k.wav"],
+                quantize=1, swing=12.0),
+        _preset("Half-Time Drift", "Groove", "Halved speeds and a reversed chord swell.",
+                loop_paths=["embedded:kick_4k.wav", "embedded:snare_4k.wav", "embedded:chord_4k.wav", "embedded:texture_4k.wav"],
+                slot3Direction=1, slot3Speed=0.5, slot4Speed=0.5),
+        _preset("Sub Anchor", "Bass", "A forward bass riff over a reversed kick.",
+                loop_paths=["embedded:bass_4k.wav", "embedded:kick_4k.wav", "embedded:perc_4k.wav", "embedded:noise_4k.wav"],
+                slot2Direction=1, slot2Speed=0.5, pitchShift=-12),
+        _preset("Rubber Bassline", "Bass", "Double-speed bass with granular sparkle.",
+                loop_paths=["embedded:bass_4k.wav", "embedded:hats_4k.wav", "embedded:arp_4k.wav", "embedded:noise_4k.wav"],
+                slot1Speed=2.0, slot3Speed=0.5, slot4Granular=1),
+        _preset("Glass Loop", "Texture", "Bells and pads drifting at uneven speeds.",
+                loop_paths=["embedded:bells_4k.wav", "embedded:texture_4k.wav", "embedded:drone_4k.wav", "embedded:noise_4k.wav"],
+                slot2Speed=0.75, slot3Speed=0.5, crossfadeLength=50.0),
+        _preset("Tape Halo", "Texture", "A reversed pad over a slow forward texture.",
+                loop_paths=["embedded:texture_4k.wav", "embedded:drone_4k.wav", "embedded:bells_4k.wav", "embedded:noise_4k.wav"],
+                slot2Direction=1, slot1Speed=0.5, crossfadeLength=200.0),
+        _preset("Grain Field", "Experimental", "All four slots granular, two random ping-pong.",
+                loop_paths=["embedded:chord_4k.wav", "embedded:vox_4k.wav", "embedded:perc_4k.wav", "embedded:noise_4k.wav"],
+                slot1Granular=1, slot2Granular=1, slot3Granular=1, slot4Granular=1,
+                slot2Direction=2, slot2PingRandom=1, slot4Direction=2, slot4PingRandom=1),
+        _preset("Broken Clock", "Experimental", "Ping-pong slots with randomised turn points.",
+                loop_paths=["embedded:kick_4k.wav", "embedded:snare_4k.wav", "embedded:arp_4k.wav", "embedded:vox_4k.wav"],
+                slot1Direction=2, slot2Direction=2, slot3Direction=2, slot4Direction=2,
+                slot1PingRandom=1, slot3PingRandom=1, quantize=2, swing=-10.0),
+        _preset("Reverse Universe", "Experimental", "Three reversed loops behind a forward kick.",
+                loop_paths=["embedded:kick_4k.wav", "embedded:chord_4k.wav", "embedded:vox_4k.wav", "embedded:texture_4k.wav"],
+                slot2Direction=1, slot3Direction=1, slot4Direction=1, crossfadeLength=120.0, slot4Speed=0.5),
+        _preset("Stutter Grid", "Electronic", "Sprinting hats over a 16th grid.",
+                loop_paths=["embedded:kick_4k.wav", "embedded:hats_4k.wav", "embedded:snare_4k.wav", "embedded:perc_4k.wav"],
+                quantize=1, slot1Speed=2.0, slot2Speed=4.0),
+        _preset("Warehouse", "Electronic", "Wide pan, long crossfade, driving kick.",
+                loop_paths=["embedded:kick_4k.wav", "embedded:bass_4k.wav", "embedded:chord_4k.wav", "embedded:drone_4k.wav"],
+                pan=30.0, slot1Speed=2.0, slot3Speed=0.5, crossfadeLength=30.0),
+        _preset("Slow Motion", "Ambient", "Quarter-speed pads and bells.",
+                loop_paths=["embedded:texture_4k.wav", "embedded:bells_4k.wav", "embedded:drone_4k.wav", "embedded:noise_4k.wav"],
+                slot1Speed=0.5, slot2Speed=0.5, slot3Speed=0.25, crossfadeLength=300.0, masterVolume=-6.0),
+        _preset("Night Drive", "Ambient", "A granular texture under a straight pulse.",
+                loop_paths=["embedded:kick_4k.wav", "embedded:texture_4k.wav", "embedded:drone_4k.wav", "embedded:vox_4k.wav"],
+                slot2Granular=1, slot4Direction=1, slot4Speed=0.5, crossfadeLength=200.0),
+        _preset("Gate Cutter", "Groove", "Gate mode chops the held notes.",
+                loop_paths=["embedded:kick_4k.wav", "embedded:hats_4k.wav", "embedded:chord_4k.wav", "embedded:vox_4k.wav"],
+                triggerMode=1, quantize=2, swing=18.0, slot4Granular=1),
     ],
 }

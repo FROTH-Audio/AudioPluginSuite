@@ -1,0 +1,21 @@
+{
+  "_name": "Broken Clock",
+  "_category": "Experimental",
+  "_description": "Ping-pong slots with randomised turn points.",
+  "_plugin": "Cyclical",
+  "_pluginVersion": "1.0.0",
+  "_loopPaths": [
+    "embedded:kick_4k.wav",
+    "embedded:snare_4k.wav",
+    "embedded:arp_4k.wav",
+    "embedded:vox_4k.wav"
+  ],
+  "quantize": 2,
+  "swing": -10.0,
+  "slot1Direction": 2,
+  "slot1PingRandom": 1,
+  "slot2Direction": 2,
+  "slot3Direction": 2,
+  "slot3PingRandom": 1,
+  "slot4Direction": 2
+}

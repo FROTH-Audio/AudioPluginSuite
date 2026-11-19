@@ -1,0 +1,16 @@
+{
+  "_name": "Rubber Bassline",
+  "_category": "Bass",
+  "_description": "Double-speed bass with granular sparkle.",
+  "_plugin": "Cyclical",
+  "_pluginVersion": "1.0.0",
+  "_loopPaths": [
+    "embedded:bass_4k.wav",
+    "embedded:hats_4k.wav",
+    "embedded:arp_4k.wav",
+    "embedded:noise_4k.wav"
+  ],
+  "slot1Speed": 2.0,
+  "slot3Speed": 0.5,
+  "slot4Granular": 1
+}

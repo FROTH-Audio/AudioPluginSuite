@@ -1,0 +1,15 @@
+{
+  "_name": "Backbeat Stack",
+  "_category": "Groove",
+  "_description": "Snare, hats and bass interlock with swing.",
+  "_plugin": "Cyclical",
+  "_pluginVersion": "1.0.0",
+  "_loopPaths": [
+    "embedded:snare_4k.wav",
+    "embedded:hats_4k.wav",
+    "embedded:bass_4k.wav",
+    "embedded:perc_4k.wav"
+  ],
+  "quantize": 1,
+  "swing": 12.0
+}
