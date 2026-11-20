@@ -4,8 +4,10 @@
 
 MIDI Chord Arp Scale Tool takes incoming notes and re-harmonises them: each note is
 quantised to a scale, chorded, and sent on — either all at once (Chord mode) or spread
-over an 8-step clock (Arp mode). Audio passes through untouched, so the plugin can sit
-anywhere in the chain.
+over an 8-step clock (Arp mode). The plugin is a VST Instrument (the owner switched it
+back from the MIDI-effect build): it produces notes, not audio, so nothing passes
+through its output — put an instrument on the track that receives its MIDI, or route the
+MIDI onward to another track.
 
 ## The two modes
 
@@ -45,7 +47,7 @@ appear as a small "+n more" marker. It updates while you play.
 | Control | What it does |
 |---|---|
 | **Mode** | Chord or Arp, as above. |
-| **Step Rate** | The step length in Arp mode: 1/8, 1/8T, 1/16, 1/16T or 1/32 (T is a triplet). |
+| **Step Rate** | The step length in Arp mode, plain, triplet (T) or dotted (D): 1/4, 1/4T, 1/4D, 1/8, 1/8T, 1/8D, 1/16, 1/16T, 1/16D, 1/32, 1/32T or 1/32D. |
 | **Sync** | Host Sync. On: the clock follows the host's position and tempo. Off: it runs on Tempo. |
 | **Tempo** | The clock's tempo while Host Sync is off, 40–240 BPM. |
 | **Gate** | Note length as a share of one step, 10–100 %. |
@@ -66,30 +68,35 @@ hold a key and re-strike it freely.
 
 ## Practical notes
 
-- Audio passes through unchanged, so the plugin can sit on any track.
+- The plugin produces no audio: its output stays silent and it exists for its MIDI output.
 - The reported latency is a fixed 50 ms, whatever the rate or gate.
 - 15 factory presets ship with the plugin in bank builds; use the preset bar in the header
   to browse, save and load.
 - The hamburger menu in the header (right of the preset bar) opens Settings… (tooltips toggle,
   fallback tempo, preset folder) and About….
-- Scale, Pattern, Mode, Step Rate, Sync, Vel Curve and Vel Dir are pill switches (plan 11
-  rule: a dropdown only for longer lists — Chord Quality keeps one, with eight options).
+- Hovering any control shows what it does in the help line at the bottom of the window; the
+  Settings dialog's tooltips toggle turns the line off.
+- Scale, Pattern, Vel Curve, Step Rate and Chord Quality are dropdowns (plan 12: the owner
+  named them); Mode, Sync and Vel Dir are pill switches.
 
-## Using it in Ableton Live
+## Using it in a host
 
-Live lists the plugin under **Plug-Ins**, not under **MIDI Effects**: Live's MIDI Effects
-browser holds native devices and Max for Live devices only, and no third-party VST3
-appears there. This is a Live limitation, not a plugin setting — the plugin is built and
-flagged as a MIDI effect (it also passes audio through, which is what keeps it loadable in
-Live's scanner; a MIDI-only VST3 without audio risks being dropped by some hosts).
+The plugin is a VST Instrument (its VST3 category is Instrument | Synth). Hosts list it
+with the instruments, not with MIDI effects.
 
-The Live workflow is the standard two-track routing Ableton documents for plugins that
-send MIDI:
-
-1. Put MIDI Chord Arp Scale Tool on a MIDI track, from the Plug-Ins browser.
+1. Put MIDI Chord Arp Scale Tool on an instrument track, or on any track that can host an
+   instrument.
 2. Feed it MIDI: a clip on that track, a keyboard, or another track routed in.
-3. Create a second MIDI track and set its **MIDI From** to the track holding the plugin.
-   Arm that track. An instrument on it now plays the chorded or arp'd notes.
+3. Send its MIDI output where it is needed. Some hosts process the MIDI output inline on
+   the same track (another instrument after it); others route it to a second track with
+   **MIDI From** set to the track holding the plugin.
 
-The plugin's audio pass-through is not part of this workflow — the notes you want come
-out of the plugin's MIDI output, into the second track's instrument.
+In Ableton Live the plugin appears under **Plug-Ins** (Live's MIDI Effects browser holds
+native devices and Max for Live devices only). The standard two-track workflow applies:
+
+1. Put the plugin on a MIDI track, from the Plug-Ins browser.
+2. Feed it MIDI from a clip, a keyboard, or another track routed in.
+3. Create a second MIDI track, set its **MIDI From** to the track holding the plugin, arm
+   it, and put an instrument on it. The instrument plays the chorded or arp'd notes.
+
+The notes come out of the plugin's MIDI output, not its (silent) audio output.

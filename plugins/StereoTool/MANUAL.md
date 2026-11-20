@@ -9,11 +9,21 @@ transients.
 
 ## The controls
 
-The editor has two groups. **CHARACTER** is the shaper and the transient follower;
-**IMAGE** is the stereo image. The panel above the groups is the stereo visual: mid and
+The editor has three groups. **CHARACTER** is the shaper and the transient follower;
+**IMAGE** is the stereo image; **LEVEL**, at the right end of the visualiser's row, is
+the input and output gain stage. The visualiser itself is the stereo visual: mid and
 side level bars on the left, and the transient follower's envelope scrolling across the
 right — the "FOLLOWER" trace moves up with each transient and decays over the Release time,
 so you can watch the shape the follower applies.
+
+### LEVEL
+
+| Control | What it does |
+|---|---|
+| **Input** | Gain into the chain, −24 to +24 dB. 0 dB leaves the level unchanged. |
+| **Output** | The final gain stage, −24 to +24 dB. 0 dB leaves the level unchanged. |
+
+Both are smoothed over 20 ms, so automation moves without zips.
 
 ### CHARACTER
 
@@ -36,6 +46,11 @@ so you can watch the shape the follower applies.
 | **Side Filter** | A filter on the side component only: High Pass, Low Pass or Band Pass. Off is a true bypass. |
 | **Crossover** | The side filter's corner frequency, 20 Hz – 8 kHz (log). |
 
+<img src="../../docs/manuals/stereotool-detail-level.png" alt="LEVEL group" width="173">
+
+The **LEVEL** group sits beside the visualiser: Input gain into the chain, Output as the
+final stage.
+
 ## Tips
 
 - **Transparent by default.** At the defaults (Width 0, Drive 0, Tube, follower bypassed,
@@ -52,6 +67,13 @@ so you can watch the shape the follower applies.
 - **The mid/side split is exactly lossless**, so the bands recombine without a level dip;
   the width range is guarded, so the decode never folds.
 
+## Tips for the level stage
+
+- **Feed the shaper harder.** Raise Input before Drive when the material is quiet: the
+  character stage sees a hotter signal without changing the mix balance.
+- **Trim after widening.** Width and Mid Focus change the perceived level; Output brings
+  the result back in line without touching the image.
+
 ## Practical notes
 
 - No latency is added.
@@ -61,5 +83,7 @@ so you can watch the shape the follower applies.
   plugin already links the shared module.
 - The hamburger menu in the header (right of the preset bar) opens Settings… (tooltips toggle,
   fallback tempo, preset folder) and About….
+- Hovering any control shows what it does in the help line at the bottom of the window; the
+  Settings dialog's tooltips toggle turns the line off.
 - Character, Target and Side Filter are pill switches (plan 11 rule: a dropdown only for
   longer lists).

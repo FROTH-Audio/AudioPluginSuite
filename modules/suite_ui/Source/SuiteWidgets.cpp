@@ -410,6 +410,119 @@ namespace SuiteUI
     }
 
     //==============================================================================
+    LabelledDropdown::LabelledDropdown (const juce::String& caption)
+    {
+        label.setText (caption, juce::dontSendNotification);
+        label.setJustificationType (juce::Justification::centred);
+        label.setFont (SuiteUI::uiFont (13.0f, true));
+        label.setColour (juce::Label::textColourId, SuiteUI::Colours::textDim);
+
+        box.setJustificationType (juce::Justification::centred);
+        box.setColour (juce::ComboBox::textColourId, SuiteUI::Colours::text);
+        box.setColour (juce::ComboBox::backgroundColourId, SuiteUI::Colours::panel);
+        box.setColour (juce::ComboBox::outlineColourId, SuiteUI::Colours::panelEdge);
+        box.setColour (juce::ComboBox::arrowColourId, SuiteUI::Colours::textDim);
+
+        addAndMakeVisible (label);
+        addAndMakeVisible (box);
+    }
+
+    void LabelledDropdown::setOptions (const juce::StringArray& items)
+    {
+        box.clear (juce::dontSendNotification);
+        box.addItemList (items, 1);
+        repaint();
+    }
+
+    void LabelledDropdown::setSelectedIndex (int index)
+    {
+        box.setSelectedId (index + 1, juce::dontSendNotification);
+    }
+
+    int LabelledDropdown::getSelectedIndex() const noexcept
+    {
+        return box.getSelectedId() - 1;
+    }
+
+    void LabelledDropdown::resized()
+    {
+        auto area = getLocalBounds();
+        label.setBounds (area.removeFromTop (SuiteUI::captionHeight));
+
+        // Same footprint as the selector pill (plan 11 D1): 36 px tall, centred.
+        box.setBounds (area.withSizeKeepingCentre (area.getWidth(), SuiteUI::pillHeight)
+                           .reduced (2, 0));
+    }
+
+    //==============================================================================
+    HelpLine::HelpLine()
+    {
+        setInterceptsMouseClicks (false, false);
+    }
+
+    void HelpLine::setIdleText (const juce::String& newText)
+    {
+        idleText = newText;
+
+        if (showingIdle && text != idleText)
+        {
+            text = idleText;
+            repaint();
+        }
+    }
+
+    void HelpLine::setEnablePredicate (std::function<bool()> predicate)
+    {
+        enablePredicate = std::move (predicate);
+    }
+
+    void HelpLine::showFor (const juce::Component* component)
+    {
+        if (enablePredicate && ! enablePredicate())
+        {
+            setText (idleText);
+            return;
+        }
+
+        const auto help = component != nullptr ? component->getHelpText() : juce::String();
+        setText (help.isNotEmpty() ? help : idleText);
+    }
+
+    void HelpLine::setText (const juce::String& newText)
+    {
+        if (text == newText)
+            return;
+
+        text = newText;
+        showingIdle = (text == idleText);
+        repaint();
+    }
+
+    void HelpLine::paint (juce::Graphics& g)
+    {
+        g.setColour (SuiteUI::Colours::textDim);
+        g.setFont (SuiteUI::uiFont (11.0f));
+        g.drawText (text, getLocalBounds().reduced (16, 0), juce::Justification::centredLeft, true);
+    }
+
+    //==============================================================================
+    void drawGroupFrame (juce::Graphics& g, juce::Rectangle<int> bounds, const juce::String& title,
+                         juce::Colour accent)
+    {
+        const auto frame = bounds.toFloat();
+
+        g.setColour (SuiteUI::Colours::panel.withAlpha (0.55f));
+        g.fillRoundedRectangle (frame, 8.0f);
+        g.setColour (SuiteUI::Colours::track);
+        g.drawRoundedRectangle (frame, 8.0f, 1.0f);
+
+        g.setColour (accent);
+        g.setFont (SuiteUI::uiFont (15.0f, true));
+        g.drawText (title, bounds.withHeight (SuiteUI::groupTitleHeight).translated (0, 4).reduced (12, 0),
+                    juce::Justification::centredLeft);
+    }
+
+    //==============================================================================
     namespace
     {
         constexpr int keyboardFirstKey = 24;

@@ -12,9 +12,11 @@
 #include "LerpPreview.h"
 #include "MicroTimingChaosLookAndFeel.h"
 #include "SuiteHeaderMenu.h"
+#include "SuiteHelp.h"
 #include "SuiteLookAndFeel.h"
 #include "SuiteModulationControls.h"
 #include "SuiteModulationPanel.h"
+#include "SuiteSelectorAttachment.h"
 #include "SuiteWidgets.h"
 
 /** The sequencer's step grid, showing the pattern, playhead, and recent notes. */
@@ -50,24 +52,7 @@ public:
     void paint (juce::Graphics&) override;
     void resized() override;
 
-    /** Switches between the three pages: 0 sequence, 1 drift, 2 mod. The tests use setPage too. */
-    void setPage (int newPage);
-    int getPage() const noexcept { return page; }
-
-private:
-    void timerCallback() override;
-    void showHelp (const juce::MouseEvent&);
-
-    /** The colours of the LFO panel, taken from the Micro-Timing Chaos palette. */
-    static SuiteModulation::ModulationPanel::Style modulationStyle();
-
-    /** Forwards mouse moves from every child to the editor, so the help line follows the pointer. */
-    struct HelpTracker : public juce::MouseListener
-    {
-        std::function<void (const juce::MouseEvent&)> onMove;
-        void mouseMove (const juce::MouseEvent& e) override { if (onMove) onMove (e); }
-    };
-
+    /** A group frame: title, bounds and the page it belongs to. */
     struct Group
     {
         juce::String title;
@@ -75,16 +60,28 @@ private:
         int page = 0;   // the page the group belongs to; paint skips groups on other pages
     };
 
+    /** Switches between the three pages: 0 sequence, 1 drift, 2 mod. The tests use setPage too. */
+    void setPage (int newPage);
+    int getPage() const noexcept { return page; }
+
+    /** The current page's group bounds, for the tests (plan 12). Valid after resized(). */
+    const std::vector<Group>& pageGroups() const noexcept { return groups; }
+
+private:
+    void timerCallback() override;
+
+    /** The colours of the LFO panel, taken from the Micro-Timing Chaos palette. */
+    static SuiteModulation::ModulationPanel::Style modulationStyle();
+
     MicroTimingChaosProcessor& processor;
 
     // Declared before the components that use it, so it outlives them.
     MicroTimingChaos::LookAndFeel lookAndFeel { MicroTimingChaos::Palette::velocity };
-    HelpTracker helpTracker;
+    SuiteUI::HelpTracker helpTracker;
+    SuiteUI::HelpLine helpLine;
     std::vector<Group> groups;
     SuiteUI::SegmentedSelector pageSelector { MicroTimingChaos::Palette::velocity };
     int page = 0;
-
-    juce::Label helpLabel;
 
     // Visualisers
     SuiteUI::TrailPlot attractor { MicroTimingChaos::Palette::velocity };
@@ -102,8 +99,7 @@ private:
     // Melody
     SuiteUI::LabelledSlider rootSlider { "ROOT", juce::Slider::RotaryVerticalDrag };
     SuiteUI::LabelledSlider octavesSlider { "OCTAVES", juce::Slider::RotaryVerticalDrag };
-    juce::Label scaleCaption;
-    juce::ComboBox scaleBox;
+    SuiteUI::LabelledDropdown scaleDropdown { "SCALE" };
 
     // Chaos
     SuiteUI::LabelledSlider chaosSlider { "CHAOS", juce::Slider::RotaryVerticalDrag };
@@ -134,7 +130,7 @@ private:
 
     std::vector<std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>> sliderAttachments;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> syncAttachment;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> scaleAttachment;
+    std::unique_ptr<juce::ParameterAttachment> scaleAttachment;   // wired through SuiteUI::attachDropdown
     std::unique_ptr<juce::ParameterAttachment> rateAttachment;
 
     // Preset bar (Pro builds: visible, public build: height 0 so layout unchanged)

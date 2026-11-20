@@ -52,6 +52,11 @@ public:
     static constexpr const char* sideFilterId       = "sideFilter";
     static constexpr const char* sideCrossoverId    = "sideCrossover";
 
+    // Plan 12: the level stage, appended after the plan-6.1 controls so no saved
+    // parameter index moves. Both default to 0 dB, so the defaults stay bit-exact.
+    static constexpr const char* inputLevelId  = "inputLevel";
+    static constexpr const char* outputLevelId = "outputLevel";
+
     /** How hard a transient can push the drive, in dB, at amount 1 and a full envelope. */
     static constexpr float maxTransientDriveBoostDb = 12.0f;
 
@@ -143,6 +148,13 @@ private:
     std::atomic<float>* midFocusParam         = nullptr;
     std::atomic<float>* sideFilterParam       = nullptr;
     std::atomic<float>* sideCrossoverParam    = nullptr;
+    std::atomic<float>* inputLevelParam       = nullptr;
+    std::atomic<float>* outputLevelParam      = nullptr;
+
+    // The level stage (plan 12), smoothed per sample so automation does not zip. Both
+    // start at their target, so the first block is bit-exact at the 0 dB defaults.
+    juce::SmoothedValue<float> inputGainSmoothed;
+    juce::SmoothedValue<float> outputGainSmoothed;
 
     // The visual snapshot (plan 11 D7). Audio thread, once per block, no locks.
     MeterSnapshot meterSnapshot;

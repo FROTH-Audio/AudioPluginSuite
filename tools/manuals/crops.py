@@ -25,15 +25,20 @@ CROPS = [
     ("sgraffito-texture.png", (14, 328, 866, 462), "sgraffito-detail-ghost-cloud.png"),
     ("sgraffito-texture.png", (14, 468, 866, 596), "sgraffito-detail-swell-surface.png"),
     ("sgraffito-mod.png", (14, 60, 866, 415), "sgraffito-detail-modulation-panel.png"),
-    ("microtimingchaos-sequence.png", (10, 428, 970, 672), "microtimingchaos-detail-step-grid.png"),
-    ("microtimingchaos-sequence.png", (495, 288, 970, 428), "microtimingchaos-detail-transport.png"),
-    ("microtimingchaos-sequence.png", (10, 62, 970, 285), "microtimingchaos-detail-pattern.png"),
+    # Plan 12: the SEQUENCE page is two columns now — PATTERN left, TRANSPORT top right,
+    # MELODY right mid — and the step grid spans the full width below the block.
+    ("microtimingchaos-sequence.png", (10, 436, 970, 672), "microtimingchaos-detail-step-grid.png"),
+    ("microtimingchaos-sequence.png", (536, 62, 972, 302), "microtimingchaos-detail-transport.png"),
+    ("microtimingchaos-sequence.png", (10, 62, 534, 434), "microtimingchaos-detail-pattern.png"),
+    ("microtimingchaos-sequence.png", (536, 304, 972, 434), "microtimingchaos-detail-melody.png"),
     ("microtimingchaos-drift-curve.png", (14, 62, 575, 660), "microtimingchaos-detail-lerp-curve.png"),
     ("microtimingchaos-drift-curve.png", (585, 560, 970, 660), "microtimingchaos-detail-chaos.png"),
     ("spectraldrift-sound.png", (16, 95, 704, 345), "spectraldrift-detail-spectrum.png"),
     ("dynamicsaturation-sound.png", (20, 92, 700, 332), "dynamicsaturation-detail-transfer-curve.png"),
     ("dynamicsaturation-sound.png", (135, 326, 645, 364), "dynamicsaturation-detail-mode-pills.png"),
-    ("midieffect-default.png", (16, 148, 704, 220), "midieffect-detail-choices.png"),
+    # Plan 12: the new LEVEL group beside the visualiser, and MultiSat's framed groups.
+    ("stereotool-default.png", (640, 62, 870, 200), "stereotool-detail-level.png"),
+    ("multibandsaturation-default.png", (10, 314, 750, 672), "multibandsaturation-detail-groups.png"),
 ]
 
 

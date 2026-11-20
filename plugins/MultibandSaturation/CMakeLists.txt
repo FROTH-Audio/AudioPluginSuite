@@ -2,7 +2,7 @@
 
 suite_add_plugin(
     NAME            MultibandSaturation
-    PRODUCT_NAME    "Multiband Saturation"
+    PRODUCT_NAME    "MultiSat"
     DESCRIPTION     "Two-band Linkwitz-Riley split, each band with its own drive and tone."
     MANUFACTURER    Asui
     PLUGIN_CODE     Msat

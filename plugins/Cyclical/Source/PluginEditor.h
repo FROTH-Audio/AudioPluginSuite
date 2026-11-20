@@ -67,7 +67,7 @@ private:
     SuiteUI::SuiteLookAndFeel lookAndFeel { juce::Colour (0xff8fa3b8) };
 
     SuiteUI::HelpTracker helpTracker;
-    juce::Label helpLabel;
+    SuiteUI::HelpLine helpLine;
 
     // R12: the factory preset bar, flat in the header.
     std::unique_ptr<SuitePresets::PresetBar> presetBar;
@@ -82,7 +82,7 @@ private:
     std::array<std::unique_ptr<SlotCard>, CyclicalProcessor::numSlots> cards;
 
     // GLOBAL page: the shared knobs and the transport selectors.
-    SuiteUI::LabelledSlider masterCtrl { "MASTER", juce::Slider::RotaryVerticalDrag };
+    SuiteUI::LabelledSlider masterCtrl { "OUTPUT", juce::Slider::RotaryVerticalDrag };
     SuiteUI::LabelledSlider panCtrl { "PAN", juce::Slider::RotaryVerticalDrag };
     SuiteUI::LabelledSlider pitchCtrl { "PITCH", juce::Slider::RotaryVerticalDrag };
     SuiteUI::LabelledSlider crossfadeCtrl { "CROSSFADE", juce::Slider::RotaryVerticalDrag };

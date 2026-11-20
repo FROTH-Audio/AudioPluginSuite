@@ -87,6 +87,9 @@ namespace
         checkRange (processor.apvts, Processor::toneId, -1.0f, 1.0f, 0.0f);
         checkRange (processor.apvts, Processor::curveId, 0.5f, 3.0f, 1.0f);
 
+        // The final gain stage is named "Output" everywhere in the suite (plan 12).
+        assert (processor.apvts.getParameter (Processor::outputLevelId)->getName (100) == "Output");
+
         pass ("testParameters");
     }
 
@@ -678,6 +681,43 @@ namespace
         pass ("testEditorPages");
     }
 
+    /** Plan 12: the shared help line on both pages, with the stale-hover regression. */
+    void testHelpLine()
+    {
+        Processor processor;
+        std::unique_ptr<juce::AudioProcessorEditor> editor (processor.createEditorAndMakeActive());
+        assert (editor != nullptr);
+
+        auto* saturationEditor = dynamic_cast<DynamicSaturationEditor*> (editor.get());
+        assert (saturationEditor != nullptr);
+
+        // Find the drive knob by its caption.
+        std::function<juce::Component* (juce::Component&)> findSlider = [&] (juce::Component& root)
+            -> juce::Component*
+        {
+            if (auto* cell = dynamic_cast<SuiteUI::LabelledSlider*> (&root))
+                if (cell->label.getText() == "DRIVE")
+                    return cell;
+            for (auto* child : root.getChildren())
+                if (auto* found = findSlider (*child))
+                    return found;
+            return nullptr;
+        };
+
+        auto* slider = findSlider (*editor);
+        assert (slider != nullptr && slider->getHelpText().isNotEmpty());
+
+        PluginTest::checkHelpLine (*editor, "dynamicsaturation-help", *slider);
+
+        // The line exists on both pages (plan 12): the MOD page shows it too.
+        saturationEditor->setPage (1);
+        auto* lineAgain = PluginTest::findComponentById (*editor, "dynamicsaturation-help");
+        assert (lineAgain != nullptr && lineAgain->isVisible());
+
+        processor.editorBeingDeleted (editor.get());
+        pass ("testHelpLine");
+    }
+
     // The output meters read the real per-channel output: a block with signal only on the
     // left must light the left bar, not the right (plan 05.1 pass 2).
     void testStereoOutputMeter()
@@ -729,6 +769,7 @@ int main()
     testSyncedLfoFollowsTempo();
     testModulationStaysInRange();
     testEditorPages();
+    testHelpLine();
     testStereoOutputMeter();
 
     testRenderBaseline ();

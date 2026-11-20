@@ -925,6 +925,39 @@ namespace
     }
 
     // Both editor pages paint, and switching pages does not change a parameter.
+    /** Plan 12: the shared help line on both pages, with the stale-hover regression, and
+        the "Output" name from the suite-wide naming pass. */
+    void testHelpLine()
+    {
+        SpectralDriftProcessor processor;
+        std::unique_ptr<juce::AudioProcessorEditor> editor (processor.createEditorAndMakeActive());
+        assert (editor != nullptr);
+
+        // The final gain stage is named "Output" everywhere in the suite (plan 12).
+        assert (processor.apvts.getParameter (SpectralDriftProcessor::outputGainId)
+                    ->getName (100) == "Output");
+
+        std::function<juce::Component* (juce::Component&)> findSlider = [&] (juce::Component& root)
+            -> juce::Component*
+        {
+            if (auto* cell = dynamic_cast<SuiteUI::LabelledSlider*> (&root))
+                if (cell->label.getText() == "DRIFT DEPTH")
+                    return cell;
+            for (auto* child : root.getChildren())
+                if (auto* found = findSlider (*child))
+                    return found;
+            return nullptr;
+        };
+
+        auto* slider = findSlider (*editor);
+        assert (slider != nullptr && slider->getHelpText().isNotEmpty());
+
+        PluginTest::checkHelpLine (*editor, "spectraldrift-help", *slider);
+
+        processor.editorBeingDeleted (editor.get());
+        pass ("testHelpLine");
+    }
+
     void testEditorPages()
     {
         SpectralDriftProcessor processor;
@@ -1013,6 +1046,7 @@ int main()
     testSidechainAmountZeroIsTransparent();
     testSidechainDucksDrift();
     testSidechainDucksGate();
+    testHelpLine();
     testEditorPages();
 
     testRenderBaseline ();

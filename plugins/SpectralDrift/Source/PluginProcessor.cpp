@@ -25,7 +25,7 @@ namespace
         { SpectralDriftProcessor::feedbackId,        "Feedback" },
         { SpectralDriftProcessor::feedbackDampingId, "FB Damping" },
         { SpectralDriftProcessor::driftStartId,      "Drift Start" },
-        { SpectralDriftProcessor::outputGainId,      "Output Gain" },
+        { SpectralDriftProcessor::outputGainId,      "Output" },
         { SpectralDriftProcessor::mixId,             "Mix" },
         { nullptr,                                   "Drift" },   // no parameter: the routed LFO drives the drift directly
     };
@@ -117,7 +117,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout SpectralDriftProcessor::crea
         juce::ParameterID { driftStartId, 1 }, "Drift Start", juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 0.0f, "%"));
 
     params.push_back (std::make_unique<juce::AudioParameterFloat> (
-        juce::ParameterID { outputGainId, 1 }, "Output Gain", juce::NormalisableRange<float> (-12.0f, 12.0f, 0.01f), 0.0f, "dB"));
+        juce::ParameterID { outputGainId, 1 }, "Output", juce::NormalisableRange<float> (-12.0f, 12.0f, 0.01f), 0.0f, "dB"));
 
     // LFOs and modulation routing, appended last so the existing parameter order never moves.
     SuiteModulation::Router::addParameters (params, modTargetNames());
@@ -138,7 +138,7 @@ juce::StringArray SpectralDriftProcessor::modTargetNames()
 {
     // Must follow the ModTarget enum order exactly.
     return { "None", "Drift Depth", "Bin Spread", "Stereo Phase", "Spectral Shift",
-             "Spectral Tilt", "Spectral Gate", "Feedback", "FB Damping", "Drift Start", "Output Gain",
+             "Spectral Tilt", "Spectral Gate", "Feedback", "FB Damping", "Drift Start", "Output",
              "Mix", "Drift" };
 }
 

@@ -67,7 +67,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout MultibandSaturationProcessor
         juce::ParameterID { mixId, 1 }, "Mix",
         juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 100.0f, "%"));
     params.push_back (std::make_unique<juce::AudioParameterFloat> (
-        juce::ParameterID { outputLevelId, 1 }, "Output Level",
+        juce::ParameterID { outputLevelId, 1 }, "Output",
         juce::NormalisableRange<float> (-12.0f, 6.0f, 0.01f), 0.0f, "dB"));
 
     return { params.begin(), params.end() };

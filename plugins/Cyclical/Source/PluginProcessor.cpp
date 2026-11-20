@@ -118,9 +118,9 @@ juce::AudioProcessorValueTreeState::ParameterLayout CyclicalProcessor::createPar
 {
     std::vector<std::unique_ptr<juce::RangedAudioParameter>> params;
 
-    //---- Global (5)
+    //---- Global (5). Plan 12: the final gain stage is named "Output" everywhere.
     params.push_back (std::make_unique<juce::AudioParameterFloat> (
-        juce::ParameterID { masterVolumeId, 1 }, "Master Volume",
+        juce::ParameterID { masterVolumeId, 1 }, "Output",
         juce::NormalisableRange<float> (-24.0f, 12.0f, 0.1f), 0.0f, "dB"));
 
     params.push_back (std::make_unique<juce::AudioParameterFloat> (

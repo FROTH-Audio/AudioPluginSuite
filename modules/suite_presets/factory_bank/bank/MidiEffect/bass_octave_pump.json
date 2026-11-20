@@ -6,7 +6,7 @@
   "_pluginVersion": "1.0.0",
   "octave": -1,
   "arpMode": 1,
-  "stepRate": 0,
+  "stepRate": 3,
   "gateLength": 80.0,
   "octaveSpread": 0.5
 }

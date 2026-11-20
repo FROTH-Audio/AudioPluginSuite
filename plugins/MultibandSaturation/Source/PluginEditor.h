@@ -7,6 +7,7 @@
 
 #include "PluginProcessor.h"
 #include "SuiteHeaderMenu.h"
+#include "SuiteHelp.h"
 #include "SuiteLookAndFeel.h"
 #include "SuiteSelectorAttachment.h"
 #include "SuiteWidgets.h"
@@ -21,6 +22,11 @@ public:
 
     void paint (juce::Graphics&) override;
     void resized() override;
+
+    /** The layout's bands, for the tests (plan 12). Valid after resized() ran. */
+    juce::Rectangle<int> visualRect() const noexcept { return visualBounds; }
+    juce::Rectangle<int> splitRect() const noexcept { return splitGroupBounds; }
+    juce::Component* visualComponent() { return &visualizer; }
 
 private:
     MultibandSaturationProcessor& processor;
@@ -48,6 +54,10 @@ private:
     // Preset bar and menu
     std::unique_ptr<SuitePresets::PresetBar> presetBar;
     SuiteUI::HeaderMenuButton headerMenu { juce::Colour (0xffFF6B6B) };
+
+    // The shared help line (plan 12).
+    SuiteUI::HelpTracker helpTracker;
+    SuiteUI::HelpLine helpLine;
 
     SuiteUI::LabelledSlider crossoverCtrl { "CROSSOVER", juce::Slider::RotaryVerticalDrag };
     SuiteUI::LabelledSlider driveLowCtrl   { "DRIVE LOW",  juce::Slider::RotaryVerticalDrag };

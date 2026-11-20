@@ -109,6 +109,8 @@ namespace
             checkRange (processor.apvts, Processor::slotVelocityIds[(size_t) slot], 30.0f, 150.0f, 100.0f);
         }
 
+        // The final gain stage is named "Output" everywhere in the suite (plan 12).
+        assert (processor.apvts.getParameter (Processor::masterVolumeId)->getName (100) == "Output");
         pass ("testParameters");
     }
 
@@ -708,6 +710,35 @@ namespace
         pass ("testEditor");
     }
 
+    /** Plan 12: the shared help line, with the stale-hover regression. */
+    void testHelpLine()
+    {
+        Processor processor;
+        std::unique_ptr<juce::AudioProcessorEditor> editor (processor.createEditorAndMakeActive());
+        assert (editor != nullptr);
+
+        std::function<juce::Component* (juce::Component&)> findSlider = [&] (juce::Component& root)
+            -> juce::Component*
+        {
+            if (dynamic_cast<SuiteUI::LabelledSlider*> (&root) != nullptr)
+                return &root;
+
+            for (auto* child : root.getChildren())
+                if (auto* found = findSlider (*child))
+                    return found;
+
+            return nullptr;
+        };
+
+        auto* slider = findSlider (*editor);
+        assert (slider != nullptr && slider->getHelpText().isNotEmpty());
+
+        PluginTest::checkHelpLine (*editor, "cyclical-help", *slider);
+
+        processor.editorBeingDeleted (editor.get());
+        pass ("testHelpLine");
+    }
+
     /** Plan 10 G1: the mode-dependent controls are dimmed, never hidden. */
     void testAffinity()
     {
@@ -836,6 +867,7 @@ int main()
     testPresetSeam();
     testHeaderContract();
     testEditor();
+    testHelpLine();
     testAffinity();
     testRenderBaseline();
 

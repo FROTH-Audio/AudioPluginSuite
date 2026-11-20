@@ -11,11 +11,35 @@
 #include <algorithm>
 
 MidiEffectProcessor::MidiEffectProcessor()
+    // Plan 12: the plugin is an instrument now (the owner's call: VST Instrument was the
+    // better choice), so the buses are output only and the audio buffer is cleared.
     : AudioProcessor (BusesProperties()
-                          .withInput ("Input", juce::AudioChannelSet::stereo(), true)
                           .withOutput ("Output", juce::AudioChannelSet::stereo(), true)),
       apvts (*this, nullptr, "PARAMETERS", createParameterLayout())
 {
+    // Plan 12: Step Rate grew from five to twelve values in a clean order, so a v1
+    // state's choice index is remapped to the new position of the same note value.
+    migrations =
+    {
+        { 1, [] (juce::ValueTree& tree)
+             {
+                 for (int i = 0; i < tree.getNumChildren(); ++i)
+                 {
+                     auto child = tree.getChild (i);
+
+                     if (child.getProperty ("id").toString() != stepRateId)
+                         continue;
+
+                     // Old: 0 = 1/8, 1 = 1/8T, 2 = 1/16, 3 = 1/16T, 4 = 1/32.
+                     // New positions: 3, 4, 6, 7 and 9.
+                     static constexpr int newIndex[5] = { 3, 4, 6, 7, 9 };
+                     const int oldIndex = juce::jlimit (0, 4, (int) (double) child.getProperty ("value", 2.0));
+                     child.setProperty ("value", (double) newIndex[oldIndex], nullptr);
+                     break;
+                 }
+             } }
+    };
+
     rootParam     = apvts.getRawParameterValue (rootId);
     scaleParam    = apvts.getRawParameterValue (scaleId);
     chordParam    = apvts.getRawParameterValue (chordId);
@@ -89,7 +113,8 @@ juce::AudioProcessorValueTreeState::ParameterLayout MidiEffectProcessor::createP
 
     params.push_back (std::make_unique<juce::AudioParameterChoice> (
         juce::ParameterID { stepRateId, 1 }, "Step Rate",
-        juce::StringArray { "1/8", "1/8T", "1/16", "1/16T", "1/32" }, 2));
+        juce::StringArray { "1/4", "1/4T", "1/4D", "1/8", "1/8T", "1/8D",
+                            "1/16", "1/16T", "1/16D", "1/32", "1/32T", "1/32D" }, 6));   // 1/16
 
     params.push_back (std::make_unique<juce::AudioParameterChoice> (
         juce::ParameterID { hostSyncId, 1 }, "Host Sync", juce::StringArray { "Off", "On" }, 0));
@@ -143,16 +168,15 @@ void MidiEffectProcessor::prepareToPlay (double sampleRate, int)
 
 bool MidiEffectProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
 {
-    return layouts.getMainInputChannelSet() == juce::AudioChannelSet::stereo()
-        && layouts.getMainOutputChannelSet() == juce::AudioChannelSet::stereo();
+    return layouts.getMainOutputChannelSet() == juce::AudioChannelSet::stereo();
 }
 
 void MidiEffectProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi)
 {
     juce::ScopedNoDenormals noDenormals;
 
-    // Audio passes through untouched.
-    (void) buffer;
+    // An instrument: the plugin produces no audio, so the buffer stays silent.
+    buffer.clear();
 
     juce::MidiBuffer out;
 
@@ -320,7 +344,7 @@ void MidiEffectProcessor::processArpBlock (juce::MidiBuffer& midi, juce::MidiBuf
     const int octaveShift = 12 * juce::jlimit (-2, 2, (int) (octaveParam->load() + 0.0f));
     const float velocityScale = juce::jlimit (0.0f, 150.0f, velocityParam->load()) / 100.0f;
 
-    const int rateIndex = juce::jlimit (0, 4, (int) (stepRateParam->load() + 0.5f));
+    const int rateIndex = juce::jlimit (0, 11, (int) (stepRateParam->load() + 0.5f));
     const double stepLength = CoreDSP::Chords::arpStepBeats (rateIndex);
     const float gatePercent = juce::jlimit (10.0f, 100.0f, gateLengthParam->load());
     const int curveIndex = juce::jlimit (0, 3, (int) (velocityCurveParam->load() + 0.5f));

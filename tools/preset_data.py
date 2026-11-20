@@ -143,7 +143,10 @@ SCHEMA = {
         "octave": {"min": -2, "max": 2, "default": 0, "type": "int"},
         "velocity": {"min": 0.0, "max": 150.0, "default": 100.0, "type": "float"},
         "arpMode": {"min": 0, "max": 1, "default": 0, "type": "choice"},
-        "stepRate": {"min": 0, "max": 4, "default": 2, "type": "choice"},
+        # Plan 12: twelve step rates in the clean order (0=1/4 ... 11=1/32D). The old
+        # authoring indices (0=1/8, 1=1/8T, 2=1/16, 3=1/16T, 4=1/32) were remapped, so
+        # each preset still means the note value it was written with.
+        "stepRate": {"min": 0, "max": 11, "default": 6, "type": "choice"},
         "hostSync": {"min": 0, "max": 1, "default": 0, "type": "choice"},
         "tempo": {"min": 40.0, "max": 240.0, "default": 120.0, "type": "float"},
         "gateLength": {"min": 10.0, "max": 100.0, "default": 60.0, "type": "float"},
@@ -163,6 +166,10 @@ SCHEMA = {
         "midFocus": {"min": -100.0, "max": 100.0, "default": 0.0, "type": "float"},
         "sideFilter": {"min": 0, "max": 3, "default": 0, "type": "choice"},
         "sideCrossover": {"min": 20.0, "max": 8000.0, "default": 200.0, "type": "float"},
+        # Plan 12: the level stage. The recorded decision holds: levels/gains are never
+        # preset-authored, so the schema only covers them for the audit.
+        "inputLevel": {"min": -24.0, "max": 24.0, "default": 0.0, "type": "float"},
+        "outputLevel": {"min": -24.0, "max": 24.0, "default": 0.0, "type": "float"},
     },
     # Plan 11: Multiband Saturation, the two-band split (11 parameters; the shared Router's
     # parameters are not in the layout yet, so no routing entries).
@@ -338,19 +345,19 @@ PRESETS = {
     # the default (Chord) state. Bank order is append-only.
     "MidiEffect": [
         _preset("Classic 8-Step", "Arp", "Even 16ths at the default gate and velocity.", arpMode=1),
-        _preset("Descending Runner", "Arp", "Fast descending 8ths with a falling spread.", arpMode=1, stepRate=0, gateLength=50.0, velocityCurve=1, octaveSpread=-0.5),
-        _preset("Scatter Chaos", "Experimental", "Scattered 32nds with random velocity.", arpMode=1, arp=4, stepRate=4, gateLength=70.0, velocityCurve=3),
-        _preset("Bass Octave Pump", "Bass", "A short octave crawl one octave down.", arpMode=1, stepRate=0, gateLength=80.0, octaveSpread=0.5, octave=-1),
+        _preset("Descending Runner", "Arp", "Fast descending 8ths with a falling spread.", arpMode=1, stepRate=3, gateLength=50.0, velocityCurve=1, octaveSpread=-0.5),
+        _preset("Scatter Chaos", "Experimental", "Scattered 32nds with random velocity.", arpMode=1, arp=4, stepRate=9, gateLength=70.0, velocityCurve=3),
+        _preset("Bass Octave Pump", "Bass", "A short octave crawl one octave down.", arpMode=1, stepRate=3, gateLength=80.0, octaveSpread=0.5, octave=-1),
         _preset("Laid-Back Keys", "R&B", "Soft decaying 16ths, slightly hot.", arpMode=1, gateLength=55.0, velocityCurve=2, velocity=120.0),
-        _preset("Triplet Cascade", "Funk", "Rising 8th-note triplets.", arpMode=1, stepRate=1, gateLength=65.0, velocityCurve=1, velocityDirection=0, octaveSpread=0.2),
+        _preset("Triplet Cascade", "Funk", "Rising 8th-note triplets.", arpMode=1, stepRate=4, gateLength=65.0, velocityCurve=1, velocityDirection=0, octaveSpread=0.2),
         _preset("Minor Drift", "Ambient", "Sparse minor 16ths, spread down.", arpMode=1, gateLength=40.0, velocityCurve=2, octaveSpread=-0.3),
-        _preset("Dotted Drive", "Techno", "Fast 32nds, spread up.", arpMode=1, stepRate=4, gateLength=75.0, octaveSpread=0.4),
+        _preset("Dotted Drive", "Techno", "Fast 32nds, spread up.", arpMode=1, stepRate=9, gateLength=75.0, octaveSpread=0.4),
         _preset("Piano Lift", "Classical", "Rising linear velocity over 16ths.", arpMode=1, velocityCurve=1, velocityDirection=0, octaveSpread=0.2),
         _preset("Guitar Roll", "Rock", "Rolling 16ths under a major 7.", arpMode=1, chord=7, gateLength=50.0, velocityCurve=1, octaveSpread=-0.2),
-        _preset("Deep Space", "Ambient", "Slow random 32nds, wide and high.", arpMode=1, stepRate=4, gateLength=45.0, velocityCurve=3, octaveSpread=0.6, octave=1),
-        _preset("Pop Stab", "Pop", "Punchy 8ths with hot velocity.", arpMode=1, stepRate=0, gateLength=70.0, velocityCurve=2, velocity=130.0),
-        _preset("Jazz Comp", "Jazz", "Ascending 8ths through a minor 7.", arpMode=1, stepRate=0, chord=6, velocityCurve=1, velocityDirection=0, octaveSpread=-0.4),
-        _preset("Machine Gun", "Electronic", "Ultra-fast 32nds at a full gate.", arpMode=1, stepRate=4, gateLength=80.0, octaveSpread=0.5),
+        _preset("Deep Space", "Ambient", "Slow random 32nds, wide and high.", arpMode=1, stepRate=9, gateLength=45.0, velocityCurve=3, octaveSpread=0.6, octave=1),
+        _preset("Pop Stab", "Pop", "Punchy 8ths with hot velocity.", arpMode=1, stepRate=3, gateLength=70.0, velocityCurve=2, velocity=130.0),
+        _preset("Jazz Comp", "Jazz", "Ascending 8ths through a minor 7.", arpMode=1, stepRate=3, chord=6, velocityCurve=1, velocityDirection=0, octaveSpread=-0.4),
+        _preset("Machine Gun", "Electronic", "Ultra-fast 32nds at a full gate.", arpMode=1, stepRate=9, gateLength=80.0, octaveSpread=0.5),
         _preset("Slow Bloom", "Ambient", "Wide, slow, accented from the bottom.", arpMode=1, gateLength=90.0, velocityCurve=2, velocityDirection=0, octaveSpread=0.5, velocity=80.0),
     ],
     # Plan 6.1: the character stereo processor. Every preset changes at least one

@@ -9,6 +9,7 @@
 
 #include "PluginProcessor.h"
 #include "SuiteHeaderMenu.h"
+#include "SuiteHelp.h"
 #include "SuiteLookAndFeel.h"
 #include "SuiteModulationControls.h"
 #include "SuiteModulationPanel.h"
@@ -33,14 +34,6 @@ private:
     /** The LFO colours of the modulation panel. */
     static SuiteModulation::ModulationPanel::Style modulationStyle();
 
-    /** Forwards mouse moves from every child to the editor, so the help line follows the pointer. */
-    struct HelpTracker : public juce::MouseListener
-    {
-        std::function<void (const juce::MouseEvent&)> onMove;
-        void mouseMove (const juce::MouseEvent& e) override { if (onMove) onMove (e); }
-    };
-
-    void showHelp (const juce::MouseEvent&);
     void layoutSoundPage (juce::Rectangle<int> area);
     void layoutModPage (juce::Rectangle<int> area);
 
@@ -48,9 +41,8 @@ private:
 
     // Declared first so it is destroyed last, after every component that uses it.
     SuiteUI::SuiteLookAndFeel lookAndFeel { juce::Colour (0xff2de2ff) };
-    HelpTracker helpTracker;
-
-    juce::Label helpLabel;
+    SuiteUI::HelpTracker helpTracker;
+    SuiteUI::HelpLine helpLine;
 
     // The visualiser shows on both pages, so modulation is visible while routing.
     SuiteUI::SpectrumDisplay spectrum { juce::Colour (0xffa9b7c9), juce::Colour (0xff2de2ff) };
@@ -65,7 +57,7 @@ private:
     SuiteUI::LabelledSlider feedbackSlider { "FEEDBACK", juce::Slider::RotaryVerticalDrag };
     SuiteUI::LabelledSlider dampingSlider { "FB DAMPING", juce::Slider::RotaryVerticalDrag };
     SuiteUI::LabelledSlider driftStartSlider { "DRIFT START", juce::Slider::RotaryVerticalDrag };
-    SuiteUI::LabelledSlider outputSlider { "OUTPUT GAIN", juce::Slider::RotaryVerticalDrag };
+    SuiteUI::LabelledSlider outputSlider { "OUTPUT", juce::Slider::RotaryVerticalDrag };
     SuiteUI::LabelledSlider mixSlider { "MIX", juce::Slider::RotaryVerticalDrag };
     juce::ToggleButton freezeButton { "FREEZE" };
 

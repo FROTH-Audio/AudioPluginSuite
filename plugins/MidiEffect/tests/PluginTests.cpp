@@ -51,7 +51,7 @@ namespace
         checkRange (processor.apvts, Processor::octaveId,  -2.0f, 2.0f, 0.0f);
         checkRange (processor.apvts, Processor::velocityId, 0.0f, 150.0f, 100.0f);
         checkRange (processor.apvts, Processor::arpModeId,           0.0f, 1.0f, 0.0f);
-        checkRange (processor.apvts, Processor::stepRateId,          0.0f, 4.0f, 2.0f);
+        checkRange (processor.apvts, Processor::stepRateId,          0.0f, 11.0f, 6.0f);
         checkRange (processor.apvts, Processor::hostSyncId,          0.0f, 1.0f, 0.0f);
         checkRange (processor.apvts, Processor::tempoId,            40.0f, 240.0f, 120.0f);
         checkRange (processor.apvts, Processor::gateLengthId,       10.0f, 100.0f, 60.0f);
@@ -64,6 +64,13 @@ namespace
         assert (arp != nullptr);
         assert (arp->choices.size() == 5);
         assert (arp->choices[0] == "Up" && arp->choices[3] == "Random" && arp->choices[4] == "Scattered");
+
+        // Plan 12: the twelve step rates in the clean order, and the plugin is an instrument.
+        auto* stepRate = dynamic_cast<juce::AudioParameterChoice*> (processor.apvts.getParameter (Processor::stepRateId));
+        assert (stepRate != nullptr);
+        assert (stepRate->choices.size() == 12);
+        assert (stepRate->choices[0] == "1/4" && stepRate->choices[2] == "1/4D"
+             && stepRate->choices[6] == "1/16" && stepRate->choices[11] == "1/32D");
         pass ("testParameters");
     }
 
@@ -78,7 +85,7 @@ namespace
         checkStateRoundTrip (processor, processor.apvts, Processor::octaveId,  -1.0f);
         checkStateRoundTrip (processor, processor.apvts, Processor::velocityId, 75.0f);
         checkStateRoundTrip (processor, processor.apvts, Processor::arpModeId,           1.0f);
-        checkStateRoundTrip (processor, processor.apvts, Processor::stepRateId,          3.0f);
+        checkStateRoundTrip (processor, processor.apvts, Processor::stepRateId,          9.0f);
         checkStateRoundTrip (processor, processor.apvts, Processor::hostSyncId,          1.0f);
         checkStateRoundTrip (processor, processor.apvts, Processor::tempoId,           180.0f);
         checkStateRoundTrip (processor, processor.apvts, Processor::gateLengthId,       85.0f);
@@ -125,6 +132,51 @@ namespace
         // the originals restore; here the whole state was re-encoded from the same tree).
         assert (std::abs (getParameter (processor.apvts, Processor::rootId) - 60.0f) < 1.0e-3f);
         pass ("testAdditiveStateLoad");
+    }
+
+    /** Plan 12: a v1 state's Step Rate index remaps to the same note value's new position:
+        old 2 (1/16) loads as 6, old 0 (1/8) as 3, old 4 (1/32) as 9. */
+    void testStepRateMigration()
+    {
+        static constexpr int oldIndex[5] = { 0, 1, 2, 3, 4 };
+        static constexpr int expected[5] = { 3, 4, 6, 7, 9 };
+
+        for (int i = 0; i < 5; ++i)
+        {
+            Processor processor;
+            setParameter (processor.apvts, Processor::stepRateId, (float) oldIndex[i]);
+
+            juce::MemoryBlock state;
+            processor.getStateInformation (state);
+
+            auto xml = SuiteState::detail::decodeXml (state.getData(), (int) state.getSize());
+            assert (xml != nullptr);
+            auto tree = juce::ValueTree::fromXml (*xml);
+
+            // Make it a v1 state, like a session saved before plan 12.
+            tree.setProperty ("suiteStateVersion", 1, nullptr);
+
+            const juce::MemoryBlock block = SuiteState::detail::encodeXml (*tree.createXml());
+            processor.setStateInformation (block.getData(), (int) block.getSize());
+
+            assert (std::abs (getParameter (processor.apvts, Processor::stepRateId) - (float) expected[i]) < 1.0e-6f);
+        }
+
+        pass ("testStepRateMigration");
+    }
+
+    /** Plan 12: the plugin is an instrument now — output-only buses, no audio input. */
+    void testInstrumentBuses()
+    {
+        Processor processor;
+
+        assert (processor.getBusCount (true) == 0);    // no input bus
+        assert (processor.getBusCount (false) == 1);   // one stereo output
+        assert (processor.getBus (false, 0) != nullptr);
+        assert (processor.getBus (false, 0)->getName() == "Output");
+        assert (processor.acceptsMidi() && processor.producesMidi());
+
+        pass ("testInstrumentBuses");
     }
 
     /** Plan 06 idea 2.11 first step: a note routed through the chord generator produces the
@@ -520,36 +572,32 @@ namespace
         pass ("testLatencyIsFixed");
     }
 
-    /** Audio passes through untouched (the stereo pass-through rule for MIDI effects). */
-    void testAudioPassThrough()
+    /** Plan 12: the plugin is an instrument, so the audio buffer is cleared, not passed
+        through — in both modes. */
+    void testAudioCleared()
     {
         Processor processor;
         processor.prepareToPlay (sampleRate, blockSize);
 
-        juce::AudioBuffer<float> buffer (2, blockSize);
-        buffer.clear();
-        addSine (buffer, 0, sampleRate, 440.0, 0.5f, 0);
-        addSine (buffer, 1, sampleRate, 880.0, 0.25f, 0);
-        juce::AudioBuffer<float> expected (buffer);
-
         juce::MidiBuffer midi;
         midi.addEvent (juce::MidiMessage::noteOn (1, 60, 0.8f), 0);
-        processor.processBlock (buffer, midi);
 
-        for (int ch = 0; ch < 2; ++ch)
-            for (int n = 0; n < blockSize; ++n)
-                assert (buffer.getSample (ch, n) == expected.getSample (ch, n));
+        for (float arpMode : { 0.0f, 1.0f })
+        {
+            setParameter (processor.apvts, Processor::arpModeId, arpMode);
 
-        // Arp mode passes audio through untouched as well.
-        setParameter (processor.apvts, Processor::arpModeId, 1.0f);
-        buffer.clear();
-        addSine (buffer, 0, sampleRate, 440.0, 0.5f, 0);
-        addSine (buffer, 1, sampleRate, 880.0, 0.25f, 0);
-        processor.processBlock (buffer, midi);
-        for (int ch = 0; ch < 2; ++ch)
-            for (int n = 0; n < blockSize; ++n)
-                assert (buffer.getSample (ch, n) == expected.getSample (ch, n));
-        pass ("testAudioPassThrough");
+            juce::AudioBuffer<float> buffer (2, blockSize);
+            buffer.clear();
+            addSine (buffer, 0, sampleRate, 440.0, 0.5f, 0);
+            addSine (buffer, 1, sampleRate, 880.0, 0.25f, 0);
+            processor.processBlock (buffer, midi);
+
+            for (int ch = 0; ch < 2; ++ch)
+                for (int n = 0; n < blockSize; ++n)
+                    assert (buffer.getSample (ch, n) == 0.0f);
+        }
+
+        pass ("testAudioCleared");
     }
 
     void testEditor()
@@ -557,6 +605,49 @@ namespace
         Processor processor;
         checkEditor (processor);
         pass ("testEditor");
+    }
+
+    /** Plan 12: the five dropdowns, the three pills, the help line and the group frames. */
+    void testEditorControls()
+    {
+        Processor processor;
+        std::unique_ptr<juce::AudioProcessorEditor> editor (processor.createEditorAndMakeActive());
+        assert (editor != nullptr);
+
+        std::function<int (juce::Component&, bool)> countChoices = [&] (juce::Component& root, bool dropdown)
+            -> int
+        {
+            int count = 0;
+            if (dropdown ? dynamic_cast<SuiteUI::LabelledDropdown*> (&root) != nullptr
+                         : dynamic_cast<SuiteUI::LabelledSelector*> (&root) != nullptr)
+                ++count;
+            for (auto* child : root.getChildren())
+                count += countChoices (*child, dropdown);
+            return count;
+        };
+
+        assert (countChoices (*editor, true) == 5);    // Scale, Chord, Pattern, Step Rate, Vel Curve
+        assert (countChoices (*editor, false) == 3);   // Mode, Sync, Vel Dir
+        assert (countChoices (*editor, false) != 0);
+
+        std::function<juce::Component* (juce::Component&)> findSlider = [&] (juce::Component& root)
+            -> juce::Component*
+        {
+            if (auto* cell = dynamic_cast<SuiteUI::LabelledSlider*> (&root))
+                if (cell->label.getText() == "ROOT")
+                    return cell;
+            for (auto* child : root.getChildren())
+                if (auto* found = findSlider (*child))
+                    return found;
+            return nullptr;
+        };
+
+        auto* slider = findSlider (*editor);
+        assert (slider != nullptr && slider->getHelpText().isNotEmpty());
+        PluginTest::checkHelpLine (*editor, "midieffect-help", *slider);
+
+        processor.editorBeingDeleted (editor.get());
+        pass ("testEditorControls");
     }
 
     /** Plan 11 D7: the visual snapshot publishes the held key while the arp runs and
@@ -709,6 +800,8 @@ int main()
     testParameters();
     testStateRoundTrip();
     testAdditiveStateLoad();
+    testStepRateMigration();
+    testInstrumentBuses();
     testChordNoteIds();
     testScaleQuantisationMovesTheChordRoot();
     testOctaveAndVelocity();
@@ -720,8 +813,9 @@ int main()
     testArpNoteOffTruncates();
     testArpRetrigger();
     testLatencyIsFixed();
-    testAudioPassThrough();
+    testAudioCleared();
     testEditor();
+    testEditorControls();
     testVisualSnapshot();
     testHeaderContract();
     testRenderBaseline();

@@ -1751,11 +1751,22 @@ namespace
         namespace Ch = CoreDSP::Chords;
 
         // Step lengths in beats: straight values and triplets.
-        assert (std::abs (Ch::arpStepBeats (0) - 0.5) < 1.0e-12);
-        assert (std::abs (Ch::arpStepBeats (1) - 1.0 / 3.0) < 1.0e-12);
-        assert (std::abs (Ch::arpStepBeats (2) - 0.25) < 1.0e-12);
-        assert (std::abs (Ch::arpStepBeats (3) - 1.0 / 6.0) < 1.0e-12);
-        assert (std::abs (Ch::arpStepBeats (4) - 0.125) < 1.0e-12);
+        // All twelve step rates (plan 12): straight, triplet and dotted for each note value.
+        assert (std::abs (Ch::arpStepBeats (0) - 1.0) < 1.0e-12);
+        assert (std::abs (Ch::arpStepBeats (1) - 2.0 / 3.0) < 1.0e-12);
+        assert (std::abs (Ch::arpStepBeats (2) - 1.5) < 1.0e-12);
+        assert (std::abs (Ch::arpStepBeats (3) - 0.5) < 1.0e-12);
+        assert (std::abs (Ch::arpStepBeats (4) - 1.0 / 3.0) < 1.0e-12);
+        assert (std::abs (Ch::arpStepBeats (5) - 0.75) < 1.0e-12);
+        assert (std::abs (Ch::arpStepBeats (6) - 0.25) < 1.0e-12);
+        assert (std::abs (Ch::arpStepBeats (7) - 1.0 / 6.0) < 1.0e-12);
+        assert (std::abs (Ch::arpStepBeats (8) - 0.375) < 1.0e-12);
+        assert (std::abs (Ch::arpStepBeats (9) - 0.125) < 1.0e-12);
+        assert (std::abs (Ch::arpStepBeats (10) - 1.0 / 12.0) < 1.0e-12);
+        assert (std::abs (Ch::arpStepBeats (11) - 3.0 / 16.0) < 1.0e-12);
+        // Out of range clamps to the ends.
+        assert (std::abs (Ch::arpStepBeats (99) - 3.0 / 16.0) < 1.0e-12);
+        assert (std::abs (Ch::arpStepBeats (-5) - 1.0) < 1.0e-12);
 
         // Octave lift: 0 spread stays put; +1 crawls up an octave per pass through the tones.
         assert (Ch::arpOctaveLift (0.0f, 3) == 0);

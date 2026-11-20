@@ -123,12 +123,27 @@ namespace CoreDSP::Chords
 
     //---- Step-clock arpeggiator helpers (plan 6.1) ----
 
-    /** Step length in beats for the arpeggiator's Step Rate choice:
-        0 = 1/8, 1 = 1/8T, 2 = 1/16, 3 = 1/16T, 4 = 1/32 (T is a triplet, 2/3 of the straight value). */
+    /** Step length in beats for the arpeggiator's Step Rate choice (plan 12: twelve
+        values, plain / triplet / dotted for 1/4, 1/8, 1/16 and 1/32). T is a triplet
+        (2/3 of the straight value), D is dotted (1.5x). */
     inline double arpStepBeats (int rateIndex) noexcept
     {
-        static constexpr double beats[5] = { 0.5, 1.0 / 3.0, 0.25, 1.0 / 6.0, 0.125 };
-        return beats[(std::size_t) std::clamp (rateIndex, 0, 4)];
+        static constexpr double beats[12] =
+        {
+            1.0,        // 1/4
+            2.0 / 3.0,  // 1/4T
+            1.5,        // 1/4D
+            0.5,        // 1/8
+            1.0 / 3.0,  // 1/8T
+            0.75,       // 1/8D
+            0.25,       // 1/16
+            1.0 / 6.0,  // 1/16T
+            0.375,      // 1/16D
+            0.125,      // 1/32
+            1.0 / 12.0, // 1/32T
+            3.0 / 16.0, // 1/32D
+        };
+        return beats[(std::size_t) std::clamp (rateIndex, 0, 11)];
     }
 
     /** The octave lift, in semitones, of one step in the 8-step sequence: each pass through

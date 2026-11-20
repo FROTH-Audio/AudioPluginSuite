@@ -1518,6 +1518,66 @@ namespace
 
         pass ("testEditor");
     }
+
+    /** Plan 12: the SEQUENCE page's new arrangement and the step grid's help text. */
+    void testSequenceLayout()
+    {
+        Processor processor;
+        std::unique_ptr<juce::AudioProcessorEditor> editor (processor.createEditorAndMakeActive());
+        auto* mtcEditor = static_cast<MicroTimingChaosEditor*> (editor.get());
+        mtcEditor->setPage (0);
+
+        juce::Rectangle<int> pattern, transport, melody, sequencer;
+        for (const auto& group : mtcEditor->pageGroups())
+        {
+            if (group.title == "PATTERN")    pattern = group.bounds;
+            if (group.title == "TRANSPORT") transport = group.bounds;
+            if (group.title == "MELODY")    melody = group.bounds;
+            if (group.title == "SEQUENCER") sequencer = group.bounds;
+        }
+
+        assert (pattern.getX() < transport.getX());
+        assert (pattern.getX() < melody.getX());
+        assert (transport.getY() < melody.getY());
+        assert (transport.getRight() <= melody.getRight() + 1);
+        assert (sequencer.getY() >= pattern.getBottom() && sequencer.getY() >= melody.getBottom());
+        assert (sequencer.getWidth() == pattern.getWidth() + transport.getWidth() + 8);
+
+        // The step grid explains itself (plan 12, the owner's request).
+        auto* grid = PluginTest::findComponentById (*editor, "microtimingchaos-grid");
+        assert (grid != nullptr && grid->getHelpText().contains ("one column per step"));
+
+        processor.editorBeingDeleted (editor.get());
+        pass ("testSequenceLayout");
+    }
+
+    /** Plan 12: the shared help line, with the stale-hover regression. */
+    void testHelpLine()
+    {
+        Processor processor;
+        std::unique_ptr<juce::AudioProcessorEditor> editor (processor.createEditorAndMakeActive());
+        assert (editor != nullptr);
+
+        std::function<juce::Component* (juce::Component&)> findSlider = [&] (juce::Component& root)
+            -> juce::Component*
+        {
+            if (auto* cell = dynamic_cast<SuiteUI::LabelledSlider*> (&root))
+                if (cell->label.getText() == "CHAOS")
+                    return cell;
+            for (auto* child : root.getChildren())
+                if (auto* found = findSlider (*child))
+                    return found;
+            return nullptr;
+        };
+
+        auto* slider = findSlider (*editor);
+        assert (slider != nullptr && slider->getHelpText().isNotEmpty());
+
+        PluginTest::checkHelpLine (*editor, "microtimingchaos-help", *slider);
+
+        processor.editorBeingDeleted (editor.get());
+        pass ("testHelpLine");
+    }
 }
 
 int main()
@@ -1570,6 +1630,8 @@ int main()
     testEditorWithModulation();
     testDisplayFollowsModulation();
     testEditor();
+    testSequenceLayout();
+    testHelpLine();
 
     testRenderBaseline ();
 

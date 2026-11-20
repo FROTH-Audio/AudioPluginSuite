@@ -133,7 +133,7 @@ public:
         { "rootKey",        "Root Key",   true },
         { "pitchFine",      "Pitch Fine" },
         { "glide",          "Glide" },
-        { "level",          "Level" },
+        { "level",          "Output" },
         { "attack",         "Attack" },
         { "release",        "Release" },
         { "memoryAmount",   "Memory Amount" },
@@ -387,6 +387,11 @@ public:
 
     // Per-sample-rate derived values.
     double preparedSampleRate = 44100.0;
+
+    // The output gain (plan 12): the former dead Level knob, now the final gain stage,
+    // smoothed 20 ms so automation does not zip. 0 dB is exactly 1.0, so the default is
+    // bit-identical to the version without the knob.
+    juce::SmoothedValue<float> outputGainSmoothed;
 
     // Free-LFO clock: stream position in samples and a tempo-locked beat clock (see SuiteModulation).
     std::int64_t streamSample = 0;

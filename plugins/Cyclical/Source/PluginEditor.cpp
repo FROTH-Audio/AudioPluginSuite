@@ -149,22 +149,21 @@ CyclicalEditor::CyclicalEditor (CyclicalProcessor& p)
         SuiteUI::describe (card.waveform, "The loaded loop, its region band and the playhead. LOAD opens a browser.");
     }
 
+    SuiteUI::describe (pageSelector, "SLOTS: the four loop cards. GLOBAL: the shared knobs and the transport.");
+    SuiteUI::describe (*presetBar, "Factory presets, INIT and SAVE. The menu lists user presets.");
+    SuiteUI::describe (headerMenu, "Settings... and About...");
+
     setSize (editorWidth, editorHeight);
     setResizable (true, true);
     setResizeLimits (editorWidth - 40, editorHeight - 40, 1200, 1200);
 
-    helpTracker.onMove = [this] (const juce::MouseEvent& e)
-    {
-        if (auto* component = e.eventComponent)
-            if (component->getHelpText().isNotEmpty())
-                helpLabel.setText (component->getHelpText(), juce::dontSendNotification);
-    };
-    addMouseListener (&helpTracker, true);
-
-    helpLabel.setFont (juce::Font (juce::FontOptions (11.0f)));
-    helpLabel.setColour (juce::Label::textColourId, SuiteUI::Colours::text);
-    helpLabel.setText ("Hover a control to see what it does.", juce::dontSendNotification);
-    addAndMakeVisible (helpLabel);
+    // The shared help line (plan 12): one line, one idle text, no stale strings. The
+    // footer sentence is the idle text, so the band reads the same before a hover.
+    helpLine.setIdleText ("Keys C4-D#4 trigger slots 1-4. No recording: loops load from the library or disk.");
+    helpLine.setComponentID ("cyclical-help");
+    helpLine.setEnablePredicate ([] { return SuiteSettings::shared().getBool (SuiteSettings::tooltipsKey, true); });
+    SuiteUI::attachHelpLine (*this, helpLine, helpTracker);
+    addAndMakeVisible (helpLine);
 
     // GLOBAL page: the shared knobs and selectors.
     addAndMakeVisible (masterCtrl);
@@ -386,12 +385,6 @@ void CyclicalEditor::paint (juce::Graphics& g)
             g.drawRoundedRectangle (frame, 8.0f, 1.0f);
         }
     }
-
-    g.setColour (SuiteUI::Colours::textDim);
-    g.setFont (SuiteUI::uiFont (11.0f));
-    g.drawText ("Keys C4-D#4 trigger slots 1-4. No recording: loops load from the library or disk.",
-                getLocalBounds().removeFromBottom (footerHeight).reduced (16, 0),
-                juce::Justification::centredLeft);
 }
 
 void CyclicalEditor::resized()
@@ -454,4 +447,7 @@ void CyclicalEditor::resized()
 
         beatReadout.setBounds (row2.reduced (6, 4));
     }
+
+    // The help line lives in the band the paint used to draw its footer sentence in.
+    helpLine.setBounds (getLocalBounds().removeFromBottom (footerHeight));
 }

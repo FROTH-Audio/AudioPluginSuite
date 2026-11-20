@@ -31,7 +31,7 @@ around 750 Hz, and the Gate removes bins quieter than its threshold.
 **Feedback and mix.** Feedback feeds the wet signal back into the input (the range stops at
 12 %, and the path is soft-limited so it cannot run away); Feedback Damping darkens each
 repeat. Mix balances dry against wet, Freeze holds the captured spectrum while the phases
-keep advancing, and Output Gain sets the final level.
+keep advancing, and Output sets the final level.
 
 ## MOD page
 
@@ -57,7 +57,7 @@ Amount 0 % the sound is unchanged.
 
 ## Practical notes
 
-- Mix, Feedback, Feedback Damping and Output Gain are smoothed, so automating them never
+- Mix, Feedback, Feedback Damping and Output are smoothed, so automating them never
   clicks.
 - The plugin reports 2048 samples of latency (the FFT frame); the dry signal is delayed to
   match, so the mix stays phase-aligned.

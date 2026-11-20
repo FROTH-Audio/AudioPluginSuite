@@ -849,15 +849,15 @@
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="MidiEffect" pluginVersion="1.0.0">
     <Meta name="Classic 8-Step" category="Arp" author="FROTH Audio" description="Even 16ths at the default gate and velocity."/>
-    <PARAMETERS suiteStateVersion="1">
+    <PARAMETERS suiteStateVersion="2">
       <PARAM id="arpMode" value="1"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="MidiEffect" pluginVersion="1.0.0">
     <Meta name="Descending Runner" category="Arp" author="FROTH Audio" description="Fast descending 8ths with a falling spread."/>
-    <PARAMETERS suiteStateVersion="1">
+    <PARAMETERS suiteStateVersion="2">
       <PARAM id="arpMode" value="1"/>
-      <PARAM id="stepRate" value="0"/>
+      <PARAM id="stepRate" value="3"/>
       <PARAM id="gateLength" value="50"/>
       <PARAM id="velocityCurve" value="1"/>
       <PARAM id="octaveSpread" value="-0.5"/>
@@ -865,27 +865,27 @@
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="MidiEffect" pluginVersion="1.0.0">
     <Meta name="Scatter Chaos" category="Experimental" author="FROTH Audio" description="Scattered 32nds with random velocity."/>
-    <PARAMETERS suiteStateVersion="1">
+    <PARAMETERS suiteStateVersion="2">
       <PARAM id="arp" value="4"/>
       <PARAM id="arpMode" value="1"/>
-      <PARAM id="stepRate" value="4"/>
+      <PARAM id="stepRate" value="9"/>
       <PARAM id="gateLength" value="70"/>
       <PARAM id="velocityCurve" value="3"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="MidiEffect" pluginVersion="1.0.0">
     <Meta name="Bass Octave Pump" category="Bass" author="FROTH Audio" description="A short octave crawl one octave down."/>
-    <PARAMETERS suiteStateVersion="1">
+    <PARAMETERS suiteStateVersion="2">
       <PARAM id="octave" value="-1"/>
       <PARAM id="arpMode" value="1"/>
-      <PARAM id="stepRate" value="0"/>
+      <PARAM id="stepRate" value="3"/>
       <PARAM id="gateLength" value="80"/>
       <PARAM id="octaveSpread" value="0.5"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="MidiEffect" pluginVersion="1.0.0">
     <Meta name="Laid-Back Keys" category="R&amp;B" author="FROTH Audio" description="Soft decaying 16ths, slightly hot."/>
-    <PARAMETERS suiteStateVersion="1">
+    <PARAMETERS suiteStateVersion="2">
       <PARAM id="velocity" value="120"/>
       <PARAM id="arpMode" value="1"/>
       <PARAM id="gateLength" value="55"/>
@@ -894,9 +894,9 @@
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="MidiEffect" pluginVersion="1.0.0">
     <Meta name="Triplet Cascade" category="Funk" author="FROTH Audio" description="Rising 8th-note triplets."/>
-    <PARAMETERS suiteStateVersion="1">
+    <PARAMETERS suiteStateVersion="2">
       <PARAM id="arpMode" value="1"/>
-      <PARAM id="stepRate" value="1"/>
+      <PARAM id="stepRate" value="4"/>
       <PARAM id="gateLength" value="65"/>
       <PARAM id="velocityCurve" value="1"/>
       <PARAM id="velocityDirection" value="0"/>
@@ -905,7 +905,7 @@
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="MidiEffect" pluginVersion="1.0.0">
     <Meta name="Minor Drift" category="Ambient" author="FROTH Audio" description="Sparse minor 16ths, spread down."/>
-    <PARAMETERS suiteStateVersion="1">
+    <PARAMETERS suiteStateVersion="2">
       <PARAM id="arpMode" value="1"/>
       <PARAM id="gateLength" value="40"/>
       <PARAM id="velocityCurve" value="2"/>
@@ -914,16 +914,16 @@
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="MidiEffect" pluginVersion="1.0.0">
     <Meta name="Dotted Drive" category="Techno" author="FROTH Audio" description="Fast 32nds, spread up."/>
-    <PARAMETERS suiteStateVersion="1">
+    <PARAMETERS suiteStateVersion="2">
       <PARAM id="arpMode" value="1"/>
-      <PARAM id="stepRate" value="4"/>
+      <PARAM id="stepRate" value="9"/>
       <PARAM id="gateLength" value="75"/>
       <PARAM id="octaveSpread" value="0.4"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="MidiEffect" pluginVersion="1.0.0">
     <Meta name="Piano Lift" category="Classical" author="FROTH Audio" description="Rising linear velocity over 16ths."/>
-    <PARAMETERS suiteStateVersion="1">
+    <PARAMETERS suiteStateVersion="2">
       <PARAM id="arpMode" value="1"/>
       <PARAM id="velocityCurve" value="1"/>
       <PARAM id="velocityDirection" value="0"/>
@@ -932,7 +932,7 @@
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="MidiEffect" pluginVersion="1.0.0">
     <Meta name="Guitar Roll" category="Rock" author="FROTH Audio" description="Rolling 16ths under a major 7."/>
-    <PARAMETERS suiteStateVersion="1">
+    <PARAMETERS suiteStateVersion="2">
       <PARAM id="chord" value="7"/>
       <PARAM id="arpMode" value="1"/>
       <PARAM id="gateLength" value="50"/>
@@ -942,10 +942,10 @@
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="MidiEffect" pluginVersion="1.0.0">
     <Meta name="Deep Space" category="Ambient" author="FROTH Audio" description="Slow random 32nds, wide and high."/>
-    <PARAMETERS suiteStateVersion="1">
+    <PARAMETERS suiteStateVersion="2">
       <PARAM id="octave" value="1"/>
       <PARAM id="arpMode" value="1"/>
-      <PARAM id="stepRate" value="4"/>
+      <PARAM id="stepRate" value="9"/>
       <PARAM id="gateLength" value="45"/>
       <PARAM id="velocityCurve" value="3"/>
       <PARAM id="octaveSpread" value="0.6"/>
@@ -953,20 +953,20 @@
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="MidiEffect" pluginVersion="1.0.0">
     <Meta name="Pop Stab" category="Pop" author="FROTH Audio" description="Punchy 8ths with hot velocity."/>
-    <PARAMETERS suiteStateVersion="1">
+    <PARAMETERS suiteStateVersion="2">
       <PARAM id="velocity" value="130"/>
       <PARAM id="arpMode" value="1"/>
-      <PARAM id="stepRate" value="0"/>
+      <PARAM id="stepRate" value="3"/>
       <PARAM id="gateLength" value="70"/>
       <PARAM id="velocityCurve" value="2"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="MidiEffect" pluginVersion="1.0.0">
     <Meta name="Jazz Comp" category="Jazz" author="FROTH Audio" description="Ascending 8ths through a minor 7."/>
-    <PARAMETERS suiteStateVersion="1">
+    <PARAMETERS suiteStateVersion="2">
       <PARAM id="chord" value="6"/>
       <PARAM id="arpMode" value="1"/>
-      <PARAM id="stepRate" value="0"/>
+      <PARAM id="stepRate" value="3"/>
       <PARAM id="velocityCurve" value="1"/>
       <PARAM id="velocityDirection" value="0"/>
       <PARAM id="octaveSpread" value="-0.4"/>
@@ -974,16 +974,16 @@
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="MidiEffect" pluginVersion="1.0.0">
     <Meta name="Machine Gun" category="Electronic" author="FROTH Audio" description="Ultra-fast 32nds at a full gate."/>
-    <PARAMETERS suiteStateVersion="1">
+    <PARAMETERS suiteStateVersion="2">
       <PARAM id="arpMode" value="1"/>
-      <PARAM id="stepRate" value="4"/>
+      <PARAM id="stepRate" value="9"/>
       <PARAM id="gateLength" value="80"/>
       <PARAM id="octaveSpread" value="0.5"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="MidiEffect" pluginVersion="1.0.0">
     <Meta name="Slow Bloom" category="Ambient" author="FROTH Audio" description="Wide, slow, accented from the bottom."/>
-    <PARAMETERS suiteStateVersion="1">
+    <PARAMETERS suiteStateVersion="2">
       <PARAM id="velocity" value="80"/>
       <PARAM id="arpMode" value="1"/>
       <PARAM id="gateLength" value="90"/>

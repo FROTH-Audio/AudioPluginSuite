@@ -22,7 +22,8 @@ namespace
             { Processor::widthId, Processor::driveId, Processor::mixId,
               Processor::characterId, Processor::transientAttackId, Processor::transientReleaseId,
               Processor::transientAmountId, Processor::transientTargetId, Processor::midFocusId,
-              Processor::sideFilterId, Processor::sideCrossoverId }, 11);
+              Processor::sideFilterId, Processor::sideCrossoverId,
+              Processor::inputLevelId, Processor::outputLevelId }, 13);
         checkRange (processor.apvts, Processor::widthId, -100.0f, 100.0f, 0.0f);
         checkRange (processor.apvts, Processor::driveId, -24.0f, 24.0f, 0.0f);
         checkRange (processor.apvts, Processor::mixId,   0.0f, 100.0f, 100.0f);
@@ -34,6 +35,11 @@ namespace
         checkRange (processor.apvts, Processor::midFocusId,       -100.0f, 100.0f, 0.0f);
         checkRange (processor.apvts, Processor::sideFilterId,        0.0f, 3.0f, 0.0f);
         checkRange (processor.apvts, Processor::sideCrossoverId,    20.0f, 8000.0f, 200.0f);
+        checkRange (processor.apvts, Processor::inputLevelId,      -24.0f, 24.0f, 0.0f);
+        checkRange (processor.apvts, Processor::outputLevelId,     -24.0f, 24.0f, 0.0f);
+
+        // Plan 12: the final gain stage is named "Output" everywhere in the suite.
+        assert (processor.apvts.getParameter (Processor::outputLevelId)->getName (100) == "Output");
         pass ("testParameters");
     }
 
@@ -52,6 +58,8 @@ namespace
         checkStateRoundTrip (processor, processor.apvts, Processor::midFocusId, -30.0f);
         checkStateRoundTrip (processor, processor.apvts, Processor::sideFilterId, 1.0f);
         checkStateRoundTrip (processor, processor.apvts, Processor::sideCrossoverId, 4000.0f);
+        checkStateRoundTrip (processor, processor.apvts, Processor::inputLevelId, -6.0f);
+        checkStateRoundTrip (processor, processor.apvts, Processor::outputLevelId, 3.5f);
         pass ("testStateRoundTrip");
     }
 
@@ -74,19 +82,21 @@ namespace
         pass ("testNewerStateRefused");
     }
 
-    /** Plan 6.1: a state saved before the new controls loads with every new parameter at
-        its default. The change is additive, so the version stays 1. */
+    /** Plan 6.1 and plan 12: a state saved before the new controls loads with every new
+        parameter at its default. The changes are additive, so the version stays 1. */
     void testAdditiveStateLoad()
     {
         Processor processor;
         setParameter (processor.apvts, Processor::characterId, 3.0f);
         setParameter (processor.apvts, Processor::midFocusId, 40.0f);
         setParameter (processor.apvts, Processor::sideCrossoverId, 3000.0f);
+        setParameter (processor.apvts, Processor::inputLevelId, -6.0f);
+        setParameter (processor.apvts, Processor::outputLevelId, 6.0f);
 
         juce::MemoryBlock state;
         processor.getStateInformation (state);
 
-        // Strip the eight plan-6.1 parameters from the state tree, like an old session.
+        // Strip the appended parameters from the state tree, like an old session.
         auto xml = SuiteState::detail::decodeXml (state.getData(), (int) state.getSize());
         assert (xml != nullptr);
         auto tree = juce::ValueTree::fromXml (*xml);
@@ -94,7 +104,8 @@ namespace
         for (const char* id : { Processor::characterId, Processor::transientAttackId,
                                 Processor::transientReleaseId, Processor::transientAmountId,
                                 Processor::transientTargetId, Processor::midFocusId,
-                                Processor::sideFilterId, Processor::sideCrossoverId })
+                                Processor::sideFilterId, Processor::sideCrossoverId,
+                                Processor::inputLevelId, Processor::outputLevelId })
         {
             const auto child = tree.getChildWithProperty ("id", juce::String (id));
             assert (child.isValid());
@@ -107,6 +118,8 @@ namespace
         assert (std::abs (getParameter (processor.apvts, Processor::characterId) - 0.0f) < 1.0e-6f);
         assert (std::abs (getParameter (processor.apvts, Processor::midFocusId) - 0.0f) < 1.0e-6f);
         assert (std::abs (getParameter (processor.apvts, Processor::sideCrossoverId) - 200.0f) < 1.0e-3f);
+        assert (std::abs (getParameter (processor.apvts, Processor::inputLevelId) - 0.0f) < 1.0e-3f);
+        assert (std::abs (getParameter (processor.apvts, Processor::outputLevelId) - 0.0f) < 1.0e-3f);
         pass ("testAdditiveStateLoad");
     }
 
@@ -433,6 +446,84 @@ namespace
         pass ("testEditor");
     }
 
+    /** Plan 12: the LEVEL group sits beside the visualiser, the window keeps its size, and
+        the help line answers the owner's report. */
+    void testLevelGroupAndHelp()
+    {
+        Processor processor;
+        std::unique_ptr<juce::AudioProcessorEditor> editor (processor.createEditorAndMakeActive());
+        assert (editor != nullptr);
+        assert (editor->getWidth() == 880 && editor->getHeight() == 700);
+
+        // A slider whose caption reads INPUT, inside a group band right of the visualiser.
+        juce::Component* inputSlider = nullptr;
+        std::function<juce::Component* (juce::Component&)> findByCaption = [&] (juce::Component& root)
+            -> juce::Component*
+        {
+            if (auto* cell = dynamic_cast<SuiteUI::LabelledSlider*> (&root))
+                if (cell->label.getText() == "INPUT")
+                    return cell;
+            for (auto* child : root.getChildren())
+                if (auto* found = findByCaption (*child))
+                    return found;
+            return nullptr;
+        };
+        inputSlider = findByCaption (*editor);
+        assert (inputSlider != nullptr);
+        assert (inputSlider->getRight() > editor->getWidth() / 2);   // right half: beside the visual
+        assert (inputSlider->getBottom() < 200);                    // inside the visualiser band
+
+        PluginTest::checkHelpLine (*editor, "stereotool-help", *inputSlider);
+
+        processor.editorBeingDeleted (editor.get());
+        pass ("testLevelGroupAndHelp");
+    }
+
+    /** Plan 12: the level stage scales the output without touching the character. */
+    void testLevelStageScalesThePeak()
+    {
+        const auto run = [&] (float inputDb, float outputDb)
+        {
+            Processor processor;
+            processor.prepareToPlay (sampleRate, blockSize);
+            setParameter (processor.apvts, Processor::inputLevelId, inputDb);
+            setParameter (processor.apvts, Processor::outputLevelId, outputDb);
+
+            // Let the 20 ms smoothing settle, regenerating the signal every block so the
+            // blocks are independent (the plugin is not a shaper of its own output here).
+            for (int i = 0; i < 10; ++i)
+            {
+                juce::MidiBuffer midi;
+                juce::AudioBuffer<float> audio (2, blockSize);
+                audio.clear();
+                addSine (audio, 0, sampleRate, 440.0, 0.25f, 0);
+                addSine (audio, 1, sampleRate, 440.0, 0.25f, 0);
+                processor.processBlock (audio, midi);
+            }
+
+            juce::MidiBuffer midi;
+            juce::AudioBuffer<float> audio (2, blockSize);
+            audio.clear();
+            addSine (audio, 0, sampleRate, 440.0, 0.25f, 0);
+            addSine (audio, 1, sampleRate, 440.0, 0.25f, 0);
+            processor.processBlock (audio, midi);
+            return peak (audio);
+        };
+
+        const float unity = run (0.0f, 0.0f);
+        assert (std::abs (unity - 0.25f) < 0.02f);   // 0 dB is exactly unity
+
+        assert (std::abs (run (-6.0f, 0.0f) - unity * 0.5012f) < 0.02f);
+        assert (std::abs (run (0.0f, -6.0f) - unity * 0.5012f) < 0.02f);
+        assert (std::abs (run (6.0f, 0.0f) - unity * 1.9953f) < 0.03f);
+        assert (std::abs (run (0.0f, 6.0f) - unity * 1.9953f) < 0.03f);
+
+        // The stage does not colour the tone: -6 dB on both ends is the same as one -12 dB.
+        assert (std::abs (run (-6.0f, -6.0f) - run (-12.0f, 0.0f)) < 0.02f);
+
+        pass ("testLevelStageScalesThePeak");
+    }
+
     /** Plan 11 D7: the meter snapshot describes the signal — mid carries the correlated
         sine, side rises only off-centre, the follower moves with amount 1, and everything
         stays at zero when idle. */
@@ -594,6 +685,8 @@ int main()
     testSideFilter();
     testTransientFollower();
     testEditor();
+    testLevelGroupAndHelp();
+    testLevelStageScalesThePeak();
     testVisualSnapshot();
     testHeaderContract();
     testRenderBaseline();

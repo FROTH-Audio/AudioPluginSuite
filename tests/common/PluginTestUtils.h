@@ -13,6 +13,8 @@
 #include <cmath>
 #include <cstdio>
 
+#include "SuiteWidgets.h"
+
 namespace PluginTest
 {
     constexpr double pi = 3.14159265358979323846;
@@ -20,6 +22,52 @@ namespace PluginTest
     inline void pass (const char* name)
     {
         std::printf ("[PASS] %s\n", name);
+    }
+
+    /** Finds the first descendant (or the root itself) with the given component ID. */
+    inline juce::Component* findComponentById (juce::Component& root, const juce::String& id)
+    {
+        if (root.getComponentID() == id)
+            return &root;
+
+        for (auto* child : root.getChildren())
+            if (auto* found = findComponentById (*child, id))
+                return found;
+
+        return nullptr;
+    }
+
+    /** A pointer move over the centre of a component, for the help-line tests. */
+    inline juce::MouseEvent moveOver (juce::Component& target)
+    {
+        const auto centre = target.getLocalBounds().getCentre().toFloat();
+        return juce::MouseEvent (juce::Desktop::getInstance().getMainMouseSource(), centre,
+                                 juce::ModifierKeys(), 1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+                                 &target, &target, juce::Time::getCurrentTime(), centre,
+                                 juce::Time::getCurrentTime(), 1, false);
+    }
+
+    /** The plan 12 help-line regression: the editor's help line shows a hovered control's
+        text, and returns to the idle text over anything without help text. Call it after
+        the editor is created; controlWithHelp must carry a help text. */
+    inline void checkHelpLine (juce::Component& editor, const juce::String& helpLineId,
+                               juce::Component& controlWithHelp)
+    {
+        auto* lineComponent = findComponentById (editor, helpLineId);
+        assert (lineComponent != nullptr);
+
+        auto* line = dynamic_cast<SuiteUI::HelpLine*> (lineComponent);
+        assert (line != nullptr);
+
+        const auto idle = line->getText();
+        assert (idle.isNotEmpty());
+
+        line->showFor (moveOver (controlWithHelp));
+        assert (line->getText() == controlWithHelp.getHelpText());
+        assert (line->getText() != idle);
+
+        line->showFor (moveOver (editor));
+        assert (line->getText() == idle);
     }
 
     /** Sets a parameter by its denormalised value, the way a user would dial it in. */

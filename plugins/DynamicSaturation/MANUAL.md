@@ -50,7 +50,7 @@ shared LFOs and routing are described in the [suite README](../README.md#modulat
 
 ## Practical notes
 
-- Drive, Mix and Output Level are smoothed, so automating them never zips.
+- Drive, Mix and Output are smoothed, so automating them never zips.
 - At high Drive settings the oversampler keeps the harmonics clean; the output is clamped,
   so loud inputs stay bounded.
 - The factory presets (bank build) include the Extreme category (drive 24 dB + fold 50 %)

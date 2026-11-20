@@ -6,7 +6,7 @@
   "_pluginVersion": "1.0.0",
   "velocity": 130.0,
   "arpMode": 1,
-  "stepRate": 0,
+  "stepRate": 3,
   "gateLength": 70.0,
   "velocityCurve": 2
 }

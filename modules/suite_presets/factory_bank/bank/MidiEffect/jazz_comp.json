@@ -6,7 +6,7 @@
   "_pluginVersion": "1.0.0",
   "chord": 6,
   "arpMode": 1,
-  "stepRate": 0,
+  "stepRate": 3,
   "velocityCurve": 1,
   "velocityDirection": 0,
   "octaveSpread": -0.4

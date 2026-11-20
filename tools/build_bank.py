@@ -30,8 +30,10 @@ PLUGIN_VERSION = "1.0.0"
 STATE_VERSION = 1
 # Spectral Drift is at state version 2 since plan 05.1 pass 2 (the Drift Rate parameter was
 # removed and the Drift routing target appended); its presets are authored against the new
-# routing order. The other plugins are still at version 1.
-STATE_VERSIONS = {"SpectralDrift": 2}
+# routing order. MIDI Chord Arp Scale Tool is at version 2 since plan 12 (Step Rate grew
+# from five to twelve values in a clean order, so the authoring indices are the new ones).
+# The other plugins are still at version 1.
+STATE_VERSIONS = {"SpectralDrift": 2, "MidiEffect": 2}
 
 
 def state_version_for(plugin):

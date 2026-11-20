@@ -35,7 +35,10 @@ The four modes decide how the keyboard plays the sample:
 
 **Region.** Region Span sets how far across the sample the keyboard's regions reach,
 Region Length the width of one key's region, and Root Key is the pitch centre — this note
-plays the sample at its natural pitch (`C3 (60)`). Pitch Fine tunes every note.
+plays the sample at its natural pitch (`C3 (60)`). Pitch Fine tunes every note. **Output**
+is the final gain stage on the summed voices (−60 to +6 dB; 0 dB is unchanged) — it used to
+be the dead Level knob, and is wired now. A one-shot that reaches its region boundary
+fades out over its last 5 ms, so the end of a note never clicks.
 
 **Scale Lock.** With Scale Lock on, incoming notes are quantised to the selected scale,
 centred on Root Key.

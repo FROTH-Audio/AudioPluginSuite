@@ -6,12 +6,13 @@ The number in each file name is the execution order. **Finished plans are delete
 
 Deleted on 2026-11-19 (all implemented and verified): 00 (framework readiness, R1-R3), 03 and 03.1-03.4 (presets), 04 and 04.1-04.2 (Sgraffito), 05 and 05.1 (suite UI rework), 07 (sample-linked presets), 08 (header bar, settings and about), 09 (code quality), 10 (Sgraffito owner findings), 11 (MidiEffect/StereoTool/Multiband improvements), 6.1 and 6.1a (Cyclical and the MidiEffect/StereoTool enhancements).
 
-Status below is as of 2026-11-19.
+Status below is as of 2026-11-20.
 
 ## Order
 
 | # | File | Status | Why here | Gate before the next step |
 |---|---|---|---|---|
+| 12 | [12_daw-test-findings.md](12_daw-test-findings.md) | Implemented 2026-11-20. All nine phases in; 28/28 CTest with the bank on; the Step Rate migration (v2) taken per the plan's default | The owner's DAW-test findings, all verified against the code: Sgraffito's end-of-note click and dead Level knob, StereoTool Input/Output and help, DS help, MTC SEQUENCE layout and step-grid help, Multiband's rename/layout/frames, MidiTool as an instrument with dropdowns and twelve step rates, and one name for the suite's output stage | Owner gates open: regenerate the MultiSat lockup (owner-local tool); review the regenerated manual screenshots; confirm the Step Rate migration (overridable to append-only) |
 | 01 | [01_juce9-upgrade-opportunities.md](01_juce9-upgrade-opportunities.md) | Open: R0 (macOS and CI check) | Checks the R2 recipe and the AU build on macOS, which no earlier step has checked. | The owner runs the macOS build and the CI on a Mac |
 | 02 | [02_framework-refactor-3-editor-ui.md](02_framework-refactor-3-editor-ui.md) | Implemented 2026-11-08. One owner decision open on the MicroTimingChaos PREVIEW first render | The editor base every plugin now shares. Kept for the measurement of the one noisy render view. | The owner wants one look and feel. Byte-identical renders before and after |
 | 05.2 | [05.2_preset_parameter_audit.md](05.2_preset_parameter_audit.md) | Phase 0 quick wins done 2026-11-12; phases 1-5 open | Cross-cutting audit: parameters vs presets, cleanup, documentation, tests, refactorings. Findings go to 05.3. | Open: the refactor candidates (owner-gated) |

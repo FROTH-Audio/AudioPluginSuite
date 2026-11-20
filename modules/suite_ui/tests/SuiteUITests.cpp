@@ -288,6 +288,104 @@ namespace
         std::puts ("[PASS] testCurveView");
     }
 
+    void testLabelledDropdown()
+    {
+        SuiteUI::LabelledDropdown cell { "SHAPE" };
+        cell.setOptions ({ "SINE", "TRIANGLE", "SAW" });
+
+        assert (cell.getSelectedIndex() == -1);
+
+        cell.setSelectedIndex (2);
+        assert (cell.getSelectedIndex() == 2);
+        assert (cell.box.getNumItems() == 3);
+        assert (cell.box.getItemText (0) == "SINE");
+        assert (cell.box.getItemText (2) == "SAW");
+
+        // Out-of-range clears the selection to nothing rather than wrapping.
+        cell.setSelectedIndex (-1);
+        assert (cell.getSelectedIndex() == -1);
+
+        cell.setSelectedIndex (0);
+        assert (cell.getSelectedIndex() == 0);
+
+        // The caption and the box both paint (the look and feel styles the box).
+        SuiteUI::SuiteLookAndFeel laf { juce::Colour (testAccent) };
+        cell.setLookAndFeel (&laf);
+        assert (paintAndCountVisiblePixels (cell, 160, 54) > 0);
+        cell.setLookAndFeel (nullptr);
+
+        std::puts ("[PASS] testLabelledDropdown");
+    }
+
+    void testHelpLine()
+    {
+        SuiteUI::HelpLine line;
+        line.setIdleText ("Idle sentence.");
+
+        // The idle text is what the line shows before anything is hovered.
+        assert (line.getText() == "Idle sentence.");
+
+        // The owner's bug: the line kept the first hovered control's text. showFor must
+        // always write something - the help text or the idle text, never the last one.
+        juce::Component withHelp;
+        withHelp.setHelpText ("Attack: envelope rise.");
+
+        line.showFor (&withHelp);
+        assert (line.getText() == "Attack: envelope rise.");
+
+        juce::Component withoutHelp;
+        line.showFor (&withoutHelp);
+        assert (line.getText() == "Idle sentence.");
+
+        line.showFor (nullptr);
+        assert (line.getText() == "Idle sentence.");
+
+        // A new idle text reaches the line while it is showing the idle text.
+        line.setIdleText ("New idle sentence.");
+        assert (line.getText() == "New idle sentence.");
+
+        // A disabled predicate (the settings' tooltips toggle) always shows the idle text,
+        // even over a control with help text.
+        line.setEnablePredicate ([] { return false; });
+        line.showFor (&withHelp);
+        assert (line.getText() == "New idle sentence.");
+
+        line.setEnablePredicate ([] { return true; });
+        line.showFor (&withHelp);
+        assert (line.getText() == "Attack: envelope rise.");
+        line.setEnablePredicate ({});
+
+        assert (paintAndCountVisiblePixels (line, 300, 26) > 0);
+
+        std::puts ("[PASS] testHelpLine");
+    }
+
+    void testDrawGroupFrame()
+    {
+        juce::Image image (juce::Image::ARGB, 240, 120, true);
+
+        {
+            juce::Graphics g (image);
+            SuiteUI::drawGroupFrame (g, juce::Rectangle<int> (20, 20, 200, 80), "GLOBAL",
+                                     juce::Colour (testAccent));
+        }
+
+        // The fill, the border and the title all paint inside the bounds.
+        int visible = 0;
+        for (int y = 20; y < 100; ++y)
+            for (int x = 20; x < 220; ++x)
+                if (image.getPixelAt (x, y).getAlpha() > 0)
+                    ++visible;
+
+        assert (visible > 200);
+
+        // Nothing paints outside the bounds.
+        assert (image.getPixelAt (10, 10).getAlpha() == 0);
+        assert (image.getPixelAt (230, 110).getAlpha() == 0);
+
+        std::puts ("[PASS] testDrawGroupFrame");
+    }
+
     void testLevelMeter()
     {
         SuiteUI::LevelMeter meter { juce::Colour (testAccent) };
@@ -312,6 +410,9 @@ int main()
     testSegmentedSelectorClicksNotify();
     testLabelledSelector();
     testLabelledSliders();
+    testLabelledDropdown();
+    testHelpLine();
+    testDrawGroupFrame();
     testLookAndFeelToggleButton();
     testSpectrumDisplay();
     testSpectrumCurveIsDrawn();

@@ -5,7 +5,7 @@
   "_plugin": "MidiEffect",
   "_pluginVersion": "1.0.0",
   "arpMode": 1,
-  "stepRate": 1,
+  "stepRate": 4,
   "gateLength": 65.0,
   "velocityCurve": 1,
   "velocityDirection": 0,

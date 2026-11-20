@@ -81,9 +81,9 @@ public:
     juce::AudioProcessorValueTreeState apvts;
 
     // Bump stateVersion when the saved state changes, and add a migration from the old version.
-    // Plan 6.1 is additive only: no ID moved, no range changed meaning, so the version stays 1
-    // and an old state loads with the new parameters at their defaults.
-    int stateVersion = 1;
+    // Plan 12 is version 2: Step Rate grew from five to twelve values in a clean order, so a
+    // v1 state's choice index is remapped (0..4 were 1/8, 1/8T, 1/16, 1/16T, 1/32).
+    int stateVersion = 2;
     std::vector<SuiteState::Migration> migrations;
 
     MidiEffectProcessor();

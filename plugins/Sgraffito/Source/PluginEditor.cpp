@@ -49,16 +49,13 @@ SgraffitoEditor::SgraffitoEditor (SgraffitoProcessor& p)
     setLookAndFeel (&lookAndFeel);
 
     // Status bar (plan 10 phase 5): below the keyboard; the help text of the control
-    // under the pointer, or the idle hint. The settings' tooltips toggle gates it.
-    showHelpTexts = SuiteSettings::shared().getBool (SuiteSettings::tooltipsKey, true);
-    statusLabel.setFont (SuiteUI::uiFont (11.0f));
-    statusLabel.setColour (juce::Label::textColourId, SuiteUI::Colours::textDim);
-    statusLabel.setJustificationType (juce::Justification::centredLeft);
-    statusLabel.setComponentID ("sgraffito-status");
-    statusLabel.setText (idleHelpText, juce::dontSendNotification);
-    addAndMakeVisible (statusLabel);
-    addMouseListener (&helpTracker, true);
-    helpTracker.onMove = [this] (const juce::MouseEvent& e) { showHelp (e); };
+    // under the pointer, or the idle hint. It is the shared HelpLine now (plan 12),
+    // and the settings' tooltips toggle is its enable predicate.
+    helpLine.setIdleText ("Hover a control for help.");
+    helpLine.setComponentID ("sgraffito-status");
+    helpLine.setEnablePredicate ([] { return SuiteSettings::shared().getBool (SuiteSettings::tooltipsKey, true); });
+    addAndMakeVisible (helpLine);
+    SuiteUI::attachHelpLine (*this, helpLine, helpTracker);
 
     // The bar exists before setSize(), because setSize() runs resized().
     presetBar = std::make_unique<SuitePresets::PresetBar> (processor, juce::Colour (0xff9aa0a6));
@@ -367,12 +364,7 @@ SgraffitoEditor::~SgraffitoEditor()
 
 void SgraffitoEditor::showHelp (const juce::MouseEvent& e)
 {
-    const auto text = e.eventComponent != nullptr ? e.eventComponent->getHelpText() : juce::String();
-
-    if (showHelpTexts && text.isNotEmpty())
-        statusLabel.setText (text, juce::dontSendNotification);
-    else
-        statusLabel.setText (idleHelpText, juce::dontSendNotification);
+    helpLine.showFor (e);
 }
 
 void SgraffitoEditor::browseForSample()
@@ -509,7 +501,7 @@ void SgraffitoEditor::resized()
 
     // The playable keyboard sits at the bottom of every page, with the status bar below
     // it (plan 10 phase 5): the bar is the very last strip of the window.
-    statusLabel.setBounds (area.removeFromBottom (statusHeight));
+    helpLine.setBounds (area.removeFromBottom (statusHeight));
     area.removeFromBottom (groupGap);
     keyboard.setBounds (area.removeFromBottom (keyboardHeight));
     area.removeFromBottom (groupGap);

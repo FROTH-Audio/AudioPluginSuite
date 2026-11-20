@@ -37,4 +37,27 @@ namespace SuiteUI
 
         storage->sendInitialUpdate();
     }
+
+    /** Wires a LabelledDropdown to a choice parameter: the denormalised value of a choice
+        parameter is its 0-based index, which maps to the box's item ids 1..n. Clicks become
+        complete gestures; automation and sendInitialUpdate update the display. The caller
+        owns the attachment — declare the unique_ptr as a member next to the dropdown cell. */
+    inline void attachDropdown (LabelledDropdown& cell, juce::RangedAudioParameter& parameter,
+                                std::unique_ptr<juce::ParameterAttachment>& storage)
+    {
+        storage = std::make_unique<juce::ParameterAttachment> (
+            parameter,
+            [&cell] (float value) { cell.setSelectedIndex (juce::roundToInt (value)); });
+
+        // The raw pointer is safe: the editor owns both members for the editor's lifetime,
+        // and the callback only runs on the message thread while the editor is alive.
+        juce::ParameterAttachment* attached = storage.get();
+
+        cell.box.onChange = [attached, &cell]
+        {
+            attached->setValueAsCompleteGesture ((float) cell.getSelectedIndex());
+        };
+
+        storage->sendInitialUpdate();
+    }
 }

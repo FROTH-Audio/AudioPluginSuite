@@ -1,8 +1,9 @@
-# Multiband Saturation — User Manual
+# MultiSat — User Manual
 
-<img src="../../docs/manuals/multibandsaturation-default.png" alt="Multiband Saturation" width="587">
+<img src="../../docs/manuals/multibandsaturation-default.png" alt="MultiSat" width="587">
 
-Multiband Saturation splits the input into two bands with a Linkwitz-Riley crossover and
+MultiSat (the Multiband Saturation plugin; the folder, bundle and preset IDs keep the
+MultibandSaturation name) splits the input into two bands with a Linkwitz-Riley crossover and
 shapes each band with its own drive and tone, using the same saturation shapers as
 Dynamic Saturation Companion. The bands recombine through the crossover's all-pass sum,
 are clamped to the rails, and finish through a dry/wet mix and an output level.
@@ -10,9 +11,10 @@ are clamped to the rails, and finish through a dry/wet mix and an output level.
 ## The controls
 
 The editor has two groups. **SPLIT** is the crossover and the shared saturation mode;
-**SHAPER** is the per-band shaping. The panel between the header and the groups is the
-dual-band visual: a bar per band (the block's envelope maximum), the crossover frequency
-marked between them on a log axis, and input/output meters on the right.
+**SHAPER** is the per-band shaping. Between the header and the groups sits the dual-band
+visual: a bar per band (the block's envelope maximum), the crossover frequency marked
+between them on a log axis, and input/output meters on the right — nearly twice as tall
+as before, so the band envelopes read clearly.
 
 ### SPLIT
 
@@ -34,6 +36,8 @@ marked between them on a log axis, and input/output meters on the right.
 | **Release** | Envelope fall, both bands, 50–2000 ms. |
 | **Mix** | Dry/wet balance. |
 | **Output** | Output level after the mix, −12 to +6 dB. |
+
+<img src="../../docs/manuals/multibandsaturation-detail-groups.png" alt="SPLIT and SHAPER groups" width="555">
 
 Each band gets the Dynamic Drive rule: its drive is multiplied by
 `1 + Sensitivity × Envelope`, so loud parts of that band are pushed harder than quiet
@@ -67,5 +71,7 @@ ones — the two bands respond independently.
 - The hamburger menu in the header (right of the preset bar) opens Settings… (tooltips toggle,
   fallback tempo, preset folder) and About….
 - Mode is a pill switch (plan 11 rule: a dropdown only for longer lists).
+- Hovering any control shows what it does in the help line at the bottom of the window; the
+  Settings dialog's tooltips toggle turns the line off.
 - Modulation routing (the suite's LFOs and slots) is planned for a follow-up pass; the
   plugin already links the shared module.

@@ -40,16 +40,18 @@ MidiEffectEditor::MidiEffectEditor (MidiEffectProcessor& p)
     setResizable (true, true);
     setResizeLimits (editorWidth - 80, editorHeight - 80, 1200, 1200);
 
-    // The choice lists mirror the parameter choice lists; the attachment keeps them in sync.
-    // Rule #3 (plan 11): a pill for six or fewer options, a dropdown only for CHORD (eight).
+    // The choice lists mirror the parameter choice lists; the attachments keep them in
+    // sync. Plan 12: the owner named Scale, Pattern, Vel Curve and Step Rate as dropdowns
+    // (and CHORD already was one); Mode, Sync and Vel Dir stay pills.
     scaleCell.setOptions ({ "Chromatic", "Major", "Minor", "Minor Pentatonic", "Dorian", "Whole Tone" });
     arpCell.setOptions ({ "Up", "Down", "Alternate", "Random", "Scattered" });
     modeCell.setOptions ({ "Chord", "Arp" });
-    rateCell.setOptions ({ "1/8", "1/8T", "1/16", "1/16T", "1/32" });
+    rateCell.setOptions ({ "1/4", "1/4T", "1/4D", "1/8", "1/8T", "1/8D",
+                           "1/16", "1/16T", "1/16D", "1/32", "1/32T", "1/32D" });
     syncCell.setOptions ({ "Off", "On" });
     curveCell.setOptions ({ "Flat", "Linear", "Exponential", "Random" });
     dirCell.setOptions ({ "Ascending", "Descending" });
-    chordCell.box.addItemList ({ "Major", "Minor", "Dim", "Aug", "Sus2", "Sus4", "Minor 7", "Major 7" }, 1);
+    chordCell.setOptions ({ "Major", "Minor", "Dim", "Aug", "Sus2", "Sus4", "Minor 7", "Major 7" });
 
     rootCtrl.slider.setNumDecimalPlacesToDisplay (0);
     octaveCtrl.slider.setNumDecimalPlacesToDisplay (0);
@@ -70,39 +72,44 @@ MidiEffectEditor::MidiEffectEditor (MidiEffectProcessor& p)
     gateAttachment     = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (apvts, MidiEffectProcessor::gateLengthId, gateCtrl.slider);
 
     // Built after the items exist, so the first update selects the parameter's current choice.
-    chordAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (apvts, MidiEffectProcessor::chordId, chordCell.box);
+    // The dropdowns carry their own attachments (plan 12, one shared dropdown widget).
+    SuiteUI::attachDropdown (chordCell, *apvts.getParameter (MidiEffectProcessor::chordId), chordAttachment);
+    SuiteUI::attachDropdown (scaleCell, *apvts.getParameter (MidiEffectProcessor::scaleId), scaleAttachment);
+    SuiteUI::attachDropdown (arpCell, *apvts.getParameter (MidiEffectProcessor::arpId), arpAttachment);
+    SuiteUI::attachDropdown (rateCell, *apvts.getParameter (MidiEffectProcessor::stepRateId), rateAttachment);
+    SuiteUI::attachDropdown (curveCell, *apvts.getParameter (MidiEffectProcessor::velocityCurveId), curveCellAttachment);
 
-    // The pill selectors carry their own attachments (plan 11 D1).
-    SuiteUI::attachSelector (scaleCell, *apvts.getParameter (MidiEffectProcessor::scaleId), scaleAttachment);
-    SuiteUI::attachSelector (arpCell, *apvts.getParameter (MidiEffectProcessor::arpId), arpAttachment);
+    // The pills keep theirs (plan 11 D1).
     SuiteUI::attachSelector (modeCell, *apvts.getParameter (MidiEffectProcessor::arpModeId), modeAttachment);
-    SuiteUI::attachSelector (rateCell, *apvts.getParameter (MidiEffectProcessor::stepRateId), rateAttachment);
     SuiteUI::attachSelector (syncCell, *apvts.getParameter (MidiEffectProcessor::hostSyncId), syncAttachment);
-    SuiteUI::attachSelector (curveCell, *apvts.getParameter (MidiEffectProcessor::velocityCurveId), curveCellAttachment);
     SuiteUI::attachSelector (dirCell, *apvts.getParameter (MidiEffectProcessor::velocityDirectionId), dirCellAttachment);
 
-    // Help text for every control.
-    rootCtrl.setHelpText ("The key centre the scale quantisation works from.");
-    rootCtrl.slider.setTooltip ("The key centre the scale quantisation works from.");
-    octaveCtrl.setHelpText ("Transposes the chord.");
-    octaveCtrl.slider.setTooltip ("Transposes the chord.");
-    velocityCtrl.setHelpText ("Scales the note-on velocity.");
-    velocityCtrl.slider.setTooltip ("Scales the note-on velocity.");
-    spreadCtrl.setHelpText ("Lifts each pass through the chord tones of the 8-step arp pattern by up to an octave.");
-    spreadCtrl.slider.setTooltip ("Lifts each pass through the chord tones of the 8-step arp pattern by up to an octave.");
-    tempoCtrl.setHelpText ("Tempo used while Host Sync is off.");
-    tempoCtrl.slider.setTooltip ("Tempo used while Host Sync is off.");
-    gateCtrl.setHelpText ("Note length as a share of one step.");
-    gateCtrl.slider.setTooltip ("Note length as a share of one step.");
-    modeCell.setHelpText ("Chord fires the whole chord at once; Arp runs the step clock.");
-    rateCell.setHelpText ("The arp's step length.");
-    syncCell.setHelpText ("On: the arp follows the host position and tempo. Off: it runs on the Tempo parameter.");
-    curveCell.setHelpText ("The per-step velocity shape in Arp mode.");
-    dirCell.setHelpText ("Which end the Linear and Exponential curves start at.");
-    chordCell.setHelpText ("CHORD: choose a value from the list.");
-    scaleCell.setHelpText ("The scale the incoming notes are quantised to.");
-    arpCell.setHelpText ("How the chord notes are ordered into the 8-step pattern.");
-    syncCell.setHelpText ("On: the arp follows the host position and tempo.");
+    // Help text on every control (plan 12), through the shared describe() helper.
+    SuiteUI::describe (rootCtrl, "The key centre the scale quantisation works from.");
+    SuiteUI::describe (octaveCtrl, "Transposes the chord.");
+    SuiteUI::describe (velocityCtrl, "Scales the note-on velocity.");
+    SuiteUI::describe (spreadCtrl, "Lifts each pass through the chord tones of the 8-step arp pattern by up to an octave.");
+    SuiteUI::describe (tempoCtrl, "Tempo used while Host Sync is off.");
+    SuiteUI::describe (gateCtrl, "Note length as a share of one step.");
+    SuiteUI::describe (modeCell, "Chord fires the whole chord at once; Arp runs the step clock.");
+    SuiteUI::describe (rateCell, "The arp's step length: plain, triplet (T) or dotted (D).");
+    SuiteUI::describe (syncCell, "On: the arp follows the host position and tempo. Off: it runs on the Tempo parameter.");
+    SuiteUI::describe (curveCell, "The per-step velocity shape in Arp mode.");
+    SuiteUI::describe (dirCell, "Which end the Linear and Exponential curves start at.");
+    SuiteUI::describe (chordCell, "The chord quality built on the quantised note.");
+    SuiteUI::describe (scaleCell, "The scale the incoming notes are quantised to.");
+    SuiteUI::describe (arpCell, "How the chord notes are ordered into the 8-step pattern.");
+    SuiteUI::describe (visualizer, "The 8-step arp strip and the last key's chord notes.");
+    SuiteUI::describe (*presetBar, "Factory presets, INIT and SAVE. The menu lists user presets.");
+    SuiteUI::describe (headerMenu, "Settings... and About...");
+
+    // The help line (plan 12): the footer band, the stale-hover rule and the settings'
+    // tooltips toggle, shared by every plugin in the suite.
+    helpLine.setIdleText ("Chord mode: a note becomes a chord at once. Arp mode: the chord plays over an 8-step clock.");
+    helpLine.setComponentID ("midieffect-help");
+    helpLine.setEnablePredicate ([] { return SuiteSettings::shared().getBool (SuiteSettings::tooltipsKey, true); });
+    SuiteUI::attachHelpLine (*this, helpLine, helpTracker);
+    addAndMakeVisible (helpLine);
 
     for (auto* component : { static_cast<juce::Component*> (&rootCtrl), static_cast<juce::Component*> (&octaveCtrl),
                              static_cast<juce::Component*> (&velocityCtrl), static_cast<juce::Component*> (&spreadCtrl),
@@ -137,6 +144,7 @@ MidiEffectEditor::MidiEffectEditor (MidiEffectProcessor& p)
 MidiEffectEditor::~MidiEffectEditor()
 {
     stopTimer();
+    removeMouseListener (&helpTracker);
     setLookAndFeel (nullptr);
 }
 
@@ -151,19 +159,9 @@ void MidiEffectEditor::paint (juce::Graphics& g)
     // the product name, generated by the owner's tools/brand/lockups.py (not in this repo) and embedded in the bundle).
     SuiteUI::drawBrandLockup (g, getLocalBounds().removeFromTop (headerHeight).reduced (16, 0), brandLockup());
 
-    // The two group frames and their titles (R5: 15 pt bold in the accent).
-    g.setColour (lookAndFeel.getAccent());
-    g.setFont (juce::Font (juce::FontOptions (15.0f, juce::Font::bold)));
-    g.drawText ("ARP", arpGroupBounds.withHeight (groupTitleHeight).translated (0, 4).reduced (12, 0),
-                juce::Justification::centredLeft);
-    g.drawText ("SHAPE", shapeGroupBounds.withHeight (groupTitleHeight).translated (0, 4).reduced (12, 0),
-                juce::Justification::centredLeft);
-
-    g.setColour (SuiteUI::Colours::textDim);
-    g.setFont (SuiteUI::uiFont (11.0f));
-    g.drawText ("Chord mode: a note becomes a chord at once. Arp mode: the chord plays over an 8-step clock.",
-                getLocalBounds().removeFromBottom (footerHeight).reduced (16, 0),
-                juce::Justification::centredLeft);
+    // The two group frames (plan 12: the shared frame; the owner's missing backgrounds).
+    SuiteUI::drawGroupFrame (g, arpGroupBounds, "ARP", lookAndFeel.getAccent());
+    SuiteUI::drawGroupFrame (g, shapeGroupBounds, "SHAPE", lookAndFeel.getAccent());
 }
 
 void MidiEffectEditor::resized()
@@ -230,8 +228,10 @@ void MidiEffectEditor::resized()
             cell->setBounds (row2.removeFromLeft (cellWidth).reduced (3));
         }
     }
-}
 
+    // The help line lives in the band the paint used to draw its footer sentence in.
+    helpLine.setBounds (getLocalBounds().removeFromBottom (footerHeight));
+}
 //==============================================================================
 void MidiEffectEditor::ChordGridVisualizer::paint (juce::Graphics& g)
 {

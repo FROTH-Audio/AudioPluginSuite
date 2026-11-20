@@ -52,12 +52,12 @@ FROTH Audio makes plugins that work on sound at the level of its structure: the 
 </tr>
 <tr>
 <td align="center"><img src="modules/suite_ui/brand/lockup_midi_effect.png" width="200" alt="FROTH Audio MIDI Chord Arp Scale Tool"></td>
-<td><b>MIDI Chord Arp Scale Tool</b><br><sub>MIDI effect</sub></td>
+<td><b>MIDI Chord Arp Scale Tool</b><br><sub>Instrument</sub></td>
 <td>Every note becomes a chord.<br>Scale quantisation, chord qualities, arp ordering, octave and velocity shaping.</td>
 </tr>
 <tr>
 <td align="center"><img src="modules/suite_ui/brand/lockup_multiband_saturation.png" width="200" alt="FROTH Audio Multiband Saturation"></td>
-<td><b>Multiband Saturation</b><br><sub>Saturation</sub></td>
+<td><b>MultiSat</b><br><sub>Saturation</sub></td>
 <td>Saturate the lows and the highs separately.<br>A two-band split, each band with its own drive, envelope and tone.</td>
 </tr>
 <tr>
@@ -81,7 +81,7 @@ FROTH Audio makes plugins that work on sound at the level of its structure: the 
   - [Sgraffito Memory Sampler](#sgraffito-memory-sampler)
   - [Stereo Tool Effect](#stereo-tool-effect)
   - [MIDI Chord Arp Scale Tool](#midi-chord-arp-scale-tool)
-  - [Multiband Saturation](#multiband-saturation)
+  - [MultiSat](#multisat)
   - [Cyclical](#cyclical)
   - [Latency](#latency)
 - [For developers](#for-developers)
@@ -141,7 +141,7 @@ Each routed control shows its modulated value live. While you hold the mouse on 
 
 | Plugin | Targets |
 |---|---|
-| Spectral Drift Shifter | Drift Depth, Bin Spread, Stereo Phase, Spectral Shift, Spectral Tilt, Spectral Gate, Feedback, Feedback Damping, Drift Start, Output Gain, Mix, Drift |
+| Spectral Drift Shifter | Drift Depth, Bin Spread, Stereo Phase, Spectral Shift, Spectral Tilt, Spectral Gate, Feedback, Feedback Damping, Drift Start, Output, Mix, Drift |
 | Dynamic Saturation Companion | Drive, Sensitivity, Mix, Output, Attack, Release, Detect HPF, Stereo Link, Tube Bias, Fold, Tone, Curve |
 | Micro-Timing Chaos | Chaos, Timing Range, Velocity Chaos, Lerp, Lerp X / Y / Z Mult, Density, Gate, Swing, Velocity, Speed, Tempo, Seed |
 
@@ -197,7 +197,7 @@ Phase spread and offset it across the bins and channels.
 | **Feedback** | 0 – 12 % | 0 % | Feeds the wet signal back into the input. Larger amounts build up quickly, so the range stops at 12 %. The feedback path is soft-limited, so it cannot run away. |
 | **Feedback Damping** | 0 – 100 % | 30 % | Darkens each repeat of the feedback. At 0 % the repeats keep their full brightness. |
 | **Drift Start** | 0 – 100 % | 0 % | Lowest part of the spectrum that drifts. Bins below this share stay exactly as they were, so 50 % drifts only the upper half. |
-| **Output Gain** | −12 – +12 dB | 0 dB | Output level, applied after the wet and dry mix. |
+| **Output** | -12 - +12 dB | 0 dB | Output level, applied after the wet and dry mix. |
 | **Mix** | 0 – 100 % | 100 % | Dry/wet balance. |
 | **Freeze** | on / off | off | Holds the captured spectrum and keeps advancing the phases, for a sustained texture. |
 
@@ -340,7 +340,7 @@ A memory sampler. You load a sample, and the keyboard plays it: each key reads o
 | **Region Length** | 1 – 100 % | 25 % | Width of each key's region, as a share of the sample. |
 | **Root Key** | 24 – 96 | C3 (60) | The pitch centre: this note plays the sample at its natural pitch, and Scale Lock centres on it. It does not move the region. |
 | **Pitch Fine** | −100 – +100 ct | 0 | Fine tuning of every note. |
-| **Level** | −60 – +6 dB | 0 dB | Output level of the whole plugin. |
+| **Output** | -60 - +6 dB | 0 dB | Output level of the whole plugin (was the dead Level knob; wired in plan 12, renamed Output). |
 | **Velocity Curve** | 0.5 – 2.0 | 1.0 | How note velocity maps to loudness: 1.0 is linear, higher emphasises soft notes. |
 
 **Pitch**
@@ -416,6 +416,8 @@ saturation character, optionally moves the width or drive on transients, reshape
 | **Mid Focus** | −100 – +100 % | 0 % | `midGain = 1 + f`, `sideGain = 1 − f`: positive pulls the centre forward, negative widens. |
 | **Side Filter** | Off / High Pass / Low Pass / Band Pass | Off | A filter on the side component only, so the lows can stay mono. Off is a true bypass. |
 | **Side Crossover** | 20 Hz – 8 kHz (log) | 200 Hz | The side filter's corner. |
+| **Input** | −24 – +24 dB | 0 dB | Gain into the chain, beside the visualiser. |
+| **Output** | −24 – +24 dB | 0 dB | The final gain stage. |
 
 At the defaults the plugin is bit-transparent (the mid/side round trip skips work when neither the drive, nor the width, nor any of the new controls touches the signal). No latency is added.
 
@@ -424,7 +426,7 @@ At the defaults the plugin is bit-transparent (the mid/side round trip skips wor
 <img src="docs/manuals/midieffect-default.png" alt="MIDI Chord Arp Scale Tool screenshot" width="587">
 
 The [user manual](plugins/MidiEffect/MANUAL.md) walks through how a note becomes a chord.
-A MIDI effect. Incoming notes are quantised to one of six scales (the same scales the rest of the suite uses), chorded, and sent on — either all at once or spread over an 8-step clock. Audio passes through untouched. The editor's chord/arp visual shows the held key's 8-step pattern and sounding notes over a two-octave keyboard.
+A VST Instrument. Incoming notes are quantised to one of six scales (the same scales the rest of the suite uses), chorded, and sent on its MIDI output — either all at once or spread over an 8-step clock. The plugin produces no audio (its audio output stays silent). The editor's chord/arp visual shows the held key's 8-step pattern and sounding notes over a two-octave keyboard.
 
 | Control | Range | Default | Description |
 |---|---|---|---|
@@ -435,7 +437,7 @@ A MIDI effect. Incoming notes are quantised to one of six scales (the same scale
 | **Octave** | −2 – +2 | 0 | Transposes the chord. |
 | **Velocity** | 0 – 150 % | 100 % | Scales the note-on velocity. |
 | **Mode** | Chord / Arp | Chord | Chord fires the whole chord at once; Arp runs the step clock. |
-| **Step Rate** | 1/8, 1/8T, 1/16, 1/16T, 1/32 | 1/16 | The arp's step length. |
+| **Step Rate** | 1/4 … 1/32, plain / T / D | 1/16 | The arp's step length: plain, triplet (T) or dotted (D) for each note value. |
 | **Host Sync** | Off / On | Off | On: the arp follows the host's position and tempo. Off: it runs on Tempo. |
 | **Tempo** | 40 – 240 BPM | 120 | The clock's tempo while Host Sync is off. |
 | **Gate Length** | 10 – 100 % | 60 % | Note length as a share of the step. |
@@ -445,12 +447,13 @@ A MIDI effect. Incoming notes are quantised to one of six scales (the same scale
 
 A note-off truncates: in Chord mode the whole chord releases, in Arp mode everything the key holds stops. A retrigger cuts the previous chord first, so nothing sticks. The arp's steps are derived from the beat grid, never accumulated, so a tempo change or a relocation never drifts.
 
-### Multiband Saturation
+### MultiSat
 
-<img src="docs/manuals/multibandsaturation-default.png" alt="Multiband Saturation screenshot" width="507">
+<img src="docs/manuals/multibandsaturation-default.png" alt="MultiSat screenshot" width="507">
 
 The [user manual](plugins/MultibandSaturation/MANUAL.md) is a short walkthrough with a screenshot.
-A two-band saturator. A Linkwitz-Riley crossover splits the signal; the low band and the high band each get their own drive, envelope and tone, then recombine (the bands sum back to the input's level through the crossover's all-pass phase).
+A two-band saturator (host name **MultiSat**; the folder, target and preset IDs keep the
+MultibandSaturation name). A Linkwitz-Riley crossover splits the signal; the low band and the high band each get their own drive, envelope and tone, then recombine (the bands sum back to the input's level through the crossover's all-pass phase).
 
 | Control | Range | Default | Description |
 |---|---|---|---|
@@ -461,7 +464,7 @@ A two-band saturator. A Linkwitz-Riley crossover splits the signal; the low band
 | **Attack / Release** | 1 – 100 ms / 50 – 2000 ms | 5 ms / 150 ms | Both bands' envelope times. |
 | **Tone Low / Tone High** | −1 – +1 each | 0 | Tilt around 1 kHz, per band. |
 | **Mix** | 0 – 100 % | 100 % | Dry/wet balance. |
-| **Output Level** | −12 – +6 dB | 0 dB | Output level. |
+| **Output** | −12 – +6 dB | 0 dB | Output level. |
 
 The band sum is clamped to the rails, so the output cannot exceed full scale. The first pass runs at base rate, so no latency is added. The editor's dual-band visual shows each band's envelope with the crossover marked between the bars (log axis, frequency printed above) and input/output meters on the right. The controls sit in two groups — **SPLIT** (crossover and the shared mode) and **SHAPER** — with the suite's preset bar and hamburger menu in the header.
 
@@ -474,7 +477,7 @@ A four-slot loop instrument (plan 6.1). Four loaded audio loops play with a regi
 
 | Control | Range | Default | Description |
 |---|---|---|---|
-| **Master Volume** | −24 – +12 dB | 0 dB | Output level (smoothed 20 ms). |
+| **Output** | −24 – +12 dB | 0 dB | Output level (smoothed 20 ms). |
 | **Pan** | −100 – +100 % | 0 % | Constant-power law. |
 | **Quantize** | Off / 1/16 / 1/8 / 1/4 / 1/2 / Bar | Off | Triggers start on the next grid point. |
 | **Swing** | −20 – +20 % | 0 % | Shifts odd grid points. |
@@ -501,7 +504,7 @@ Loops come from a 12-loop embedded library or the user's disk; the loaded loop t
 | Sgraffito Memory Sampler | 0 samples | The sample plays from memory, starting at the note-on. Ghost copies and delayed notes (Lay Back, Humanise) are scheduled inside the block they are due, rather than pre-delayed. |
 | Stereo Tool Effect | 0 samples | No latency: the mid/side maths and the shaper are memoryless, and the dry path is mixed in place. |
 | MIDI Chord Arp Scale Tool | 50 ms | Fixed, whatever the rate or gate (matching Micro-Timing Chaos), so host delay compensation stays stable. No event is scheduled before its grid time; the chord path emits at the note-on's position. |
-| Multiband Saturation | 0 samples | The Linkwitz-Riley split adds no latency (first pass runs at base rate). |
+| MultiSat | 0 samples | The Linkwitz-Riley split adds no latency (first pass runs at base rate). |
 | Cyclical | 0 samples | Playback reads the loaded loops directly; the 2 s tail is reported through `getTailLengthSeconds`, not latency. |
 
 ---

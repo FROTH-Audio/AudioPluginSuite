@@ -16,6 +16,17 @@ namespace SuiteUI
         setColour (juce::Slider::thumbColourId, accent);
         setColour (juce::Label::textColourId, Colours::textDim);
         setColour (juce::ToggleButton::textColourId, Colours::text);
+
+        setColour (juce::ComboBox::backgroundColourId, Colours::panel);
+        setColour (juce::ComboBox::textColourId, Colours::text);
+        setColour (juce::ComboBox::outlineColourId, Colours::panelEdge);
+        setColour (juce::ComboBox::arrowColourId, Colours::textDim);
+        setColour (juce::ComboBox::focusedOutlineColourId, accent);
+        setColour (juce::PopupMenu::backgroundColourId, Colours::panel);
+        setColour (juce::PopupMenu::textColourId, Colours::text);
+        setColour (juce::PopupMenu::headerTextColourId, Colours::textDim);
+        setColour (juce::PopupMenu::highlightedBackgroundColourId, accent.withAlpha (0.18f));
+        setColour (juce::PopupMenu::highlightedTextColourId, accent);
     }
 
     void SuiteLookAndFeel::drawRotarySlider (juce::Graphics& g, int x, int y, int width, int height,
@@ -143,5 +154,119 @@ namespace SuiteUI
         g.setColour ((on ? accent : Colours::textDim).withMultipliedBrightness (brightness));
         g.setFont (SuiteUI::uiFont (14.0f, true));
         g.drawText (button.getButtonText(), textBounds, juce::Justification::centred);
+    }
+
+    //==============================================================================
+    void SuiteLookAndFeel::drawComboBox (juce::Graphics& g, int width, int height, bool isButtonDown,
+                                         int, int, int, int, juce::ComboBox& box)
+    {
+        const auto bounds = juce::Rectangle<float> (0.0f, 0.0f, (float) width, (float) height).reduced (0.5f);
+        const float radius = juce::jmin (SuiteUI::controlRadius, bounds.getHeight() * 0.5f);
+
+        g.setColour (Colours::panel);
+        g.fillRoundedRectangle (bounds, radius);
+
+        g.setColour (box.hasKeyboardFocus (true) ? accent.withAlpha (0.8f) : Colours::panelEdge);
+        g.drawRoundedRectangle (bounds, radius, 1.0f);
+
+        // A small chevron at the right, matching the pills' quiet look (plan 12).
+        juce::Path arrow;
+        const float cx = bounds.getRight() - 16.0f;
+        const float cy = bounds.getCentreY();
+        arrow.startNewSubPath (cx - 4.0f, cy - 2.0f);
+        arrow.lineTo (cx, cy + 2.5f);
+        arrow.lineTo (cx + 4.0f, cy - 2.0f);
+
+        g.setColour (isButtonDown ? accent : Colours::textDim);
+        g.strokePath (arrow, juce::PathStrokeType (1.6f, juce::PathStrokeType::curved,
+                                                  juce::PathStrokeType::rounded));
+    }
+
+    juce::Font SuiteLookAndFeel::getComboBoxFont (juce::ComboBox&)
+    {
+        return SuiteUI::uiFont (14.0f);
+    }
+
+    void SuiteLookAndFeel::positionComboBoxText (juce::ComboBox& box, juce::Label& label)
+    {
+        label.setBounds (6, 1, box.getWidth() - 28, box.getHeight() - 2);
+        label.setFont (getComboBoxFont (box));
+        label.setJustificationType (box.getJustificationType());
+    }
+
+    void SuiteLookAndFeel::drawPopupMenuBackground (juce::Graphics& g, int width, int height)
+    {
+        g.fillAll (Colours::panel);
+        g.setColour (Colours::panelEdge);
+        g.drawRect (0, 0, width, height);
+    }
+
+    juce::Font SuiteLookAndFeel::getPopupMenuFont()
+    {
+        return SuiteUI::uiFont (14.0f);
+    }
+
+    void SuiteLookAndFeel::drawPopupMenuItem (juce::Graphics& g, const juce::Rectangle<int>& area,
+                                              bool isSeparator, bool isActive, bool isHighlighted,
+                                              bool isTicked, bool hasSubMenu, const juce::String& text,
+                                              const juce::String& shortcutKeyText,
+                                              const juce::Drawable* icon,
+                                              const juce::Colour* textColour)
+    {
+        if (isSeparator)
+        {
+            g.setColour (Colours::panelEdge);
+            g.fillRect (area.reduced (8, 0).withHeight (1).withY (area.getCentreY()));
+            return;
+        }
+
+        const auto bounds = area.reduced (2, 0).toFloat();
+
+        if (isHighlighted && isActive)
+        {
+            g.setColour (accent.withAlpha (0.18f));
+            g.fillRoundedRectangle (bounds, 4.0f);
+        }
+
+        const auto colour = textColour != nullptr ? *textColour
+                            : (isActive ? (isHighlighted ? accent : Colours::text) : Colours::textDim);
+
+        auto textArea = bounds.reduced (10.0f, 0.0f);
+
+        if (isTicked)
+        {
+            // A filled dot marks the current choice; state is never colour alone (plan 05 R6).
+            g.setColour (accent);
+            g.fillEllipse (bounds.getX() + 8.0f, bounds.getCentreY() - 3.0f, 6.0f, 6.0f);
+            textArea.setLeft (textArea.getX() + 16.0f);
+        }
+
+        g.setColour (colour);
+        g.setFont (getPopupMenuFont());
+        g.drawText (text, textArea, juce::Justification::centredLeft, true);
+
+        if (shortcutKeyText.isNotEmpty())
+        {
+            g.setColour (Colours::textDim);
+            g.setFont (SuiteUI::uiFont (12.0f));
+            g.drawText (shortcutKeyText, bounds.reduced (10.0f, 0.0f),
+                        juce::Justification::centredRight, true);
+        }
+
+        if (hasSubMenu)
+        {
+            juce::Path arrow;
+            const float cx = bounds.getRight() - 12.0f;
+            const float cy = bounds.getCentreY();
+            arrow.startNewSubPath (cx - 2.0f, cy - 4.0f);
+            arrow.lineTo (cx + 2.5f, cy);
+            arrow.lineTo (cx - 2.0f, cy + 4.0f);
+
+            g.setColour (Colours::textDim);
+            g.strokePath (arrow, juce::PathStrokeType (1.4f, juce::PathStrokeType::curved,
+                                                      juce::PathStrokeType::rounded));
+        }
+
+        (void) icon;
     }
 }

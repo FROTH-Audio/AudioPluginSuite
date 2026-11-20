@@ -43,7 +43,7 @@ under the pointer.
 
 | Control | Range | What it does |
 |---|---|---|
-| **Master** | −24 – +12 dB | Output level of the whole instrument. |
+| **Output** | −24 – +12 dB | Output level of the whole instrument. |
 | **Pan** | −100 – +100 % | Constant-power pan: +100 % pans right, −100 % pans left; the sum of the two channels' power stays put. |
 | **Pitch** | −12 – +12 | Detunes all four slots together (speed and pitch move, like tape). |
 | **Crossfade** | 0 – 500 ms | The loop-seam blend, shared by all slots. |

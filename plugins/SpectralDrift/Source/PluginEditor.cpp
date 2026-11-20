@@ -52,14 +52,15 @@ SpectralDriftEditor::SpectralDriftEditor (SpectralDriftProcessor& p)
     setResizable (true, true);
     setResizeLimits (620, 660, 1200, 1200);
 
-    helpTracker.onMove = [this] (const juce::MouseEvent& e) { showHelp (e); };
-    addMouseListener (&helpTracker, true);
+    // The shared help line (plan 12): the footer sentence is the idle text, and hovering
+    // a control without help text returns to it.
+    helpLine.setIdleText ("FFT 2048 / 75 % overlap / 2048 samples latency");
+    helpLine.setComponentID ("spectraldrift-help");
+    helpLine.setEnablePredicate ([] { return SuiteSettings::shared().getBool (SuiteSettings::tooltipsKey, true); });
+    SuiteUI::attachHelpLine (*this, helpLine, helpTracker);
 
-    helpLabel.setFont (juce::Font (juce::FontOptions (14.0f)));
-    helpLabel.setColour (juce::Label::textColourId, SuiteUI::Colours::text);
-    helpLabel.setText ("Hover a control to see what it does.", juce::dontSendNotification);
-
-    for (auto* component : { static_cast<juce::Component*> (&spectrum),
+    for (auto* component : { static_cast<juce::Component*> (&helpLine),
+                             static_cast<juce::Component*> (&spectrum),
                              static_cast<juce::Component*> (&depthSlider),
                              static_cast<juce::Component*> (&spreadSlider),
                              static_cast<juce::Component*> (&stereoSlider),
@@ -117,6 +118,24 @@ SpectralDriftEditor::SpectralDriftEditor (SpectralDriftProcessor& p)
     freezeAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (
         apvts, SpectralDriftProcessor::freezeId, freezeButton);
 
+    // Help text on every control (plan 12), through the shared describe() helper.
+    SuiteUI::describe (depthSlider, "How far the routed LFO drifts the bin phases. 19.1 % is 0.6 radians.");
+    SuiteUI::describe (spreadSlider, "Lag, in frames, between the drift of neighbouring bins.");
+    SuiteUI::describe (stereoSlider, "Extra drift lag, in frames, for the right channel.");
+    SuiteUI::describe (shiftSlider, "Reads the magnitudes from a neighbouring bin: a spectral shift.");
+    SuiteUI::describe (tiltSlider, "A spectral tilt around the middle of the spectrum.");
+    SuiteUI::describe (gateSlider, "Bins below the threshold are gated out of the wet spectrum.");
+    SuiteUI::describe (feedbackSlider, "The engine's output feeds back into its input ring, through tanh.");
+    SuiteUI::describe (dampingSlider, "A one-pole low-pass in the feedback loop.");
+    SuiteUI::describe (driftStartSlider, "Bins below this fraction of the spectrum are not drifted.");
+    SuiteUI::describe (outputSlider, "The final gain stage, applied to the whole output.");
+    SuiteUI::describe (mixSlider, "Dry/wet balance. The dry path is delayed by the frame latency.");
+    SuiteUI::describe (freezeButton, "Holds the captured magnitudes; phases still advance.");
+    SuiteUI::describe (spectrum, "The input (dim) and output (bright) spectra. Says when it is waiting for audio.");
+    SuiteUI::describe (pageSelector, "SOUND: the spectral controls. MOD: the two LFOs and the six routing slots.");
+    SuiteUI::describe (*presetBar, "Factory presets, INIT and SAVE. The menu lists user presets.");
+    SuiteUI::describe (headerMenu, "Settings... and About...");
+
     // Each control that the routing can move, and the target it shows.
     using Target = SpectralDriftProcessor::ModTarget;
     controls = std::make_unique<SuiteModulation::ControlDisplay> (processor.getRouter(),
@@ -170,17 +189,6 @@ SuiteModulation::ModulationPanel::Style SpectralDriftEditor::modulationStyle()
              SuiteUI::Colours::panel, SuiteUI::Colours::track };
 }
 
-void SpectralDriftEditor::showHelp (const juce::MouseEvent& e)
-{
-    if (auto* component = e.eventComponent)
-    {
-        const auto text = component->getHelpText();
-
-        if (text.isNotEmpty())
-            helpLabel.setText (text, juce::dontSendNotification);
-    }
-}
-
 void SpectralDriftEditor::setPage (int newPage)
 {
     page = juce::jlimit (0, 1, newPage);
@@ -203,8 +211,6 @@ void SpectralDriftEditor::setPage (int newPage)
     for (auto* component : { static_cast<juce::Component*> (&modulation) })
         component->setVisible (page == 1);
 
-    helpLabel.setVisible (page == 1);
-
     resized();
     repaint();
 }
@@ -218,24 +224,10 @@ void SpectralDriftEditor::paint (juce::Graphics& g)
 
     SuiteUI::drawBrandLockup (g, getLocalBounds().reduced (16, 0).removeFromTop (headerHeight), brandLockup());
 
-    g.setColour (SuiteUI::Colours::textDim);
-    g.setFont (juce::Font (juce::FontOptions (11.0f)));
-    g.drawText ("FFT 2048 / 75 % overlap / 2048 samples latency",
-                getLocalBounds().removeFromBottom (helpHeight).reduced (16), juce::Justification::centredLeft);
-
     if (page == 1)
     {
-        const auto bounds = modulationGroupBounds.toFloat();
-
-        g.setColour (SuiteUI::Colours::panel.withAlpha (0.55f));
-        g.fillRoundedRectangle (bounds, 8.0f);
-        g.setColour (SuiteUI::Colours::track);
-        g.drawRoundedRectangle (bounds, 8.0f, 1.0f);
-
-        g.setColour (lookAndFeel.getAccent());
-        g.setFont (juce::Font (juce::FontOptions (15.0f, juce::Font::bold)));
-        g.drawText ("MODULATION", modulationGroupBounds.withHeight (groupTitleHeight).translated (0, 4).reduced (12, 0),
-                    juce::Justification::centredLeft);
+        // The shared group frame (plan 12).
+        SuiteUI::drawGroupFrame (g, modulationGroupBounds, "MODULATION", lookAndFeel.getAccent());
     }
 }
 
@@ -264,6 +256,10 @@ void SpectralDriftEditor::resized()
         layoutSoundPage (area);
     else
         layoutModPage (area);
+
+    // The help line lives on both pages now (plan 12), in the band the paint used to
+    // draw its footer sentence in.
+    helpLine.setBounds (getLocalBounds().removeFromBottom (helpHeight));
 }
 
 void SpectralDriftEditor::layoutSoundPage (juce::Rectangle<int> area)
@@ -290,15 +286,14 @@ void SpectralDriftEditor::layoutSoundPage (juce::Rectangle<int> area)
 
     area.removeFromTop (groupGap);
 
-    // Row 3: Feedback, FB Damping, Drift Start, Output Gain.
+    // Row 3: Feedback, FB Damping, Drift Start, Output.
     layoutRow (area.removeFromTop (SuiteUI::knobRowHeight),
                { &feedbackSlider, &dampingSlider, &driftStartSlider, &outputSlider });
 }
 
 void SpectralDriftEditor::layoutModPage (juce::Rectangle<int> area)
 {
-    helpLabel.setBounds (area.removeFromBottom (helpHeight));
-    area.removeFromBottom (groupGap);
+    area.removeFromBottom (helpHeight + groupGap);
 
     spectrum.setBounds (area.removeFromTop (juce::jmax (150, (int) ((float) area.getHeight() * 0.30f))));
     area.removeFromTop (groupGap);

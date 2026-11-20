@@ -357,14 +357,21 @@ namespace CoreDSP::Sampler
             if (candidate >= 0)
                 return candidate;
 
-            oldest = std::numeric_limits<std::uint32_t>::max();
+            // The quietest active voice (plan 12): level = envelope x memory gain x
+            // velocity, so a steal cuts the least audible voice rather than the oldest.
+            // Strict < keeps the first (lowest) index on ties, deterministic.
+            float quietest = std::numeric_limits<float>::max();
 
             for (int i = 0; i < maxVoices; ++i)
-                if (voices[i].startOrder < oldest)
+            {
+                const float level = voices[i].envValue * voices[i].gain * voices[i].velocity;
+
+                if (level < quietest)
                 {
                     candidate = i;
-                    oldest = voices[i].startOrder;
+                    quietest = level;
                 }
+            }
 
             return candidate;
         }

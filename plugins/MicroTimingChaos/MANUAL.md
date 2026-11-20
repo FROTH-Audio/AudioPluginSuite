@@ -17,7 +17,11 @@ The editor has three pages: **SEQUENCE** (pattern, melody, transport and the ste
 
 ## SEQUENCE page
 
-<img src="../../docs/manuals/microtimingchaos-detail-pattern.png" alt="Pattern group" width="640">
+The page is arranged in two columns: **PATTERN** on the left, **TRANSPORT** on top right
+with **MELODY** under it, and the **SEQUENCER** grid spanning the full width below the
+block (the owner's arrangement).
+
+<img src="../../docs/manuals/microtimingchaos-detail-pattern.png" alt="Pattern group" width="420">
 
 **Pattern.** Length sets how many steps the pattern has before it repeats, Density sets the
 chance that a step fires (each step has a fixed, seed-based decision, so the pattern is
@@ -25,18 +29,24 @@ stable), Seed chooses the pattern and the fixed melody, Gate sets the note lengt
 of a step, Swing delays every second step (negative values move them early) and Velocity is
 the base velocity.
 
-<img src="../../docs/manuals/microtimingchaos-detail-transport.png" alt="Transport group" width="317">
+<img src="../../docs/manuals/microtimingchaos-detail-transport.png" alt="Transport group" width="340">
 
 **Transport.** Tempo is used when the plugin runs freely; Host Sync follows the host's
 tempo and position instead (when the transport stops, all notes end, and the host tempo is
 shown under the button). Speed sets how fast the attractor moves relative to the tempo.
 The rate switches choose the step length (1/4 … 1/32).
 
+<img src="../../docs/manuals/microtimingchaos-detail-melody.png" alt="Melody group" width="340">
+
+**Melody.** Root is the lowest melody note, Octaves how far it spans, and Scale the note
+set it is drawn from.
+
 <img src="../../docs/manuals/microtimingchaos-detail-step-grid.png" alt="Step grid" width="640">
 
 **Sequencer.** The step grid is the live picture: filled columns are the steps that fire,
 the outlined column is the playhead, and each dot is a recent note — its height shows its
-timing shift and its size shows its velocity.
+timing shift and its size shows its velocity. Hovering the grid shows this in the help
+line below the window.
 
 ## DRIFT page
 
@@ -76,3 +86,6 @@ times, so it can alias against the grid.
   for more movement.
 - The factory presets (bank build) range from subtle shuffles to full chaos; they all run
   at 120 BPM with host sync off.
+- Hovering any control shows what it does in the help line at the bottom of the window; the
+  Settings dialog's tooltips toggle turns the line off.
+- The scale choice is a dropdown; the step rate is a pill switch.

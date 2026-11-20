@@ -24,6 +24,8 @@ StereoToolProcessor::StereoToolProcessor()
     midFocusParam         = apvts.getRawParameterValue (midFocusId);
     sideFilterParam       = apvts.getRawParameterValue (sideFilterId);
     sideCrossoverParam    = apvts.getRawParameterValue (sideCrossoverId);
+    inputLevelParam       = apvts.getRawParameterValue (inputLevelId);
+    outputLevelParam      = apvts.getRawParameterValue (outputLevelId);
 }
 
 juce::AudioProcessorValueTreeState::ParameterLayout StereoToolProcessor::createParameterLayout()
@@ -94,6 +96,16 @@ juce::AudioProcessorValueTreeState::ParameterLayout StereoToolProcessor::createP
     params.push_back (std::make_unique<juce::AudioParameterFloat> (
         juce::ParameterID { sideCrossoverId, 1 }, "Side Crossover", crossoverRange, 200.0f, crossoverAttributes));
 
+    //---- Plan 12: the level stage, appended so no saved parameter index moves.
+    // 0 dB is exactly unity, so the identity path still holds at the defaults.
+    params.push_back (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { inputLevelId, 1 }, "Input",
+        juce::NormalisableRange<float> (-24.0f, 24.0f, 0.1f), 0.0f, "dB"));
+
+    params.push_back (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { outputLevelId, 1 }, "Output",
+        juce::NormalisableRange<float> (-24.0f, 24.0f, 0.1f), 0.0f, "dB"));
+
     return { params.begin(), params.end() };
 }
 
@@ -104,6 +116,15 @@ void StereoToolProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 
     // The rate is the one prepareToPlay was given: getSampleRate() is 0 in a bare test harness.
     preparedSampleRate = sampleRate > 0.0 ? sampleRate : 44100.0;
+
+    // The level stage (plan 12): 20 ms smoothing, started at the target so the first
+    // block is bit-exact at the 0 dB defaults.
+    inputGainSmoothed.reset (preparedSampleRate, 0.02);
+    inputGainSmoothed.setCurrentAndTargetValue (juce::Decibels::decibelsToGain (
+        juce::jlimit (-24.0f, 24.0f, inputLevelParam->load())));
+    outputGainSmoothed.reset (preparedSampleRate, 0.02);
+    outputGainSmoothed.setCurrentAndTargetValue (juce::Decibels::decibelsToGain (
+        juce::jlimit (-24.0f, 24.0f, outputLevelParam->load())));
 
     transientEnv.prepare (preparedSampleRate, transientAttackParam->load(), transientReleaseParam->load());
 
@@ -178,12 +199,19 @@ void StereoToolProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     const float satAmount = driveDb > 0.0f ? driveDb / 24.0f : 0.0f;
     const float satGain   = driveDb > 0.0f ? juce::Decibels::decibelsToGain (driveDb) : 1.0f;
 
+    // The level stage (plan 12): smoothed 20 ms, block-rate targets.
+    const float inputLevelDb = juce::jlimit (-24.0f, 24.0f, inputLevelParam->load());
+    const float outputLevelDb = juce::jlimit (-24.0f, 24.0f, outputLevelParam->load());
+    inputGainSmoothed.setTargetValue (juce::Decibels::decibelsToGain (inputLevelDb));
+    outputGainSmoothed.setTargetValue (juce::Decibels::decibelsToGain (outputLevelDb));
+
     // When neither the drive, nor the width, nor any plan-6.1 control touches the signal,
     // the wet path is mathematically the input. Taking it out keeps the plugin bit-exact at
     // the defaults (the mid/side round trip alone is not bit-exact in float) and skips work.
     const bool identityPath = satAmount == 0.0f && cleanGain == 1.0f && sideGain == 1.0f
                            && characterIndex == 0 && transientAmount == 0.0f
-                           && midFocus == 0.0f && sideFilterIndex == 0;
+                           && midFocus == 0.0f && sideFilterIndex == 0
+                           && inputLevelDb == 0.0f && outputLevelDb == 0.0f;
 
     // The visual snapshot's accumulators (plan 11 D7): mid/side RMS, peaks, follower level.
     float midSum = 0.0f, sideSum = 0.0f, inputPeakNow = 0.0f, outputPeakNow = 0.0f, envLast = 0.0f;
@@ -206,6 +234,11 @@ void StereoToolProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
 
     if (identityPath && mix == 1.0f)
     {
+        // The smoothing clocks still advance, so returning to the identity from a gain
+        // automation does not apply a stale ramp later.
+        inputGainSmoothed.skip (numSamples);
+        outputGainSmoothed.skip (numSamples);
+
         // The meters still describe the untouched signal (plan 11 D7).
         for (int n = 0; n < numSamples; ++n)
         {
@@ -228,6 +261,12 @@ void StereoToolProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
         float cleanGainN = cleanGain;
         float satAmountN = satAmount;
         float satGainN = satGain;
+
+        // The level stage (plan 12). The dry copy was taken before the loop, so the input
+        // gain feeds the chain only, and the output gain lands after the mix.
+        const float inputGainN = inputGainSmoothed.getNextValue();
+        left[n]  *= inputGainN;
+        right[n] *= inputGainN;
 
         // The transient follower (plan 6.1): a peak envelope over the linked input moves
         // the width and/or the drive. At amount 0 the follower is not applied and the
@@ -295,8 +334,9 @@ void StereoToolProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
         float outL = 0.0f, outR = 0.0f;
         CoreDSP::Stereo::decode (m, s, outL, outR);
 
-        left[n]  = (1.0f - mix) * dryL[n] + mix * outL;
-        right[n] = (1.0f - mix) * dryR[n] + mix * outR;
+        const float outputGainN = outputGainSmoothed.getNextValue();
+        left[n]  = ((1.0f - mix) * dryL[n] + mix * outL) * outputGainN;
+        right[n] = ((1.0f - mix) * dryR[n] + mix * outR) * outputGainN;
         outputPeakNow = juce::jmax (outputPeakNow, std::abs (left[n]), std::abs (right[n]));
     }
 

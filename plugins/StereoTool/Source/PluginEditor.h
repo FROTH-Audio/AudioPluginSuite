@@ -8,6 +8,7 @@
 
 #include "PluginProcessor.h"
 #include "SuiteHeaderMenu.h"
+#include "SuiteHelp.h"
 #include "SuiteLookAndFeel.h"
 #include "SuiteSelectorAttachment.h"
 #include "SuiteWidgets.h"
@@ -91,6 +92,10 @@ private:
     SuiteUI::LabelledSlider crossoverCtrl { "CROSSOVER", juce::Slider::RotaryVerticalDrag };
     SuiteUI::LabelledSelector filterCell { "SIDE FILTER", juce::Colour (0xffB18CFF) };
 
+    // LEVEL group (plan 12): beside the visualiser, so the window stays 880x700.
+    SuiteUI::LabelledSlider inputCtrl  { "INPUT",  juce::Slider::RotaryVerticalDrag };
+    SuiteUI::LabelledSlider outputCtrl { "OUTPUT", juce::Slider::RotaryVerticalDrag };
+
     // The pill selectors' parameter attachments (declared after the cells, so they are
     // destroyed first — plan 11 D1, wired through SuiteUI::attachSelector).
     std::unique_ptr<juce::ParameterAttachment> characterAttachment;
@@ -107,13 +112,19 @@ private:
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> mixAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> midFocusAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> crossoverAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> inputAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> outputAttachment;
 
-    juce::Rectangle<int> characterGroupBounds, imageGroupBounds, visualBounds;
+    juce::Rectangle<int> characterGroupBounds, imageGroupBounds, levelGroupBounds, visualBounds;
 
     // Visual + header (plan 11 4c/R13).
     MidSideMeter visualizer { processor };
     std::unique_ptr<SuitePresets::PresetBar> presetBar;
     SuiteUI::HeaderMenuButton headerMenu { juce::Colour (0xffB18CFF) };
+
+    // The shared help line (plan 12).
+    SuiteUI::HelpTracker helpTracker;
+    SuiteUI::HelpLine helpLine;
 
     void timerCallback() override { visualizer.tick(); }
 

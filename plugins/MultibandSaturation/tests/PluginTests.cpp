@@ -184,6 +184,35 @@ namespace
         pass ("testEditor");
     }
 
+    /** Plan 12: the narrower window, the taller visualiser, the group frames and the
+        shared help line. */
+    void testLayoutAndHelp()
+    {
+        Processor processor;
+        std::unique_ptr<juce::AudioProcessorEditor> editor (processor.createEditorAndMakeActive());
+        assert (editor != nullptr);
+        assert (editor->getWidth() == 760 && editor->getHeight() == 700);
+
+        // The layout exposes its bands for the tests: the visualiser is at least 50 %
+        // higher than the old 130 and the window is narrower than before.
+        auto* multibandEditor = dynamic_cast<MultibandSaturationEditor*> (editor.get());
+        assert (multibandEditor != nullptr);
+        const auto visual = multibandEditor->visualRect();
+        assert (visual.getHeight() >= 195);
+        assert (visual.getWidth() < 900);
+        assert (multibandEditor->splitRect().getHeight() < SuiteUI::knobRowHeight + 40);   // one row
+
+        // The rename: the host-visible name and the parameter's display name.
+        assert (processor.getName() == "MultiSat");
+        assert (processor.apvts.getParameter (MultibandSaturationProcessor::outputLevelId)
+                    ->getName (100) == "Output");
+
+        PluginTest::checkHelpLine (*editor, "multiband-help", *multibandEditor->visualComponent());
+
+        processor.editorBeingDeleted (editor.get());
+        pass ("testLayoutAndHelp");
+    }
+
     /** Plan 11 D7: the band snapshot's envelopes rise with signal and stay at zero when idle. */
     void testVisualSnapshot()
     {
@@ -309,6 +338,7 @@ int main()
     testMixZeroIsDry();
     testBandsShapeIndependently();
     testEditor();
+    testLayoutAndHelp();
     testVisualSnapshot();
     testHeaderContract();
     testRenderBaseline();

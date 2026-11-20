@@ -3,10 +3,12 @@
 suite_add_plugin(
     NAME            MidiEffect
     PRODUCT_NAME    "MIDI Chord Arp Scale Tool"
-    DESCRIPTION     "MIDI effect that quantises incoming notes to a scale and builds chords from them."
+    DESCRIPTION     "Instrument that quantises incoming notes to a scale and builds chords and arpeggios from them."
     MANUFACTURER    Asui
     PLUGIN_CODE     Marc
-    IS_MIDI_EFFECT  NEEDS_MIDI_INPUT
+    IS_SYNTH
+    NEEDS_MIDI_INPUT
+    NEEDS_MIDI_OUTPUT
     SOURCES         Source/PluginProcessor.cpp Source/PluginProcessor.h
                     Source/PluginEditor.cpp Source/PluginEditor.h
     TEST_SOURCES    tests/PluginTests.cpp
