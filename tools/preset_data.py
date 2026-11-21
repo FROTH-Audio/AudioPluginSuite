@@ -22,7 +22,7 @@ def _routing(target_max):
 
     for index in (1, 2):
         params[f"lfo{index}Rate"] = {"min": 0.02, "max": 20.0, "default": 0.25, "type": "float"}
-        params[f"lfo{index}Shape"] = {"min": 0, "max": 6, "default": 0, "type": "choice"}
+        params[f"lfo{index}Shape"] = {"min": 0, "max": 7, "default": 0, "type": "choice"}
         params[f"lfo{index}Sync"] = {"min": 0, "max": 1, "default": 0, "type": "bool"}
         params[f"lfo{index}Division"] = {"min": 0, "max": 6, "default": 4, "type": "choice"}
         params[f"lfo{index}Offset"] = {"min": -100.0, "max": 100.0, "default": 0.0, "type": "float"}
@@ -143,10 +143,11 @@ SCHEMA = {
         "octave": {"min": -2, "max": 2, "default": 0, "type": "int"},
         "velocity": {"min": 0.0, "max": 150.0, "default": 100.0, "type": "float"},
         "arpMode": {"min": 0, "max": 1, "default": 0, "type": "choice"},
-        # Plan 12: twelve step rates in the clean order (0=1/4 ... 11=1/32D). The old
+        # Plan 12: twelve step rates in the clean order (0=1/4 ... 11=1/32D); plan 15
+        # appended 12=1/2, 13=1 Bar, 14=2 Bars, 15=4 Bars (append-only, no migration).
         # authoring indices (0=1/8, 1=1/8T, 2=1/16, 3=1/16T, 4=1/32) were remapped, so
         # each preset still means the note value it was written with.
-        "stepRate": {"min": 0, "max": 11, "default": 6, "type": "choice"},
+        "stepRate": {"min": 0, "max": 15, "default": 6, "type": "choice"},
         "hostSync": {"min": 0, "max": 1, "default": 0, "type": "choice"},
         "tempo": {"min": 40.0, "max": 240.0, "default": 120.0, "type": "float"},
         "gateLength": {"min": 10.0, "max": 100.0, "default": 60.0, "type": "float"},
@@ -170,9 +171,11 @@ SCHEMA = {
         # preset-authored, so the schema only covers them for the audit.
         "inputLevel": {"min": -24.0, "max": 24.0, "default": 0.0, "type": "float"},
         "outputLevel": {"min": -24.0, "max": 24.0, "default": 0.0, "type": "float"},
+        # Plan 13: the shared LFO/routing parameters (10 targets + None).
+        **_routing(10),
     },
-    # Plan 11: Multiband Saturation, the two-band split (11 parameters; the shared Router's
-    # parameters are not in the layout yet, so no routing entries).
+    # Plan 13: Multiband Saturation, the two-band split with LFOs and routing
+    # (11 sound parameters + 34 router parameters).
     "MultibandSaturation": {
         "mode": {"min": 0, "max": 2, "default": 0, "type": "choice"},
         "crossover": {"min": 80.0, "max": 8000.0, "default": 500.0, "type": "float"},
@@ -185,6 +188,7 @@ SCHEMA = {
         "toneHigh": {"min": -1.0, "max": 1.0, "default": 0.0, "type": "float"},
         "mix": {"min": 0.0, "max": 100.0, "default": 100.0, "type": "float"},
         "outputLevel": {"min": -12.0, "max": 6.0, "default": 0.0, "type": "float"},
+        **_routing(10),
     },
     # Plan 6.1: Cyclical, the four-slot loop instrument (35 parameters).
     "Cyclical": {
@@ -258,6 +262,30 @@ PRESETS = {
         _preset("Fast Chatter", "Lo-Fi", "Fast drift with a wide spread.", lfo1Rate=8.0, mod1Target=12, mod1Amount=100.0, spread=0.9, shift=5.0),
         _preset("Null Test", "Utility", "No drift, no shaping: a transparent reference.", depth=0.0),
         _preset("Init Bright", "Utility", "Near-default with a little brightness.", tilt=0.5),
+        # Plan 13: 10 new SpectralDrift presets that exercise modulation beyond the existing
+        # eight LFO1-sine-to-Drift entries.
+        _preset("Shift Wander", "Rhythmic", "Triangle LFO moves the spectral shift up and down.",
+                lfo1Rate=0.5, lfo1Shape=1, mod1Target=4, mod1Amount=80.0, shift=6.0, mix=70.0, depth=30.0),
+        _preset("Gate Breathe", "Character", "Square LFO opens and closes the spectral gate.",
+                lfo1Rate=0.25, lfo1Shape=3, mod1Target=6, mod1Amount=-100.0, gate=-80.0, depth=40.0),
+        _preset("Tilt Sway", "Character", "Triangle LFO sweeps the spectral tilt.",
+                lfo1Rate=0.4, lfo1Shape=1, mod1Target=5, mod1Amount=100.0, depth=25.0, mix=80.0),
+        _preset("Feedback Pulse", "Lo-Fi", "Sample-and-hold LFO jumps the feedback amount.",
+                lfo2Rate=4.0, lfo2Shape=4, mod2Source=1, mod2Target=7, mod2Amount=100.0, feedback=2.0, depth=50.0, mix=90.0),
+        _preset("Phase Rotation", "Wide", "Sine LFO rotates the stereo phase width.",
+                lfo1Rate=0.2, lfo1Shape=0, mod1Target=3, mod1Amount=100.0, stereoPhase=90.0, depth=45.0, spread=0.3),
+        _preset("Start Scanner", "Mix", "Slow saw scans the drift start point across the spectrum.",
+                lfo2Rate=0.1, lfo2Shape=2, mod2Source=1, mod2Target=9, mod2Amount=100.0, driftStart=0.0, depth=60.0),
+        _preset("Output Pump", "Utility", "Synced square LFO pumps the output level.",
+                lfo1Rate=2.0, lfo1Shape=3, lfo1Sync=1, lfo1Division=4, mod1Target=10, mod1Amount=50.0, outputGain=0.0, depth=0.0),
+        _preset("Bin Spray", "Lo-Fi", "Noise LFO randomises the bin spread each block.",
+                lfo2Rate=8.0, lfo2Shape=6, mod2Source=1, mod2Target=2, mod2Amount=100.0, spread=0.0, depth=70.0, mix=75.0),
+        _preset("Dual Drift", "Ambient", "Two slow LFOs drift the spectrum and stereo phase.",
+                lfo1Rate=0.08, lfo1Shape=0, mod1Target=12, mod1Amount=100.0,
+                lfo2Rate=0.05, lfo2Shape=1, mod2Source=1, mod2Target=3, mod2Amount=60.0, mod2Delay=1.0,
+                depth=50.0, stereoPhase=90.0),
+        _preset("Pendulum Drift", "Rhythmic", "Pendulum LFO gives a swinging drift motion.",
+                lfo1Rate=0.5, lfo1Shape=7, mod1Target=12, mod1Amount=100.0, depth=60.0, spread=0.4),
     ],
     "DynamicSaturation": [
         _preset("Tube Glue", "Mix bus", "Gentle tube glue for a mix bus.", drive=4.0, sensitivity=0.4),
@@ -286,6 +314,27 @@ PRESETS = {
         _preset("Stereo Split", "Utility", "Unlinked envelopes with light drive.", stereoLink=0.0, drive=7.0),
         _preset("Transient Keeper", "Utility", "Slow attack, fast release.", attack=30.0, release=50.0, sensitivity=0.1),
         _preset("Null Reference", "Utility", "Fully dry: a null reference.", drive=0.0, mix=0.0),
+        # Plan 13: 10 new DynamicSaturation presets that use the shared LFO/routing.
+        _preset("Pumping Glue", "Mix bus", "Tube glue with a rhythmic wet/dry pump.",
+                lfo1Rate=0.5, lfo1Shape=0, mod1Target=3, mod1Amount=-60.0, mix=80.0, drive=4.0, sensitivity=0.4),
+        _preset("Bias Wobble", "Character", "Triangle LFO wobbles the tube bias.",
+                lfo1Rate=0.3, lfo1Shape=1, mod1Target=9, mod1Amount=100.0, bias=0.12, drive=8.0),
+        _preset("Fold Flutter", "Lo-Fi", "Sample-and-hold LFO jitters the wavefolder.",
+                lfo2Rate=6.0, lfo2Shape=4, mod2Source=1, mod2Target=10, mod2Amount=80.0, fold=10.0, drive=12.0, mode=2),
+        _preset("Attack Rider", "Drums", "Slow sine rides the attack time.",
+                lfo1Rate=0.25, lfo1Shape=0, mod1Target=5, mod1Amount=50.0, attack=5.0, drive=10.0, release=80.0),
+        _preset("Release Swell", "Ambient", "Triangle LFO swells the release time.",
+                lfo2Rate=0.2, lfo2Shape=1, mod2Source=1, mod2Target=6, mod2Amount=60.0, release=800.0, drive=6.0),
+        _preset("HPF Sweep", "Bass", "Sine LFO sweeps the detector high-pass.",
+                lfo1Rate=0.4, lfo1Shape=0, mod1Target=7, mod1Amount=100.0, detectHpf=100.0, drive=8.0),
+        _preset("Stereo Wander", "Utility", "Triangle LFO moves the stereo link from unlinked to fully linked.",
+                lfo1Rate=0.15, lfo1Shape=1, mod1Target=8, mod1Amount=100.0, stereoLink=50.0),
+        _preset("Tone LFO", "Bright", "Sine LFO sweeps the tilt tone control.",
+                lfo2Rate=0.6, lfo2Shape=0, mod2Source=1, mod2Target=11, mod2Amount=100.0, tone=0.0, drive=7.0),
+        _preset("Curve Mod", "Character", "Saw LFO modulates the envelope curve.",
+                lfo1Rate=0.3, lfo1Shape=2, mod1Target=12, mod1Amount=80.0, curve=1.0, drive=9.0),
+        _preset("Drive Sweeper", "Mix bus", "Synced triangle LFO sweeps the drive.",
+                lfo1Rate=2.0, lfo1Shape=1, lfo1Sync=1, lfo1Division=5, mod1Target=1, mod1Amount=80.0, drive=6.0),
     ],
     "MicroTimingChaos": [
         _preset("Slow Orbit", "Ambient", "Slow, sparse orbit.", speed=0.5, lerp=40.0, density=50.0),
@@ -378,6 +427,27 @@ PRESETS = {
         _preset("Bright Air", "Electronic", "Airy top, mono bottom.", character=2, drive=10.0, sideFilter=1, sideCrossover=6000.0),
         _preset("Narrow Focus", "Vocals", "Tight vocal centre.", character=3, drive=5.0, midFocus=80.0),
         _preset("Full Spectrum", "All-genre", "Wide but controlled over tape drive.", character=1, drive=7.0, transientAmount=30.0, transientAttack=30.0, transientRelease=250.0, sideFilter=1, sideCrossover=200.0),
+        # Plan 13: 10 new StereoTool presets that use the shared LFO/routing.
+        _preset("Width Sway", "Groove", "Triangle LFO sways the stereo width.",
+                lfo1Rate=0.3, lfo1Shape=1, mod1Target=1, mod1Amount=100.0, drive=4.0),
+        _preset("Drive Bloom", "Classic", "Sine LFO blooms the tube drive.",
+                lfo1Rate=0.25, lfo1Shape=0, mod1Target=2, mod1Amount=100.0, drive=6.0),
+        _preset("Mix Breather", "Ambient", "Slow sine breathes the dry/wet balance.",
+                lfo1Rate=0.15, lfo1Shape=0, mod1Target=3, mod1Amount=-60.0, mix=80.0, character=1, drive=5.0),
+        _preset("Attack Flutter", "Experimental", "Sample-and-hold jitters the follower attack.",
+                lfo2Rate=6.0, lfo2Shape=4, mod2Source=1, mod2Target=4, mod2Amount=100.0, transientAmount=40.0, transientTarget=0),
+        _preset("Release Swell", "Groove", "Sine LFO swells the follower release.",
+                lfo1Rate=0.2, lfo1Shape=0, mod1Target=5, mod1Amount=80.0, transientAmount=30.0, transientRelease=150.0, drive=6.0),
+        _preset("Amount Pulse", "Electronic", "Synced square pulses the transient amount.",
+                lfo1Rate=2.0, lfo1Shape=3, lfo1Sync=1, lfo1Division=4, mod1Target=6, mod1Amount=60.0, transientTarget=0, drive=8.0),
+        _preset("Focus Sway", "Vocals", "Triangle LFO sways the centre focus.",
+                lfo1Rate=0.4, lfo1Shape=1, mod1Target=7, mod1Amount=100.0, midFocus=-30.0, drive=5.0),
+        _preset("Filter Sweep", "Electronic", "Saw LFO sweeps the side filter corner.",
+                lfo1Rate=0.25, lfo1Shape=2, mod1Target=8, mod1Amount=100.0, sideFilter=2, sideCrossover=800.0, drive=6.0),
+        _preset("Input Breathing", "Subtle", "Slow sine breathes the input stage.",
+                lfo1Rate=0.1, lfo1Shape=0, mod1Target=9, mod1Amount=10.0, drive=4.0),
+        _preset("Output Pump", "Mix bus", "Synced square pumps the output level.",
+                lfo1Rate=2.0, lfo1Shape=3, lfo1Sync=1, lfo1Division=4, mod1Target=10, mod1Amount=15.0, drive=3.0),
     ],
     # Plan 11: Multiband Saturation, the two-band split. Every preset changes at least one
     # parameter from the default. Bank order is append-only.
@@ -397,6 +467,27 @@ PRESETS = {
         _preset("Gentle Two", "Mix bus", "Barely there, both bands.", driveLow=2.0, driveHigh=2.0, sensitivity=0.2),
         _preset("Extreme Split", "Extreme", "Maximum drive on both bands, diode mode.", mode=2, driveLow=24.0, driveHigh=24.0, sensitivity=1.0),
         _preset("Null Split", "Utility", "Fully dry: a transparent reference.", mix=0.0),
+        # Plan 13: 10 new MultibandSaturation presets that use the shared LFO/routing.
+        _preset("Crossover Sweep", "Mix bus", "Triangle LFO sweeps the crossover point.",
+                lfo1Rate=0.3, lfo1Shape=1, mod1Target=1, mod1Amount=100.0, crossover=500.0, driveLow=4.0, driveHigh=4.0),
+        _preset("Drive Pump", "Drums", "Square LFO pumps the low-band drive.",
+                lfo1Rate=2.0, lfo1Shape=3, mod1Target=2, mod1Amount=80.0, driveLow=8.0, attack=2.0, release=80.0),
+        _preset("High Sparkle LFO", "Bright", "Sine LFO moves the high-band drive.",
+                lfo1Rate=0.4, lfo1Shape=0, mod1Target=3, mod1Amount=100.0, driveHigh=8.0, crossover=2000.0),
+        _preset("Sensitivity Breathe", "Vocal", "Triangle LFO breathes the envelope sensitivity.",
+                lfo1Rate=0.25, lfo1Shape=1, mod1Target=4, mod1Amount=-80.0, sensitivity=0.6, driveLow=5.0, driveHigh=5.0),
+        _preset("Attack Jitter", "Lo-Fi", "Sample-and-hold LFO jitters the attack time.",
+                lfo2Rate=6.0, lfo2Shape=4, mod2Source=1, mod2Target=5, mod2Amount=100.0, attack=5.0, driveLow=10.0),
+        _preset("Release Swell", "Ambient", "Sine LFO swells the release time.",
+                lfo1Rate=0.2, lfo1Shape=0, mod1Target=6, mod1Amount=80.0, release=800.0, driveLow=7.0),
+        _preset("Tone Wobble", "Character", "Triangle LFO wobbles the low-band tone.",
+                lfo1Rate=0.5, lfo1Shape=1, mod1Target=7, mod1Amount=100.0, toneLow=0.0, driveLow=8.0),
+        _preset("High Tilt Sway", "Bright", "Saw LFO sways the high-band tilt.",
+                lfo2Rate=0.3, lfo2Shape=2, mod2Source=1, mod2Target=8, mod2Amount=100.0, toneHigh=0.0, driveHigh=9.0),
+        _preset("Wet/Dry Pulse", "Mix bus", "Synced square LFO pulses the mix.",
+                lfo1Rate=2.0, lfo1Shape=3, lfo1Sync=1, lfo1Division=4, mod1Target=9, mod1Amount=-60.0, mix=80.0),
+        _preset("Output Pump", "Utility", "Sine LFO pumps the output level.",
+                lfo1Rate=0.35, lfo1Shape=0, mod1Target=10, mod1Amount=50.0, outputLevel=0.0),
     ],
     # Plan 6.1: the four-slot loop instrument. Every preset carries four embedded: loop
     # paths (the slot loading rides as state properties) and changes at least one

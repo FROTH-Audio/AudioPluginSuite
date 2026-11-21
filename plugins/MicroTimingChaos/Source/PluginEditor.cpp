@@ -573,9 +573,12 @@ void MicroTimingChaosEditor::resized()
         scaleDropdown.setBounds (melodyCells[2].withSizeKeepingCentre (melodyCells[2].getWidth(), SuiteUI::captionHeight + SuiteUI::pillHeight));
 
         // Transport: tempo and speed knobs on the left; on the right, the rate switches with
-        // BPM Sync below them, and the host tempo readout underneath.
+        // BPM Sync below them, and the host tempo readout underneath. The knob cells are one
+        // knob row tall, so the caption sits directly above the knob (owner finding, plan 13:
+        // the full-height cell pushed the knobs far below their captions).
         auto transportInner = innerOf (transportGroup);
-        auto knobArea = transportInner.removeFromLeft (juce::roundToInt ((float) transportInner.getWidth() * 0.4f));
+        auto knobArea = transportInner.removeFromLeft (juce::roundToInt ((float) transportInner.getWidth() * 0.4f))
+                          .removeFromTop (SuiteUI::knobRowHeight);
         placeKnob (tempoSlider, knobArea.removeFromLeft (knobArea.getWidth() / 2));
         placeKnob (speedSlider, knobArea);
         transportInner.removeFromLeft (groupGap);

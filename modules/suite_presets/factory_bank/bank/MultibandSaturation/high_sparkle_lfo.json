@@ -1,0 +1,13 @@
+{
+  "_name": "High Sparkle LFO",
+  "_category": "Bright",
+  "_description": "Sine LFO moves the high-band drive.",
+  "_plugin": "MultibandSaturation",
+  "_pluginVersion": "1.0.0",
+  "crossover": 2000.0,
+  "driveHigh": 8.0,
+  "lfo1Rate": 0.4,
+  "lfo1Shape": 0,
+  "mod1Target": 3,
+  "mod1Amount": 100.0
+}

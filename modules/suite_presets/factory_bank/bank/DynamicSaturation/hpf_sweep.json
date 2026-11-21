@@ -1,0 +1,13 @@
+{
+  "_name": "HPF Sweep",
+  "_category": "Bass",
+  "_description": "Sine LFO sweeps the detector high-pass.",
+  "_plugin": "DynamicSaturation",
+  "_pluginVersion": "1.0.0",
+  "drive": 8.0,
+  "detectHpf": 100.0,
+  "lfo1Rate": 0.4,
+  "lfo1Shape": 0,
+  "mod1Target": 7,
+  "mod1Amount": 100.0
+}

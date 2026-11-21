@@ -1,0 +1,13 @@
+{
+  "_name": "Tone Wobble",
+  "_category": "Character",
+  "_description": "Triangle LFO wobbles the low-band tone.",
+  "_plugin": "MultibandSaturation",
+  "_pluginVersion": "1.0.0",
+  "driveLow": 8.0,
+  "toneLow": 0.0,
+  "lfo1Rate": 0.5,
+  "lfo1Shape": 1,
+  "mod1Target": 7,
+  "mod1Amount": 100.0
+}

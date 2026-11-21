@@ -1,0 +1,14 @@
+{
+  "_name": "Mix Breather",
+  "_category": "Ambient",
+  "_description": "Slow sine breathes the dry/wet balance.",
+  "_plugin": "StereoTool",
+  "_pluginVersion": "1.0.0",
+  "drive": 5.0,
+  "mix": 80.0,
+  "character": 1,
+  "lfo1Rate": 0.15,
+  "lfo1Shape": 0,
+  "mod1Target": 3,
+  "mod1Amount": -60.0
+}

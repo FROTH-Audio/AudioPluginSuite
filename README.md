@@ -153,7 +153,7 @@ Spectral Drift, Dynamic Saturation and Micro-Timing Chaos share a preset system 
 
 **Preset files** use the `.ausp` extension: UTF-8 XML (`<AudioSuitePreset formatVersion="1" plugin="..." pluginVersion="...">`, `<Meta>`, `<PARAMETERS suiteStateVersion="N">`). User presets are stored under `Documents/AudioSuite/<plugin>/Presets` (Windows) or the platform equivalent, and the plugin id and state version are checked on read — a preset saved with a newer plugin version is refused rather than partially applied.
 
-**Factory bank.** With `SUITE_PRESET_BANK=ON`, 160 factory presets are embedded in the plugin binary (`bank/AudioSuitePresets.xml`): 26 for Spectral Drift, 26 for Dynamic Saturation, 28 for Micro-Timing Chaos, 20 for Sgraffito, and 15 each for MIDI Chord Arp Scale Tool, Stereo Tool, Multiband Saturation and Cyclical (plans 6.1 and 11). Each preset is a delta from the default state, so absent parameters are set to their defaults at load time. The bank is checked by `tools/audit_bank.py` (unique names, in-range values, no preset equal to the default, category rules, Micro-Timing Chaos base patterns that fire at least one step, and a `samplePath` only as an `embedded:` URI — five Sgraffito presets ship the embedded cloud variant; file paths are rejected). Without the flag, the bank compiles as empty and the bar shows only user presets and INIT.
+**Factory bank.** With `SUITE_PRESET_BANK=ON`, 200 factory presets are embedded in the plugin binary (`bank/AudioSuitePresets.xml`): 36 for Spectral Drift, 36 for Dynamic Saturation, 28 for Micro-Timing Chaos, 20 for Sgraffito, 15 for MIDI Chord Arp Scale Tool, 25 each for Stereo Tool and Multiband Saturation, and 15 for Cyclical (plans 6.1, 11 and 13 — the plan-13 additions in SD, DS, Stereo Tool and MultiSat use the shared LFO routing). Each preset is a delta from the default state, so absent parameters are set to their defaults at load time. The bank is checked by `tools/audit_bank.py` (unique names, in-range values, no preset equal to the default, category rules, Micro-Timing Chaos base patterns that fire at least one step, and a `samplePath` only as an `embedded:` URI — five Sgraffito presets ship the embedded cloud variant; file paths are rejected). Without the flag, the bank compiles as empty and the bar shows only user presets and INIT.
 
 **Preset bar.** Each editor gains a header bar (right-aligned in the title area) that lists factory presets by category, INIT (reset-all-defaults) and SAVE. The bar is always visible (height 30); when the bank is empty it lists only user presets.
 
@@ -397,12 +397,15 @@ The editor has three pages. SOUND shows the sample's waveform with each key's re
 
 ### Stereo Tool Effect
 
-<img src="docs/manuals/stereotool-default.png" alt="Stereo Tool Effect screenshot" width="587">
+<img src="docs/manuals/stereotool-default.png" alt="Stereo Tool Effect screenshot" width="480">
 
 The [user manual](plugins/StereoTool/MANUAL.md) is a short walkthrough with a screenshot.
 A stereo tool. It splits the input into mid and side, shapes each band with a selectable
 saturation character, optionally moves the width or drive on transients, reshapes the image
-(mid focus, a side filter), and mixes the result against the dry input.
+(mid focus, a side filter), and mixes the result against the dry input. Two LFOs and six
+routing slots (the suite's shared modulation) can move ten of the controls; a SOUND / MOD
+page switch holds the routing panel. The mid/side + follower preview sits at the top of the
+720×658 window (the default height **is** the minimum).
 
 | Control | Range | Default | Description |
 |---|---|---|---|
@@ -416,8 +419,16 @@ saturation character, optionally moves the width or drive on transients, reshape
 | **Mid Focus** | −100 – +100 % | 0 % | `midGain = 1 + f`, `sideGain = 1 − f`: positive pulls the centre forward, negative widens. |
 | **Side Filter** | Off / High Pass / Low Pass / Band Pass | Off | A filter on the side component only, so the lows can stay mono. Off is a true bypass. |
 | **Side Crossover** | 20 Hz – 8 kHz (log) | 200 Hz | The side filter's corner. |
-| **Input** | −24 – +24 dB | 0 dB | Gain into the chain, beside the visualiser. |
+| **Input** | −24 – +24 dB | 0 dB | Gain into the chain, in the LEVEL group. |
 | **Output** | −24 – +24 dB | 0 dB | The final gain stage. |
+
+The shared router's 34 parameters (two LFOs and six routing slots) sit behind these; ten
+controls are routable targets: Width, Drive, Mix, Transient Attack, Transient Release,
+Transient Amount, Mid Focus, Side Crossover, Input and Output. The editor is 720×658: the
+full-width stereo visual at the top (mid/side bars and the follower trace), LEVEL and IMAGE
+in the row below, CHARACTER across the full width underneath. Controls that do not apply
+right now are dimmed: Side Crossover while the Side Filter is Off, and the follower's
+Attack/Release/Target while Amount is 0.
 
 At the defaults the plugin is bit-transparent (the mid/side round trip skips work when neither the drive, nor the width, nor any of the new controls touches the signal). No latency is added.
 
@@ -437,7 +448,7 @@ A VST Instrument. Incoming notes are quantised to one of six scales (the same sc
 | **Octave** | −2 – +2 | 0 | Transposes the chord. |
 | **Velocity** | 0 – 150 % | 100 % | Scales the note-on velocity. |
 | **Mode** | Chord / Arp | Chord | Chord fires the whole chord at once; Arp runs the step clock. |
-| **Step Rate** | 1/4 … 1/32, plain / T / D | 1/16 | The arp's step length: plain, triplet (T) or dotted (D) for each note value. |
+| **Step Rate** | 1/4 … 4 Bars | 1/16 | The arp's step length: plain, triplet (T) or dotted (D) for 1/4–1/32, plus the plain 1/2, 1 Bar, 2 Bars and 4 Bars. |
 | **Host Sync** | Off / On | Off | On: the arp follows the host's position and tempo. Off: it runs on Tempo. |
 | **Tempo** | 40 – 240 BPM | 120 | The clock's tempo while Host Sync is off. |
 | **Gate Length** | 10 – 100 % | 60 % | Note length as a share of the step. |
@@ -445,7 +456,7 @@ A VST Instrument. Incoming notes are quantised to one of six scales (the same sc
 | **Velocity Direction** | Ascending / Descending | Descending | Which end the Linear and Exponential curves start at. |
 | **Octave Spread** | −1 – +1 | 0 | Each pass through the chord tones of the 8-step pattern lifts by up to an octave. |
 
-A note-off truncates: in Chord mode the whole chord releases, in Arp mode everything the key holds stops. A retrigger cuts the previous chord first, so nothing sticks. The arp's steps are derived from the beat grid, never accumulated, so a tempo change or a relocation never drifts.
+A note-off truncates: in Chord mode the whole chord releases, in Arp mode everything the key holds stops. A retrigger cuts the previous chord first, so nothing sticks. The arp's steps are derived from the beat grid, never accumulated, so a tempo change or a relocation never drifts. The editor's visual carries a **playable keyboard** (plan 13): clicking a key plays it through the plugin's own chord and arp logic, clicking the 8-step strip replays the current chord, and every held UI note is released on every ending path — mouse-up, drag off the key, the pointer leaving, focus loss, a stopped transport, or the editor closing.
 
 ### MultiSat
 
@@ -466,7 +477,11 @@ MultibandSaturation name). A Linkwitz-Riley crossover splits the signal; the low
 | **Mix** | 0 – 100 % | 100 % | Dry/wet balance. |
 | **Output** | −12 – +6 dB | 0 dB | Output level. |
 
-The band sum is clamped to the rails, so the output cannot exceed full scale. The first pass runs at base rate, so no latency is added. The editor's dual-band visual shows each band's envelope with the crossover marked between the bars (log axis, frequency printed above) and input/output meters on the right. The controls sit in two groups — **SPLIT** (crossover and the shared mode) and **SHAPER** — with the suite's preset bar and hamburger menu in the header.
+The shared router's 34 parameters (two LFOs and six routing slots) sit behind these; ten
+controls are routable targets: Crossover, Drive Low, Drive High, Sensitivity, Attack,
+Release, Tone Low, Tone High, Mix and Output.
+
+The band sum is clamped to the rails, so the output cannot exceed full scale. The first pass runs at base rate, so no latency is added. The editor has a **SOUND / MOD** page switch in the header row, left of the preset bar: the SOUND page's dual-band visual shows each band's envelope with the crossover marked between the bars (log axis, frequency printed above, dB ticks on the left edge, a frequency × level grid behind the bars and a Hz scale below); the MOD page holds the suite's routing panel. The controls sit in two groups — **SPLIT** (crossover and the shared mode) and **SHAPER** — with the suite's preset bar and hamburger menu in the header.
 
 ### Cyclical
 
@@ -555,7 +570,7 @@ Plugin bundles are written to `build/plugins/<Name>/<Name>_artefacts/Release/`.
 |---|---|---|
 | `SUITE_BUILD_PLUGINS` | `ON` | Build the plugins, their editors and the host-level tests. Set to `OFF` to build only the DSP core and its tests, which is faster. |
 | `SUITE_BUILD_TESTS` | `ON` | Build and register the unit tests. |
-| `SUITE_PRESET_BANK` | `OFF` | Embed the factory preset bank into the plugin binaries (`factory_bank/bank/AudioSuitePresets.xml`, 160 presets: 26 SD / 26 DS / 28 MTC / 20 Sgraffito / 15 MidiEffect / 15 StereoTool / 15 Multiband / 15 Cyclical). The preset bar, `.ausp` files and user presets ship in every build; this flag only adds the embedded bank. |
+| `SUITE_PRESET_BANK` | `OFF` | Embed the factory preset bank into the plugin binaries (`factory_bank/bank/AudioSuitePresets.xml`, 200 presets: 36 SD / 36 DS / 28 MTC / 20 Sgraffito / 15 MidiEffect / 25 StereoTool / 25 Multiband / 15 Cyclical). The preset bar, `.ausp` files and user presets ship in every build; this flag only adds the embedded bank. |
 | `SUITE_PRESET_BANK_AS_PROGRAMS` | `OFF` | With `SUITE_PRESET_BANK=ON`, expose the factory bank as host programs (program 0 = Init, then one per preset). Bank order is append-only once hosts cache indices. |
 
 Example, DSP tests only:
@@ -581,14 +596,14 @@ ctest --test-dir build -C Release --output-on-failure
 | `SuiteState_Tests` | Versioned saved state in `modules/suite_state` | 9 |
 | `SuiteModulationTests` | Shared LFOs, routing and the control display in `modules/suite_modulation` | 10 |
 | `SuiteSettingsTests` | Settings store and dialog in `modules/suite_settings` | 9 |
-| `SuiteUITests` | Shared widgets and look and feel | 10 |
+| `SuiteUITests` | Shared widgets and look and feel | 15 |
 | `SpectralDriftTests` | Spectral Drift processor and editor | 29 |
-| `DynamicSaturationTests` | Dynamic Saturation processor and editor | 24 |
+| `DynamicSaturationTests` | Dynamic Saturation processor and editor | 26 |
 | `MicroTimingChaosTests` | Micro-Timing Chaos processor and editor | 45 |
 | `SgraffitoTests` | Sgraffito processor and editor | 51 |
-| `StereoToolTests` | Stereo Tool Effect processor and editor | 16 |
-| `MidiEffectTests` | MIDI Chord Arp Scale Tool processor and editor | 19 |
-| `MultibandSaturationTests` | Multiband Saturation processor and editor | 9 |
+| `StereoToolTests` | Stereo Tool Effect processor and editor | 24 |
+| `MidiEffectTests` | MIDI Chord Arp Scale Tool processor and editor | 26 |
+| `MultibandSaturationTests` | Multiband Saturation processor and editor | 14 |
 | `CyclicalTests` | Cyclical processor and editor | 23 |
 | `PluginHostTests` (×7) | Each built VST3 bundle, loaded through JUCE's own plugin host | 1 per plugin |
 

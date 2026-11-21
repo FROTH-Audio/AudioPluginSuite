@@ -1,0 +1,12 @@
+{
+  "_name": "Output Pump",
+  "_category": "Utility",
+  "_description": "Sine LFO pumps the output level.",
+  "_plugin": "MultibandSaturation",
+  "_pluginVersion": "1.0.0",
+  "outputLevel": 0.0,
+  "lfo1Rate": 0.35,
+  "lfo1Shape": 0,
+  "mod1Target": 10,
+  "mod1Amount": 50.0
+}

@@ -47,7 +47,8 @@ MidiEffectEditor::MidiEffectEditor (MidiEffectProcessor& p)
     arpCell.setOptions ({ "Up", "Down", "Alternate", "Random", "Scattered" });
     modeCell.setOptions ({ "Chord", "Arp" });
     rateCell.setOptions ({ "1/4", "1/4T", "1/4D", "1/8", "1/8T", "1/8D",
-                           "1/16", "1/16T", "1/16D", "1/32", "1/32T", "1/32D" });
+                           "1/16", "1/16T", "1/16D", "1/32", "1/32T", "1/32D",
+                           "1/2", "1 Bar", "2 Bars", "4 Bars" });
     syncCell.setOptions ({ "Off", "On" });
     curveCell.setOptions ({ "Flat", "Linear", "Exponential", "Random" });
     dirCell.setOptions ({ "Ascending", "Descending" });
@@ -99,7 +100,7 @@ MidiEffectEditor::MidiEffectEditor (MidiEffectProcessor& p)
     SuiteUI::describe (chordCell, "The chord quality built on the quantised note.");
     SuiteUI::describe (scaleCell, "The scale the incoming notes are quantised to.");
     SuiteUI::describe (arpCell, "How the chord notes are ordered into the 8-step pattern.");
-    SuiteUI::describe (visualizer, "The 8-step arp strip and the last key's chord notes.");
+    SuiteUI::describe (visualizer, "The 8-step arp strip (click to replay the chord) and the playable keyboard.");
     SuiteUI::describe (*presetBar, "Factory presets, INIT and SAVE. The menu lists user presets.");
     SuiteUI::describe (headerMenu, "Settings... and About...");
 
@@ -110,6 +111,29 @@ MidiEffectEditor::MidiEffectEditor (MidiEffectProcessor& p)
     helpLine.setEnablePredicate ([] { return SuiteSettings::shared().getBool (SuiteSettings::tooltipsKey, true); });
     SuiteUI::attachHelpLine (*this, helpLine, helpTracker);
     addAndMakeVisible (helpLine);
+
+    // The playable keyboard and the chord click (plan 13): both run through the
+    // processor's UI-note queue, so they take the same chord and arp logic as host notes.
+    visualizer.keyboard.onNoteOn = [this] (int note, float velocity)
+    {
+        processor.pushUiNote (note, true, velocity);
+    };
+    visualizer.keyboard.onNoteOff = [this] (int note)
+    {
+        processor.pushUiNote (note, false);
+    };
+    visualizer.onChordDown = [this] (int key)
+    {
+        processor.pushUiNote (key, true, 0.8f);
+    };
+    visualizer.onChordUp = [this] (int key)
+    {
+        processor.pushUiNote (key, false);
+    };
+
+    // The editor takes keyboard focus, so a focus change away from it releases the
+    // held UI notes (the note-off guarantee, plan 13).
+    setWantsKeyboardFocus (true);
 
     for (auto* component : { static_cast<juce::Component*> (&rootCtrl), static_cast<juce::Component*> (&octaveCtrl),
                              static_cast<juce::Component*> (&velocityCtrl), static_cast<juce::Component*> (&spreadCtrl),
@@ -143,9 +167,31 @@ MidiEffectEditor::MidiEffectEditor (MidiEffectProcessor& p)
 
 MidiEffectEditor::~MidiEffectEditor()
 {
+    // The note-off guarantee (plan 13): every UI note the editor started gets its
+    // note-off before the members start to die. The keyboard strip's own destructor
+    // flush is the backstop for anything the strip holds after this.
+    releaseUiHeld();
+
     stopTimer();
     removeMouseListener (&helpTracker);
     setLookAndFeel (nullptr);
+}
+
+void MidiEffectEditor::releaseUiHeld()
+{
+    // The keyboard's release runs its note-off callbacks, which push into the ring.
+    visualizer.keyboard.releaseHeldNotes();
+
+    if (visualizer.heldChordKey >= 0)
+    {
+        visualizer.onChordUp (visualizer.heldChordKey);
+        visualizer.heldChordKey = -1;
+    }
+}
+
+void MidiEffectEditor::focusLost (FocusChangeType)
+{
+    releaseUiHeld();
 }
 
 void MidiEffectEditor::paint (juce::Graphics& g)
@@ -256,8 +302,8 @@ void MidiEffectEditor::ChordGridVisualizer::paint (juce::Graphics& g)
         return;
     }
 
-    auto strip = area.removeFromTop (area.getHeight() * 0.5f).reduced (8.0f, 6.0f);
-    auto keyboard = area.withTrimmedTop (2.0f).reduced (8.0f, 6.0f);
+    auto strip = area;
+    auto keyboardBand = strip.removeFromBottom (strip.getHeight() * 0.42f);   // the playable strip (resized)
 
     // The 8-step strip: one cell per step, note name inside, filled while sounding.
     const float cellWidth = strip.getWidth() / (float) MidiEffectProcessor::arpSteps;
@@ -297,74 +343,94 @@ void MidiEffectEditor::ChordGridVisualizer::paint (juce::Graphics& g)
         }
     }
 
-    // The keyboard: MIDI 48-72, chord tones outlined, sounding notes filled.
-    constexpr int firstKey = 48;
-    constexpr int numKeys = 25;
-    const float keyWidth = keyboard.getWidth() / (float) numKeys;
-
-    g.setColour (SuiteUI::Colours::track);
-    g.drawRect (keyboard, 1.0f);
-
-    for (int i = 0; i < numKeys; ++i)
-    {
-        const int note = firstKey + i;
-        const auto keyRect = juce::Rectangle<float> (keyboard.getX() + keyWidth * (float) i, keyboard.getY(),
-                                                     keyWidth, keyboard.getHeight());
-        const bool black = juce::MidiMessage::isMidiNoteBlack (note);
-
-        if (! black)
-        {
-            g.setColour (SuiteUI::Colours::panelLight.withAlpha (0.5f));
-            g.fillRect (keyRect.reduced (0.5f, 0.0f));
-        }
-    }
-
-    for (int pass = 0; pass < 2; ++pass)
-    {
-        for (int i = 0; i < numKeys; ++i)
-        {
-            const int note = firstKey + i;
-            const bool black = juce::MidiMessage::isMidiNoteBlack (note);
-
-            if (black != (pass == 1))
-                continue;
-
-            auto keyRect = juce::Rectangle<float> (keyboard.getX() + keyWidth * (float) i, keyboard.getY(),
-                                                   keyWidth, keyboard.getHeight());
-
-            bool inPattern = false, sounding = false;
-            for (int s = 0; s < MidiEffectProcessor::arpSteps; ++s)
-            {
-                if (snapshot.notes[(size_t) s].load (std::memory_order_relaxed) == note)
-                {
-                    inPattern = true;
-                    sounding = snapshot.sounding[(size_t) s].load (std::memory_order_relaxed);
-                }
-            }
-
-            if (! inPattern)
-                continue;
-
-            if (black)
-            {
-                g.setColour (sounding ? accent : SuiteUI::Colours::track);
-                g.fillRect (keyRect.reduced (1.0f, 0.0f));
-            }
-            else
-            {
-                g.setColour (sounding ? accent : SuiteUI::Colours::track);
-                g.fillRect (keyRect.removeFromTop (keyRect.getHeight() * 0.35f).reduced (1.0f, 0.0f));
-            }
-        }
-    }
-
     // Further keys still sounding: a small marker (D6: markers only, not full patterns).
     const int others = snapshot.others.load (std::memory_order_relaxed);
     if (others > 0)
     {
         g.setColour (SuiteUI::Colours::textDim);
         g.setFont (SuiteUI::uiFont (11.0f));
-        g.drawText ("+" + juce::String (others) + " more", area.withTrimmedLeft (8.0f).removeFromBottom (14.0f),
-                    juce::Justification::centredLeft);
+        g.drawText ("+" + juce::String (others) + " more", strip.withTrimmedRight (8.0f).removeFromBottom (14.0f),
+                    juce::Justification::centredRight);
     }
+}
+
+void MidiEffectEditor::ChordGridVisualizer::resized()
+{
+    // The playable keyboard fills the bottom band of the visual area (plan 13).
+    auto inner = getLocalBounds().reduced (4);
+    auto band = inner.removeFromBottom ((int) ((float) inner.getHeight() * 0.42f));
+    keyboard.setBounds (band.reduced (8, 4));
+}
+
+void MidiEffectEditor::ChordGridVisualizer::mouseDown (const juce::MouseEvent&)
+{
+    // A click on the strip replays the current chord through the UI-note queue (plan 13).
+    const int key = processor.getArpSnapshot().key.load (std::memory_order_relaxed);
+    if (key < 0 || heldChordKey >= 0)
+        return;
+
+    heldChordKey = key;
+
+    if (onChordDown)
+        onChordDown (key);
+}
+
+void MidiEffectEditor::ChordGridVisualizer::mouseUp (const juce::MouseEvent&)
+{
+    if (heldChordKey < 0)
+        return;
+
+    const int key = heldChordKey;
+    heldChordKey = -1;
+
+    if (onChordUp)
+        onChordUp (key);
+}
+
+void MidiEffectEditor::ChordGridVisualizer::mouseExit (const juce::MouseEvent&)
+{
+    // The pointer leaving the strip releases the chord click (plan 13).
+    if (heldChordKey < 0)
+        return;
+
+    const int key = heldChordKey;
+    heldChordKey = -1;
+
+    if (onChordUp)
+        onChordUp (key);
+}
+
+void MidiEffectEditor::timerCallback()
+{
+    visualizer.repaint();
+
+    // Plan 15 (owner): the arp-only controls are inert in Chord mode (Chord fires the whole
+    // chord event for event: no clock, no gate, no per-step shape). Dimmed, never hidden
+    // (the plan 10 G1 rule). The chord parameters and the Arp pattern's ordering stay live.
+    const bool arpMode = processor.apvts.getRawParameterValue (MidiEffectProcessor::arpModeId)->load() > 0.5f;
+
+    rateCell.setEnabled (arpMode);      // Step Rate
+    syncCell.setEnabled (arpMode);      // Host Sync
+    tempoCtrl.setEnabled (arpMode);
+    gateCtrl.setEnabled (arpMode);      // Gate Length
+    curveCell.setEnabled (arpMode);     // Velocity Curve
+    dirCell.setEnabled (arpMode);       // Velocity Direction
+    spreadCtrl.setEnabled (arpMode);    // Octave Spread
+
+    // The keyboard lights the sounding chord tones (plan 13), and the root marker
+    // follows the Root parameter.
+    const auto& snapshot = processor.getArpSnapshot();
+    bool notes[128] = {};
+
+    for (int i = 0; i < MidiEffectProcessor::arpSteps; ++i)
+    {
+        const int note = snapshot.notes[(size_t) i].load (std::memory_order_relaxed);
+        if (note >= 0 && snapshot.sounding[(size_t) i].load (std::memory_order_relaxed))
+            notes[note] = true;
+    }
+
+    visualizer.keyboard.setActiveNotes (notes);
+
+    if (auto* rootParameter = processor.apvts.getRawParameterValue (MidiEffectProcessor::rootId))
+        visualizer.keyboard.setRootKey ((int) (rootParameter->load() + 0.5f));
 }

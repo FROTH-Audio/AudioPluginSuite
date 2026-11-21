@@ -325,6 +325,11 @@ void DynamicSaturationEditor::timerCallback()
 
     const float env = processor.getEnvelopeLevel();
 
+    // Plan 15: Tube Bias applies to Tube mode only — dimmed, never hidden (plan 10 G1).
+    const int modeIndex = juce::roundToInt (
+        processor.apvts.getRawParameterValue (DynamicSaturationProcessor::modeId)->load());
+    biasSlider.setEnabled (modeIndex == 0);
+
     // The curve is drawn at the values the processor is using right now, including any modulation.
     using Target = DynamicSaturationProcessor::ModTarget;
     const float baseGain = CoreDSP::decibelsToGain (processor.getModulatedValue (Target::Drive));
@@ -332,8 +337,7 @@ void DynamicSaturationEditor::timerCallback()
     const float curveValue = processor.getModulatedValue (Target::Curve);
     const float biasValue = processor.getModulatedValue (Target::Bias);
     const float foldAmount = processor.getModulatedValue (Target::Fold) / 100.0f;
-    const auto shaping = static_cast<CoreDSP::Saturation::Mode> (juce::roundToInt (
-        processor.apvts.getRawParameterValue (DynamicSaturationProcessor::modeId)->load()));
+    const auto shaping = static_cast<CoreDSP::Saturation::Mode> (modeIndex);
 
     const float preGain = CoreDSP::Saturation::dynamicDrive (baseGain, sens,
                                                              CoreDSP::Saturation::shapeEnvelope (env, curveValue));

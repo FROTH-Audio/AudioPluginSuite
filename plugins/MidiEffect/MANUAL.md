@@ -4,10 +4,10 @@
 
 MIDI Chord Arp Scale Tool takes incoming notes and re-harmonises them: each note is
 quantised to a scale, chorded, and sent on — either all at once (Chord mode) or spread
-over an 8-step clock (Arp mode). The plugin is a VST Instrument (the owner switched it
-back from the MIDI-effect build): it produces notes, not audio, so nothing passes
-through its output — put an instrument on the track that receives its MIDI, or route the
-MIDI onward to another track.
+over an 8-step clock (Arp mode). It accepts notes from the host *and from its own playable
+keyboard*. The plugin is a VST Instrument (the owner switched it back from the MIDI-effect
+build): it produces notes, not audio, so nothing passes through its output — put an
+instrument on the track that receives its MIDI, or route the MIDI onward to another track.
 
 ## The two modes
 
@@ -24,9 +24,20 @@ change or a relocation never makes the pattern drift.
 
 The editor has two groups. **SHAPE** is the key and the chord; **ARP** is the clock.
 The panel between the header and the groups is the chord/arp visual: an 8-step strip (the
-clock's current step outlined, sounding steps filled, note names inside) above a
-two-octave keyboard with the last played key's notes marked. Notes held from other keys
-appear as a small "+n more" marker. It updates while you play.
+clock's current step outlined, sounding steps filled, note names inside) above a playable
+keyboard — click a key and the plugin plays the note through its own chord and arp logic,
+so you can try the plugin without a keyboard routed in. Notes held from other keys appear
+as a small "+n more" marker. It updates while you play.
+
+### Playing the plugin from its own window
+
+- **Click a key** on the keyboard strip: the note runs the same scale, chord and arp path
+  as a host note.
+- **Click the 8-step strip**: it replays the current chord (a second click, or the pointer
+  leaving the strip, ends it).
+- Every note the editor starts also *ends*, on every path: mouse-up, a drag off the key,
+  the pointer leaving, losing keyboard focus, a stopped transport, and the editor being
+  closed. There is no stuck note.
 
 <img src="../../docs/manuals/midieffect-arp.png" alt="MIDI Chord Arp Scale Tool, Arp mode" width="587">
 
@@ -44,10 +55,14 @@ appear as a small "+n more" marker. It updates while you play.
 
 ### ARP
 
+Controls that only apply in Arp mode are **dimmed while Mode is Chord** (Chord fires the
+whole chord event for event: no clock, no gate, no per-step shape). The SHAPE controls and
+the Pattern ordering stay live in both modes.
+
 | Control | What it does |
 |---|---|
 | **Mode** | Chord or Arp, as above. |
-| **Step Rate** | The step length in Arp mode, plain, triplet (T) or dotted (D): 1/4, 1/4T, 1/4D, 1/8, 1/8T, 1/8D, 1/16, 1/16T, 1/16D, 1/32, 1/32T or 1/32D. |
+| **Step Rate** | The step length in Arp mode, plain, triplet (T) or dotted (D): 1/4, 1/4T, 1/4D, 1/8, 1/8T, 1/8D, 1/16, 1/16T, 1/16D, 1/32, 1/32T, 1/32D, plus the slower plain rates 1/2, 1 Bar, 2 Bars and 4 Bars. |
 | **Sync** | Host Sync. On: the clock follows the host's position and tempo. Off: it runs on Tempo. |
 | **Tempo** | The clock's tempo while Host Sync is off, 40–240 BPM. |
 | **Gate** | Note length as a share of one step, 10–100 %. |

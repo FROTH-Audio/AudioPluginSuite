@@ -101,6 +101,72 @@ namespace
         std::puts ("[PASS] testSegmentedSelectorClicksNotify");
     }
 
+    /** The note-off guarantee's widget paths (plan 13): a mouse-up releases the held key,
+        a drag releases the previous key before the next one starts, the pointer leaving
+        releases everything, and a destroyed strip flushes its held note. */
+    void testPlayableKeyboardGuarantee()
+    {
+        std::vector<int> ons, offs;
+        auto wire = [&ons, &offs] (SuiteUI::PlayableKeyboardStrip& strip)
+        {
+            strip.onNoteOn = [&ons] (int note, float) { ons.push_back (note); };
+            strip.onNoteOff = [&offs] (int note) { offs.push_back (note); };
+        };
+
+        const auto keyEvent = [] (juce::Component& component, float x, float y)
+        {
+            return juce::MouseEvent (juce::Desktop::getInstance().getMainMouseSource(),
+                                     juce::Point<float> (x, y), juce::ModifierKeys(), 1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+                                     &component, &component, juce::Time::getCurrentTime(),
+                                     juce::Point<float> (x, y), juce::Time::getCurrentTime(), 1, false);
+        };
+
+        // 73 keys over 730 px: 10 px per key, so key 60 sits at x = 365, key 64 at 405.
+        SuiteUI::PlayableKeyboardStrip strip;
+        strip.setBounds (0, 0, 730, 40);
+        wire (strip);
+
+        strip.mouseDown (keyEvent (strip, 365.0f, 30.0f));
+        assert (ons == std::vector<int> { 60 });
+        assert (strip.isAnyNoteHeld());
+
+        // Mouse-up over a different key releases only the held one (plan 13).
+        strip.mouseUp (keyEvent (strip, 725.0f, 30.0f));
+        assert (offs == std::vector<int> { 60 });
+        assert (! strip.isAnyNoteHeld());
+
+        // A drag releases the previous key before the next one starts.
+        strip.mouseDown (keyEvent (strip, 365.0f, 30.0f));
+        strip.mouseDrag (keyEvent (strip, 405.0f, 30.0f));
+        assert (ons == (std::vector<int> { 60, 60, 64 }));
+        assert (offs == (std::vector<int> { 60, 60 }));
+        strip.mouseUp (keyEvent (strip, 405.0f, 30.0f));
+        assert (offs.back() == 64);
+
+        // The pointer leaving the strip releases everything it holds.
+        strip.mouseDown (keyEvent (strip, 365.0f, 30.0f));
+        strip.mouseExit (keyEvent (strip, 365.0f, 45.0f));
+        assert (offs.back() == 60);
+        assert (! strip.isAnyNoteHeld());
+
+        // releaseHeldNotes is idempotent.
+        strip.releaseHeldNotes();
+        assert (offs.size() == 4);
+
+        // A destroyed strip flushes its held note.
+        {
+            SuiteUI::PlayableKeyboardStrip doomed;
+            doomed.setBounds (0, 0, 730, 40);
+            wire (doomed);
+            doomed.mouseDown (keyEvent (doomed, 365.0f, 30.0f));
+            assert (ons.back() == 60);
+        }
+        assert (offs.back() == 60);
+        assert (ons.size() == 5 && offs.size() == 5);   // note-ons equal note-offs
+
+        std::puts ("[PASS] testPlayableKeyboardGuarantee");
+    }
+
     void testLabelledSelector()
     {
         SuiteUI::LabelledSelector cell ("MODE", juce::Colour (testAccent));
@@ -398,6 +464,42 @@ namespace
 
         std::puts ("[PASS] testLevelMeter");
     }
+
+    void testStereoLevelMeter()
+    {
+        const juce::Colour leftColour (0xffaaaaaa);
+        const juce::Colour rightColour (testAccent);
+        SuiteUI::StereoLevelMeter meter { leftColour, rightColour };
+
+        // Idle: the track backgrounds paint, but neither bar's accent colour appears.
+        meter.setLevels (0.0f, 0.0f);
+        assert (countPixelsNear (meter, 32, 160, leftColour, 30) == 0);
+        assert (countPixelsNear (meter, 32, 160, rightColour, 30) == 0);
+
+        // Left-only level: left half lights, right half stays dark.
+        meter.setLevels (1.0f, 0.0f);
+        const int leftPixels = countPixelsNear (meter, 32, 160, leftColour, 30);
+        assert (leftPixels > 100);
+        assert (countPixelsNear (meter, 32, 160, rightColour, 30) == 0);
+
+        // Right-only level: right half lights, left returns to dark.
+        meter.setLevels (0.0f, 1.0f);
+        const int rightPixels = countPixelsNear (meter, 32, 160, rightColour, 30);
+        assert (rightPixels > 100);
+        assert (countPixelsNear (meter, 32, 160, leftColour, 30) == 0);
+
+        // Both at 0 dB: both bars light up.
+        meter.setLevels (1.0f, 1.0f);
+        assert (countPixelsNear (meter, 32, 160, leftColour, 30) > 100);
+        assert (countPixelsNear (meter, 32, 160, rightColour, 30) > 100);
+
+        // Saturation: 4.0 is still drawn at 0 dB (clamped).
+        meter.setLevels (4.0f, 4.0f);
+        assert (countPixelsNear (meter, 32, 160, leftColour, 30) > 100);
+        assert (countPixelsNear (meter, 32, 160, rightColour, 30) > 100);
+
+        std::puts ("[PASS] testStereoLevelMeter");
+    }
 }
 
 int main()
@@ -408,6 +510,7 @@ int main()
 
     testSegmentedSelector();
     testSegmentedSelectorClicksNotify();
+    testPlayableKeyboardGuarantee();
     testLabelledSelector();
     testLabelledSliders();
     testLabelledDropdown();
@@ -419,6 +522,7 @@ int main()
     testTrailPlot();
     testCurveView();
     testLevelMeter();
+    testStereoLevelMeter();
 
     std::puts ("All SuiteUI tests passed.");
     return 0;

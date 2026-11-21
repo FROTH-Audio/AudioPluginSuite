@@ -10,6 +10,8 @@
 #include "SuiteHeaderMenu.h"
 #include "SuiteHelp.h"
 #include "SuiteLookAndFeel.h"
+#include "SuiteModulationControls.h"
+#include "SuiteModulationPanel.h"
 #include "SuiteSelectorAttachment.h"
 #include "SuiteWidgets.h"
 
@@ -23,46 +25,26 @@ public:
     void paint (juce::Graphics&) override;
     void resized() override;
 
+    /** Switches between the sound controls (0) and the modulation page (1). The tests use it too. */
+    void setPage (int page);
+    int getPage() const noexcept { return currentPage; }
+
+    /** Test seam (plan 15): the live affinity state of the mode-dependent cells. */
+    bool isCrossoverEnabled() const noexcept { return crossoverCtrl.isEnabled(); }
+    bool isTransientRowEnabled() const noexcept { return attackCtrl.isEnabled(); }
+
 private:
-    /** A caption above a combo box, in one grid cell. Kept for choices the editor may
-        still show as a list (plan 11 D1 keeps dropdowns only above six options). */
-    class ComboCell : public juce::Component
-    {
-    public:
-        explicit ComboCell (const char* captionText)
-        {
-            label.setText (captionText, juce::dontSendNotification);
-            label.setFont (SuiteUI::uiFont (13.0f, true));
-            label.setColour (juce::Label::textColourId, SuiteUI::Colours::textDim);
-            label.setJustificationType (juce::Justification::centred);
-            addAndMakeVisible (label);
-            box.setJustificationType (juce::Justification::centred);
-            addAndMakeVisible (box);
-        }
-
-        juce::ComboBox box;
-        juce::Label label;
-
-        void resized() override
-        {
-            auto area = getLocalBounds();
-            label.setBounds (area.removeFromTop (16));
-            area.removeFromTop (2);
-            box.setBounds (area.removeFromBottom (28).reduced (8, 0));
-        }
-    };
-
-    /** The stereo visual (plan 11 4c): mid/side level bars with a width indicator above a
-        scrolling trace of the transient follower's envelope. Reads the processor's
-        published snapshot on the 60 Hz timer; the trace's history lives here on the
-        message thread. No locks. */
+    /** The stereo visual (plan 11 4c, reworked by plan 13; plan 15 removed the stereo meter
+        pair on the owner's request): mid/side level bars and a scrolling trace of the
+        transient follower's envelope. Reads the processor's published snapshot on the 60 Hz
+        timer; the trace's history lives here on the message thread. No locks. */
     class MidSideMeter : public juce::Component
     {
     public:
-        explicit MidSideMeter (StereoToolProcessor& p) : processor (p) {}
+        explicit MidSideMeter (StereoToolProcessor& p);
 
         /** One timer tick: append the current envelope to the trace. */
-        void tick() { envelopeHistory[(size_t) historyHead] = processor.getMeterSnapshot().followerEnvelope.load (std::memory_order_relaxed); historyHead = (historyHead + 1) % (int) envelopeHistory.size(); repaint(); }
+        void tick();
 
         void paint (juce::Graphics&) override;
 
@@ -77,27 +59,29 @@ private:
     // Declared first so it is destroyed last, after every component that uses it.
     SuiteUI::SuiteLookAndFeel lookAndFeel { juce::Colour (0xffB18CFF) };
 
-    // CHARACTER group: the shaper and the transient follower.
+    // CHARACTER group: the shaper and the transient follower. The character list uses a
+    // dropdown because its option text is long (owner finding, plan 13).
     SuiteUI::LabelledSlider driveCtrl   { "DRIVE",   juce::Slider::RotaryVerticalDrag };
     SuiteUI::LabelledSlider attackCtrl  { "ATTACK",  juce::Slider::RotaryVerticalDrag };
     SuiteUI::LabelledSlider releaseCtrl { "RELEASE", juce::Slider::RotaryVerticalDrag };
     SuiteUI::LabelledSlider amountCtrl  { "AMOUNT",  juce::Slider::RotaryVerticalDrag };
-    SuiteUI::LabelledSelector characterCell { "CHARACTER", juce::Colour (0xffB18CFF) };
+    SuiteUI::LabelledDropdown characterCell { "CHARACTER" };
     SuiteUI::LabelledSelector targetCell    { "TARGET", juce::Colour (0xffB18CFF) };
 
-    // IMAGE group: the stereo image controls.
+    // IMAGE group: the stereo image controls. The side filter uses a dropdown for the same
+    // reason (owner finding, plan 13).
     SuiteUI::LabelledSlider widthCtrl    { "WIDTH",    juce::Slider::RotaryVerticalDrag };
     SuiteUI::LabelledSlider mixCtrl      { "MIX",      juce::Slider::RotaryVerticalDrag };
     SuiteUI::LabelledSlider midFocusCtrl { "MID FOCUS", juce::Slider::RotaryVerticalDrag };
     SuiteUI::LabelledSlider crossoverCtrl { "CROSSOVER", juce::Slider::RotaryVerticalDrag };
-    SuiteUI::LabelledSelector filterCell { "SIDE FILTER", juce::Colour (0xffB18CFF) };
+    SuiteUI::LabelledDropdown filterCell { "SIDE FILTER" };
 
     // LEVEL group (plan 12): beside the visualiser, so the window stays 880x700.
     SuiteUI::LabelledSlider inputCtrl  { "INPUT",  juce::Slider::RotaryVerticalDrag };
     SuiteUI::LabelledSlider outputCtrl { "OUTPUT", juce::Slider::RotaryVerticalDrag };
 
-    // The pill selectors' parameter attachments (declared after the cells, so they are
-    // destroyed first — plan 11 D1, wired through SuiteUI::attachSelector).
+    // The choice widgets' parameter attachments (declared after the cells, so they are
+    // destroyed first — wired through SuiteUI::attachSelector / attachDropdown).
     std::unique_ptr<juce::ParameterAttachment> characterAttachment;
     std::unique_ptr<juce::ParameterAttachment> targetAttachment;
     std::unique_ptr<juce::ParameterAttachment> filterAttachment;
@@ -116,17 +100,32 @@ private:
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> outputAttachment;
 
     juce::Rectangle<int> characterGroupBounds, imageGroupBounds, levelGroupBounds, visualBounds;
+    juce::Rectangle<int> modulationGroupBounds;
 
     // Visual + header (plan 11 4c/R13).
     MidSideMeter visualizer { processor };
     std::unique_ptr<SuitePresets::PresetBar> presetBar;
     SuiteUI::HeaderMenuButton headerMenu { juce::Colour (0xffB18CFF) };
 
+    // Page switch and modulation panel (plan 13). The preview shows on both pages, because it
+    // carries the input/output meters.
+    SuiteUI::SegmentedSelector pageSelector { juce::Colour (0xffB18CFF) };
+    SuiteModulation::ModulationPanel modulation { processor.getRouter(), modulationStyle() };
+    std::unique_ptr<SuiteModulation::ControlDisplay> controls;
+
+    int currentPage = 0;
+
+    /** The LFO colours of the modulation panel. */
+    static SuiteModulation::ModulationPanel::Style modulationStyle();
+
+    void layoutSoundPage (juce::Rectangle<int> area);
+    void layoutModPage (juce::Rectangle<int> area);
+
     // The shared help line (plan 12).
     SuiteUI::HelpTracker helpTracker;
     SuiteUI::HelpLine helpLine;
 
-    void timerCallback() override { visualizer.tick(); }
+    void timerCallback() override;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (StereoToolEditor)
 };

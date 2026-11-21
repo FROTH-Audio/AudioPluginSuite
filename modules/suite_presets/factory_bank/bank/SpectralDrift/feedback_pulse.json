@@ -1,0 +1,15 @@
+{
+  "_name": "Feedback Pulse",
+  "_category": "Lo-Fi",
+  "_description": "Sample-and-hold LFO jumps the feedback amount.",
+  "_plugin": "SpectralDrift",
+  "_pluginVersion": "1.0.0",
+  "depth": 50.0,
+  "feedback": 2.0,
+  "mix": 90.0,
+  "lfo2Rate": 4.0,
+  "lfo2Shape": 4,
+  "mod2Source": 1,
+  "mod2Target": 7,
+  "mod2Amount": 100.0
+}

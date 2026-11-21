@@ -7,6 +7,7 @@
 #include "StateFixtures.h"
 
 #include <cstdint>
+#include <functional>
 
 namespace
 {
@@ -414,6 +415,55 @@ namespace
         pass ("testEditor");
     }
 
+    /** Plan 15 (owner): Tube Bias applies to Tube mode only — the editor dims it in Tape
+        and Diode, and keeps it live in Tube (the plan 10 G1 rule: dimmed, never hidden). */
+    void testModeAffinity()
+    {
+        Processor processor;
+        processor.prepareToPlay (sampleRate, blockSize);
+        std::unique_ptr<juce::AudioProcessorEditor> editor (processor.createEditorAndMakeActive());
+        assert (editor != nullptr);
+        juce::MessageManager::getInstance()->runDispatchLoopUntil (120);   // one timer tick
+
+        auto* dsEditor = dynamic_cast<DynamicSaturationEditor*> (editor.get());
+        assert (dsEditor != nullptr);
+
+        juce::Component* bias = nullptr;
+        std::function<juce::Component* (juce::Component&)> findByCaption = [&] (juce::Component& root)
+            -> juce::Component*
+        {
+            if (auto* cell = dynamic_cast<SuiteUI::LabelledSlider*> (&root))
+                if (cell->label.getText() == "TUBE BIAS")
+                    return cell;
+            for (auto* child : root.getChildren())
+                if (auto* found = findByCaption (*child))
+                    return found;
+            return nullptr;
+        };
+        bias = findByCaption (*editor);
+        assert (bias != nullptr);
+
+        // Default mode is Tube: the bias knob is live.
+        assert (bias->isEnabled());
+
+        // Tape and Diode dim it.
+        setParameter (processor.apvts, Processor::modeId, 1.0f);
+        juce::MessageManager::getInstance()->runDispatchLoopUntil (120);
+        assert (! bias->isEnabled());
+
+        setParameter (processor.apvts, Processor::modeId, 2.0f);
+        juce::MessageManager::getInstance()->runDispatchLoopUntil (120);
+        assert (! bias->isEnabled());
+
+        // Back to Tube: live again.
+        setParameter (processor.apvts, Processor::modeId, 0.0f);
+        juce::MessageManager::getInstance()->runDispatchLoopUntil (120);
+        assert (bias->isEnabled());
+
+        processor.editorBeingDeleted (editor.get());
+        pass ("testModeAffinity");
+    }
+
     //==============================================================================
     // LFOs and modulation routing
 
@@ -762,6 +812,7 @@ int main()
     testStereoLinkDrivesQuietChannelHarder();
     testFoldChangesSound();
     testEditor();
+    testModeAffinity();
     testModulationParameters();
     testDefaultRoutingIsSilent();
     testModulationDirection();

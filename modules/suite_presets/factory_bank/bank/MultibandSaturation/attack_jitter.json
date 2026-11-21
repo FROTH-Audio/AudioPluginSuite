@@ -1,0 +1,14 @@
+{
+  "_name": "Attack Jitter",
+  "_category": "Lo-Fi",
+  "_description": "Sample-and-hold LFO jitters the attack time.",
+  "_plugin": "MultibandSaturation",
+  "_pluginVersion": "1.0.0",
+  "driveLow": 10.0,
+  "attack": 5.0,
+  "lfo2Rate": 6.0,
+  "lfo2Shape": 4,
+  "mod2Source": 1,
+  "mod2Target": 5,
+  "mod2Amount": 100.0
+}

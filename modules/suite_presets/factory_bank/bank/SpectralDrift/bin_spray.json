@@ -1,0 +1,15 @@
+{
+  "_name": "Bin Spray",
+  "_category": "Lo-Fi",
+  "_description": "Noise LFO randomises the bin spread each block.",
+  "_plugin": "SpectralDrift",
+  "_pluginVersion": "1.0.0",
+  "depth": 70.0,
+  "spread": 0.0,
+  "mix": 75.0,
+  "lfo2Rate": 8.0,
+  "lfo2Shape": 6,
+  "mod2Source": 1,
+  "mod2Target": 2,
+  "mod2Amount": 100.0
+}

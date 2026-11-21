@@ -1,6 +1,7 @@
 // Plugin-level tests for Stereo Tool Effect. Compiles the real processor and editor sources.
 
 #include "PluginTestUtils.h"
+#include "ModulationTestUtils.h"
 #include "PluginEditor.h"
 #include "PluginProcessor.h"
 #include "SuiteSettings.h"
@@ -23,7 +24,12 @@ namespace
               Processor::characterId, Processor::transientAttackId, Processor::transientReleaseId,
               Processor::transientAmountId, Processor::transientTargetId, Processor::midFocusId,
               Processor::sideFilterId, Processor::sideCrossoverId,
-              Processor::inputLevelId, Processor::outputLevelId }, 13);
+              Processor::inputLevelId, Processor::outputLevelId,
+              Processor::lfo1RateId, Processor::lfo1ShapeId, Processor::lfo1SyncId, Processor::lfo1DivisionId, Processor::lfo1OffsetId,
+              Processor::lfo2RateId, Processor::lfo2ShapeId, Processor::lfo2SyncId, Processor::lfo2DivisionId, Processor::lfo2OffsetId,
+              Processor::modSourceIds[0], Processor::modTargetIds[0], Processor::modAmountIds[0], Processor::modDelayIds[0],
+              Processor::modSourceIds[5], Processor::modTargetIds[5], Processor::modAmountIds[5], Processor::modDelayIds[5] },
+            Processor::numControls);
         checkRange (processor.apvts, Processor::widthId, -100.0f, 100.0f, 0.0f);
         checkRange (processor.apvts, Processor::driveId, -24.0f, 24.0f, 0.0f);
         checkRange (processor.apvts, Processor::mixId,   0.0f, 100.0f, 100.0f);
@@ -40,6 +46,9 @@ namespace
 
         // Plan 12: the final gain stage is named "Output" everywhere in the suite.
         assert (processor.apvts.getParameter (Processor::outputLevelId)->getName (100) == "Output");
+
+        // Plan 13: the routing table has 10 targets.
+        assert (processor.getRouter().getNumTargets() == 10);
         pass ("testParameters");
     }
 
@@ -60,6 +69,11 @@ namespace
         checkStateRoundTrip (processor, processor.apvts, Processor::sideCrossoverId, 4000.0f);
         checkStateRoundTrip (processor, processor.apvts, Processor::inputLevelId, -6.0f);
         checkStateRoundTrip (processor, processor.apvts, Processor::outputLevelId, 3.5f);
+
+        // Plan 13: the routing parameters round-trip too.
+        checkStateRoundTrip (processor, processor.apvts, Processor::lfo1RateId, 3.0f);
+        checkStateRoundTrip (processor, processor.apvts, Processor::modAmountIds[2], 40.0f);
+        checkStateRoundTrip (processor, processor.apvts, Processor::modTargetIds[3], 5.0f);
         pass ("testStateRoundTrip");
     }
 
@@ -242,8 +256,16 @@ namespace
         const float satPeak = peak (buffer);
         assert (satPeak > 0.95f && satPeak <= 1.001f);
 
-        // Mix 0 passes the untouched dry input through.
+        // Mix 0 passes the untouched dry input through. The 20 ms mix ramp (plan 13) needs a
+        // couple of blocks to settle before the comparison is exact.
         setParameter (processor.apvts, Processor::mixId, 0.0f);
+        for (int settle = 0; settle < 4; ++settle)
+        {
+            buffer.clear();
+            addSine (buffer, 0, sampleRate, 220.0, 0.9f, 0);
+            addSine (buffer, 1, sampleRate, 220.0, 0.9f, 0);
+            processor.processBlock (buffer, midi);
+        }
         buffer.clear();
         addSine (buffer, 0, sampleRate, 220.0, 0.9f, 0);
         addSine (buffer, 1, sampleRate, 220.0, 0.9f, 0);
@@ -446,16 +468,58 @@ namespace
         pass ("testEditor");
     }
 
-    /** Plan 12: the LEVEL group sits beside the visualiser, the window keeps its size, and
-        the help line answers the owner's report. */
+    /** Plan 15 (owner): the controls that do not apply right now are dimmed. Side Crossover
+        while the Side Filter is Off; the transient follower's Attack, Release and Target
+        while Amount is 0 (plan 10 G1: dimmed, never hidden). */
+    void testModeAffinity()
+    {
+        Processor processor;
+        std::unique_ptr<juce::AudioProcessorEditor> editor (processor.createEditorAndMakeActive());
+        assert (editor != nullptr);
+        juce::MessageManager::getInstance()->runDispatchLoopUntil (120);   // one timer tick
+
+        auto* stereoEditor = dynamic_cast<StereoToolEditor*> (editor.get());
+        assert (stereoEditor != nullptr);
+
+        // Defaults: Side Filter Off, Amount 0 — the crossover and the follower cells are dimmed.
+        assert (! stereoEditor->isCrossoverEnabled());
+        assert (! stereoEditor->isTransientRowEnabled());
+
+        // Filter on, amount up: both live.
+        setParameter (processor.apvts, Processor::sideFilterId, 1.0f);
+        setParameter (processor.apvts, Processor::transientAmountId, 60.0f);
+        juce::MessageManager::getInstance()->runDispatchLoopUntil (120);
+        assert (stereoEditor->isCrossoverEnabled());
+        assert (stereoEditor->isTransientRowEnabled());
+
+        // Amount back to 0: the follower cells dim again, the crossover stays live.
+        setParameter (processor.apvts, Processor::transientAmountId, 0.0f);
+        juce::MessageManager::getInstance()->runDispatchLoopUntil (120);
+        assert (stereoEditor->isCrossoverEnabled());
+        assert (! stereoEditor->isTransientRowEnabled());
+
+        // Filter off again: the crossover dims, the follower cells stay dimmed.
+        setParameter (processor.apvts, Processor::sideFilterId, 0.0f);
+        juce::MessageManager::getInstance()->runDispatchLoopUntil (120);
+        assert (! stereoEditor->isCrossoverEnabled());
+        assert (! stereoEditor->isTransientRowEnabled());
+
+        processor.editorBeingDeleted (editor.get());
+        pass ("testModeAffinity");
+    }
+
+    /** Plan 13: LEVEL shares a row with IMAGE and CHARACTER spans a full row; plan 15 moved
+        the preview to the top of the window, removed the stereo meter pair and made the
+        default height the minimum. The long choice lists are dropdowns, and the help line
+        answers the owner's report. */
     void testLevelGroupAndHelp()
     {
         Processor processor;
         std::unique_ptr<juce::AudioProcessorEditor> editor (processor.createEditorAndMakeActive());
         assert (editor != nullptr);
-        assert (editor->getWidth() == 880 && editor->getHeight() == 700);
+        assert (editor->getWidth() == 720 && editor->getHeight() == 658);
 
-        // A slider whose caption reads INPUT, inside a group band right of the visualiser.
+        // A slider whose caption reads INPUT, in the second row on the left (LEVEL).
         juce::Component* inputSlider = nullptr;
         std::function<juce::Component* (juce::Component&)> findByCaption = [&] (juce::Component& root)
             -> juce::Component*
@@ -470,10 +534,44 @@ namespace
         };
         inputSlider = findByCaption (*editor);
         assert (inputSlider != nullptr);
-        assert (inputSlider->getRight() > editor->getWidth() / 2);   // right half: beside the visual
-        assert (inputSlider->getBottom() < 200);                    // inside the visualiser band
+        assert (inputSlider->getRight() < editor->getWidth() / 2);   // left half: the LEVEL group
+        assert (inputSlider->getY() > 200);                         // below the preview row
 
         PluginTest::checkHelpLine (*editor, "stereotool-help", *inputSlider);
+
+        // Owner finding: the long lists (character, side filter) are dropdowns, the short
+        // target list stays a pill.
+        int dropdowns = 0, selectors = 0;
+        std::function<void (juce::Component&)> countChoices = [&] (juce::Component& root)
+        {
+            if (auto* cell = dynamic_cast<SuiteUI::LabelledDropdown*> (&root))
+            {
+                ++dropdowns;
+                assert (cell->getWidth() > 0 && cell->getHeight() > 0);
+            }
+            if (dynamic_cast<SuiteUI::LabelledSelector*> (&root) != nullptr)
+                ++selectors;
+            for (auto* child : root.getChildren())
+                countChoices (*child);
+        };
+        countChoices (*editor);
+        assert (dropdowns == 2);   // CHARACTER, SIDE FILTER
+        assert (selectors == 1);   // TARGET
+
+        // Plan 15 (owner): the stereo meter pair is gone from this plugin, and the preview
+        // sits at the top of the window, above the LEVEL and IMAGE row.
+        std::function<void (juce::Component&)> findMeters = [&] (juce::Component& root)
+        {
+            assert (dynamic_cast<SuiteUI::StereoLevelMeter*> (&root) == nullptr);
+            for (auto* child : root.getChildren())
+                findMeters (*child);
+        };
+        findMeters (*editor);
+
+        auto* visualizer = PluginTest::findComponentById (*editor, "stereotool-preview");
+        assert (visualizer != nullptr);
+        assert (visualizer->getY() < editor->getHeight() / 2);        // top of the window
+        assert (visualizer->getBottom() < editor->getHeight() - 26);  // clear of the footer
 
         processor.editorBeingDeleted (editor.get());
         pass ("testLevelGroupAndHelp");
@@ -587,6 +685,199 @@ namespace
         pass ("testVisualSnapshot");
     }
 
+    /** Plan 13: a routed parameter changes the audio; with amount 0 the output is unchanged. */
+    void testModulationReachesAudio()
+    {
+        auto render = [] (Processor& processor)
+        {
+            processor.prepareToPlay (sampleRate, blockSize);
+            std::vector<float> out;
+            int64_t first = 0;
+            juce::MidiBuffer midi;
+
+            for (int block = 0; block < 20; ++block)
+            {
+                juce::AudioBuffer<float> audio (2, blockSize);
+                audio.clear();
+                addSine (audio, 0, sampleRate, 220.0, 0.5f, first);
+                addSine (audio, 1, sampleRate, 220.0, 0.5f, first);
+                processor.processBlock (audio, midi);
+
+                const auto* left = audio.getReadPointer (0);
+                out.insert (out.end(), left, left + blockSize);
+                first += blockSize;
+            }
+
+            return out;
+        };
+
+        const auto diff = [] (const std::vector<float>& a, const std::vector<float>& b)
+        {
+            assert (a.size() == b.size());
+            double sum = 0.0;
+            for (size_t n = 0; n < a.size(); ++n)
+                sum += std::abs (a[(size_t) n] - b[(size_t) n]);
+            return sum / (double) a.size();
+        };
+
+        Processor plain;
+        const auto plainOutput = render (plain);
+
+        // Output routed: the final gain sweeps with the square LFO.
+        Processor modulatedOutput;
+        setLfo (modulatedOutput, 0, 4.0f, 3.0f, false, 4.0f);   // square, 4 Hz, free
+        setRoute (modulatedOutput, 0, 0, (int) Processor::ModTarget::Output, 50.0f);
+        assert (diff (plainOutput, render (modulatedOutput)) > 1.0e-3);
+
+        // Drive routed: the shaper opens and closes.
+        Processor modulatedDrive;
+        setLfo (modulatedDrive, 0, 4.0f, 3.0f, false, 4.0f);
+        setRoute (modulatedDrive, 0, 0, (int) Processor::ModTarget::Drive, 100.0f);
+        assert (diff (plainOutput, render (modulatedDrive)) > 1.0e-3);
+
+        // Amount 0 is bit-identical, even with the LFO running.
+        Processor idle;
+        setLfo (idle, 0, 4.0f, 3.0f, false, 4.0f);
+        setRoute (idle, 0, 0, (int) Processor::ModTarget::Output, 0.0f);
+        assert (render (idle) == plainOutput);
+
+        pass ("testModulationReachesAudio");
+    }
+
+    /** Plan 13: modulating the Side Crossover is inert while the side filter is Off. */
+    void testSideCrossoverInertWhenFilterOff()
+    {
+        auto render = [] (Processor& processor)
+        {
+            processor.prepareToPlay (sampleRate, blockSize);
+            std::vector<float> out;
+            int64_t first = 0;
+            juce::MidiBuffer midi;
+
+            for (int block = 0; block < 16; ++block)
+            {
+                juce::AudioBuffer<float> audio (2, blockSize);
+                audio.clear();
+                addSine (audio, 0, sampleRate, 220.0, 0.5f, first);
+                addSine (audio, 1, sampleRate, 220.0, 0.25f, first);
+                processor.processBlock (audio, midi);
+
+                const auto* left = audio.getReadPointer (0);
+                out.insert (out.end(), left, left + blockSize);
+                first += blockSize;
+            }
+
+            return out;
+        };
+
+        Processor plain;
+        const auto plainOutput = render (plain);
+
+        // The routed crossover with the filter Off: identical, because no filter node runs.
+        Processor routed;
+        setLfo (routed, 0, 6.0f, 0.0f, false, 4.0f);
+        setRoute (routed, 0, 0, (int) Processor::ModTarget::SideCrossover, 100.0f);
+        assert (render (routed) == plainOutput);
+
+        // The same routing with the filter on: different, so the target really is wired.
+        setParameter (routed.apvts, Processor::sideFilterId, 2.0f);   // Low Pass
+        const auto filteredOutput = render (routed);
+
+        double difference = 0.0;
+        for (size_t n = 0; n < plainOutput.size(); ++n)
+            difference += std::abs (plainOutput[(size_t) n] - filteredOutput[(size_t) n]);
+        assert (difference / (double) plainOutput.size() > 1.0e-3);
+
+        pass ("testSideCrossoverInertWhenFilterOff");
+    }
+
+    /** Plan 13: a synced LFO runs on the internal 120 BPM tempo clock with no host playhead. */
+    void testSyncedLfoFollowsTempo()
+    {
+        Processor processor;
+        setParameter (processor.apvts, Processor::lfo1SyncId, 1.0f);
+        setParameter (processor.apvts, Processor::lfo1DivisionId, 4.0f);   // 1/4 = 1 beat per cycle
+        processor.prepareToPlay (sampleRate, blockSize);
+
+        juce::AudioBuffer<float> audio (2, blockSize);
+        juce::MidiBuffer midi;
+
+        for (int block = 0; block < 24; ++block)
+        {
+            audio.clear();
+            processor.processBlock (audio, midi);
+        }
+        const float quarter = processor.getRouter().getLfoPhase (0);
+
+        for (int block = 0; block < 24; ++block)
+        {
+            audio.clear();
+            processor.processBlock (audio, midi);
+        }
+        const float half = processor.getRouter().getLfoPhase (0);
+
+        assert (std::abs (quarter - 0.5f) < 0.02f);
+        assert (std::abs (half - 0.0f) < 0.02f);
+
+        pass ("testSyncedLfoFollowsTempo");
+    }
+
+    /** Plan 13: switching pages only toggles visibility; no parameter changes. */
+    void testPageSwitchChangesNoParameter()
+    {
+        Processor processor;
+        auto* editor = dynamic_cast<StereoToolEditor*> (processor.createEditorAndMakeActive());
+        assert (editor != nullptr);
+
+        juce::MemoryBlock before;
+        processor.getStateInformation (before);
+
+        editor->setPage (1);
+        assert (editor->getPage() == 1);
+
+        editor->setPage (0);
+        assert (editor->getPage() == 0);
+
+        juce::MemoryBlock after;
+        processor.getStateInformation (after);
+        assert (before == after);
+
+        processor.editorBeingDeleted (editor);
+        delete editor;
+        pass ("testPageSwitchChangesNoParameter");
+    }
+
+    /** Plan 13: the MOD page paints the modulation panel. */
+    void testModPagePaints()
+    {
+        Processor processor;
+        std::unique_ptr<juce::AudioProcessorEditor> editor (processor.createEditorAndMakeActive());
+        assert (editor != nullptr);
+
+        auto* stereoEditor = dynamic_cast<StereoToolEditor*> (editor.get());
+        assert (stereoEditor != nullptr);
+        stereoEditor->setPage (1);
+
+        juce::MessageManager::getInstance()->runDispatchLoopUntil (150);
+
+        juce::Image image (juce::Image::ARGB, editor->getWidth(), editor->getHeight(), true);
+        {
+            juce::Graphics g (image);
+            editor->paintEntireComponent (g, true);
+        }
+
+        int painted = 0;
+        for (int y = 0; y < image.getHeight(); y += 2)
+            for (int x = 0; x < image.getWidth(); x += 2)
+                if (image.getPixelAt (x, y).getAlpha() > 0)
+                    ++painted;
+
+        assert (painted > 1000);
+
+        processor.editorBeingDeleted (editor.get());
+        pass ("testModPagePaints");
+    }
+
     /** R13: the header carries the preset bar and the menu menu, the menu's two actions are
         wired, the menu sits at the far right of the header with the bar left of it, and both
         dialogs build and paint. */
@@ -658,10 +949,19 @@ namespace
 
         std::unique_ptr<juce::AudioProcessorEditor> editor (processor.createEditor());
         assert (editor != nullptr);
+        auto* stereoEditor = dynamic_cast<StereoToolEditor*> (editor.get());
+        assert (stereoEditor != nullptr);
+
         const juce::File file (juce::File (folder).getChildFile ("stereotool-default.png"));
         assert (PluginTest::writeDeterministicPng (*editor, file));
-        processor.editorBeingDeleted (editor.get());
 
+        // Plan 13: the MOD page renders too.
+        stereoEditor->setPage (1);
+        juce::MessageManager::getInstance()->runDispatchLoopUntil (150);
+        const juce::File modFile (juce::File (folder).getChildFile ("stereotool-mod.png"));
+        assert (PluginTest::writeDeterministicPng (*editor, modFile));
+
+        processor.editorBeingDeleted (editor.get());
         pass ("testRenderBaseline");
     }
 }
@@ -685,9 +985,15 @@ int main()
     testSideFilter();
     testTransientFollower();
     testEditor();
+    testModeAffinity();
     testLevelGroupAndHelp();
     testLevelStageScalesThePeak();
     testVisualSnapshot();
+    testModulationReachesAudio();
+    testSideCrossoverInertWhenFilterOff();
+    testSyncedLfoFollowsTempo();
+    testPageSwitchChangesNoParameter();
+    testModPagePaints();
     testHeaderContract();
     testRenderBaseline();
 

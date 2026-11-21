@@ -1,0 +1,14 @@
+{
+  "_name": "Release Swell",
+  "_category": "Ambient",
+  "_description": "Triangle LFO swells the release time.",
+  "_plugin": "DynamicSaturation",
+  "_pluginVersion": "1.0.0",
+  "drive": 6.0,
+  "release": 800.0,
+  "lfo2Rate": 0.2,
+  "lfo2Shape": 1,
+  "mod2Source": 1,
+  "mod2Target": 6,
+  "mod2Amount": 60.0
+}

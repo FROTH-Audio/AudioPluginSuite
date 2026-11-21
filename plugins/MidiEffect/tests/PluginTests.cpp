@@ -5,6 +5,8 @@
 #include "PluginProcessor.h"
 #include "SuiteSettings.h"
 
+#include <random>
+
 namespace
 {
     using namespace PluginTest;
@@ -51,7 +53,7 @@ namespace
         checkRange (processor.apvts, Processor::octaveId,  -2.0f, 2.0f, 0.0f);
         checkRange (processor.apvts, Processor::velocityId, 0.0f, 150.0f, 100.0f);
         checkRange (processor.apvts, Processor::arpModeId,           0.0f, 1.0f, 0.0f);
-        checkRange (processor.apvts, Processor::stepRateId,          0.0f, 11.0f, 6.0f);
+        checkRange (processor.apvts, Processor::stepRateId,          0.0f, 15.0f, 6.0f);
         checkRange (processor.apvts, Processor::hostSyncId,          0.0f, 1.0f, 0.0f);
         checkRange (processor.apvts, Processor::tempoId,            40.0f, 240.0f, 120.0f);
         checkRange (processor.apvts, Processor::gateLengthId,       10.0f, 100.0f, 60.0f);
@@ -68,9 +70,13 @@ namespace
         // Plan 12: the twelve step rates in the clean order, and the plugin is an instrument.
         auto* stepRate = dynamic_cast<juce::AudioParameterChoice*> (processor.apvts.getParameter (Processor::stepRateId));
         assert (stepRate != nullptr);
-        assert (stepRate->choices.size() == 12);
+        assert (stepRate->choices.size() == 16);
         assert (stepRate->choices[0] == "1/4" && stepRate->choices[2] == "1/4D"
              && stepRate->choices[6] == "1/16" && stepRate->choices[11] == "1/32D");
+        // Plan 15: the appended slow plain rates, append-only so a saved index keeps its
+        // meaning (the migration stays v2).
+        assert (stepRate->choices[12] == "1/2" && stepRate->choices[13] == "1 Bar"
+             && stepRate->choices[14] == "2 Bars" && stepRate->choices[15] == "4 Bars");
         pass ("testParameters");
     }
 
@@ -394,6 +400,84 @@ namespace
         pass ("testArpStepClock");
     }
 
+    /** Plan 15: the appended slow step rates. At 120 BPM a sample is 48 kHz, so one beat is
+        24000 samples: 1 Bar (index 13) is 96000 samples per step and 4 Bars (index 15) is
+        384000 — the clock fires the first step immediately and then waits, which is what
+        the long rates are for. */
+    void testArpStepClockSlowRates()
+    {
+        juce::AudioBuffer<float> audio (2, blockSize);
+
+        // 1 Bar: two steps (96000 samples apart) inside a 97000-sample run; the first
+        // note's gate-off (60 % of 96000 = 57600) lands between them.
+        {
+            Processor processor;
+            processor.prepareToPlay (sampleRate, blockSize);
+            setParameter (processor.apvts, Processor::arpModeId, 1.0f);
+            setParameter (processor.apvts, Processor::stepRateId, 13.0f);
+
+            std::vector<std::pair<int, int>> noteOns, noteOffs;
+            const int totalBlocks = 97000 / blockSize;
+
+            for (int b = 0; b < totalBlocks; ++b)
+            {
+                juce::MidiBuffer midi;
+                if (b == 0)
+                    midi.addEvent (juce::MidiMessage::noteOn (1, 60, 0.8f), 0);
+                audio.clear();
+                processor.processBlock (audio, midi);
+
+                for (const auto metadata : midi)
+                {
+                    const auto& message = metadata.getMessage();
+                    const int absolute = b * blockSize + (int) metadata.samplePosition;
+                    if (message.isNoteOn())
+                        noteOns.push_back ({ absolute, message.getNoteNumber() });
+                    else if (message.isNoteOff())
+                        noteOffs.push_back ({ absolute, message.getNoteNumber() });
+                }
+            }
+
+            assert ((int) noteOns.size() == 2);
+            assert (noteOns[0].second == 60 && noteOns[1].second == 64);
+            assert (std::abs (noteOns[1].first - 96000) <= 2);
+            assert ((int) noteOffs.size() == 1);
+            assert (noteOffs[0].second == 60 && std::abs (noteOffs[0].first - 57600) <= 2);
+        }
+
+        // 4 Bars: one step per 384000 samples — the run's single note-on at step 0, and its
+        // gate-off scheduled beyond the run.
+        {
+            Processor processor;
+            processor.prepareToPlay (sampleRate, blockSize);
+            setParameter (processor.apvts, Processor::arpModeId, 1.0f);
+            setParameter (processor.apvts, Processor::stepRateId, 15.0f);
+
+            int noteOns = 0, noteOffs = 0;
+            const int totalBlocks = 97000 / blockSize;
+
+            for (int b = 0; b < totalBlocks; ++b)
+            {
+                juce::MidiBuffer midi;
+                if (b == 0)
+                    midi.addEvent (juce::MidiMessage::noteOn (1, 60, 0.8f), 0);
+                audio.clear();
+                processor.processBlock (audio, midi);
+
+                for (const auto metadata : midi)
+                {
+                    const auto& message = metadata.getMessage();
+                    if (message.isNoteOn())  ++noteOns;
+                    else if (message.isNoteOff()) ++noteOffs;
+                }
+            }
+
+            assert (noteOns == 1 && noteOffs == 0);
+        }
+
+        pass ("testArpStepClockSlowRates");
+    }
+
     /** Plan 6.1: the step clock holds the span at any tempo. At 40 BPM a 1/16 step is
         18000 samples, at 240 it is 3000; the eight steps land accordingly. */
     void testArpStepClockAtTempos()
@@ -650,6 +734,36 @@ namespace
         pass ("testEditorControls");
     }
 
+    /** Plan 15 (owner): the arp-only controls are dimmed in Chord mode (no clock, no gate,
+        no per-step shape) and live in Arp mode. The chord parameters and the Arp pattern's
+        ordering stay live in both (plan 10 G1: dimmed, never hidden). */
+    void testModeAffinity()
+    {
+        Processor processor;
+        std::unique_ptr<juce::AudioProcessorEditor> editor (processor.createEditorAndMakeActive());
+        assert (editor != nullptr);
+        juce::MessageManager::getInstance()->runDispatchLoopUntil (120);   // one timer tick
+
+        auto* midiEditor = dynamic_cast<MidiEffectEditor*> (editor.get());
+        assert (midiEditor != nullptr);
+
+        // Default mode is Chord: the seven arp-only cells are dimmed.
+        assert (! midiEditor->isArpRowEnabled());
+
+        // Arp mode: live again.
+        setParameter (processor.apvts, Processor::arpModeId, 1.0f);
+        juce::MessageManager::getInstance()->runDispatchLoopUntil (120);
+        assert (midiEditor->isArpRowEnabled());
+
+        // Back to Chord: dimmed again.
+        setParameter (processor.apvts, Processor::arpModeId, 0.0f);
+        juce::MessageManager::getInstance()->runDispatchLoopUntil (120);
+        assert (! midiEditor->isArpRowEnabled());
+
+        processor.editorBeingDeleted (editor.get());
+        pass ("testModeAffinity");
+    }
+
     /** Plan 11 D7: the visual snapshot publishes the held key while the arp runs and
         clears its sounding flags when the key ends. */
     void testVisualSnapshot()
@@ -756,6 +870,337 @@ namespace
     }
 
     /** Writes the editor render when SUITE_RENDER_DIR is set (plan 05 R9). */
+    //==============================================================================
+    // The UI-note guarantee (plan 13): the editor's keyboard and chord click play through
+    // the same chord/arp logic, and every ending path sends the matching note-offs.
+
+    struct TestPlayHead : juce::AudioPlayHead
+    {
+        juce::Optional<PositionInfo> position;
+        juce::Optional<PositionInfo> getPosition() const override { return position; }
+    };
+
+    /** Runs one block and counts the note-on / note-off events the plugin emitted. */
+    void runBlockCounting (Processor& processor, int& ons, int& offs)
+    {
+        juce::MidiBuffer midi;
+        juce::AudioBuffer<float> silence (2, blockSize);
+        silence.clear();
+        processor.processBlock (silence, midi);
+
+        for (const auto metadata : midi)
+        {
+            const auto& message = metadata.getMessage();
+            if (message.isNoteOn())
+                ++ons;
+            else if (message.isNoteOff())
+                ++offs;
+        }
+    }
+
+    template <class ComponentType>
+    ComponentType* findChildOfTypeDeep (juce::Component* parent)
+    {
+        for (int i = 0; i < parent->getNumChildComponents(); ++i)
+        {
+            auto* child = parent->getChildComponent (i);
+
+            if (auto* match = dynamic_cast<ComponentType*> (child))
+                return match;
+
+            if (auto* deeper = findChildOfTypeDeep<ComponentType> (child))
+                return deeper;
+        }
+
+        return nullptr;
+    }
+
+    /** A pointer event at 80% of the strip's height (below the black-key band). */
+    auto keyEventOn = [] (juce::Component& component, float x)
+    {
+        const float y = component.getHeight() * 0.8f;
+        return juce::MouseEvent (juce::Desktop::getInstance().getMainMouseSource(),
+                                 juce::Point<float> (x, y), juce::ModifierKeys(), 1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+                                 &component, &component, juce::Time::getCurrentTime(),
+                                 juce::Point<float> (x, y), juce::Time::getCurrentTime(), 1, false);
+    };
+
+    /** The x of a key's centre on the strip (73 keys, MIDI 24-96). */
+    auto keyX = [] (juce::Component& strip, int note)
+    {
+        return ((float) (note - 24) + 0.5f) / 73.0f * (float) strip.getWidth();
+    };
+
+    void testUiNoteChordMatchesHostMidi()
+    {
+        Processor ui, host;
+        ui.prepareToPlay (sampleRate, blockSize);
+        host.prepareToPlay (sampleRate, blockSize);
+
+        ui.pushUiNote (60, true, 0.8f);
+        juce::MidiBuffer uiMidi, hostMidi;
+        hostMidi.addEvent (juce::MidiMessage::noteOn (1, 60, 0.8f), 0);
+        juce::AudioBuffer<float> silence (2, blockSize);
+        silence.clear();
+        ui.processBlock (silence, uiMidi);
+        host.processBlock (silence, hostMidi);
+
+        // The UI note takes the same chord path: identical notes in the same order.
+        const auto uiNotes = collectNotes (uiMidi, true);
+        const auto hostNotes = collectNotes (hostMidi, true);
+        assert (uiNotes == hostNotes);
+        assert (! uiNotes.empty());
+
+        // The bookkeeping holds the note until its note-off.
+        assert (ui.hasUiNotesSounding());
+        ui.pushUiNote (60, false);
+        juce::MidiBuffer offMidi;
+        ui.processBlock (silence, offMidi);
+        assert (! collectNotes (offMidi, false).empty());
+        assert (! ui.hasUiNotesSounding());
+
+        pass ("testUiNoteChordMatchesHostMidi");
+    }
+
+    /** One test per ending path (plan 13): each asserts note-ons equal note-offs and no
+        UI note sounding afterwards. */
+    void testUiNoteEndingPaths()
+    {
+        // -- mouse-up on the key ------------------------------------------------------
+        {
+            Processor processor;
+            std::unique_ptr<juce::AudioProcessorEditor> editor (processor.createEditorAndMakeActive());
+            juce::MessageManager::getInstance()->runDispatchLoopUntil (150);
+            auto* strip = findChildOfTypeDeep<SuiteUI::PlayableKeyboardStrip> (editor.get());
+            assert (strip != nullptr);
+
+            int ons = 0, offs = 0;
+            strip->mouseDown (keyEventOn (*strip, keyX (*strip, 60)));
+            runBlockCounting (processor, ons, offs);
+            assert (ons > 0 && processor.hasUiNotesSounding());
+
+            strip->mouseUp (keyEventOn (*strip, keyX (*strip, 60)));
+            runBlockCounting (processor, ons, offs);
+            assert (ons == offs);
+            assert (! processor.hasUiNotesSounding());
+
+            processor.editorBeingDeleted (editor.get());
+        }
+
+        // -- a drag that leaves the key ----------------------------------------------
+        {
+            Processor processor;
+            std::unique_ptr<juce::AudioProcessorEditor> editor (processor.createEditorAndMakeActive());
+            juce::MessageManager::getInstance()->runDispatchLoopUntil (150);
+            auto* strip = findChildOfTypeDeep<SuiteUI::PlayableKeyboardStrip> (editor.get());
+            assert (strip != nullptr);
+
+            int ons = 0, offs = 0;
+            strip->mouseDown (keyEventOn (*strip, keyX (*strip, 60)));
+            strip->mouseDrag (keyEventOn (*strip, keyX (*strip, 64)));
+            runBlockCounting (processor, ons, offs);
+            assert (processor.hasUiNotesSounding());
+
+            strip->mouseUp (keyEventOn (*strip, keyX (*strip, 64)));
+            runBlockCounting (processor, ons, offs);
+            assert (ons == offs);
+            assert (! processor.hasUiNotesSounding());
+
+            processor.editorBeingDeleted (editor.get());
+        }
+
+        // -- the mouse leaving the window ---------------------------------------------
+        {
+            Processor processor;
+            std::unique_ptr<juce::AudioProcessorEditor> editor (processor.createEditorAndMakeActive());
+            juce::MessageManager::getInstance()->runDispatchLoopUntil (150);
+            auto* strip = findChildOfTypeDeep<SuiteUI::PlayableKeyboardStrip> (editor.get());
+            assert (strip != nullptr);
+
+            int ons = 0, offs = 0;
+            strip->mouseDown (keyEventOn (*strip, keyX (*strip, 60)));
+            strip->mouseExit (keyEventOn (*strip, keyX (*strip, 60)));
+            runBlockCounting (processor, ons, offs);
+            assert (ons == offs);
+            assert (! processor.hasUiNotesSounding());
+
+            processor.editorBeingDeleted (editor.get());
+        }
+
+        // -- the editor destroyed while a key is held ----------------------------------
+        {
+            Processor processor;
+            processor.prepareToPlay (sampleRate, blockSize);
+            int ons = 0, offs = 0;
+
+            {
+                std::unique_ptr<juce::AudioProcessorEditor> editor (processor.createEditorAndMakeActive());
+                juce::MessageManager::getInstance()->runDispatchLoopUntil (150);
+                auto* strip = findChildOfTypeDeep<SuiteUI::PlayableKeyboardStrip> (editor.get());
+                assert (strip != nullptr);
+
+                strip->mouseDown (keyEventOn (*strip, keyX (*strip, 60)));
+                runBlockCounting (processor, ons, offs);
+                assert (processor.hasUiNotesSounding());
+
+                processor.editorBeingDeleted (editor.get());
+            }   // the editor's destructor flushes the held note into the ring
+
+            runBlockCounting (processor, ons, offs);
+            assert (ons == offs);
+            assert (! processor.hasUiNotesSounding());
+        }
+
+        // -- focus lost while a key is held --------------------------------------------
+        {
+            Processor processor;
+            std::unique_ptr<juce::AudioProcessorEditor> editor (processor.createEditorAndMakeActive());
+            juce::MessageManager::getInstance()->runDispatchLoopUntil (150);
+            auto* strip = findChildOfTypeDeep<SuiteUI::PlayableKeyboardStrip> (editor.get());
+            assert (strip != nullptr);
+
+            int ons = 0, offs = 0;
+            strip->mouseDown (keyEventOn (*strip, keyX (*strip, 60)));
+            runBlockCounting (processor, ons, offs);
+            assert (processor.hasUiNotesSounding());
+
+            editor->focusLost (juce::Component::focusChangedByMouseClick);
+            runBlockCounting (processor, ons, offs);
+            assert (ons == offs);
+            assert (! processor.hasUiNotesSounding());
+
+            processor.editorBeingDeleted (editor.get());
+        }
+
+        // -- a chord-strip click ends on mouse-up and on the mouse leaving --------------
+        {
+            Processor processor;
+            std::unique_ptr<juce::AudioProcessorEditor> editor (processor.createEditorAndMakeActive());
+            juce::MessageManager::getInstance()->runDispatchLoopUntil (150);
+            auto* visualizer = findChildOfTypeDeep<MidiEffectEditor::ChordGridVisualizer> (editor.get());
+            assert (visualizer != nullptr);
+
+            int ons = 0, offs = 0;
+
+            // No chord yet: a click is a no-op.
+            visualizer->mouseDown (keyEventOn (*visualizer, 100.0f));
+            assert (visualizer->heldChordKey < 0);
+
+            // A key press gives the strip a chord; a click then replays it.
+            processor.pushUiNote (60, true, 0.8f);
+            runBlockCounting (processor, ons, offs);
+            const int onsAfterKey = ons;
+
+            visualizer->mouseDown (keyEventOn (*visualizer, 100.0f));
+            assert (visualizer->heldChordKey >= 0);
+            runBlockCounting (processor, ons, offs);
+            assert (ons > onsAfterKey);
+
+            visualizer->mouseUp (keyEventOn (*visualizer, 100.0f));
+            runBlockCounting (processor, ons, offs);
+            assert (visualizer->heldChordKey < 0);
+
+            // Everything the key and the click started is released when the key ends.
+            processor.pushUiNote (60, false);
+            runBlockCounting (processor, ons, offs);
+            assert (ons == offs);
+            assert (! processor.hasUiNotesSounding());
+
+            processor.editorBeingDeleted (editor.get());
+        }
+
+        // -- transport stop -------------------------------------------------------------
+        {
+            Processor processor;
+            processor.prepareToPlay (sampleRate, blockSize);
+
+            TestPlayHead playHead;
+            {
+                juce::AudioPlayHead::PositionInfo info;
+                info.setIsPlaying (true);
+                playHead.position = info;
+            }
+            processor.setPlayHead (&playHead);
+
+            int ons = 0, offs = 0;
+            runBlockCounting (processor, ons, offs);   // the host is playing
+            processor.pushUiNote (60, true, 0.8f);
+            runBlockCounting (processor, ons, offs);
+            assert (processor.hasUiNotesSounding());
+
+            {
+                juce::AudioPlayHead::PositionInfo info;
+                info.setIsPlaying (false);
+                playHead.position = info;
+            }
+            runBlockCounting (processor, ons, offs);
+            assert (ons == offs);
+            assert (! processor.hasUiNotesSounding());
+
+            processor.setPlayHead (nullptr);
+        }
+
+        // -- reset and releaseResources --------------------------------------------------
+        {
+            Processor processor;
+            processor.prepareToPlay (sampleRate, blockSize);
+            int ons = 0, offs = 0;
+
+            processor.pushUiNote (60, true, 0.8f);
+            runBlockCounting (processor, ons, offs);
+            assert (processor.hasUiNotesSounding());
+
+            processor.reset();
+            assert (! processor.hasUiNotesSounding());
+
+            processor.pushUiNote (64, true, 0.8f);
+            runBlockCounting (processor, ons, offs);
+            assert (processor.hasUiNotesSounding());
+
+            processor.releaseResources();
+            assert (! processor.hasUiNotesSounding());
+        }
+
+        // -- a randomised click sequence with a fixed seed balances ----------------------
+        {
+            Processor processor;
+            std::unique_ptr<juce::AudioProcessorEditor> editor (processor.createEditorAndMakeActive());
+            juce::MessageManager::getInstance()->runDispatchLoopUntil (150);
+            auto* strip = findChildOfTypeDeep<SuiteUI::PlayableKeyboardStrip> (editor.get());
+            assert (strip != nullptr);
+
+            std::mt19937 random (2026u);
+            std::uniform_real_distribution<float> position (0.0f, 1.0f);
+            std::uniform_int_distribution<int> action (0, 3);
+            int ons = 0, offs = 0;
+
+            for (int i = 0; i < 64; ++i)
+            {
+                const float x = keyX (*strip, 24 + (int) (position (random) * 72.0f));
+
+                switch (action (random))
+                {
+                    case 0: strip->mouseDown (keyEventOn (*strip, x)); break;
+                    case 1: strip->mouseUp (keyEventOn (*strip, x)); break;
+                    case 2: strip->mouseDrag (keyEventOn (*strip, x)); break;
+                    default: strip->mouseExit (keyEventOn (*strip, x)); break;
+                }
+
+                runBlockCounting (processor, ons, offs);
+            }
+
+            // The flush releases whatever is left, so the books balance exactly.
+            strip->releaseHeldNotes();
+            runBlockCounting (processor, ons, offs);
+            assert (ons == offs);
+            assert (! processor.hasUiNotesSounding());
+
+            processor.editorBeingDeleted (editor.get());
+        }
+
+        pass ("testUiNoteEndingPaths");
+    }
+
     void testRenderBaseline()
     {
         const auto folder = juce::SystemStats::getEnvironmentVariable ("SUITE_RENDER_DIR", {});
@@ -808,6 +1253,7 @@ int main()
     testRetriggerReleasesPreviousChord();
     testScatteredPattern();
     testArpStepClock();
+    testArpStepClockSlowRates();
     testArpStepClockAtTempos();
     testArpVelocityCurve();
     testArpNoteOffTruncates();
@@ -816,7 +1262,10 @@ int main()
     testAudioCleared();
     testEditor();
     testEditorControls();
+    testModeAffinity();
     testVisualSnapshot();
+    testUiNoteChordMatchesHostMidi();
+    testUiNoteEndingPaths();
     testHeaderContract();
     testRenderBaseline();
 

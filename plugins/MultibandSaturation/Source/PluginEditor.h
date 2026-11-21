@@ -9,6 +9,8 @@
 #include "SuiteHeaderMenu.h"
 #include "SuiteHelp.h"
 #include "SuiteLookAndFeel.h"
+#include "SuiteModulationControls.h"
+#include "SuiteModulationPanel.h"
 #include "SuiteSelectorAttachment.h"
 #include "SuiteWidgets.h"
 #include "SuitePresets.h"
@@ -23,29 +25,39 @@ public:
     void paint (juce::Graphics&) override;
     void resized() override;
 
+    /** Switches between the sound controls (0) and the modulation page (1). The tests use it too. */
+    void setPage (int page);
+    int getPage() const noexcept { return currentPage; }
+
     /** The layout's bands, for the tests (plan 12). Valid after resized() ran. */
     juce::Rectangle<int> visualRect() const noexcept { return visualBounds; }
     juce::Rectangle<int> splitRect() const noexcept { return splitGroupBounds; }
     juce::Component* visualComponent() { return &visualizer; }
 
 private:
+    void timerCallback() override;
+
+    /** The LFO colours of the modulation panel. */
+    static SuiteModulation::ModulationPanel::Style modulationStyle();
+
+    void layoutSoundPage (juce::Rectangle<int> area);
+    void layoutModPage (juce::Rectangle<int> area);
+
     MultibandSaturationProcessor& processor;
 
-    /** The two-band visual (plan 11 4b): a bar per band (the block's envelope maximum)
-        with the crossover frequency marked between them, and input/output meters on the
-        right. Reads the processor's published snapshot on the 60 Hz timer; no locks. */
+    /** The two-band visual (plan 11 4b; plan 15 removed the stereo meter pair on the
+        owner's request and added the frequency grid): a bar per band (the block's envelope
+        maximum) over a log frequency grid, with the crossover frequency marked between
+        them. Reads the processor's published snapshot on the 60 Hz timer; no locks. */
     class DualBandVisualizer : public juce::Component
     {
     public:
         explicit DualBandVisualizer (MultibandSaturationProcessor& p);
 
         void paint (juce::Graphics&) override;
-        void resized() override;
 
     private:
         MultibandSaturationProcessor& processor;
-        SuiteUI::LevelMeter inputMeter  { SuiteUI::Colours::textDim };
-        SuiteUI::LevelMeter outputMeter { SuiteUI::Colours::text };
     };
 
     // Declared first so it is destroyed last, after every component that uses it.
@@ -89,10 +101,15 @@ private:
     juce::AudioProcessorValueTreeState::SliderAttachment mixAttachment        { processor.apvts, MultibandSaturationProcessor::mixId,         mixCtrl.slider };
     juce::AudioProcessorValueTreeState::SliderAttachment outputAttachment     { processor.apvts, MultibandSaturationProcessor::outputLevelId, outputCtrl.slider };
 
+    // Page switch and modulation panel (plan 13). The visualiser shows on both pages.
+    SuiteUI::SegmentedSelector pageSelector { juce::Colour (0xffFF6B6B) };
+    SuiteModulation::ModulationPanel modulation { processor.getRouter(), modulationStyle() };
+    std::unique_ptr<SuiteModulation::ControlDisplay> controls;
+
     // Visual + header (plan 11 4b/R13).
     DualBandVisualizer visualizer { processor };
 
-    void timerCallback() override { visualizer.repaint(); }
+    int currentPage = 0;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MultibandSaturationEditor)
 };

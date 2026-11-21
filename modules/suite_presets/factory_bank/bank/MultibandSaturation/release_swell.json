@@ -1,0 +1,13 @@
+{
+  "_name": "Release Swell",
+  "_category": "Ambient",
+  "_description": "Sine LFO swells the release time.",
+  "_plugin": "MultibandSaturation",
+  "_pluginVersion": "1.0.0",
+  "driveLow": 7.0,
+  "release": 800.0,
+  "lfo1Rate": 0.2,
+  "lfo1Shape": 0,
+  "mod1Target": 6,
+  "mod1Amount": 80.0
+}

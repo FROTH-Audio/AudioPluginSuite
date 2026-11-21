@@ -1,0 +1,14 @@
+{
+  "_name": "Attack Flutter",
+  "_category": "Experimental",
+  "_description": "Sample-and-hold jitters the follower attack.",
+  "_plugin": "StereoTool",
+  "_pluginVersion": "1.0.0",
+  "transientAmount": 40.0,
+  "transientTarget": 0,
+  "lfo2Rate": 6.0,
+  "lfo2Shape": 4,
+  "mod2Source": 1,
+  "mod2Target": 4,
+  "mod2Amount": 100.0
+}

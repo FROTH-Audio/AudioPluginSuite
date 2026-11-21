@@ -1,0 +1,13 @@
+{
+  "_name": "Pendulum Drift",
+  "_category": "Rhythmic",
+  "_description": "Pendulum LFO gives a swinging drift motion.",
+  "_plugin": "SpectralDrift",
+  "_pluginVersion": "1.0.0",
+  "depth": 60.0,
+  "spread": 0.4,
+  "lfo1Rate": 0.5,
+  "lfo1Shape": 7,
+  "mod1Target": 12,
+  "mod1Amount": 100.0
+}

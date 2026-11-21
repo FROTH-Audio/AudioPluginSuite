@@ -32,9 +32,9 @@ from pathlib import Path
 
 from preset_data import PRESETS, SCHEMA
 
-EXPECTED_COUNTS = {"SpectralDrift": 26, "DynamicSaturation": 26, "MicroTimingChaos": 28, "Sgraffito": 20,
-                   "MidiEffect": 15, "StereoTool": 15, "MultibandSaturation": 15, "Cyclical": 15}
-EXPECTED_TOTAL = 160
+EXPECTED_COUNTS = {"SpectralDrift": 36, "DynamicSaturation": 36, "MicroTimingChaos": 28, "Sgraffito": 20,
+                   "MidiEffect": 15, "StereoTool": 25, "MultibandSaturation": 25, "Cyclical": 15}
+EXPECTED_TOTAL = 200
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_BANK = REPO_ROOT / "modules" / "suite_presets" / "factory_bank" / "bank"

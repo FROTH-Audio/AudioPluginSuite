@@ -7,6 +7,7 @@
 
 #include "MultibandEngine.h"
 #include "SaturationEngine.h"
+#include "SuiteModulationRouter.h"
 #include "SuiteState.h"
 #include "SuitePresets.h"   // StateHolder interface for presets
 
@@ -38,17 +39,60 @@ public:
     static constexpr const char* mixId          = "mix";
     static constexpr const char* outputLevelId  = "outputLevel";
 
-    static constexpr int numControls = 11;
+    // LFO 1 and LFO 2. The IDs are fixed by suite_modulation, so every plugin saves them the same way.
+    static constexpr const char* lfo1RateId      = "lfo1Rate";
+    static constexpr const char* lfo1ShapeId     = "lfo1Shape";
+    static constexpr const char* lfo1SyncId      = "lfo1Sync";
+    static constexpr const char* lfo1DivisionId  = "lfo1Division";
+    static constexpr const char* lfo1OffsetId    = "lfo1Offset";
+    static constexpr const char* lfo2RateId      = "lfo2Rate";
+    static constexpr const char* lfo2ShapeId     = "lfo2Shape";
+    static constexpr const char* lfo2SyncId      = "lfo2Sync";
+    static constexpr const char* lfo2DivisionId  = "lfo2Division";
+    static constexpr const char* lfo2OffsetId    = "lfo2Offset";
+
+    // Modulation routing: six slots, each with a source, a target, a signed amount and a delay.
+    static constexpr const char* modSourceIds[6] = { "mod1Source", "mod2Source", "mod3Source", "mod4Source", "mod5Source", "mod6Source" };
+    static constexpr const char* modTargetIds[6] = { "mod1Target", "mod2Target", "mod3Target", "mod4Target", "mod5Target", "mod6Target" };
+    static constexpr const char* modAmountIds[6] = { "mod1Amount", "mod2Amount", "mod3Amount", "mod4Amount", "mod5Amount", "mod6Amount" };
+    static constexpr const char* modDelayIds[6]  = { "mod1Delay",  "mod2Delay",  "mod3Delay",  "mod4Delay",  "mod5Delay",  "mod6Delay" };
+
+    static constexpr int numControls = 45;
+
+    /** The parameters that an LFO can move. The order is part of the saved session: append new
+        targets at the end, and never reorder or remove existing ones. Names come from modTargetNames(). */
+    enum class ModTarget
+    {
+        None = 0,
+        Crossover,
+        DriveLow,
+        DriveHigh,
+        Sensitivity,
+        Attack,
+        Release,
+        ToneLow,
+        ToneHigh,
+        Mix,
+        Output,
+        count
+    };
+
+    static juce::StringArray modTargetNames();
+
+    /** The shared LFO and routing module. */
+    SuiteModulation::Router& getRouter() noexcept { return modulation; }
+
+    /** The value a control shows right now: its base value moved by the published routing offset. */
+    float getModulatedValue (ModTarget target) const;
 
     juce::AudioProcessorValueTreeState apvts;
 
     /** The visual snapshot (plan 11 D7): each band's envelope (the larger of the two
-        channels) and the input/output peaks of the last block. Audio thread, no locks. */
+        channels). Audio thread, no locks. Plan 15: the per-channel peaks went with the
+        editor's stereo meters. */
     struct BandSnapshot
     {
         std::atomic<float> envelope[2] {};   // [band]
-        std::atomic<float> inputPeak {};
-        std::atomic<float> outputPeak {};
     };
 
     const BandSnapshot& getBandSnapshot() const noexcept { return bandSnapshot; }
@@ -111,6 +155,10 @@ private:
     juce::SmoothedValue<float> toneLowSmoother, toneHighSmoother;
     juce::SmoothedValue<float> mixSmoother, outputGainSmoother;
 
+    // Plan 13: the crossover frequency is smoothed before the LR4 coefficients are computed,
+    // so modulating it per block does not click.
+    juce::SmoothedValue<float> crossoverSmoother;
+
     std::atomic<float>* mode = nullptr;
     std::atomic<float>* crossover = nullptr;
     std::atomic<float>* driveLow = nullptr;
@@ -125,6 +173,13 @@ private:
 
     // The visual snapshot (plan 11 D7). Audio thread, once per block, no locks.
     BandSnapshot bandSnapshot;
+
+    // Declared after apvts, so the router can read the parameters it belongs to.
+    SuiteModulation::Router modulation;
+
+    // The block clock the LFOs run on. An effect has no sequencer, so the beat is counted here.
+    std::int64_t streamSample = 0;
+    double beatClock = 0.0;
 
     // Host program list (embedded bank + SUITE_PRESET_BANK_AS_PROGRAMS). -1 means a state that is not a
     // factory program, for example a user preset.

@@ -1,0 +1,14 @@
+{
+  "_name": "Phase Rotation",
+  "_category": "Wide",
+  "_description": "Sine LFO rotates the stereo phase width.",
+  "_plugin": "SpectralDrift",
+  "_pluginVersion": "1.0.0",
+  "depth": 45.0,
+  "spread": 0.3,
+  "stereoPhase": 90.0,
+  "lfo1Rate": 0.2,
+  "lfo1Shape": 0,
+  "mod1Target": 3,
+  "mod1Amount": 100.0
+}

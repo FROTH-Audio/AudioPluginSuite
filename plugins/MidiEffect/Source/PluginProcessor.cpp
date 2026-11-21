@@ -114,7 +114,9 @@ juce::AudioProcessorValueTreeState::ParameterLayout MidiEffectProcessor::createP
     params.push_back (std::make_unique<juce::AudioParameterChoice> (
         juce::ParameterID { stepRateId, 1 }, "Step Rate",
         juce::StringArray { "1/4", "1/4T", "1/4D", "1/8", "1/8T", "1/8D",
-                            "1/16", "1/16T", "1/16D", "1/32", "1/32T", "1/32D" }, 6));   // 1/16
+                            "1/16", "1/16T", "1/16D", "1/32", "1/32T", "1/32D",
+                            // Plan 15: appended, so a saved index keeps its meaning.
+                            "1/2", "1 Bar", "2 Bars", "4 Bars" }, 6));   // 1/16
 
     params.push_back (std::make_unique<juce::AudioParameterChoice> (
         juce::ParameterID { hostSyncId, 1 }, "Host Sync", juce::StringArray { "Off", "On" }, 0));
@@ -161,14 +163,73 @@ void MidiEffectProcessor::prepareToPlay (double sampleRate, int)
     // to the running stream and start clean.
     arpVoices = {};
     pendingNoteOffs.clear();
+    clearUiNotes();
     streamSample = 0;
     beatPosition = 0.0;
     wasRunning = false;
+    wasHostPlaying = false;
+}
+
+void MidiEffectProcessor::releaseResources()
+{
+    // The stream is going away: the bookkeeping drops (no buffer exists to write
+    // note-offs into). A host that stops notes itself covers the synth side.
+    clearUiNotes();
+}
+
+void MidiEffectProcessor::reset()
+{
+    // Same rule as releaseResources (plan 13): after a reset no UI note is sounding.
+    clearUiNotes();
 }
 
 bool MidiEffectProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
 {
     return layouts.getMainOutputChannelSet() == juce::AudioChannelSet::stereo();
+}
+
+void MidiEffectProcessor::drainUiNotes (juce::MidiBuffer& midi)
+{
+    constexpr int uiChannel = 1;
+
+    for (;;)
+    {
+        const int read = uiNoteRead.load (std::memory_order_acquire);
+        if (read == uiNoteWrite.load (std::memory_order_acquire))
+            break;
+
+        const auto note = uiNoteRing[(size_t) read];
+        uiNoteRead.store ((read + 1) % uiNoteCapacity, std::memory_order_release);
+
+        if (note.releaseAll)
+        {
+            // The ending-path flush (plan 13): release exactly the held set.
+            for (int key = 0; key < 128; ++key)
+                if (std::exchange (uiHeld[(size_t) key], false))
+                    midi.addEvent (juce::MidiMessage::noteOff (uiChannel, key), 0);
+            continue;
+        }
+
+        midi.addEvent (note.on ? juce::MidiMessage::noteOn (uiChannel, note.key, note.velocity)
+                               : juce::MidiMessage::noteOff (uiChannel, note.key), 0);
+        uiHeld[(size_t) note.key] = note.on;
+    }
+}
+
+void MidiEffectProcessor::flushUiNotes (juce::MidiBuffer& out, int sample)
+{
+    constexpr int uiChannel = 1;
+
+    for (int key = 0; key < 128; ++key)
+        if (std::exchange (uiHeld[(size_t) key], false))
+            out.addEvent (juce::MidiMessage::noteOff (uiChannel, key), sample);
+}
+
+void MidiEffectProcessor::clearUiNotes()
+{
+    // The ring indices only ever advance (a consumer that stops drains drops the rest).
+    uiNoteRead.store (uiNoteWrite.load (std::memory_order_relaxed), std::memory_order_release);
+    uiHeld = {};
 }
 
 void MidiEffectProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi)
@@ -177,6 +238,22 @@ void MidiEffectProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
 
     // An instrument: the plugin produces no audio, so the buffer stays silent.
     buffer.clear();
+
+    // The editor keyboard's notes join the incoming stream at sample 0 (plan 13), so they
+    // run the same chord and arp logic as host notes.
+    drainUiNotes (midi);
+
+    // A stopped transport releases every UI note (the note-off guarantee, plan 13).
+    // Host notes keep their existing behaviour.
+    const auto playPosition = getPlayHead() != nullptr ? getPlayHead()->getPosition()
+                                                       : juce::Optional<juce::AudioPlayHead::PositionInfo>();
+    if (playPosition.hasValue())
+    {
+        const bool playing = playPosition->getIsPlaying();
+        if (wasHostPlaying && ! playing)
+            flushUiNotes (midi, 0);
+        wasHostPlaying = playing;
+    }
 
     juce::MidiBuffer out;
 
@@ -344,7 +421,7 @@ void MidiEffectProcessor::processArpBlock (juce::MidiBuffer& midi, juce::MidiBuf
     const int octaveShift = 12 * juce::jlimit (-2, 2, (int) (octaveParam->load() + 0.0f));
     const float velocityScale = juce::jlimit (0.0f, 150.0f, velocityParam->load()) / 100.0f;
 
-    const int rateIndex = juce::jlimit (0, 11, (int) (stepRateParam->load() + 0.5f));
+    const int rateIndex = juce::jlimit (0, 15, (int) (stepRateParam->load() + 0.5f));
     const double stepLength = CoreDSP::Chords::arpStepBeats (rateIndex);
     const float gatePercent = juce::jlimit (10.0f, 100.0f, gateLengthParam->load());
     const int curveIndex = juce::jlimit (0, 3, (int) (velocityCurveParam->load() + 0.5f));

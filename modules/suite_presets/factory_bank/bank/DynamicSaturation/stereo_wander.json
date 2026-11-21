@@ -1,0 +1,12 @@
+{
+  "_name": "Stereo Wander",
+  "_category": "Utility",
+  "_description": "Triangle LFO moves the stereo link from unlinked to fully linked.",
+  "_plugin": "DynamicSaturation",
+  "_pluginVersion": "1.0.0",
+  "stereoLink": 50.0,
+  "lfo1Rate": 0.15,
+  "lfo1Shape": 1,
+  "mod1Target": 8,
+  "mod1Amount": 100.0
+}

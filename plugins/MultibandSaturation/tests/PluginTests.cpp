@@ -1,6 +1,7 @@
 // Plugin-level tests for Multiband Saturation. Compiles the real processor and editor sources.
 
 #include "PluginTestUtils.h"
+#include "ModulationTestUtils.h"
 #include "PluginEditor.h"
 #include "PluginProcessor.h"
 #include "SuiteSettings.h"
@@ -21,7 +22,11 @@ namespace
         checkParameterIds (processor, processor.apvts,
             { Processor::modeId, Processor::crossoverId, Processor::driveLowId, Processor::driveHighId,
               Processor::sensitivityId, Processor::attackId, Processor::releaseId,
-              Processor::toneLowId, Processor::toneHighId, Processor::mixId, Processor::outputLevelId },
+              Processor::toneLowId, Processor::toneHighId, Processor::mixId, Processor::outputLevelId,
+              Processor::lfo1RateId, Processor::lfo1ShapeId, Processor::lfo1SyncId, Processor::lfo1DivisionId, Processor::lfo1OffsetId,
+              Processor::lfo2RateId, Processor::lfo2ShapeId, Processor::lfo2SyncId, Processor::lfo2DivisionId, Processor::lfo2OffsetId,
+              Processor::modSourceIds[0], Processor::modTargetIds[0], Processor::modAmountIds[0], Processor::modDelayIds[0],
+              Processor::modSourceIds[5], Processor::modTargetIds[5], Processor::modAmountIds[5], Processor::modDelayIds[5] },
             Processor::numControls);
 
         checkRange (processor.apvts, Processor::crossoverId,   80.0f, 8000.0f, 500.0f);
@@ -34,6 +39,25 @@ namespace
         checkRange (processor.apvts, Processor::toneHighId,    -1.0f, 1.0f, 0.0f);
         checkRange (processor.apvts, Processor::mixId,         0.0f, 100.0f, 100.0f);
         checkRange (processor.apvts, Processor::outputLevelId, -12.0f, 6.0f, 0.0f);
+
+        // Plan 13: shared router parameters.
+        checkRange (processor.apvts, Processor::lfo1RateId,    0.02f, 20.0f, 0.25f);
+        checkRange (processor.apvts, Processor::lfo1ShapeId,   0.0f, 7.0f, 0.0f);
+        checkRange (processor.apvts, Processor::lfo1SyncId,    0.0f, 1.0f, 0.0f);
+        checkRange (processor.apvts, Processor::lfo1DivisionId, 0.0f, 6.0f, 4.0f);
+        checkRange (processor.apvts, Processor::lfo1OffsetId, -100.0f, 100.0f, 0.0f);
+        checkRange (processor.apvts, Processor::modSourceIds[0], 0.0f, 1.0f, 0.0f);
+        checkRange (processor.apvts, Processor::modTargetIds[0], 0.0f, 10.0f, 0.0f);
+        checkRange (processor.apvts, Processor::modAmountIds[0], -100.0f, 100.0f, 0.0f);
+        checkRange (processor.apvts, Processor::modDelayIds[0],   0.0f, 10.0f, 0.0f);
+
+        // The target choices must match the enum order the sessions save.
+        auto* target = dynamic_cast<juce::AudioParameterChoice*> (processor.apvts.getParameter (Processor::modTargetIds[0]));
+        assert (target != nullptr);
+        assert (target->choices == Processor::modTargetNames());
+        assert (target->choices.size() == (int) Processor::ModTarget::count);
+
+        assert (processor.getRouter().getNumTargets() == 10);
         pass ("testParameters");
     }
 
@@ -65,6 +89,12 @@ namespace
             }
 
         assert (compared == Processor::numControls);
+
+        // Plan 13: routing parameters round-trip explicitly.
+        assert (std::abs (getParameter (reader.apvts, Processor::lfo1RateId) - getParameter (writer.apvts, Processor::lfo1RateId)) < 1.0e-3f);
+        assert (std::abs (getParameter (reader.apvts, Processor::modAmountIds[2]) - getParameter (writer.apvts, Processor::modAmountIds[2])) < 1.0e-3f);
+        assert (std::abs (getParameter (reader.apvts, Processor::modTargetIds[3]) - getParameter (writer.apvts, Processor::modTargetIds[3])) < 1.0e-3f);
+
         pass ("testStateRoundTrip");
     }
 
@@ -209,6 +239,24 @@ namespace
 
         PluginTest::checkHelpLine (*editor, "multiband-help", *multibandEditor->visualComponent());
 
+        // Plan 15 (owner): the stereo meter pair is gone from this plugin, and the SOUND/MOD
+        // switch sits in the header row, left of the preset bar.
+        auto* visualComponent = multibandEditor->visualComponent();
+        for (auto* child : visualComponent->getChildren())
+            assert (dynamic_cast<SuiteUI::StereoLevelMeter*> (child) == nullptr);
+
+        juce::Component* pageSwitch = PluginTest::findComponentById (*editor, "multiband-pages");
+        assert (pageSwitch != nullptr);
+
+        SuitePresets::PresetBar* bar = nullptr;
+        for (int i = 0; i < editor->getNumChildComponents(); ++i)
+            if (auto* found = dynamic_cast<SuitePresets::PresetBar*> (editor->getChildComponent (i)))
+                bar = found;
+        assert (bar != nullptr);
+
+        assert (pageSwitch->getRight() <= bar->getX());                              // left of the preset bar
+        assert (std::abs (pageSwitch->getBounds().getCentreY() - bar->getBounds().getCentreY()) <= 2); // same row
+
         processor.editorBeingDeleted (editor.get());
         pass ("testLayoutAndHelp");
     }
@@ -240,11 +288,147 @@ namespace
 
             assert (processor.getBandSnapshot().envelope[0].load() > 0.01f);
             assert (processor.getBandSnapshot().envelope[1].load() > 0.01f);
-            assert (processor.getBandSnapshot().inputPeak.load() > 0.1f);
-            assert (processor.getBandSnapshot().outputPeak.load() > 0.01f);
         }
 
         pass ("testVisualSnapshot");
+    }
+
+    /** Plan 13: a routed output gain changes the audio; with amount 0 the output is unchanged. */
+    void testModulationReachesAudio()
+    {
+        auto render = [] (Processor& processor)
+        {
+            processor.prepareToPlay (sampleRate, blockSize);
+            std::vector<float> out;
+            int64_t first = 0;
+            juce::MidiBuffer midi;
+
+            for (int block = 0; block < 20; ++block)
+            {
+                juce::AudioBuffer<float> audio (2, blockSize);
+                audio.clear();
+                addSine (audio, 0, sampleRate, 220.0, 0.5f, first);
+                addSine (audio, 1, sampleRate, 220.0, 0.5f, first);
+                processor.processBlock (audio, midi);
+
+                const auto* left = audio.getReadPointer (0);
+                out.insert (out.end(), left, left + blockSize);
+                first += blockSize;
+            }
+
+            return out;
+        };
+
+        Processor plain;
+        const auto plainOutput = render (plain);
+
+        Processor modulated;
+        setLfo (modulated, 0, 4.0f, 3.0f, false, 4.0f);   // square, 4 Hz, free
+        setRoute (modulated, 0, 0, (int) Processor::ModTarget::Output, 100.0f);
+        const auto modulatedOutput = render (modulated);
+
+        assert (plainOutput.size() == modulatedOutput.size());
+
+        double difference = 0.0;
+        for (size_t n = 0; n < plainOutput.size(); ++n)
+            difference += std::abs (plainOutput[n] - modulatedOutput[n]);
+
+        assert (difference / (double) plainOutput.size() > 1.0e-3);
+
+        Processor idle;
+        setLfo (idle, 0, 4.0f, 3.0f, false, 4.0f);
+        setRoute (idle, 0, 0, (int) Processor::ModTarget::Output, 0.0f);
+        const auto idleOutput = render (idle);
+        assert (idleOutput == plainOutput);
+
+        pass ("testModulationReachesAudio");
+    }
+
+    /** Plan 13: a synced LFO runs on the internal 120 BPM tempo clock with no host playhead. */
+    void testSyncedLfoFollowsTempo()
+    {
+        Processor processor;
+        setParameter (processor.apvts, Processor::lfo1SyncId, 1.0f);
+        setParameter (processor.apvts, Processor::lfo1DivisionId, 4.0f);   // 1/4 = 1 beat per cycle
+        processor.prepareToPlay (sampleRate, blockSize);
+
+        juce::AudioBuffer<float> audio (2, blockSize);
+        juce::MidiBuffer midi;
+
+        for (int block = 0; block < 24; ++block)
+        {
+            audio.clear();
+            processor.processBlock (audio, midi);
+        }
+        const float quarter = processor.getRouter().getLfoPhase (0);
+
+        for (int block = 0; block < 24; ++block)
+        {
+            audio.clear();
+            processor.processBlock (audio, midi);
+        }
+        const float half = processor.getRouter().getLfoPhase (0);
+
+        assert (std::abs (quarter - 0.5f) < 0.02f);
+        assert (std::abs (half - 0.0f) < 0.02f);
+
+        pass ("testSyncedLfoFollowsTempo");
+    }
+
+    /** Plan 13: switching pages only toggles visibility; no parameter changes. */
+    void testPageSwitchChangesNoParameter()
+    {
+        Processor processor;
+        auto* editor = dynamic_cast<MultibandSaturationEditor*> (processor.createEditorAndMakeActive());
+        assert (editor != nullptr);
+
+        juce::MemoryBlock before;
+        processor.getStateInformation (before);
+
+        editor->setPage (1);
+        assert (editor->getPage() == 1);
+
+        editor->setPage (0);
+        assert (editor->getPage() == 0);
+
+        juce::MemoryBlock after;
+        processor.getStateInformation (after);
+        assert (before == after);
+
+        processor.editorBeingDeleted (editor);
+        delete editor;
+        pass ("testPageSwitchChangesNoParameter");
+    }
+
+    /** Plan 13: the MOD page paints the modulation panel. */
+    void testModPagePaints()
+    {
+        Processor processor;
+        std::unique_ptr<juce::AudioProcessorEditor> editor (processor.createEditorAndMakeActive());
+        assert (editor != nullptr);
+
+        auto* multibandEditor = dynamic_cast<MultibandSaturationEditor*> (editor.get());
+        assert (multibandEditor != nullptr);
+        multibandEditor->setPage (1);
+
+        juce::MessageManager::getInstance()->runDispatchLoopUntil (150);
+
+        juce::Image image (juce::Image::ARGB, editor->getWidth(), editor->getHeight(), true);
+        {
+            juce::Graphics g (image);
+            editor->paintEntireComponent (g, true);
+        }
+
+        int painted = 0;
+        for (int y = 0; y < image.getHeight(); y += 2)
+            for (int x = 0; x < image.getWidth(); x += 2)
+                if (image.getPixelAt (x, y).getAlpha() > 0)
+                    ++painted;
+
+        assert (painted > 1000);
+
+        processor.editorBeingDeleted (editor.get());
+        pass ("testModPagePaints");
     }
 
     /** R13: the header carries the preset bar and the menu menu, the menu's two actions are
@@ -318,8 +502,17 @@ namespace
 
         std::unique_ptr<juce::AudioProcessorEditor> editor (processor.createEditor());
         assert (editor != nullptr);
+        auto* multibandEditor = dynamic_cast<MultibandSaturationEditor*> (editor.get());
+        assert (multibandEditor != nullptr);
+
         const juce::File file (juce::File (folder).getChildFile ("multibandsaturation-default.png"));
         assert (PluginTest::writeDeterministicPng (*editor, file));
+
+        // Plan 13: the MOD page renders too.
+        multibandEditor->setPage (1);
+        juce::MessageManager::getInstance()->runDispatchLoopUntil (150);
+        const juce::File modFile (juce::File (folder).getChildFile ("multibandsaturation-mod.png"));
+        assert (PluginTest::writeDeterministicPng (*editor, modFile));
         processor.editorBeingDeleted (editor.get());
 
         pass ("testRenderBaseline");
@@ -340,6 +533,10 @@ int main()
     testEditor();
     testLayoutAndHelp();
     testVisualSnapshot();
+    testModulationReachesAudio();
+    testSyncedLfoFollowsTempo();
+    testPageSwitchChangesNoParameter();
+    testModPagePaints();
     testHeaderContract();
     testRenderBaseline();
 

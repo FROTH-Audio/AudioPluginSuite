@@ -91,6 +91,23 @@ namespace SuiteUI
         float level = 0.0f;
     };
 
+    /** Stereo pair of vertical meters. Left channel on the left, right channel on the right;
+        both use the full height of the container (plan 13). Maps -60 dB .. 0 dB. */
+    class StereoLevelMeter : public juce::Component
+    {
+    public:
+        StereoLevelMeter (juce::Colour leftColour, juce::Colour rightColour);
+
+        void setLevels (float leftLinearLevel, float rightLinearLevel);
+
+        void paint (juce::Graphics&) override;
+
+    private:
+        juce::Colour leftColour, rightColour;
+        float leftLevel = 0.0f;
+        float rightLevel = 0.0f;
+    };
+
     /** A row of mutually exclusive segments, used as a switch for choice parameters. */
     class SegmentedSelector : public juce::Component
     {
@@ -220,11 +237,17 @@ namespace SuiteUI
     /** A playable piano keyboard strip, MIDI 24-96. Mouse down, drag (glissando) and up
         produce note callbacks; the editor wires them to the processor. Keys light while
         the mouse holds them and for the notes the host feeds through setActiveNotes
-        (the voices the processor reports). The root key gets a marker. */
+        (the voices the processor reports). The root key gets a marker.
+
+        The note-off guarantee (plan 13): every note the strip starts is released on every
+        ending path — mouse-up, a drag off the key, the pointer leaving the strip, and the
+        strip being destroyed. Editors that own one also flush it on focus loss and before
+        destruction through releaseHeldNotes(). */
     class PlayableKeyboardStrip : public juce::Component
     {
     public:
         PlayableKeyboardStrip();
+        ~PlayableKeyboardStrip() override;
 
         /** The editor sets these; a null callback is allowed and ignored. */
         std::function<void (int note, float velocity)> onNoteOn;
@@ -236,10 +259,17 @@ namespace SuiteUI
         /** Marks the root key. */
         void setRootKey (int note);
 
+        /** Releases every note the mouse currently holds, with note-off callbacks. Idempotent. */
+        void releaseHeldNotes();
+
+        /** True while the pointer holds at least one key (tests). */
+        bool isAnyNoteHeld() const noexcept;
+
         void paint (juce::Graphics&) override;
         void mouseDown (const juce::MouseEvent&) override;
         void mouseDrag (const juce::MouseEvent&) override;
         void mouseUp (const juce::MouseEvent&) override;
+        void mouseExit (const juce::MouseEvent&) override;
 
     private:
         int noteAt (juce::Point<float> position) const;

@@ -5,11 +5,32 @@
  #include "PresetBank.h"
 #endif
 
+#include <iterator>
+
+namespace
+{
+    /** The controls the routing can move. Choice index n is entry n - 1, so the order matches
+        ModTarget and is saved in sessions: append only. */
+    const SuiteModulation::TargetInfo modulationTargets[] {
+        { MultibandSaturationProcessor::crossoverId,   "Crossover" },
+        { MultibandSaturationProcessor::driveLowId,    "Drive Low" },
+        { MultibandSaturationProcessor::driveHighId,   "Drive High" },
+        { MultibandSaturationProcessor::sensitivityId, "Sensitivity" },
+        { MultibandSaturationProcessor::attackId,      "Attack" },
+        { MultibandSaturationProcessor::releaseId,     "Release" },
+        { MultibandSaturationProcessor::toneLowId,     "Tone Low" },
+        { MultibandSaturationProcessor::toneHighId,    "Tone High" },
+        { MultibandSaturationProcessor::mixId,         "Mix" },
+        { MultibandSaturationProcessor::outputLevelId, "Output" },
+    };
+}
+
 MultibandSaturationProcessor::MultibandSaturationProcessor()
     : AudioProcessor (BusesProperties()
                           .withInput ("Input", juce::AudioChannelSet::stereo(), true)
                           .withOutput ("Output", juce::AudioChannelSet::stereo(), true)),
-      apvts (*this, nullptr, "PARAMETERS", createParameterLayout())
+      apvts (*this, nullptr, "PARAMETERS", createParameterLayout()),
+      modulation (apvts, modulationTargets, (int) std::size (modulationTargets), nullptr)
 {
     mode         = apvts.getRawParameterValue (modeId);
     crossover    = apvts.getRawParameterValue (crossoverId);
@@ -70,12 +91,26 @@ juce::AudioProcessorValueTreeState::ParameterLayout MultibandSaturationProcessor
         juce::ParameterID { outputLevelId, 1 }, "Output",
         juce::NormalisableRange<float> (-12.0f, 6.0f, 0.01f), 0.0f, "dB"));
 
+    // LFOs and modulation routing, appended last so the existing parameter order never moves.
+    SuiteModulation::Router::addParameters (params, modTargetNames());
+
     return { params.begin(), params.end() };
+}
+
+juce::StringArray MultibandSaturationProcessor::modTargetNames()
+{
+    // Must follow the ModTarget enum order exactly.
+    return { "None", "Crossover", "Drive Low", "Drive High", "Sensitivity", "Attack",
+             "Release", "Tone Low", "Tone High", "Mix", "Output" };
 }
 
 void MultibandSaturationProcessor::prepareToPlay (double sampleRate, int)
 {
     preparedSampleRate = sampleRate > 0.0 ? sampleRate : 44100.0;
+
+    modulation.prepare (preparedSampleRate);
+    streamSample = 0;
+    beatClock = 0.0;
 
     for (auto& split : splits)
         split.prepare (preparedSampleRate, crossover->load());
@@ -94,6 +129,7 @@ void MultibandSaturationProcessor::prepareToPlay (double sampleRate, int)
     toneHighSmoother.reset (preparedSampleRate, 0.05);
     mixSmoother.reset (preparedSampleRate, 0.05);
     outputGainSmoother.reset (preparedSampleRate, 0.05);
+    crossoverSmoother.reset (preparedSampleRate, 0.02);
 
     driveLowSmoother.setCurrentAndTargetValue (juce::Decibels::decibelsToGain (driveLow->load()));
     driveHighSmoother.setCurrentAndTargetValue (juce::Decibels::decibelsToGain (driveHigh->load()));
@@ -101,6 +137,7 @@ void MultibandSaturationProcessor::prepareToPlay (double sampleRate, int)
     toneHighSmoother.setCurrentAndTargetValue (toneHigh->load());
     mixSmoother.setCurrentAndTargetValue (mix->load() / 100.0f);
     outputGainSmoother.setCurrentAndTargetValue (juce::Decibels::decibelsToGain (outputLevel->load()));
+    crossoverSmoother.setCurrentAndTargetValue (crossover->load());
 }
 
 bool MultibandSaturationProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
@@ -123,29 +160,40 @@ void MultibandSaturationProcessor::processBlock (juce::AudioBuffer<float>& buffe
     if (numSamples <= 0)
         return;
 
+    // The LFOs run on a tempo-locked internal beat clock: an effect has no sequencer position to
+    // follow, and a tempo-locked clock keeps the synced shapes moving when the transport is stopped.
+    const auto offsets = modulation.computeOffsets ((double) streamSample, beatClock, (double) streamSample);
+    modulation.publish (offsets, (double) streamSample, beatClock);
+
     // Block settings. The smoothers ramp over 50 ms, so automation never zips.
     const auto mode = (CoreDSP::Saturation::Mode) juce::jlimit (0, 2, (int) this->mode->load());
-    for (auto& split : splits)
-        split.setCrossoverHz (crossover->load());
 
-    const float sensitivityAmount = juce::jlimit (0.0f, 1.0f, sensitivity->load());
-    driveLowSmoother.setTargetValue (juce::Decibels::decibelsToGain (driveLow->load()));
-    driveHighSmoother.setTargetValue (juce::Decibels::decibelsToGain (driveHigh->load()));
-    toneLowSmoother.setTargetValue (toneLow->load());
-    toneHighSmoother.setTargetValue (toneHigh->load());
-    mixSmoother.setTargetValue (juce::jlimit (0.0f, 100.0f, mix->load()) / 100.0f);
-    outputGainSmoother.setTargetValue (juce::Decibels::decibelsToGain (outputLevel->load()));
+    const float sensitivityAmount = juce::jlimit (0.0f, 1.0f,
+                                                  modulation.modulate ((int) ModTarget::Sensitivity, sensitivity->load(), offsets));
+    driveLowSmoother.setTargetValue (juce::Decibels::decibelsToGain (
+        modulation.modulate ((int) ModTarget::DriveLow, driveLow->load(), offsets)));
+    driveHighSmoother.setTargetValue (juce::Decibels::decibelsToGain (
+        modulation.modulate ((int) ModTarget::DriveHigh, driveHigh->load(), offsets)));
+    toneLowSmoother.setTargetValue (modulation.modulate ((int) ModTarget::ToneLow, toneLow->load(), offsets));
+    toneHighSmoother.setTargetValue (modulation.modulate ((int) ModTarget::ToneHigh, toneHigh->load(), offsets));
+    mixSmoother.setTargetValue (juce::jlimit (0.0f, 100.0f,
+                                              modulation.modulate ((int) ModTarget::Mix, mix->load(), offsets)) / 100.0f);
+    outputGainSmoother.setTargetValue (juce::Decibels::decibelsToGain (
+        modulation.modulate ((int) ModTarget::Output, outputLevel->load(), offsets)));
 
-    const float attackMs = juce::jlimit (1.0f, 100.0f, attack->load());
-    const float releaseMs = juce::jlimit (50.0f, 2000.0f, release->load());
+    // Crossover is smoothed in Hz before the LR4 coefficients are computed (plan 13).
+    crossoverSmoother.setTargetValue (modulation.modulate ((int) ModTarget::Crossover, crossover->load(), offsets));
+
+    const float attackMs = juce::jlimit (1.0f, 100.0f,
+                                         modulation.modulate ((int) ModTarget::Attack, attack->load(), offsets));
+    const float releaseMs = juce::jlimit (50.0f, 2000.0f,
+                                          modulation.modulate ((int) ModTarget::Release, release->load(), offsets));
     for (auto& follower : envelopes)
         follower.setTimes (attackMs, releaseMs);
 
     // The visual snapshot's per-block maxima restart each block (plan 11 D7).
     bandSnapshot.envelope[0].store (0.0f, std::memory_order_relaxed);
     bandSnapshot.envelope[1].store (0.0f, std::memory_order_relaxed);
-    bandSnapshot.inputPeak.store (0.0f, std::memory_order_relaxed);
-    bandSnapshot.outputPeak.store (0.0f, std::memory_order_relaxed);
 
     for (int n = 0; n < numSamples; ++n)
     {
@@ -155,6 +203,10 @@ void MultibandSaturationProcessor::processBlock (juce::AudioBuffer<float>& buffe
         const float toneHighValue = toneHighSmoother.getNextValue();
         const float mixAmount = mixSmoother.getNextValue();
         const float outputGain = outputGainSmoother.getNextValue();
+        const float crossoverHz = crossoverSmoother.getNextValue();
+
+        for (auto& split : splits)
+            split.setCrossoverHz (crossoverHz);
 
         for (int channel = 0; channel < numChannels; ++channel)
         {
@@ -187,12 +239,14 @@ void MultibandSaturationProcessor::processBlock (juce::AudioBuffer<float>& buffe
                                                         std::abs (envLow)), std::memory_order_relaxed);
             bandSnapshot.envelope[1].store (juce::jmax (bandSnapshot.envelope[1].load (std::memory_order_relaxed),
                                                         std::abs (envHigh)), std::memory_order_relaxed);
-            bandSnapshot.inputPeak.store (juce::jmax (bandSnapshot.inputPeak.load (std::memory_order_relaxed),
-                                                      std::abs (in)), std::memory_order_relaxed);
-            bandSnapshot.outputPeak.store (juce::jmax (bandSnapshot.outputPeak.load (std::memory_order_relaxed),
-                                                       std::abs (wet)), std::memory_order_relaxed);
         }
     }
+
+    // Advance the clock that drives the free LFOs and the synced beat position.
+    // No host tempo (including the Standalone): a fixed 120 BPM keeps the synced LFOs moving.
+    beatClock += (double) numSamples * SuiteModulation::hostTempoOrDefault (getPlayHead()) / 60.0 / preparedSampleRate;
+    streamSample += numSamples;
+    modulation.advanceBlock (numSamples);
 }
 
 juce::AudioProcessorEditor* MultibandSaturationProcessor::createEditor()
@@ -326,6 +380,11 @@ void MultibandSaturationProcessor::setCurrentProgramStateInformation (const void
 #if SUITE_PRESET_BANK_AS_PROGRAMS
     currentProgramIndex.store (-1, std::memory_order_relaxed);
 #endif
+}
+
+float MultibandSaturationProcessor::getModulatedValue (ModTarget target) const
+{
+    return modulation.getModulatedValue ((int) target);
 }
 
 //==============================================================================

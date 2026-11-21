@@ -22,21 +22,51 @@ public:
     void paint (juce::Graphics&) override;
     void resized() override;
 
-private:
     /** The chord/arp visual (plan 11 4a, D6): an 8-step strip with the clock's current
-        step outlined and sounding steps filled, above a two-octave mini keyboard with
-        the last key's notes marked. Reads the processor's published snapshot on the
-        60 Hz timer; no locks. */
+        step outlined and sounding steps filled, and — plan 13 — the suite's playable
+        keyboard strip below it, so the plugin can be played from its own window. Reads
+        the processor's published snapshot on the 60 Hz timer; no locks. A click on the
+        strip replays the current chord through the processor's UI-note queue. */
     class ChordGridVisualizer : public juce::Component
     {
     public:
-        explicit ChordGridVisualizer (MidiEffectProcessor& p) : processor (p) {}
+        explicit ChordGridVisualizer (MidiEffectProcessor& p)
+            : processor (p)
+        {
+            addAndMakeVisible (keyboard);
+        }
 
         void paint (juce::Graphics&) override;
+        void resized() override;
+
+        void mouseDown (const juce::MouseEvent&) override;
+        void mouseUp (const juce::MouseEvent&) override;
+        void mouseExit (const juce::MouseEvent&) override;
+
+        /** The editor sets these; a chord click plays the key through the UI-note queue. */
+        std::function<void (int key)> onChordDown;
+        std::function<void (int key)> onChordUp;
+
+        /** The chord click's key while the mouse holds it (-1 when none). The editor's
+            ending-path flushes read it. */
+        int heldChordKey = -1;
+
+        /** The playable keyboard (plan 13), a child of the visual band. */
+        SuiteUI::PlayableKeyboardStrip keyboard;
 
     private:
         MidiEffectProcessor& processor;
     };
+
+    /** Test seam (plan 15): the live affinity state of the arp-only cells. */
+    bool isArpRowEnabled() const noexcept { return rateCell.isEnabled(); }
+
+private:
+    /** Every UI note the editor started gets its note-off: mouse ending paths handle the
+        immediate cases; focus loss and editor destruction flush the rest (plan 13). */
+    void releaseUiHeld();
+
+    void focusLost (FocusChangeType) override;
 
     MidiEffectProcessor& processor;
 
@@ -92,7 +122,7 @@ private:
     std::unique_ptr<SuitePresets::PresetBar> presetBar;
     SuiteUI::HeaderMenuButton headerMenu { juce::Colour (0xff4ECDC4) };
 
-    void timerCallback() override { visualizer.repaint(); }
+    void timerCallback() override;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MidiEffectEditor)
 };

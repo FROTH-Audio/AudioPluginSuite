@@ -73,6 +73,60 @@ public:
 
     const ArpSnapshot& getArpSnapshot() const noexcept { return arpSnapshot; }
 
+    //==============================================================================
+    // Notes played from the editor's keyboard and chord strip (plan 13). A
+    // single-producer/single-consumer ring: the message thread writes, the audio thread
+    // drains at the top of processBlock and the notes run through the same chord/arp
+    // logic as host notes. No locks, no allocations.
+    struct UiNote
+    {
+        int key = 60;
+        float velocity = 0.8f;
+        bool on = true;
+        bool releaseAll = false;   // release every UI-held note (the ending-path flush)
+    };
+
+    static constexpr int uiNoteCapacity = 32;
+
+    void pushUiNote (int key, bool on, float velocity = 0.8f)
+    {
+        const int write = uiNoteWrite.load (std::memory_order_relaxed);
+        const int next = (write + 1) % uiNoteCapacity;
+
+        if (next == uiNoteRead.load (std::memory_order_acquire))
+            return;   // full ring: this note is dropped
+
+        uiNoteRing[(size_t) write] = { key, velocity, on, false };
+        uiNoteWrite.store (next, std::memory_order_release);
+    }
+
+    /** The editor's focus-lost / destructor flush: releases every UI note the processor
+        is holding (the note-off guarantee, plan 13). */
+    void pushUiReleaseAll()
+    {
+        const int write = uiNoteWrite.load (std::memory_order_relaxed);
+        const int next = (write + 1) % uiNoteCapacity;
+
+        if (next == uiNoteRead.load (std::memory_order_acquire))
+            return;
+
+        uiNoteRing[(size_t) write] = { -1, 0.0f, false, true };
+        uiNoteWrite.store (next, std::memory_order_release);
+    }
+
+    /** True while at least one UI note is sounding (tests). */
+    bool hasUiNotesSounding() const
+    {
+        for (const bool held : uiHeld)
+            if (held)
+                return true;
+        return false;
+    }
+
+    UiNote uiNoteRing[(size_t) uiNoteCapacity];
+    std::atomic<int> uiNoteRead { 0 };
+    std::atomic<int> uiNoteWrite { 0 };
+
     /** Latency reported to the host (plan 6.1): fixed at 50 ms, matching MicroTimingChaos, so
         it never changes with rate or gate. No event is scheduled before its grid time, so the
         value is conservative; the chord path emits at the note-on's position, as it always has. */
@@ -90,9 +144,12 @@ public:
     ~MidiEffectProcessor() override = default;
 
     void prepareToPlay (double sampleRate, int samplesPerBlock) override;
-    void releaseResources() override {}
+    void releaseResources() override;
     bool isBusesLayoutSupported (const BusesLayout& layouts) const override;
     void processBlock (juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
+
+    /** The host's reset: every UI-held note stops (the note-off guarantee, plan 13). */
+    void reset() override;
 
     juce::AudioProcessorEditor* createEditor() override;
     bool hasEditor() const override { return true; }
@@ -160,6 +217,13 @@ private:
     // mapped value carries the owning key, so a key release can remove its gate-offs.
     std::multimap<std::int64_t, std::pair<int, juce::MidiMessage>> pendingNoteOffs;
 
+    // The UI-note bookkeeping (plan 13). Audio thread only: the keys the processor
+    // started from the ring, so every flush releases exactly that set.
+    std::array<bool, 128> uiHeld {};
+
+    // The host's play state, for the transport-stop flush.
+    bool wasHostPlaying = false;
+
     // The step clock. In Host Sync mode the position follows the host's PPQ; otherwise it
     // advances by the sample count at the Tempo parameter's rate.
     double preparedSampleRate = 44100.0;
@@ -194,6 +258,14 @@ private:
     void processArpBlock (juce::MidiBuffer& midi, juce::MidiBuffer& out, int numSamples);
     void releaseArpKey (int key, juce::MidiBuffer& out, int sample);
     void releaseAllArpKeys (juce::MidiBuffer& out, int sample);
+
+    // The UI-note paths (plan 13). drainUiNotes runs on the audio thread at the top of
+    // processBlock and injects the ring's events into the incoming buffer at sample 0, so
+    // they take the same chord/arp road as host notes. flushUiNotes emits note-offs for
+    // exactly the uiHeld set (transport stop); clearUiNotes drops the bookkeeping (reset).
+    void drainUiNotes (juce::MidiBuffer& midi);
+    void flushUiNotes (juce::MidiBuffer& out, int sample);
+    void clearUiNotes();
 
     // The visual snapshot (plan 11 D7). Audio thread, once per block, no locks.
     int lastTriggeredKey = -1;

@@ -268,6 +268,45 @@ namespace SuiteUI
     }
 
     //==============================================================================
+    StereoLevelMeter::StereoLevelMeter (juce::Colour left, juce::Colour right)
+        : leftColour (left), rightColour (right)
+    {
+    }
+
+    void StereoLevelMeter::setLevels (float left, float right)
+    {
+        leftLevel = left;
+        rightLevel = right;
+        repaint();
+    }
+
+    void StereoLevelMeter::paint (juce::Graphics& g)
+    {
+        auto area = getLocalBounds().toFloat().reduced (2.0f);
+        const float gap = 2.0f;
+        const float barW = (area.getWidth() - gap) * 0.5f;
+
+        const auto leftArea = area.removeFromLeft (barW);
+        const auto rightArea = area.removeFromRight (barW);
+
+        const auto drawBar = [&] (juce::Rectangle<float> bounds, juce::Colour c, float linearLevel)
+        {
+            const float db = 20.0f * std::log10 (juce::jmax (linearLevel, 1.0e-6f));
+            const float fill = unitInterval (db, meterFloorDb, 0.0f);
+
+            g.setColour (Colours::track);
+            g.fillRoundedRectangle (bounds, 3.0f);
+
+            auto filled = bounds.withTop (bounds.getBottom() - fill * bounds.getHeight());
+            g.setColour (c);
+            g.fillRoundedRectangle (filled, 3.0f);
+        };
+
+        drawBar (leftArea, leftColour, leftLevel);
+        drawBar (rightArea, rightColour, rightLevel);
+    }
+
+    //==============================================================================
     SegmentedSelector::SegmentedSelector (juce::Colour accentColour)
         : accent (accentColour)
     {
@@ -556,6 +595,42 @@ namespace SuiteUI
         setWantsKeyboardFocus (false);
     }
 
+    PlayableKeyboardStrip::~PlayableKeyboardStrip()
+    {
+        // The destructor flush (plan 13): an editor destroyed while a key is held still
+        // sends the note-off. The callbacks must not touch this object afterwards.
+        releaseHeldNotes();
+    }
+
+    void PlayableKeyboardStrip::releaseHeldNotes()
+    {
+        bool any = false;
+        for (int note = 0; note < 128; ++note)
+        {
+            if (! pressed[(size_t) note])
+                continue;
+
+            pressed[(size_t) note] = false;
+            any = true;
+
+            if (onNoteOff)
+                onNoteOff (note);
+        }
+
+        dragNote = -1;
+
+        if (any)
+            repaint();
+    }
+
+    bool PlayableKeyboardStrip::isAnyNoteHeld() const noexcept
+    {
+        for (int note = 0; note < 128; ++note)
+            if (pressed[(size_t) note])
+                return true;
+        return false;
+    }
+
     void PlayableKeyboardStrip::setActiveNotes (const bool* notes128)
     {
         for (int i = 0; i < 128; ++i)
@@ -665,6 +740,11 @@ namespace SuiteUI
         if (note < 0)
             return;
 
+        // Already held (a second press before the release): no second note-on, so the
+        // note-off balance holds.
+        if (pressed[(size_t) note])
+            return;
+
         dragNote = note;
         pressed[(size_t) note] = true;
         repaint();
@@ -694,9 +774,11 @@ namespace SuiteUI
             onNoteOn (note, 0.8f);
     }
 
-    void PlayableKeyboardStrip::mouseUp (const juce::MouseEvent& e)
+    void PlayableKeyboardStrip::mouseUp (const juce::MouseEvent&)
     {
-        const int note = dragNote >= 0 ? dragNote : noteAt (e.position);
+        // Only the note the mouse actually holds is released (plan 13): the pointer
+        // position at mouse-up can sit over a key the strip never started.
+        const int note = dragNote;
         dragNote = -1;
 
         if (note >= 0 && pressed[(size_t) note])
@@ -707,5 +789,11 @@ namespace SuiteUI
             if (onNoteOff)
                 onNoteOff (note);
         }
+    }
+
+    void PlayableKeyboardStrip::mouseExit (const juce::MouseEvent&)
+    {
+        // The pointer leaving the strip releases everything it holds (plan 13).
+        releaseHeldNotes();
     }
 }

@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "SaturationEngine.h"   // CoreDSP::EnvelopeFollower, the transient detector
+#include "SuiteModulationRouter.h"
 #include "SuitePresets.h"   // StateHolder interface for presets
 #include "SuiteState.h"
 
@@ -57,21 +58,68 @@ public:
     static constexpr const char* inputLevelId  = "inputLevel";
     static constexpr const char* outputLevelId = "outputLevel";
 
+    // LFO 1 and LFO 2 (plan 13). The IDs are fixed by suite_modulation, so every plugin
+    // saves them the same way.
+    static constexpr const char* lfo1RateId      = "lfo1Rate";
+    static constexpr const char* lfo1ShapeId     = "lfo1Shape";
+    static constexpr const char* lfo1SyncId      = "lfo1Sync";
+    static constexpr const char* lfo1DivisionId  = "lfo1Division";
+    static constexpr const char* lfo1OffsetId    = "lfo1Offset";
+    static constexpr const char* lfo2RateId      = "lfo2Rate";
+    static constexpr const char* lfo2ShapeId     = "lfo2Shape";
+    static constexpr const char* lfo2SyncId      = "lfo2Sync";
+    static constexpr const char* lfo2DivisionId  = "lfo2Division";
+    static constexpr const char* lfo2OffsetId    = "lfo2Offset";
+
+    // Modulation routing: six slots, each with a source, a target, a signed amount and a delay.
+    static constexpr const char* modSourceIds[6] = { "mod1Source", "mod2Source", "mod3Source", "mod4Source", "mod5Source", "mod6Source" };
+    static constexpr const char* modTargetIds[6] = { "mod1Target", "mod2Target", "mod3Target", "mod4Target", "mod5Target", "mod6Target" };
+    static constexpr const char* modAmountIds[6] = { "mod1Amount", "mod2Amount", "mod3Amount", "mod4Amount", "mod5Amount", "mod6Amount" };
+    static constexpr const char* modDelayIds[6]  = { "mod1Delay",  "mod2Delay",  "mod3Delay",  "mod4Delay",  "mod5Delay",  "mod6Delay" };
+
+    /** The 13 sound parameters plus the shared router's 34 (plan 13). */
+    static constexpr int numControls = 47;
+
+    /** The parameters an LFO can move (plan 13). The order is part of the saved session:
+        append new targets at the end, never reorder or remove. Names come from
+        modTargetNames(). `character` and `transientTarget` are choices, so excluded. */
+    enum class ModTarget
+    {
+        None = 0,
+        Width,
+        Drive,
+        Mix,
+        TransientAttack,
+        TransientRelease,
+        TransientAmount,
+        MidFocus,
+        SideCrossover,
+        Input,
+        Output,
+        count
+    };
+
+    static juce::StringArray modTargetNames();
+
+    /** The shared LFO and routing module. */
+    SuiteModulation::Router& getRouter() noexcept { return modulation; }
+
+    /** The value a control shows right now: its base value moved by the routing offset. */
+    float getModulatedValue (ModTarget target) const;
+
     /** How hard a transient can push the drive, in dB, at amount 1 and a full envelope. */
     static constexpr float maxTransientDriveBoostDb = 12.0f;
 
     juce::AudioProcessorValueTreeState apvts;
 
-    /** The visual snapshot (plan 11 D7): the mid/side RMS of the last block, the transient
-        follower's envelope (0 while the amount is 0) and the input/output peaks. Audio
-        thread, no locks. */
+    /** The visual snapshot (plan 11 D7): the mid/side RMS of the last block and the transient
+        follower's envelope (0 while the amount is 0). Audio thread, no locks. Plan 15: the
+        per-channel peaks went with the editor's stereo meters. */
     struct MeterSnapshot
     {
         std::atomic<float> midLevel {};
         std::atomic<float> sideLevel {};
         std::atomic<float> followerEnvelope {};
-        std::atomic<float> inputPeak {};
-        std::atomic<float> outputPeak {};
     };
 
     const MeterSnapshot& getMeterSnapshot() const noexcept { return meterSnapshot; }
@@ -156,8 +204,21 @@ private:
     juce::SmoothedValue<float> inputGainSmoothed;
     juce::SmoothedValue<float> outputGainSmoothed;
 
+    // Plan 13: Mix and Drive are consumed per sample in the processing loop, so a
+    // block-rate routing offset would step at every block boundary. Both ramp over 20 ms.
+    // They start at their targets, so the defaults stay bit-exact.
+    juce::SmoothedValue<float> mixSmoothed;
+    juce::SmoothedValue<float> driveSmoothed;   // in dB
+
     // The visual snapshot (plan 11 D7). Audio thread, once per block, no locks.
     MeterSnapshot meterSnapshot;
+
+    // Declared after apvts, so the router can read the parameters it belongs to.
+    SuiteModulation::Router modulation;
+
+    // The block clock the LFOs run on. An effect has no sequencer, so the beat is counted here.
+    std::int64_t streamSample = 0;
+    double beatClock = 0.0;
 
     // Host program list (embedded bank + SUITE_PRESET_BANK_AS_PROGRAMS). -1 means a state that is not a
     // factory program, for example a user preset.

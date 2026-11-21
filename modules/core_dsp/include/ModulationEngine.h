@@ -87,12 +87,13 @@ namespace CoreDSP::Modulation
 
             case LfoShape::pendulum:
             {
-                // Simple pendulum model: decaying oscillation.
-                // phase is unwrapped cycle count; output is amplitude * sin(2π * phase).
-                // The amplitude decays exponentially with time constant tau=4.0 cycles.
-                const double tau = 4.0;
-                const double amplitude = std::exp (-std::abs (cycles) / tau);
-                return (float) (amplitude * std::sin (2.0 * 3.14159265358979323846 * (cycles - std::floor (cycles))));
+                // A pendulum swing: the motion lingers at the ends of the arc and runs fastest
+                // through the centre, the way a real pendulum slows at its turnarounds. It repeats
+                // every cycle at full amplitude. The earlier version scaled the swing by
+                // exp(-|cycles|/4), which decayed with the unbounded cycle count and fell silent
+                // after a few cycles (no modulation), while one fixed cycle was all the scope drew.
+                const double swing = std::sin (2.0 * 3.14159265358979323846 * p);
+                return (float) (1.5 * swing - 0.5 * swing * swing * swing);
             }
 
             case LfoShape::count:

@@ -7,11 +7,32 @@
  #include "PresetBank.h"
 #endif
 
+#include <iterator>
+
+namespace
+{
+    /** The controls the routing can move (plan 13). Choice index n is entry n - 1, so the
+        order matches ModTarget and is saved in sessions: append only. */
+    const SuiteModulation::TargetInfo modulationTargets[] {
+        { StereoToolProcessor::widthId,            "Width" },
+        { StereoToolProcessor::driveId,            "Drive" },
+        { StereoToolProcessor::mixId,              "Mix" },
+        { StereoToolProcessor::transientAttackId,  "Transient Attack" },
+        { StereoToolProcessor::transientReleaseId, "Transient Release" },
+        { StereoToolProcessor::transientAmountId,  "Transient Amount" },
+        { StereoToolProcessor::midFocusId,         "Mid Focus" },
+        { StereoToolProcessor::sideCrossoverId,    "Side Crossover" },
+        { StereoToolProcessor::inputLevelId,       "Input" },
+        { StereoToolProcessor::outputLevelId,      "Output" },
+    };
+}
+
 StereoToolProcessor::StereoToolProcessor()
     : AudioProcessor (BusesProperties()
                           .withInput ("Input", juce::AudioChannelSet::stereo(), true)
                           .withOutput ("Output", juce::AudioChannelSet::stereo(), true)),
-      apvts (*this, nullptr, "PARAMETERS", createParameterLayout())
+      apvts (*this, nullptr, "PARAMETERS", createParameterLayout()),
+      modulation (apvts, modulationTargets, (int) std::size (modulationTargets), nullptr)
 {
     widthParam = apvts.getRawParameterValue (widthId);
     driveParam = apvts.getRawParameterValue (driveId);
@@ -106,7 +127,18 @@ juce::AudioProcessorValueTreeState::ParameterLayout StereoToolProcessor::createP
         juce::ParameterID { outputLevelId, 1 }, "Output",
         juce::NormalisableRange<float> (-24.0f, 24.0f, 0.1f), 0.0f, "dB"));
 
+    //---- Plan 13: the LFOs and the six routing slots, appended last so no saved parameter
+    // index moves. Every routing amount defaults to 0, so the sound is bit-identical.
+    SuiteModulation::Router::addParameters (params, modTargetNames());
+
     return { params.begin(), params.end() };
+}
+
+juce::StringArray StereoToolProcessor::modTargetNames()
+{
+    // Must follow the ModTarget enum order exactly.
+    return { "None", "Width", "Drive", "Mix", "Transient Attack", "Transient Release",
+             "Transient Amount", "Mid Focus", "Side Crossover", "Input", "Output" };
 }
 
 void StereoToolProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
@@ -125,6 +157,18 @@ void StereoToolProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     outputGainSmoothed.reset (preparedSampleRate, 0.02);
     outputGainSmoothed.setCurrentAndTargetValue (juce::Decibels::decibelsToGain (
         juce::jlimit (-24.0f, 24.0f, outputLevelParam->load())));
+
+    // Plan 13: Mix and Drive ramp over 20 ms, starting at the parameter values so the first
+    // block is bit-exact at the defaults.
+    mixSmoothed.reset (preparedSampleRate, 0.02);
+    mixSmoothed.setCurrentAndTargetValue (juce::jlimit (0.0f, 100.0f, mixParam->load()) / 100.0f);
+    driveSmoothed.reset (preparedSampleRate, 0.02);
+    driveSmoothed.setCurrentAndTargetValue (juce::jlimit (-24.0f, 24.0f, driveParam->load()));
+
+    // The LFOs run on a tempo-locked clock of their own (an effect has no sequencer position).
+    modulation.prepare (preparedSampleRate);
+    streamSample = 0;
+    beatClock = 0.0;
 
     transientEnv.prepare (preparedSampleRate, transientAttackParam->load(), transientReleaseParam->load());
 
@@ -157,17 +201,28 @@ void StereoToolProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     auto* left  = buffer.getWritePointer (0);
     auto* right = buffer.getWritePointer (1);
 
-    // Settings for this block.
-    const float width = juce::jlimit (-100.0f, 100.0f, widthParam->load()) / 100.0f;
+    // The LFOs run on a tempo-locked internal beat clock: an effect has no sequencer position
+    // to follow, and a tempo-locked clock keeps the synced shapes moving when the transport stops.
+    const auto offsets = modulation.computeOffsets ((double) streamSample, beatClock, (double) streamSample);
+    modulation.publish (offsets, (double) streamSample, beatClock);
+
+    // Settings for this block, each moved by its routing offset (plan 13). Every routing
+    // amount defaults to 0, so modulate() returns the base value exactly.
+    const float width = juce::jlimit (-100.0f, 100.0f,
+        modulation.modulate ((int) ModTarget::Width, widthParam->load(), offsets)) / 100.0f;
     const float sideGain = CoreDSP::Stereo::sideGain (width);
 
-    const float driveDb = juce::jlimit (-24.0f, 24.0f, driveParam->load());
-    const float mix = juce::jlimit (0.0f, 100.0f, mixParam->load()) / 100.0f;
+    const float driveDb = juce::jlimit (-24.0f, 24.0f,
+        modulation.modulate ((int) ModTarget::Drive, driveParam->load(), offsets));
+    const float mixValue = juce::jlimit (0.0f, 100.0f,
+        modulation.modulate ((int) ModTarget::Mix, mixParam->load(), offsets));
 
     const int characterIndex = juce::jlimit (0, 4, (int) (characterParam->load() + 0.5f));
-    const float transientAmount = juce::jlimit (0.0f, 100.0f, transientAmountParam->load()) / 100.0f;
+    const float transientAmount = juce::jlimit (0.0f, 100.0f,
+        modulation.modulate ((int) ModTarget::TransientAmount, transientAmountParam->load(), offsets)) / 100.0f;
     const int transientTarget = juce::jlimit (0, 2, (int) (transientTargetParam->load() + 0.5f));
-    const float midFocus = juce::jlimit (-100.0f, 100.0f, midFocusParam->load()) / 100.0f;
+    const float midFocus = juce::jlimit (-100.0f, 100.0f,
+        modulation.modulate ((int) ModTarget::MidFocus, midFocusParam->load(), offsets)) / 100.0f;
     const int sideFilterIndex = juce::jlimit (0, 3, (int) (sideFilterParam->load() + 0.5f));
 
     // Mid focus is a static gain pair: midGain = 1 + f, sideGain = 1 - f.
@@ -184,68 +239,83 @@ void StereoToolProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
 
         // The filter's assert keeps the corner below Nyquist, so clamp for low-rate hosts.
         const float highestCorner = juce::jmin (8000.0f, 0.45f * (float) preparedSampleRate);
-        sideFilter.setCutoffFrequency (juce::jlimit (20.0f, highestCorner, sideCrossoverParam->load()));
+        const float crossover = juce::jlimit (20.0f, 8000.0f,
+            modulation.modulate ((int) ModTarget::SideCrossover, sideCrossoverParam->load(), offsets));
+        sideFilter.setCutoffFrequency (juce::jlimit (20.0f, highestCorner, crossover));
     }
 
     // The follower's times are cheap to set; a block-rate update tracks the parameters.
     if (transientAmount > 0.0f)
-        transientEnv.setTimes (juce::jlimit (1.0f, 200.0f, transientAttackParam->load()),
-                               juce::jlimit (20.0f, 2000.0f, transientReleaseParam->load()));
+        transientEnv.setTimes (juce::jlimit (1.0f, 200.0f,
+                                   modulation.modulate ((int) ModTarget::TransientAttack, transientAttackParam->load(), offsets)),
+                               juce::jlimit (20.0f, 2000.0f,
+                                   modulation.modulate ((int) ModTarget::TransientRelease, transientReleaseParam->load(), offsets)));
 
     // Drive amount: 0 dB is transparent. Negative Drive is a clean gain reduction; positive
     // Drive interpolates towards the shaper's pre-gain drive, so loud parts sit near the
-    // rails and the small-signal level rises, as a drive knob should.
+    // rails and the small-signal level rises, as a drive knob should. The smoothing in the
+    // loop carries automation and routing without a zipper.
     const float cleanGain = driveDb < 0.0f ? juce::Decibels::decibelsToGain (driveDb) : 1.0f;
     const float satAmount = driveDb > 0.0f ? driveDb / 24.0f : 0.0f;
     const float satGain   = driveDb > 0.0f ? juce::Decibels::decibelsToGain (driveDb) : 1.0f;
 
     // The level stage (plan 12): smoothed 20 ms, block-rate targets.
-    const float inputLevelDb = juce::jlimit (-24.0f, 24.0f, inputLevelParam->load());
-    const float outputLevelDb = juce::jlimit (-24.0f, 24.0f, outputLevelParam->load());
+    const float inputLevelDb = juce::jlimit (-24.0f, 24.0f,
+        modulation.modulate ((int) ModTarget::Input, inputLevelParam->load(), offsets));
+    const float outputLevelDb = juce::jlimit (-24.0f, 24.0f,
+        modulation.modulate ((int) ModTarget::Output, outputLevelParam->load(), offsets));
     inputGainSmoothed.setTargetValue (juce::Decibels::decibelsToGain (inputLevelDb));
     outputGainSmoothed.setTargetValue (juce::Decibels::decibelsToGain (outputLevelDb));
+    mixSmoothed.setTargetValue (mixValue / 100.0f);
+    driveSmoothed.setTargetValue (driveDb);
 
     // When neither the drive, nor the width, nor any plan-6.1 control touches the signal,
     // the wet path is mathematically the input. Taking it out keeps the plugin bit-exact at
     // the defaults (the mid/side round trip alone is not bit-exact in float) and skips work.
+    // The test reads the *modulated* values, so a routed parameter disables the shortcut.
     const bool identityPath = satAmount == 0.0f && cleanGain == 1.0f && sideGain == 1.0f
                            && characterIndex == 0 && transientAmount == 0.0f
                            && midFocus == 0.0f && sideFilterIndex == 0
                            && inputLevelDb == 0.0f && outputLevelDb == 0.0f;
 
-    // The visual snapshot's accumulators (plan 11 D7): mid/side RMS, peaks, follower level.
-    float midSum = 0.0f, sideSum = 0.0f, inputPeakNow = 0.0f, outputPeakNow = 0.0f, envLast = 0.0f;
+    // The visual snapshot's accumulators (plan 11 D7): mid/side RMS, follower level.
+    float midSum = 0.0f, sideSum = 0.0f, envLast = 0.0f;
     const auto measureInputs = [&] (int n)
     {
         float m = 0.0f, s = 0.0f;
         CoreDSP::Stereo::encode (left[n], right[n], m, s);
         midSum += m * m;
         sideSum += s * s;
-        inputPeakNow = juce::jmax (inputPeakNow, std::abs (left[n]), std::abs (right[n]));
     };
     const auto publishSnapshot = [&]
     {
         meterSnapshot.midLevel.store (std::sqrt (midSum / (float) numSamples), std::memory_order_relaxed);
         meterSnapshot.sideLevel.store (std::sqrt (sideSum / (float) numSamples), std::memory_order_relaxed);
         meterSnapshot.followerEnvelope.store (envLast, std::memory_order_relaxed);
-        meterSnapshot.inputPeak.store (inputPeakNow, std::memory_order_relaxed);
-        meterSnapshot.outputPeak.store (outputPeakNow, std::memory_order_relaxed);
+    };
+    const auto advanceClock = [&]
+    {
+        // Advance the clock that drives the free LFOs and the synced beat position. With no
+        // host tempo (including the Standalone) a fixed 120 BPM keeps the synced LFOs moving.
+        beatClock += (double) numSamples * SuiteModulation::hostTempoOrDefault (getPlayHead()) / 60.0 / preparedSampleRate;
+        streamSample += numSamples;
+        modulation.advanceBlock (numSamples);
     };
 
-    if (identityPath && mix == 1.0f)
+    if (identityPath && mixValue == 100.0f)
     {
         // The smoothing clocks still advance, so returning to the identity from a gain
         // automation does not apply a stale ramp later.
         inputGainSmoothed.skip (numSamples);
         outputGainSmoothed.skip (numSamples);
+        mixSmoothed.skip (numSamples);
+        driveSmoothed.skip (numSamples);
 
         // The meters still describe the untouched signal (plan 11 D7).
         for (int n = 0; n < numSamples; ++n)
-        {
             measureInputs (n);
-            outputPeakNow = juce::jmax (outputPeakNow, std::abs (left[n]), std::abs (right[n]));
-        }
         publishSnapshot();
+        advanceClock();
         return;
     }
 
@@ -257,10 +327,13 @@ void StereoToolProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
 
     for (int n = 0; n < numSamples; ++n)
     {
+        // Drive is smoothed per sample (plan 13), so routing and automation never step.
+        const float driveDbN = driveSmoothed.getNextValue();
+        const float driveGainN = driveDbN != 0.0f ? juce::Decibels::decibelsToGain (driveDbN) : 1.0f;
+        float cleanGainN = driveDbN < 0.0f ? driveGainN : 1.0f;
+        float satAmountN = driveDbN > 0.0f ? driveDbN / 24.0f : 0.0f;
+        float satGainN   = driveDbN > 0.0f ? driveGainN : 1.0f;
         float sideGainN = sideGain;
-        float cleanGainN = cleanGain;
-        float satAmountN = satAmount;
-        float satGainN = satGain;
 
         // The level stage (plan 12). The dry copy was taken before the loop, so the input
         // gain feeds the chain only, and the output gain lands after the mix.
@@ -283,12 +356,12 @@ void StereoToolProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
 
             if (transientTarget != 0)   // Drive or Both
             {
-                const float driveDbN = juce::jlimit (-24.0f, 24.0f,
-                    driveDb + transientAmount * env * maxTransientDriveBoostDb);
+                const float driveDbN2 = juce::jlimit (-24.0f, 24.0f,
+                    driveDbN + transientAmount * env * maxTransientDriveBoostDb);
 
-                cleanGainN = driveDbN < 0.0f ? juce::Decibels::decibelsToGain (driveDbN) : 1.0f;
-                satAmountN = driveDbN > 0.0f ? driveDbN / 24.0f : 0.0f;
-                satGainN   = driveDbN > 0.0f ? juce::Decibels::decibelsToGain (driveDbN) : 1.0f;
+                cleanGainN = driveDbN2 < 0.0f ? juce::Decibels::decibelsToGain (driveDbN2) : 1.0f;
+                satAmountN = driveDbN2 > 0.0f ? driveDbN2 / 24.0f : 0.0f;
+                satGainN   = driveDbN2 > 0.0f ? juce::Decibels::decibelsToGain (driveDbN2) : 1.0f;
             }
         }
 
@@ -298,7 +371,6 @@ void StereoToolProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
         // The visual snapshot's mid/side accumulation (plan 11 D7).
         midSum += m * m;
         sideSum += s * s;
-        inputPeakNow = juce::jmax (inputPeakNow, std::abs (left[n]), std::abs (right[n]));
 
         if (satAmountN > 0.0f)
         {
@@ -335,12 +407,18 @@ void StereoToolProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
         CoreDSP::Stereo::decode (m, s, outL, outR);
 
         const float outputGainN = outputGainSmoothed.getNextValue();
-        left[n]  = ((1.0f - mix) * dryL[n] + mix * outL) * outputGainN;
-        right[n] = ((1.0f - mix) * dryR[n] + mix * outR) * outputGainN;
-        outputPeakNow = juce::jmax (outputPeakNow, std::abs (left[n]), std::abs (right[n]));
+        const float mixN = mixSmoothed.getNextValue();
+        left[n]  = ((1.0f - mixN) * dryL[n] + mixN * outL) * outputGainN;
+        right[n] = ((1.0f - mixN) * dryR[n] + mixN * outR) * outputGainN;
     }
 
     publishSnapshot();
+    advanceClock();
+}
+
+float StereoToolProcessor::getModulatedValue (ModTarget target) const
+{
+    return modulation.getModulatedValue ((int) target);
 }
 
 juce::AudioProcessorEditor* StereoToolProcessor::createEditor()

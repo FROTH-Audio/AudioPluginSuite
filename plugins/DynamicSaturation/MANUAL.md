@@ -33,7 +33,8 @@ above 1 only to peaks); Attack and Release are the envelope times, and Detect HP
 the detector only, so the low end does not pump the drive. Stereo Link runs the two
 channels on the louder one at 100 %.
 
-**Tone and colour.** Tube Bias skews the tube curve, Fold blends in a wavefolder for upper
+**Tone and colour.** Tube Bias skews the tube curve — it applies to Tube mode only, so the
+editor dims it while Tape or Diode is selected. Fold blends in a wavefolder for upper
 harmonics, Tone tilts the spectrum around 1 kHz after the shaper.
 
 **Level.** Mix balances dry against wet; Output is the final level. The stage is clamped to

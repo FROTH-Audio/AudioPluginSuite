@@ -37,8 +37,10 @@ CROPS = [
     ("dynamicsaturation-sound.png", (20, 92, 700, 332), "dynamicsaturation-detail-transfer-curve.png"),
     ("dynamicsaturation-sound.png", (135, 326, 645, 364), "dynamicsaturation-detail-mode-pills.png"),
     # Plan 12: the new LEVEL group beside the visualiser, and MultiSat's framed groups.
-    ("stereotool-default.png", (640, 62, 870, 200), "stereotool-detail-level.png"),
-    ("multibandsaturation-default.png", (10, 314, 750, 672), "multibandsaturation-detail-groups.png"),
+    # Plan 15: the preview sits at the top, so LEVEL shares row 2 with IMAGE (658 px tall);
+    # MultiSat's page switch moved into the header, so the groups start higher.
+    ("stereotool-default.png", (10, 170, 220, 402), "stereotool-detail-level.png"),
+    ("multibandsaturation-default.png", (10, 304, 750, 662), "multibandsaturation-detail-groups.png"),
 ]
 
 

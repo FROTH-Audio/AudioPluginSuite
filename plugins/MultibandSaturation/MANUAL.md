@@ -1,6 +1,6 @@
 # MultiSat — User Manual
 
-<img src="../../docs/manuals/multibandsaturation-default.png" alt="MultiSat" width="587">
+<img src="../../docs/manuals/multibandsaturation-default.png" alt="MultiSat" width="507">
 
 MultiSat (the Multiband Saturation plugin; the folder, bundle and preset IDs keep the
 MultibandSaturation name) splits the input into two bands with a Linkwitz-Riley crossover and
@@ -8,13 +8,15 @@ shapes each band with its own drive and tone, using the same saturation shapers 
 Dynamic Saturation Companion. The bands recombine through the crossover's all-pass sum,
 are clamped to the rails, and finish through a dry/wet mix and an output level.
 
-## The controls
+## The layout
 
-The editor has two groups. **SPLIT** is the crossover and the shared saturation mode;
-**SHAPER** is the per-band shaping. Between the header and the groups sits the dual-band
-visual: a bar per band (the block's envelope maximum), the crossover frequency marked
-between them on a log axis, and input/output meters on the right — nearly twice as tall
-as before, so the band envelopes read clearly.
+The editor has a **SOUND / MOD** page switch in the header row, left of the preset bar. The
+SOUND page has
+two groups: **SPLIT** is the crossover and the shared saturation mode; **SHAPER** is the
+per-band shaping. Between the header and the groups sits the dual-band visual: a bar per
+band (the block's envelope maximum) with dB ticks on its left edge and a **log frequency
+grid** behind the bars, the crossover frequency marked between them on a log axis, and the
+Hz scale below.
 
 ### SPLIT
 
@@ -46,10 +48,31 @@ ones — the two bands respond independently.
 ## Reading the visual
 
 - The **LOW** and **HIGH** bars show each band's envelope: how hard that band's detector
-  is working right now.
-- The **vertical marker** between the bars is the crossover, placed on the same log axis
-  the Crossover knob uses (80 Hz – 8 kHz), with its frequency printed above.
-- The two meters on the right are the input and output peaks of the last block.
+  is working right now. Both use the full height of their container, against the −60 … 0 dB
+  scale marked at the left edge.
+- The **vertical grid lines** behind the bars sit at the log tick frequencies (80, 100, 200,
+  500, 1k, 2k, 5k, 8k), and the **horizontal grid lines** at the dB levels (0, −6, −12, −24,
+  −60) — a frequency × level mesh, so the two bands read against the same axes the crossover
+  knob and the meters use.
+- The **crossover marker** between the bars is the split point, placed on that log axis,
+  with its frequency printed above.
+
+## The MOD page
+
+The MOD page keeps the visual on top and adds the suite's shared modulation panel: two
+LFOs (rate, shape, sync, division, offset) and six routing slots (source, target, amount,
+delay).
+
+<img src="../../docs/manuals/multibandsaturation-mod.png" alt="MOD page" width="507">
+
+Ten controls can be routed: **Crossover, Drive Low, Drive High, Sensitivity, Attack,
+Release, Tone Low, Tone High, Mix and Output**. A slot adds `amount × LFO value` to its
+target, in the target's own range. While a control is modulated, its knob shows the
+modulated value; hold the mouse on it to dial your own value.
+
+The crossover is smoothed in Hz before the split's coefficients are computed, so a routed
+sweep never clicks. With every routing amount at 0 the sound is exactly the pre-modulation
+sound.
 
 ## Tips
 
@@ -66,12 +89,10 @@ ones — the two bands respond independently.
 ## Practical notes
 
 - No latency is added (base-rate processing; oversampling is a planned follow-up).
-- 15 factory presets ship with the plugin in bank builds; use the preset bar in the header
-  to browse, save and load.
+- 25 factory presets ship with the plugin in bank builds — the original 15 plus 10 that
+  use the modulation routing. Use the preset bar in the header to browse, save and load.
 - The hamburger menu in the header (right of the preset bar) opens Settings… (tooltips toggle,
   fallback tempo, preset folder) and About….
 - Mode is a pill switch (plan 11 rule: a dropdown only for longer lists).
 - Hovering any control shows what it does in the help line at the bottom of the window; the
   Settings dialog's tooltips toggle turns the line off.
-- Modulation routing (the suite's LFOs and slots) is planned for a follow-up pass; the
-  plugin already links the shared module.

@@ -6,21 +6,26 @@
 
 namespace
 {
-    // Plan 05 R4: the default window stays inside the suite budget (1000x700). The knob
-    // size comes from the SuiteUI tokens (R1); never set slider bounds that exceed them.
-    constexpr int editorWidth = 880;
-    constexpr int editorHeight = 700;
+    // Plan 15 (owner): the visual sits at the top, the meters are gone, and the default
+    // height equals the minimum height — the layout sums to the window exactly.
     constexpr int headerHeight = 44;
     constexpr int footerHeight = 26;
     constexpr int groupGap = 8;   // the suite's one-gap rule (plan 05 R7)
     constexpr int groupTitleHeight = SuiteUI::groupTitleHeight;
     constexpr int groupInnerHeight = 2 * SuiteUI::knobRowHeight + groupGap;
     constexpr int groupHeight = groupTitleHeight + 4 + groupInnerHeight + 4;
-    constexpr int visualHeight = 130;
-    // The LEVEL group is one knob row tall, inside the visualiser band (plan 12).
-    constexpr int levelGroupHeight = groupTitleHeight + 4 + SuiteUI::knobRowHeight + 4;
+    constexpr int previewMinimumHeight = 100;
+    constexpr int editorWidth = 720;
+    // 16 top margin + header + gap + [preview + gap + group + gap + group] + footer + gap.
+    constexpr int editorHeight = 16 + headerHeight + groupGap
+                               + previewMinimumHeight + groupGap + groupHeight + groupGap + groupHeight
+                               + footerHeight + groupGap;
 
-    const int levelGroupWidth = 220;   // two knob cells in the visualiser band (plan 12)
+    // The LEVEL group (two knobs) shares its row with IMAGE, so it only needs two cells.
+    constexpr int levelGroupWidth = 196;
+
+    // Plan 15: the mid/side bars are twice as wide as before (owner finding, plan 13).
+    constexpr float midSideBarsWidth = 100.0f;
 
     const juce::Image& brandLockup()
     {
@@ -42,10 +47,12 @@ StereoToolEditor::StereoToolEditor (StereoToolProcessor& p)
 
     setSize (editorWidth, editorHeight);
     setResizable (true, true);
-    setResizeLimits (editorWidth - 80, editorHeight - 80, 1200, 1200);
+    // Plan 15 (owner): the default height IS the minimum height.
+    setResizeLimits (editorWidth - 80, editorHeight, 1200, 1200);
 
-    // The choice lists mirror the parameter choice lists. Rule #3 (plan 11): pills for
-    // three, four and five options, no dropdowns left.
+    // The choice lists mirror the parameter choice lists. Plan 13 (owner finding): the
+    // character and side-filter lists have long text, so they are dropdowns; the three-way
+    // target stays a pill.
     characterCell.setOptions ({ "Tube", "Tape", "Diode", "Console", "Clip" });
     targetCell.setOptions ({ "Width", "Drive", "Both" });
     filterCell.setOptions ({ "Off", "High Pass", "Low Pass", "Band Pass" });
@@ -68,10 +75,14 @@ StereoToolEditor::StereoToolEditor (StereoToolProcessor& p)
     midFocusAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (apvts, StereoToolProcessor::midFocusId, midFocusCtrl.slider);
     crossoverAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (apvts, StereoToolProcessor::sideCrossoverId, crossoverCtrl.slider);
 
-    // The pill selectors carry their own attachments (plan 11 D1).
-    SuiteUI::attachSelector (characterCell, *apvts.getParameter (StereoToolProcessor::characterId), characterAttachment);
+    // The choice widgets carry their own attachments (character and side filter are dropdowns).
+    SuiteUI::attachDropdown (characterCell, *apvts.getParameter (StereoToolProcessor::characterId), characterAttachment);
     SuiteUI::attachSelector (targetCell, *apvts.getParameter (StereoToolProcessor::transientTargetId), targetAttachment);
-    SuiteUI::attachSelector (filterCell, *apvts.getParameter (StereoToolProcessor::sideFilterId), filterAttachment);
+    SuiteUI::attachDropdown (filterCell, *apvts.getParameter (StereoToolProcessor::sideFilterId), filterAttachment);
+
+    // Page switch (plan 13): SOUND / MOD, following the SD/DS pattern.
+    pageSelector.setOptions ({ "SOUND", "MOD" });
+    pageSelector.onChange = [this] (int index) { setPage (index); };
 
     // The level stage (plan 12), appended so no saved parameter index moves.
     inputCtrl.slider.setNumDecimalPlacesToDisplay (1);
@@ -96,6 +107,8 @@ StereoToolEditor::StereoToolEditor (StereoToolProcessor& p)
     SuiteUI::describe (inputCtrl, "Gain before the chain. 0 dB leaves the level unchanged.");
     SuiteUI::describe (outputCtrl, "The final gain stage. 0 dB leaves the level unchanged.");
     SuiteUI::describe (visualizer, "Mid and side levels, and the transient follower's envelope.");
+    visualizer.setComponentID ("stereotool-preview");
+    SuiteUI::describe (pageSelector, "SOUND: the stereo controls. MOD: the two LFOs and the six routing slots.");
 
     addAndMakeVisible (inputCtrl);
     addAndMakeVisible (outputCtrl);
@@ -105,8 +118,25 @@ StereoToolEditor::StereoToolEditor (StereoToolProcessor& p)
                              static_cast<juce::Component*> (&widthCtrl), static_cast<juce::Component*> (&mixCtrl),
                              static_cast<juce::Component*> (&midFocusCtrl), static_cast<juce::Component*> (&crossoverCtrl),
                              static_cast<juce::Component*> (&characterCell), static_cast<juce::Component*> (&targetCell),
-                             static_cast<juce::Component*> (&filterCell), static_cast<juce::Component*> (&visualizer) })
+                             static_cast<juce::Component*> (&filterCell), static_cast<juce::Component*> (&visualizer),
+                             static_cast<juce::Component*> (&pageSelector), static_cast<juce::Component*> (&modulation) })
         addAndMakeVisible (component);
+
+    // Each control that the routing can move, and the target it shows (plan 13).
+    using Target = StereoToolProcessor::ModTarget;
+    controls = std::make_unique<SuiteModulation::ControlDisplay> (processor.getRouter(),
+        std::vector<SuiteModulation::ControlDisplay::Entry> {
+            { widthCtrl.slider,       (int) Target::Width },
+            { driveCtrl.slider,       (int) Target::Drive },
+            { mixCtrl.slider,         (int) Target::Mix },
+            { attackCtrl.slider,      (int) Target::TransientAttack },
+            { releaseCtrl.slider,     (int) Target::TransientRelease },
+            { amountCtrl.slider,      (int) Target::TransientAmount },
+            { midFocusCtrl.slider,    (int) Target::MidFocus },
+            { crossoverCtrl.slider,   (int) Target::SideCrossover },
+            { inputCtrl.slider,       (int) Target::Input },
+            { outputCtrl.slider,      (int) Target::Output },
+        });
 
     addAndMakeVisible (headerMenu);
 
@@ -136,6 +166,7 @@ StereoToolEditor::StereoToolEditor (StereoToolProcessor& p)
         addAndMakeVisible (*presetBar);
     presetBar->onPresetLoaded = [this] { repaint(); };
 
+    setPage (0);
     startTimerHz (SuiteUI::kRefreshHz);
 }
 
@@ -144,6 +175,35 @@ StereoToolEditor::~StereoToolEditor()
     stopTimer();
     removeMouseListener (&helpTracker);
     setLookAndFeel (nullptr);
+}
+
+SuiteModulation::ModulationPanel::Style StereoToolEditor::modulationStyle()
+{
+    return { { juce::Colour (0xffB18CFF), juce::Colour (0xffB18CFF) },
+             SuiteUI::Colours::text, SuiteUI::Colours::textDim,
+             SuiteUI::Colours::panel, SuiteUI::Colours::track };
+}
+
+void StereoToolEditor::setPage (int newPage)
+{
+    currentPage = juce::jlimit (0, 1, newPage);
+    pageSelector.setSelectedIndex (currentPage);
+
+    for (auto* component : { static_cast<juce::Component*> (&driveCtrl), static_cast<juce::Component*> (&attackCtrl),
+                             static_cast<juce::Component*> (&releaseCtrl), static_cast<juce::Component*> (&amountCtrl),
+                             static_cast<juce::Component*> (&widthCtrl), static_cast<juce::Component*> (&mixCtrl),
+                             static_cast<juce::Component*> (&midFocusCtrl), static_cast<juce::Component*> (&crossoverCtrl),
+                             static_cast<juce::Component*> (&characterCell), static_cast<juce::Component*> (&targetCell),
+                             static_cast<juce::Component*> (&filterCell), static_cast<juce::Component*> (&inputCtrl),
+                             static_cast<juce::Component*> (&outputCtrl) })
+        component->setVisible (currentPage == 0);
+
+    // The preview carries the input/output meters, so it stays on both pages.
+    visualizer.setVisible (true);
+    modulation.setVisible (currentPage == 1);
+
+    resized();
+    repaint();
 }
 
 void StereoToolEditor::paint (juce::Graphics& g)
@@ -157,17 +217,25 @@ void StereoToolEditor::paint (juce::Graphics& g)
     // the product name, generated by the owner's tools/brand/lockups.py (not in this repo) and embedded in the bundle).
     SuiteUI::drawBrandLockup (g, getLocalBounds().removeFromTop (headerHeight).reduced (16, 0), brandLockup());
 
-    // The three group frames (R5: 15 pt bold titles in the accent; plan 12's shared frame).
-    SuiteUI::drawGroupFrame (g, characterGroupBounds, "CHARACTER", lookAndFeel.getAccent());
-    SuiteUI::drawGroupFrame (g, imageGroupBounds, "IMAGE", lookAndFeel.getAccent());
-    SuiteUI::drawGroupFrame (g, levelGroupBounds, "LEVEL", lookAndFeel.getAccent());
+    if (currentPage == 0)
+    {
+        // The three group frames (R5: 15 pt bold titles in the accent; plan 12's shared frame).
+        SuiteUI::drawGroupFrame (g, characterGroupBounds, "CHARACTER", lookAndFeel.getAccent());
+        SuiteUI::drawGroupFrame (g, imageGroupBounds, "IMAGE", lookAndFeel.getAccent());
+        SuiteUI::drawGroupFrame (g, levelGroupBounds, "LEVEL", lookAndFeel.getAccent());
+    }
+    else
+    {
+        SuiteUI::drawGroupFrame (g, modulationGroupBounds, "MODULATION", lookAndFeel.getAccent());
+    }
 }
 
 void StereoToolEditor::resized()
 {
     auto area = getLocalBounds().reduced (16);
 
-    // Header: menu at the far right, the preset bar flat to its left (plan 05.1).
+    // Header: menu at the far right, the preset bar flat to its left (plan 05.1), then the
+    // page switch (R8: top right of the header, plan 13).
     auto headerArea = area.removeFromTop (headerHeight);
     headerMenu.setBounds (headerArea.removeFromRight (26).withHeight (26)
                             .withY (headerArea.getCentreY() - 13));
@@ -175,27 +243,51 @@ void StereoToolEditor::resized()
     if (barHeight > 0)
         presetBar->setBounds (headerArea.removeFromRight (300).withHeight (barHeight)
                                 .withY (headerArea.getCentreY() - barHeight / 2));
+    pageSelector.setBounds (headerArea.removeFromRight (140).withHeight (SuiteUI::pillHeight)
+                                .withY (headerArea.getCentreY() - SuiteUI::pillHeight / 2));
+
+    // The help line sits in the footer band. Reserve it (plus the standard gap) before the
+    // content, so no group can overlap it.
+    helpLine.setBounds (getLocalBounds().removeFromBottom (footerHeight));
+    area.setBottom (getLocalBounds().getHeight() - footerHeight - groupGap);
 
     area.removeFromTop (groupGap);
 
-    // The mid/side visual spans the window between the header and the groups (plan 11 4c);
-    // the LEVEL group (plan 12) takes the right end of the band, so the window stays 880x700.
-    levelGroupBounds = area.removeFromRight (levelGroupWidth).withHeight (levelGroupHeight);
-    visualBounds = area.removeFromTop (visualHeight);
+    if (currentPage == 0)
+        layoutSoundPage (area);
+    else
+        layoutModPage (area);
+}
+
+void StereoToolEditor::layoutSoundPage (juce::Rectangle<int> area)
+{
+    modulationGroupBounds = {};
+    modulation.setBounds ({});
+
+    // Row 1 (plan 15, owner): the mid/side + follower preview across the full width at the
+    // top of the window. It takes the spare height above its 100 px floor, so an enlarged
+    // window grows the preview and the default window has none to spare.
+    characterGroupBounds = area.removeFromBottom (groupHeight);
+    area.removeFromBottom (groupGap);
+
+    auto row = area.removeFromBottom (groupHeight);
+    levelGroupBounds = row.removeFromLeft (levelGroupWidth);
+    row.removeFromLeft (groupGap);
+    imageGroupBounds = row;
+    area.removeFromBottom (groupGap);
+
+    visualBounds = area;
     visualizer.setBounds (visualBounds);
 
+    // LEVEL: two knobs in the group's top row (owner finding, plan 13), so the captions
+    // sit at the top of the group and the shared row height's spare space stays below.
     {
-        auto inner = levelGroupBounds.withTrimmedTop (groupTitleHeight + 4).reduced (10, 2);
-        const int cellWidth = inner.getWidth() / 2;
-        inputCtrl.setBounds (inner.removeFromLeft (cellWidth).reduced (2));
-        outputCtrl.setBounds (inner.reduced (2, 0));
+        auto inner = levelGroupBounds.withTrimmedTop (groupTitleHeight + 4).reduced (10, 4);
+        auto row1 = inner.removeFromTop (SuiteUI::knobRowHeight);
+        const int cellWidth = row1.getWidth() / 2;
+        inputCtrl.setBounds (row1.removeFromLeft (cellWidth).reduced (3));
+        outputCtrl.setBounds (row1.reduced (3));
     }
-
-    area.removeFromTop (groupGap);
-
-    characterGroupBounds = area.removeFromTop (groupHeight);
-    area.removeFromTop (groupGap);
-    imageGroupBounds = area.removeFromTop (groupHeight);
 
     // CHARACTER: character, drive, attack, release / amount, target.
     {
@@ -217,7 +309,7 @@ void StereoToolEditor::resized()
         }
     }
 
-    // IMAGE: width, mix, mid focus / side filter, crossover.
+    // IMAGE: width, mix, mid focus, crossover / side filter.
     {
         auto inner = imageGroupBounds.withTrimmedTop (groupTitleHeight + 4).reduced (10, 4);
         const int cellWidth = inner.getWidth() / 4;
@@ -225,27 +317,64 @@ void StereoToolEditor::resized()
         auto row2 = inner.removeFromBottom (SuiteUI::knobRowHeight);
 
         for (auto* cell : { static_cast<juce::Component*> (&widthCtrl), static_cast<juce::Component*> (&mixCtrl),
-                            static_cast<juce::Component*> (&midFocusCtrl), static_cast<juce::Component*> (nullptr) })
-        {
-            if (cell == nullptr)
-                break;
+                            static_cast<juce::Component*> (&midFocusCtrl), static_cast<juce::Component*> (&crossoverCtrl) })
             cell->setBounds (row1.removeFromLeft (cellWidth).reduced (3));
-        }
 
-        for (auto* cell : { static_cast<juce::Component*> (&filterCell), static_cast<juce::Component*> (&crossoverCtrl),
-                            static_cast<juce::Component*> (nullptr),    static_cast<juce::Component*> (nullptr) })
-        {
-            if (cell == nullptr)
-                break;
-            cell->setBounds (row2.removeFromLeft (cellWidth).reduced (3));
-        }
+        filterCell.setBounds (row2.removeFromLeft (cellWidth).reduced (3));
     }
+}
 
-    // The help line lives in the band the paint used to draw its footer sentence in.
-    helpLine.setBounds (getLocalBounds().removeFromBottom (footerHeight));
+void StereoToolEditor::layoutModPage (juce::Rectangle<int> area)
+{
+    characterGroupBounds = {};
+    imageGroupBounds = {};
+    levelGroupBounds = {};
+
+    // The preview stays visible above the modulation panel (plan 15: no meters now).
+    visualBounds = area.removeFromTop (juce::jmax (previewMinimumHeight, (int) ((float) area.getHeight() * 0.30f)));
+    visualizer.setBounds (visualBounds);
+
+    area.removeFromTop (groupGap);
+
+    // The modulation panel fills the remaining area.
+    modulationGroupBounds = area;
+    modulation.setBounds (area.withTrimmedTop (groupTitleHeight + 4).reduced (12, 6));
+}
+
+void StereoToolEditor::timerCallback()
+{
+    modulation.refresh();
+    controls->update();
+    visualizer.tick();
+
+    // Plan 15 (owner): controls that do not apply right now are dimmed, never hidden
+    // (the plan 10 G1 rule). Side Crossover is inert while the Side Filter is Off, and
+    // the transient follower's Attack/Release/Target are inert while Amount is 0.
+    const int filterIndex = juce::roundToInt (
+        processor.apvts.getRawParameterValue (StereoToolProcessor::sideFilterId)->load());
+    const float transientAmount = processor.apvts.getRawParameterValue (StereoToolProcessor::transientAmountId)->load();
+
+    crossoverCtrl.setEnabled (filterIndex != 0);
+    attackCtrl.setEnabled (transientAmount > 0.0f);
+    releaseCtrl.setEnabled (transientAmount > 0.0f);
+    targetCell.setEnabled (transientAmount > 0.0f);
 }
 
 //==============================================================================
+StereoToolEditor::MidSideMeter::MidSideMeter (StereoToolProcessor& p)
+    : processor (p)
+{
+}
+
+void StereoToolEditor::MidSideMeter::tick()
+{
+    const auto& snapshot = processor.getMeterSnapshot();
+    envelopeHistory[(size_t) historyHead] = snapshot.followerEnvelope.load (std::memory_order_relaxed);
+    historyHead = (historyHead + 1) % (int) envelopeHistory.size();
+
+    repaint();
+}
+
 void StereoToolEditor::MidSideMeter::paint (juce::Graphics& g)
 {
     const auto& snapshot = processor.getMeterSnapshot();
@@ -259,9 +388,12 @@ void StereoToolEditor::MidSideMeter::paint (juce::Graphics& g)
     g.setColour (SuiteUI::Colours::panelEdge);
     g.drawRoundedRectangle (area, 6.0f, 1.0f);
 
-    // The mid and side bars (plan 11 4c), left of the envelope trace.
-    auto meters = area.removeFromLeft (64.0f).reduced (10.0f, 10.0f);
-    const float barWidth = 18.0f;
+    // The bars and trace fill the preview (plan 15: the meter columns are gone).
+    auto inner = area.reduced (4.0f);
+
+    // The mid and side bars, each twice as wide as before (owner finding, plan 13).
+    auto meters = inner.removeFromLeft (midSideBarsWidth).reduced (10.0f, 10.0f);
+    const float barWidth = 36.0f;
 
     for (const int band : { 0, 1 })
     {
@@ -285,7 +417,7 @@ void StereoToolEditor::MidSideMeter::paint (juce::Graphics& g)
     }
 
     // The transient follower's envelope, scrolled: the oldest point on the left.
-    auto trace = area.reduced (10.0f, 12.0f);
+    auto trace = inner.reduced (10.0f, 12.0f);
 
     g.setColour (SuiteUI::Colours::track);
     g.drawHorizontalLine ((int) trace.getCentreY(), trace.getX(), trace.getRight());

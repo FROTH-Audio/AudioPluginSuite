@@ -1,0 +1,15 @@
+{
+  "_name": "Output Pump",
+  "_category": "Utility",
+  "_description": "Synced square LFO pumps the output level.",
+  "_plugin": "SpectralDrift",
+  "_pluginVersion": "1.0.0",
+  "depth": 0.0,
+  "outputGain": 0.0,
+  "lfo1Rate": 2.0,
+  "lfo1Shape": 3,
+  "lfo1Sync": 1,
+  "lfo1Division": 4,
+  "mod1Target": 10,
+  "mod1Amount": 50.0
+}

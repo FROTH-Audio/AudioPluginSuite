@@ -1,0 +1,14 @@
+{
+  "_name": "Tone LFO",
+  "_category": "Bright",
+  "_description": "Sine LFO sweeps the tilt tone control.",
+  "_plugin": "DynamicSaturation",
+  "_pluginVersion": "1.0.0",
+  "drive": 7.0,
+  "tone": 0.0,
+  "lfo2Rate": 0.6,
+  "lfo2Shape": 0,
+  "mod2Source": 1,
+  "mod2Target": 11,
+  "mod2Amount": 100.0
+}

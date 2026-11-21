@@ -1,0 +1,13 @@
+{
+  "_name": "Tilt Sway",
+  "_category": "Character",
+  "_description": "Triangle LFO sweeps the spectral tilt.",
+  "_plugin": "SpectralDrift",
+  "_pluginVersion": "1.0.0",
+  "depth": 25.0,
+  "mix": 80.0,
+  "lfo1Rate": 0.4,
+  "lfo1Shape": 1,
+  "mod1Target": 5,
+  "mod1Amount": 100.0
+}

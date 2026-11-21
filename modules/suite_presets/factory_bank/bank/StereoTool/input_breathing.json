@@ -1,0 +1,12 @@
+{
+  "_name": "Input Breathing",
+  "_category": "Subtle",
+  "_description": "Slow sine breathes the input stage.",
+  "_plugin": "StereoTool",
+  "_pluginVersion": "1.0.0",
+  "drive": 4.0,
+  "lfo1Rate": 0.1,
+  "lfo1Shape": 0,
+  "mod1Target": 9,
+  "mod1Amount": 10.0
+}

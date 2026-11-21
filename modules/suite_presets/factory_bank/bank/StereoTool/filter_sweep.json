@@ -1,0 +1,14 @@
+{
+  "_name": "Filter Sweep",
+  "_category": "Electronic",
+  "_description": "Saw LFO sweeps the side filter corner.",
+  "_plugin": "StereoTool",
+  "_pluginVersion": "1.0.0",
+  "drive": 6.0,
+  "sideFilter": 2,
+  "sideCrossover": 800.0,
+  "lfo1Rate": 0.25,
+  "lfo1Shape": 2,
+  "mod1Target": 8,
+  "mod1Amount": 100.0
+}

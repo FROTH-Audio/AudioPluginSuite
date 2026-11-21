@@ -1,0 +1,14 @@
+{
+  "_name": "Crossover Sweep",
+  "_category": "Mix bus",
+  "_description": "Triangle LFO sweeps the crossover point.",
+  "_plugin": "MultibandSaturation",
+  "_pluginVersion": "1.0.0",
+  "crossover": 500.0,
+  "driveLow": 4.0,
+  "driveHigh": 4.0,
+  "lfo1Rate": 0.3,
+  "lfo1Shape": 1,
+  "mod1Target": 1,
+  "mod1Amount": 100.0
+}
