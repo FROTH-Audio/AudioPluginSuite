@@ -24,7 +24,7 @@ namespace
               Processor::characterId, Processor::transientAttackId, Processor::transientReleaseId,
               Processor::transientAmountId, Processor::transientTargetId, Processor::midFocusId,
               Processor::sideFilterId, Processor::sideCrossoverId,
-              Processor::inputLevelId, Processor::outputLevelId,
+              Processor::inputLevelId, Processor::outputLevelId, Processor::panId,
               Processor::lfo1RateId, Processor::lfo1ShapeId, Processor::lfo1SyncId, Processor::lfo1DivisionId, Processor::lfo1OffsetId,
               Processor::lfo2RateId, Processor::lfo2ShapeId, Processor::lfo2SyncId, Processor::lfo2DivisionId, Processor::lfo2OffsetId,
               Processor::modSourceIds[0], Processor::modTargetIds[0], Processor::modAmountIds[0], Processor::modDelayIds[0],
@@ -43,6 +43,7 @@ namespace
         checkRange (processor.apvts, Processor::sideCrossoverId,    20.0f, 8000.0f, 200.0f);
         checkRange (processor.apvts, Processor::inputLevelId,      -24.0f, 24.0f, 0.0f);
         checkRange (processor.apvts, Processor::outputLevelId,     -24.0f, 24.0f, 0.0f);
+        checkRange (processor.apvts, Processor::panId,             -100.0f, 100.0f, 0.0f);
 
         // Plan 12: the final gain stage is named "Output" everywhere in the suite.
         assert (processor.apvts.getParameter (Processor::outputLevelId)->getName (100) == "Output");
@@ -622,6 +623,79 @@ namespace
         pass ("testLevelStageScalesThePeak");
     }
 
+    /** Plan 17 Phase 4: the pan stage. Centre is bit-transparent; pan right attenuates the
+        left channel (a balance law), pan left attenuates the right; the kept channel stays
+        at unity. */
+    void testPanStage()
+    {
+        const auto run = [&] (float pan)
+        {
+            Processor processor;
+            processor.prepareToPlay (sampleRate, blockSize);
+            setParameter (processor.apvts, Processor::panId, pan);
+
+            // Let the 20 ms smoothing settle, regenerating the signal every block.
+            for (int i = 0; i < 10; ++i)
+            {
+                juce::MidiBuffer midi;
+                juce::AudioBuffer<float> audio (2, blockSize);
+                audio.clear();
+                addSine (audio, 0, sampleRate, 440.0, 0.25f, 0);
+                addSine (audio, 1, sampleRate, 440.0, 0.25f, 0);
+                processor.processBlock (audio, midi);
+            }
+
+            juce::MidiBuffer midi;
+            juce::AudioBuffer<float> audio (2, blockSize);
+            audio.clear();
+            addSine (audio, 0, sampleRate, 440.0, 0.25f, 0);
+            addSine (audio, 1, sampleRate, 440.0, 0.25f, 0);
+            processor.processBlock (audio, midi);
+            return std::make_pair ((double) audio.getMagnitude (0, 0, blockSize),
+                                   (double) audio.getMagnitude (1, 0, blockSize));
+        };
+
+        // Centre: bit-transparent (the identity path skips the pan stage entirely).
+        {
+            Processor processor;
+            processor.prepareToPlay (sampleRate, blockSize);
+
+            juce::MidiBuffer midi;
+            juce::AudioBuffer<float> in (2, blockSize);
+            in.clear();
+            addSine (in, 0, sampleRate, 440.0, 0.25f, 0);
+            addSine (in, 1, sampleRate, 440.0, 0.25f, 0);
+            processor.processBlock (in, midi);
+
+            juce::AudioBuffer<float> reference (2, blockSize);
+            reference.makeCopyOf (in);
+
+            in.clear();
+            addSine (in, 0, sampleRate, 440.0, 0.25f, 0);
+            addSine (in, 1, sampleRate, 440.0, 0.25f, 0);
+            processor.processBlock (in, midi);
+
+            for (int n = 0; n < blockSize; ++n)
+            {
+                assert (in.getSample (0, n) == reference.getSample (0, n));
+                assert (in.getSample (1, n) == reference.getSample (1, n));
+            }
+        }
+
+        // Pan right: the left channel attenuates (cos of the pan angle), the right stays.
+        const auto rightPair = run (100.0f);
+        const auto centrePair = run (0.0f);
+        assert (std::abs (rightPair.first - centrePair.first * 0.7071f) < 0.01f);
+        assert (std::abs (rightPair.second - centrePair.second) < 0.005f);
+
+        // Pan left: mirrored.
+        const auto leftPair = run (-100.0f);
+        assert (std::abs (leftPair.first - centrePair.first) < 0.005f);
+        assert (std::abs (leftPair.second - centrePair.second * 0.7071f) < 0.01f);
+
+        pass ("testPanStage");
+    }
+
     /** Plan 11 D7: the meter snapshot describes the signal — mid carries the correlated
         sine, side rises only off-centre, the follower moves with amount 1, and everything
         stays at zero when idle. */
@@ -988,6 +1062,7 @@ int main()
     testModeAffinity();
     testLevelGroupAndHelp();
     testLevelStageScalesThePeak();
+    testPanStage();
     testVisualSnapshot();
     testModulationReachesAudio();
     testSideCrossoverInertWhenFilterOff();

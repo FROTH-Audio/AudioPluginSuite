@@ -47,6 +47,7 @@ StereoToolProcessor::StereoToolProcessor()
     sideCrossoverParam    = apvts.getRawParameterValue (sideCrossoverId);
     inputLevelParam       = apvts.getRawParameterValue (inputLevelId);
     outputLevelParam      = apvts.getRawParameterValue (outputLevelId);
+    panParam              = apvts.getRawParameterValue (panId);
 }
 
 juce::AudioProcessorValueTreeState::ParameterLayout StereoToolProcessor::createParameterLayout()
@@ -127,6 +128,12 @@ juce::AudioProcessorValueTreeState::ParameterLayout StereoToolProcessor::createP
         juce::ParameterID { outputLevelId, 1 }, "Output",
         juce::NormalisableRange<float> (-24.0f, 24.0f, 0.1f), 0.0f, "dB"));
 
+    //---- Plan 17 Phase 4: the pan stage, appended so no saved index moves. 0 % is centre
+    // (constant-power law), so the identity path still holds at the defaults.
+    params.push_back (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { panId, 1 }, "Pan",
+        juce::NormalisableRange<float> (-100.0f, 100.0f, 0.1f), 0.0f, "%"));
+
     //---- Plan 13: the LFOs and the six routing slots, appended last so no saved parameter
     // index moves. Every routing amount defaults to 0, so the sound is bit-identical.
     SuiteModulation::Router::addParameters (params, modTargetNames());
@@ -138,7 +145,7 @@ juce::StringArray StereoToolProcessor::modTargetNames()
 {
     // Must follow the ModTarget enum order exactly.
     return { "None", "Width", "Drive", "Mix", "Transient Attack", "Transient Release",
-             "Transient Amount", "Mid Focus", "Side Crossover", "Input", "Output" };
+             "Transient Amount", "Mid Focus", "Side Crossover", "Input", "Output", "Pan" };
 }
 
 void StereoToolProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
@@ -157,6 +164,11 @@ void StereoToolProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     outputGainSmoothed.reset (preparedSampleRate, 0.02);
     outputGainSmoothed.setCurrentAndTargetValue (juce::Decibels::decibelsToGain (
         juce::jlimit (-24.0f, 24.0f, outputLevelParam->load())));
+
+    // The pan stage (plan 17 Phase 4): 20 ms smoothing, started at the target so the first
+    // block is bit-exact at the centre default (the balance law's unity).
+    panSmoother.reset (preparedSampleRate, 0.02);
+    panSmoother.setCurrentAndTargetValue (juce::jlimit (-100.0f, 100.0f, panParam->load()) / 100.0f);
 
     // Plan 13: Mix and Drive ramp over 20 ms, starting at the parameter values so the first
     // block is bit-exact at the defaults.
@@ -269,6 +281,12 @@ void StereoToolProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     mixSmoothed.setTargetValue (mixValue / 100.0f);
     driveSmoothed.setTargetValue (driveDb);
 
+    // The pan stage (plan 17 Phase 4): constant-power law, smoothed 20 ms like the levels.
+    // Routing reads through ModTarget::Pan.
+    const float panNorm = juce::jlimit (-100.0f, 100.0f,
+        modulation.modulate ((int) ModTarget::Pan, panParam->load(), offsets)) / 100.0f;
+    panSmoother.setTargetValue (panNorm);
+
     // When neither the drive, nor the width, nor any plan-6.1 control touches the signal,
     // the wet path is mathematically the input. Taking it out keeps the plugin bit-exact at
     // the defaults (the mid/side round trip alone is not bit-exact in float) and skips work.
@@ -276,6 +294,7 @@ void StereoToolProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     const bool identityPath = satAmount == 0.0f && cleanGain == 1.0f && sideGain == 1.0f
                            && characterIndex == 0 && transientAmount == 0.0f
                            && midFocus == 0.0f && sideFilterIndex == 0
+                           && panParam->load() == 0.0f
                            && inputLevelDb == 0.0f && outputLevelDb == 0.0f;
 
     // The visual snapshot's accumulators (plan 11 D7): mid/side RMS, follower level.
@@ -410,6 +429,18 @@ void StereoToolProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
         const float mixN = mixSmoothed.getNextValue();
         left[n]  = ((1.0f - mixN) * dryL[n] + mixN * outL) * outputGainN;
         right[n] = ((1.0f - mixN) * dryR[n] + mixN * outR) * outputGainN;
+
+        // The pan stage (plan 17 Phase 4): a balance law with EXACT unity at centre, so the
+        // defaults stay bit-transparent (an equal-power law would sit at -3 dB on both
+        // channels). Turning right attenuates the left channel, left attenuates the right;
+        // full pan keeps the kept channel at unity.
+        const float panN = panSmoother.getNextValue();
+        const float panGain = std::cos (std::abs (panN) * juce::MathConstants<float>::pi * 0.25f);
+
+        if (panN >= 0.0f)
+            left[n] *= panGain;
+        else
+            right[n] *= panGain;
     }
 
     publishSnapshot();

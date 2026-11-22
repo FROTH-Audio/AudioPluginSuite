@@ -133,6 +133,8 @@ namespace SuiteModulation
 
         // Read-only raw values, looked up once in the constructor
         std::array<std::atomic<float>*, lfoCount> lfoRate {}, lfoShape {}, lfoSync {}, lfoDivision {};
+        std::array<std::atomic<float>*, lfoCount> lfoInvert {}, lfoRectify {};
+        std::array<std::atomic<float>*, lfoCount> lfoQuantise {}, lfoSmooth {}, lfoPulseWidth {}, lfoSkew {};
         std::array<std::atomic<float>*, slotCount> modSource {}, modTarget {}, modAmount {}, modDelay {};
         std::atomic<float>* hostSync = nullptr;
 
@@ -142,7 +144,10 @@ namespace SuiteModulation
 
         double lfoCyclesAt(int lfo, double timeSamples, double beat, double blockStartSample) const;
 
-        /** The LFO's output at a cycle position: its waveform, moved by its Offset. */
+        /**
+            The LFO's output at a cycle position: its waveform, moved by its transforms and then by its Offset.
+            Audio thread.
+        */
         float lfoOutputAt(int lfo, double cycles) const;
 
         std::array<std::atomic<float>, maxTargets> publishedOffset {};

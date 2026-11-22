@@ -25,6 +25,7 @@ full-width **CHARACTER** group.
 |---|---|
 | **Input** | Gain into the chain, −24 to +24 dB. 0 dB leaves the level unchanged. |
 | **Output** | The final gain stage, −24 to +24 dB. 0 dB leaves the level unchanged. |
+| **Pan** | The balance after the mix (plan 17): turning right attenuates the left channel, left attenuates the right; the centre is untouched and the kept channel stays at unity. Routable as an LFO target on the MOD page. |
 
 Both are smoothed over 20 ms, so automation moves without zips.
 

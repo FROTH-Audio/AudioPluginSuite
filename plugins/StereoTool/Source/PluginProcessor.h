@@ -58,6 +58,10 @@ public:
     static constexpr const char* inputLevelId  = "inputLevel";
     static constexpr const char* outputLevelId = "outputLevel";
 
+    // Plan 17 Phase 4: the pan stage, appended after Output so no saved index moves.
+    // A balance law with exact unity at centre, so the defaults stay bit-transparent.
+    static constexpr const char* panId = "pan";
+
     // LFO 1 and LFO 2 (plan 13). The IDs are fixed by suite_modulation, so every plugin
     // saves them the same way.
     static constexpr const char* lfo1RateId      = "lfo1Rate";
@@ -77,8 +81,8 @@ public:
     static constexpr const char* modAmountIds[6] = { "mod1Amount", "mod2Amount", "mod3Amount", "mod4Amount", "mod5Amount", "mod6Amount" };
     static constexpr const char* modDelayIds[6]  = { "mod1Delay",  "mod2Delay",  "mod3Delay",  "mod4Delay",  "mod5Delay",  "mod6Delay" };
 
-    /** The 13 sound parameters plus the shared router's 34 (plan 13). */
-    static constexpr int numControls = 47;
+    /** The 13 sound parameters plus the pan (plan 17) plus the shared router's 34 (plan 13). */
+    static constexpr int numControls = 48;
 
     /** The parameters an LFO can move (plan 13). The order is part of the saved session:
         append new targets at the end, never reorder or remove. Names come from
@@ -96,6 +100,7 @@ public:
         SideCrossover,
         Input,
         Output,
+        Pan,
         count
     };
 
@@ -198,11 +203,15 @@ private:
     std::atomic<float>* sideCrossoverParam    = nullptr;
     std::atomic<float>* inputLevelParam       = nullptr;
     std::atomic<float>* outputLevelParam      = nullptr;
+    std::atomic<float>* panParam              = nullptr;
 
     // The level stage (plan 12), smoothed per sample so automation does not zip. Both
     // start at their target, so the first block is bit-exact at the 0 dB defaults.
     juce::SmoothedValue<float> inputGainSmoothed;
     juce::SmoothedValue<float> outputGainSmoothed;
+
+    // The pan stage (plan 17 Phase 4): the same 20 ms smoothing.
+    juce::SmoothedValue<float> panSmoother;
 
     // Plan 13: Mix and Drive are consumed per sample in the processing loop, so a
     // block-rate routing offset would step at every block boundary. Both ramp over 20 ms.

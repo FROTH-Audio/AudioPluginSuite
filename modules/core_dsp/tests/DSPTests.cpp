@@ -1267,7 +1267,7 @@ namespace
         assert (Mod::lfoValue (Mod::LfoShape::square, 0.75, seed) == -1.0f);
 
         // Every shape stays in [-1, 1], also for negative and large cycle counts.
-        // Covers every shape including the pendulum (index 7); the whole-cycle check below
+        // Covers every shape including the bouncing ball (index 7); the whole-cycle check below
         // stays limited to the shapes that do not depend on the cycle index.
         for (int shape = 0; shape <= 7; ++shape)
             for (double c = -5.0; c < 5.0; c += 0.01)
@@ -1276,15 +1276,28 @@ namespace
                 assert (v >= -1.0f - 1e-6f && v <= 1.0f + 1e-6f);
             }
 
-        // Pendulum: a full-amplitude periodic swing that lingers at the turnarounds. It must not
-        // decay with the cycle count, or it stops modulating once the LFO has run for a while.
-        assert (std::abs (Mod::lfoValue (Mod::LfoShape::pendulum, 0.0, seed)) < 1e-5f);
-        assert (std::abs (Mod::lfoValue (Mod::LfoShape::pendulum, 0.25, seed) - 1.0f) < 1e-4f);
-        assert (std::abs (Mod::lfoValue (Mod::LfoShape::pendulum, 0.5, seed)) < 1e-5f);
-        assert (std::abs (Mod::lfoValue (Mod::LfoShape::pendulum, 0.75, seed) + 1.0f) < 1e-4f);
-        // The same swing repeats every cycle, however many cycles have elapsed.
-        assert (std::abs (Mod::lfoValue (Mod::LfoShape::pendulum, 0.25, seed)
-                          - Mod::lfoValue (Mod::LfoShape::pendulum, 400.25, seed)) < 1e-4f);
+        // Bouncing ball (index 7, replacing the pendulum): four diminishing bounces. The
+        // ball starts each cycle at full height (+1) and rests at the bottom (-1) at the
+        // cycle's end; it must not decay with the cycle count.
+        assert (std::abs (Mod::lfoValue (Mod::LfoShape::bouncingBall, 0.0, seed) - 1.0f) < 1e-5f);
+        // p is the fractional cycle, so 0.9999 is the cycle's last moment: the ball rests
+        // at the bottom. (cycles = 1.0 is already the next cycle's start, p = 0.)
+        assert (Mod::lfoValue (Mod::LfoShape::bouncingBall, 0.9999, seed) < -0.98f);
+
+        // The four bounce humps descend strictly: the ball loses height per bounce.
+        double previousPeak = 2.0;
+        for (int hump = 0; hump < 4; ++hump)
+        {
+            double peak = -2.0;
+            for (double t = hump * 0.25; t < (hump + 1) * 0.25; t += 0.002)
+                peak = juce::jmax (peak, (double) Mod::lfoValue (Mod::LfoShape::bouncingBall, t, seed));
+            assert (peak < previousPeak);
+            previousPeak = peak;
+        }
+
+        // The same bounce repeats every cycle, however many cycles have elapsed.
+        assert (std::abs (Mod::lfoValue (Mod::LfoShape::bouncingBall, 0.25, seed)
+                          - Mod::lfoValue (Mod::LfoShape::bouncingBall, 400.25, seed)) < 1e-4f);
 
         // Whole cycles do not change the waveform (checked for the shapes that do not depend on the cycle index).
         for (int shape = 0; shape <= 3; ++shape)
@@ -1343,6 +1356,79 @@ namespace
         }
 
         std::puts ("[PASS] testModulationShapes");
+    }
+
+    // Plan 17 Phase 7: the per-LFO waveform transforms (invert, rectify, quantise, smooth, pulse
+    // width, skew) on top of the shape, before the routing offset is added.
+    void testLfoTransforms()
+    {
+        namespace Mod = CoreDSP::Modulation;
+        constexpr std::uint32_t seed = 0x51A5;
+
+        // Identity by default: the plain shape is the transforms-disabled case, bit for bit.
+        const Mod::LfoTransforms identity;
+        assert (Mod::lfoValue (Mod::LfoShape::sine, 0.25, seed, identity) > 0.99f);
+        assert (Mod::lfoValue (Mod::LfoShape::sine, 0.75, seed, identity) < -0.99f);
+        assert (Mod::lfoValue (Mod::LfoShape::sine, 0.25, seed) == Mod::lfoValue (Mod::LfoShape::sine, 0.25, seed, identity));
+
+        // Invert: the polarity toggle negates the waveform.
+        Mod::LfoTransforms invert;
+        invert.invert = true;
+        assert (Mod::lfoValue (Mod::LfoShape::sine, 0.25, seed, invert) < -0.99f);
+        assert (Mod::lfoValue (Mod::LfoShape::sine, 0.75, seed, invert) > 0.99f);
+
+        // Rectify: folds into the upper half; with invert on the pair gives the lower half.
+        Mod::LfoTransforms rectify;
+        rectify.rectify = true;
+        assert (Mod::lfoValue (Mod::LfoShape::sine, 0.75, seed, rectify) > 0.99f);   // was -1, folded to +1
+        assert (Mod::lfoValue (Mod::LfoShape::sine, 0.25, seed, rectify) > 0.99f);   // +1 stays +1
+        Mod::LfoTransforms rectifyAndInvert;
+        rectifyAndInvert.rectify = true;
+        rectifyAndInvert.invert = true;
+        assert (Mod::lfoValue (Mod::LfoShape::sine, 0.25, seed, rectifyAndInvert) < -0.99f);  // lower half
+
+        // Skew: leans the phase. Sine at phase 0.25 (peak +1) with a skew of 0.25 leans to phase 0.5, where it is 0.
+        Mod::LfoTransforms skew;
+        skew.skew = 0.25f;
+        assert (std::abs (Mod::lfoValue (Mod::LfoShape::sine, 0.25, seed, skew)) < 1e-5f);
+        Mod::LfoTransforms noSkew;
+        noSkew.skew = 0.0f;
+        assert (Mod::lfoValue (Mod::LfoShape::sine, 0.25, seed, noSkew) > 0.99f);
+
+        // Pulse width: the shape is read as a pulse, high while phase < width; 1 is the passthrough.
+        Mod::LfoTransforms pulse;
+        pulse.pulseWidth = 0.5f;
+        assert (Mod::lfoValue (Mod::LfoShape::sine, 0.25, seed, pulse) > 0.99f);
+        assert (Mod::lfoValue (Mod::LfoShape::sine, 0.75, seed, pulse) == 0.0f);
+        Mod::LfoTransforms fullPulse;
+        fullPulse.pulseWidth = 1.0f;
+        assert (Mod::lfoValue (Mod::LfoShape::sine, 0.75, seed, fullPulse) < -0.99f);
+
+        // Smooth: 0 is off and bit-exact; above 0 the sharp corner is rounded towards the
+        // interpolation between the neighbouring phases (square at 0.75 was -1, at 0.5 it is +1).
+        Mod::LfoTransforms smooth;
+        smooth.smooth = 0.5f;
+        assert (Mod::lfoValue (Mod::LfoShape::square, 0.75, seed, smooth) == -0.5f);
+        Mod::LfoTransforms noSmooth;
+        noSmooth.smooth = 0.0f;
+        assert (Mod::lfoValue (Mod::LfoShape::square, 0.75, seed, noSmooth) == -1.0f);
+
+        // Quantise: snaps to N levels over [-1, 1]; 0 is off. Three levels are -1, 0, +1, so the
+        // sine at 0.125 (0.707) snaps to the middle level, and at 0.75 (the bottom) stays.
+        Mod::LfoTransforms quantise;
+        quantise.quantiseSteps = 3.0f;
+        assert (Mod::lfoValue (Mod::LfoShape::sine, 0.125, seed, quantise) == 0.0f);
+        assert (Mod::lfoValue (Mod::LfoShape::sine, 0.75, seed, quantise) == -1.0f);
+        Mod::LfoTransforms noQuantise;
+        noQuantise.quantiseSteps = 0.0f;
+        assert (Mod::lfoValue (Mod::LfoShape::sine, 0.125, seed, noQuantise) > 0.69f);
+
+        // The routing offset is added after the transforms.
+        Mod::LfoTransforms invertOffset;
+        invertOffset.invert = true;
+        assert (Mod::withOffset (Mod::lfoValue (Mod::LfoShape::sine, 0.25, seed, invertOffset), 0.5f) == -0.5f);
+
+        std::puts ("[PASS] testLfoTransforms");
     }
 
     void testSampleAndHold()
@@ -1891,6 +1977,7 @@ int main()
     testBlendDegree();
     testTimingSwingGateVelocity();
     testModulationShapes();
+    testLfoTransforms();
     testSampleAndHold();
     testModulationTiming();
     testKeyRegionMapping();

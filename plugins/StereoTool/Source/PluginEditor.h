@@ -79,6 +79,7 @@ private:
     // LEVEL group (plan 12): beside the visualiser, so the window stays 880x700.
     SuiteUI::LabelledSlider inputCtrl  { "INPUT",  juce::Slider::RotaryVerticalDrag };
     SuiteUI::LabelledSlider outputCtrl { "OUTPUT", juce::Slider::RotaryVerticalDrag };
+    SuiteUI::LabelledSlider panCtrl    { "PAN",    juce::Slider::RotaryVerticalDrag };
 
     // The choice widgets' parameter attachments (declared after the cells, so they are
     // destroyed first — wired through SuiteUI::attachSelector / attachDropdown).
@@ -98,6 +99,7 @@ private:
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> crossoverAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> inputAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> outputAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> panAttachment;
 
     juce::Rectangle<int> characterGroupBounds, imageGroupBounds, levelGroupBounds, visualBounds;
     juce::Rectangle<int> modulationGroupBounds;

@@ -421,10 +421,12 @@ page switch holds the routing panel. The mid/side + follower preview sits at the
 | **Side Crossover** | 20 Hz – 8 kHz (log) | 200 Hz | The side filter's corner. |
 | **Input** | −24 – +24 dB | 0 dB | Gain into the chain, in the LEVEL group. |
 | **Output** | −24 – +24 dB | 0 dB | The final gain stage. |
+| **Pan** | −100 – +100 % | 0 % | The balance after the mix (plan 17): right attenuates the left, left attenuates the right; the centre is untouched. Routable as an 11th LFO target. |
+| **Pan** | −100 – +100 % | 0 % | The balance after the mix (plan 17): right attenuates the left, left attenuates the right; the centre is untouched. Routable as an 11th LFO target. |
 
-The shared router's 34 parameters (two LFOs and six routing slots) sit behind these; ten
+The shared router's 34 parameters (two LFOs and six routing slots) sit behind these; eleven
 controls are routable targets: Width, Drive, Mix, Transient Attack, Transient Release,
-Transient Amount, Mid Focus, Side Crossover, Input and Output. The editor is 720×658: the
+Transient Amount, Mid Focus, Side Crossover, Input, Output and Pan. The editor is 720×658: the
 full-width stereo visual at the top (mid/side bars and the follower trace), LEVEL and IMAGE
 in the row below, CHARACTER across the full width underneath. Controls that do not apply
 right now are dimmed: Side Crossover while the Side Filter is Off, and the follower's

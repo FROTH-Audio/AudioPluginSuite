@@ -1,0 +1,1 @@
+"C:\Program Files\Microsoft Visual Studio\18\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -S . -B build -A x64 -DSUITE_PRESET_BANK=ON --build build --config Release --parallel 8

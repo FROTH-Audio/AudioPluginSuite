@@ -1854,11 +1854,13 @@
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="Cyclical" pluginVersion="1.0.0">
-    <Meta name="Dr Rex Grid" category="Electronic" author="FROTH Audio" description="Two chopped slots play slice-per-key on a 16th grid."/>
+    <Meta name="Dr Rex Grid" category="Electronic" author="FROTH Audio" description="Two chopped slots play slice-per-key on disjoint ranges."/>
     <PARAMETERS suiteStateVersion="1" loop1Path="embedded:kick_4k.wav" loop2Path="embedded:hats_4k.wav" loop3Path="embedded:bass_4k.wav" loop4Path="embedded:perc_4k.wav">
       <PARAM id="quantize" value="1"/>
+      <PARAM id="slot1Note" value="36"/>
       <PARAM id="slot1Chop" value="1"/>
       <PARAM id="slot1Slices" value="16"/>
+      <PARAM id="slot2Note" value="64"/>
       <PARAM id="slot2Chop" value="1"/>
       <PARAM id="slot2Slices" value="8"/>
     </PARAMETERS>

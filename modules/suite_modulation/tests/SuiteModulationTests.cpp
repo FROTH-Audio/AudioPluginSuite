@@ -268,6 +268,38 @@ namespace
         pass ("testOutOfRangeIndicesDoNothing");
     }
 
+    // Plan 17 Phase 7: the per-LFO waveform transforms reach the routed LFO output and the scope.
+    void testLfoTransformsAreApplied()
+    {
+        StubProcessor stub;
+        juce::AudioProcessorValueTreeState apvts (stub, nullptr, "PARAMETERS", makeLayout());
+        SuiteModulation::Router router (apvts, targets, numTargets, "sync");
+        router.prepare (sampleRate);
+
+        setLfo (apvts, 0, 1.0f, 0.0f, false, 4.0f);  // sine, free running
+        setRoute (apvts, 0, 0, 1, 100.0f);
+        router.publish (router.computeOffsets (0.25 * sampleRate, 0.0, 0.0), 0.25 * sampleRate, 0.0);
+        assert (std::abs (router.getLfoValue (0) - 1.0f) < 1e-4);   // sine at a quarter cycle: +1
+
+        // Invert negates the waveform the routing reads.
+        set (apvts, "lfo1Invert", 1.0f);
+        router.publish (router.computeOffsets (0.25 * sampleRate, 0.0, 0.0), 0.25 * sampleRate, 0.0);
+        assert (std::abs (router.getLfoValue (0) + 1.0f) < 1e-4);
+
+        // Rectify folds into the upper half, so the inverted view is reachable without a polarity knob.
+        set (apvts, "lfo1Invert", 0.0f);
+        set (apvts, "lfo1Rectify", 1.0f);
+        router.publish (router.computeOffsets (0.25 * sampleRate, 0.0, 0.0), 0.25 * sampleRate, 0.0);
+        assert (std::abs (router.getLfoValue (0) - 1.0f) < 1e-4);
+
+        // All transforms off again: the plain shape.
+        set (apvts, "lfo1Rectify", 0.0f);
+        router.publish (router.computeOffsets (0.25 * sampleRate, 0.0, 0.0), 0.25 * sampleRate, 0.0);
+        assert (std::abs (router.getLfoValue (0) - 1.0f) < 1e-4);
+
+        pass ("testLfoTransformsAreApplied");
+    }
+
     void testControlDisplayShowsValueWithoutNotifying()
     {
         StubProcessor stub;
@@ -336,6 +368,7 @@ int main()
     testSyncedPeriodIsOneBarEveryFourBeats();
     testSampleAndHoldHoldsOneValuePerCycle();
     testOutOfRangeIndicesDoNothing();
+    testLfoTransformsAreApplied();
     testControlDisplayShowsValueWithoutNotifying();
     testPanelPreferredHeightFitsItsRows();
 

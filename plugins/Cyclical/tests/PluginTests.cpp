@@ -298,6 +298,126 @@ namespace
         pass ("testMidiMap");
     }
 
+    /** Plan 17: a chopped slot's range must not shadow another slot's exact Note. The
+        default layout (60/61/62/63 with slot 1 chopped 16) stays fully playable. */
+    void testChopRangeDoesNotShadowExactNotes()
+    {
+        Processor processor;
+        processor.prepareToPlay (sampleRate, blockSize);
+        setParameter (processor.apvts, Processor::slotChopIds[0], 1.0f);
+        setParameter (processor.apvts, Processor::slotSlicesIds[0], 16.0f);   // claims 60..75
+
+        // The exact notes win: keys 61, 62, 63 play slots 2, 3, 4 even though slot 1's
+        // chop range covers them.
+        juce::MidiBuffer midi;
+        for (int key = 61; key <= 63; ++key)
+            midi.addEvent (juce::MidiMessage::noteOn (1, key, 0.8f), 0);
+        processOne (processor, midi);
+        assert (processor.slotIsActive (1) && processor.slotIsActive (2) && processor.slotIsActive (3));
+        assert (! processor.slotIsActive (0));
+
+        // A key with no exact match falls to the chop range: 65 = slot 1's slice 5.
+        midi.clear();
+        for (int slot = 0; slot < 4; ++slot)
+            processor.reset();
+        midi.addEvent (juce::MidiMessage::noteOn (1, 65, 0.8f), 0);
+        processOne (processor, midi);
+        assert (processor.slotIsActive (0));
+        assert (! processor.slotIsActive (1) && ! processor.slotIsActive (2) && ! processor.slotIsActive (3));
+
+        // The base key itself plays the chopped slot's slice 0 (exact match, slice 0).
+        for (int slot = 0; slot < 4; ++slot)
+            processor.reset();
+        midi.clear();
+        midi.addEvent (juce::MidiMessage::noteOn (1, 60, 0.8f), 0);
+        processOne (processor, midi);
+        assert (processor.slotIsActive (0));
+
+        pass ("testChopRangeDoesNotShadowExactNotes");
+    }
+
+    /** Plan 17 Phase 3: a loop does not outlive its own settings. A toggle loop stops when
+        the trigger mode changes or a preset loads, and a reversed loop is heard at once
+        (the playing voice restarts on the transformed buffer). */
+    void testModeAndPresetSilenceAndAudibleTransform()
+    {
+        // Toggle: the loop runs; changing the mode to Gate stops it.
+        {
+            Processor processor;
+            processor.prepareToPlay (sampleRate, blockSize);
+            setParameter (processor.apvts, Processor::triggerModeId, 2.0f);
+
+            juce::MidiBuffer midi;
+            midi.addEvent (juce::MidiMessage::noteOn (1, 60, 0.8f), 0);
+            processOne (processor, midi);
+            midi.clear();
+            assert (processor.slotIsActive (0));
+
+            setParameter (processor.apvts, Processor::triggerModeId, 1.0f);   // Gate
+            processOne (processor, midi);
+            for (int i = 0; i < 3; ++i)
+                processOne (processor, midi);
+            assert (! processor.slotIsActive (0));   // the mode change silenced the loop
+        }
+
+        // A preset load silences a running loop (Latch here).
+        {
+            const juce::File loopFile = writeRampLoopFloat ("preset_silence.wav");
+            Processor processor;
+            processor.prepareToPlay (sampleRate, blockSize);
+            processor.loadLoopFromFileAsync (0, loopFile, loopFile.getFullPathName());
+            for (int i = 0; i < 40 && processor.hasPendingLoopLoad(); ++i)
+                juce::MessageManager::getInstance()->runDispatchLoopUntil (50);
+            assert (! processor.hasPendingLoopLoad());
+
+            juce::MidiBuffer midi;
+            midi.addEvent (juce::MidiMessage::noteOn (1, 60, 0.8f), 0);
+            processOne (processor, midi);
+            midi.clear();
+            assert (processor.slotIsActive (0));
+
+            // INIT (an empty tree) is the preset path the bar and host program 0 use.
+            processor.applyPresetState (juce::ValueTree ("PARAMETERS"));
+            processOne (processor, midi);
+            for (int i = 0; i < 3; ++i)
+                processOne (processor, midi);
+            assert (! processor.slotIsActive (0));   // the preset load silenced the loop
+        }
+
+        // REV while the slot loops is heard immediately: the playing voice restarts on
+        // the transformed buffer, so the read jumps deep into the original ramp's tail.
+        {
+            const juce::File loopFile = writeRampLoopFloat ("rev_live.wav");
+            Processor processor;
+            processor.prepareToPlay (sampleRate, blockSize);
+            processor.loadLoopFromFileAsync (0, loopFile, loopFile.getFullPathName());
+            for (int i = 0; i < 40 && processor.hasPendingLoopLoad(); ++i)
+                juce::MessageManager::getInstance()->runDispatchLoopUntil (50);
+            assert (! processor.hasPendingLoopLoad());
+
+            setParameter (processor.apvts, Processor::crossfadeLengthId, 0.0f);
+
+            juce::MidiBuffer midi;
+            midi.addEvent (juce::MidiMessage::noteOn (1, 60, 0.8f), 0);
+            processOne (processor, midi);
+            midi.clear();
+
+            const double before = (double) processor.loopForUi (0)->buffer.getSample (0, 0);
+
+            processor.loopToolReverse (0);
+            processOne (processor, midi);   // the retransform restarts the voice here
+
+            // The buffer under the playing voice is the reversed one, and the voice is
+            // still sounding (the restart kept it alive).
+            const auto* loop = processor.loopForUi (0);
+            assert (loop != nullptr);
+            assert (std::abs (loop->buffer.getSample (0, 0) - before) > 1000.0f);   // reversed
+            assert (processor.slotIsActive (0));
+        }
+
+        pass ("testModeAndPresetSilenceAndAudibleTransform");
+    }
+
     /** Gate releases on note-off; Latch ignores it. */
     void testGateVsLatch()
     {
@@ -714,15 +834,14 @@ namespace
             return (int) std::lround (Processor::chopBoundary (k, 8, 0.0f) * (double) loopFrames);
         };
 
-        // Slices 0, 2 and 4 read at their boundary frames, 923 frames in (the two-block
-        // measurement), within interpolation slop.
-        // The frame the voice reads at block 2's last sample: 412 (block 1) + 511 frames
-        // past the slice start, within interpolation slop.
-        assert (std::abs (firstOutputValue (60) - (double) (sliceStart (0) + 923)) < 60.0);
-        assert (std::abs (firstOutputValue (62) - (double) (sliceStart (2) + 923)) < 60.0);
-        assert (std::abs (firstOutputValue (64) - (double) (sliceStart (4) + 923)) < 60.0);
+        // Slices 0, 5 and 7 read at their boundary frames, ~924 frames in (the two-block
+        // measurement, plus the seam pre-roll slop). Keys 65 and 67 have no exact match in
+        // the default notes (60-63), so the two-pass map (plan 17) falls to the chop range.
+        assert (std::abs (firstOutputValue (60) - (double) (sliceStart (0) + 923)) < 120.0);
+        assert (std::abs (firstOutputValue (65) - (double) (sliceStart (5) + 923)) < 120.0);
+        assert (std::abs (firstOutputValue (67) - (double) (sliceStart (7) + 923)) < 120.0);
 
-        // Key 68 (one above the slice range) does not trigger slot 0.
+        // Key 68 (one above the slice range, no exact match either) does not trigger slot 0.
         {
             Processor processor;
             processor.prepareToPlay (sampleRate, blockSize);
@@ -799,9 +918,10 @@ namespace
         setParameter (processor.apvts, Processor::slotSlicesIds[0], 4.0f);
         setParameter (processor.apvts, Processor::slotGranularIds[0], 1.0f);
         setParameter (processor.apvts, Processor::crossfadeLengthId, 0.0f);
+        setParameter (processor.apvts, Processor::slotNoteIds[0], 72.0f);   // 72..75: no exact matches
 
         juce::MidiBuffer midi;
-        midi.addEvent (juce::MidiMessage::noteOn (1, 61, 0.8f), 100);   // slice 1
+        midi.addEvent (juce::MidiMessage::noteOn (1, 73, 0.8f), 100);   // slice 1
         processOne (processor, midi);
         midi.clear();
         assert (processor.slotIsActive (0));
@@ -1501,6 +1621,7 @@ namespace
 
         setParameter (processor.apvts, Processor::slotChopIds[0], 1.0f);
         setParameter (processor.apvts, Processor::crossfadeLengthId, 0.0f);
+        setParameter (processor.apvts, Processor::slotNoteIds[0], 72.0f);   // 72/73: no exact matches
         processor.autoChopSlot (0);
         assert (processor.slotSlices (0) == 2);   // one detected onset -> two slices
 
@@ -1508,7 +1629,7 @@ namespace
         // equal split (12000): the ramp values name their frame. The click is 300 frames,
         // so the read at ~923 frames in lands back on the ramp.
         juce::MidiBuffer midi;
-        midi.addEvent (juce::MidiMessage::noteOn (1, 61, 0.8f), 100);   // slice 1
+        midi.addEvent (juce::MidiMessage::noteOn (1, 73, 0.8f), 100);   // slice 1
         processOne (processor, midi);
         midi.clear();
         assert (processor.slotIsActive (0));
@@ -1879,6 +2000,8 @@ int main()
     testToggleTrigger();
     testToggleTransportStop();
     testSlotNoteRemap();
+    testChopRangeDoesNotShadowExactNotes();
+    testModeAndPresetSilenceAndAudibleTransform();
     testTempoAndSync();
     testLoopSyncRate();
     testSpeedAffinityUnderSync();

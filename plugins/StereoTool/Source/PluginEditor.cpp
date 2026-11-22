@@ -92,6 +92,11 @@ StereoToolEditor::StereoToolEditor (StereoToolProcessor& p)
     inputAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (apvts, StereoToolProcessor::inputLevelId, inputCtrl.slider);
     outputAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (apvts, StereoToolProcessor::outputLevelId, outputCtrl.slider);
 
+    // The pan stage (plan 17 Phase 4): a balance knob, appended so no index moves.
+    panCtrl.slider.setNumDecimalPlacesToDisplay (1);
+    panCtrl.slider.setTextValueSuffix (" %");
+    panAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (apvts, StereoToolProcessor::panId, panCtrl.slider);
+
     // Help text on every control (plan 12); the footer sentence is the help line's idle text.
     SuiteUI::describe (driveCtrl, "Gain before the character stage. 0 dB is transparent.");
     SuiteUI::describe (attackCtrl, "How fast the transient follower rises. Inert at Amount 0.");
@@ -106,12 +111,14 @@ StereoToolEditor::StereoToolEditor (StereoToolProcessor& p)
     SuiteUI::describe (filterCell, "Filters the side component only. Off is a true bypass.");
     SuiteUI::describe (inputCtrl, "Gain before the chain. 0 dB leaves the level unchanged.");
     SuiteUI::describe (outputCtrl, "The final gain stage. 0 dB leaves the level unchanged.");
+    SuiteUI::describe (panCtrl, "The balance after the mix. Left and right shift the kept channel; the centre is untouched.");
     SuiteUI::describe (visualizer, "Mid and side levels, and the transient follower's envelope.");
     visualizer.setComponentID ("stereotool-preview");
     SuiteUI::describe (pageSelector, "SOUND: the stereo controls. MOD: the two LFOs and the six routing slots.");
 
     addAndMakeVisible (inputCtrl);
     addAndMakeVisible (outputCtrl);
+    addAndMakeVisible (panCtrl);
 
     for (auto* component : { static_cast<juce::Component*> (&driveCtrl), static_cast<juce::Component*> (&attackCtrl),
                              static_cast<juce::Component*> (&releaseCtrl), static_cast<juce::Component*> (&amountCtrl),
@@ -136,6 +143,7 @@ StereoToolEditor::StereoToolEditor (StereoToolProcessor& p)
             { crossoverCtrl.slider,   (int) Target::SideCrossover },
             { inputCtrl.slider,       (int) Target::Input },
             { outputCtrl.slider,      (int) Target::Output },
+            { panCtrl.slider,         (int) Target::Pan },
         });
 
     addAndMakeVisible (headerMenu);
@@ -279,14 +287,18 @@ void StereoToolEditor::layoutSoundPage (juce::Rectangle<int> area)
     visualBounds = area;
     visualizer.setBounds (visualBounds);
 
-    // LEVEL: two knobs in the group's top row (owner finding, plan 13), so the captions
-    // sit at the top of the group and the shared row height's spare space stays below.
+    // LEVEL: three knobs — INPUT/OUTPUT in the top row (owner finding, plan 13), PAN
+    // beneath them (plan 17 Phase 4). The captions sit at the top of the group.
     {
         auto inner = levelGroupBounds.withTrimmedTop (groupTitleHeight + 4).reduced (10, 4);
         auto row1 = inner.removeFromTop (SuiteUI::knobRowHeight);
         const int cellWidth = row1.getWidth() / 2;
         inputCtrl.setBounds (row1.removeFromLeft (cellWidth).reduced (3));
         outputCtrl.setBounds (row1.reduced (3));
+
+        inner.removeFromTop (groupGap);
+        auto row2 = inner.removeFromTop (SuiteUI::knobRowHeight);
+        panCtrl.setBounds (row2.removeFromLeft (cellWidth).reduced (3));
     }
 
     // CHARACTER: character, drive, attack, release / amount, target.

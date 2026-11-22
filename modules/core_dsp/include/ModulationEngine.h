@@ -24,7 +24,7 @@ namespace CoreDSP::Modulation
         sampleAndHold = 4,
         random = 5,
         noise = 6,
-        pendulum = 7,
+        bouncingBall = 7,
         count
     };
 
@@ -36,18 +36,23 @@ namespace CoreDSP::Modulation
     }
 
     /**
-     * Output in [-1, 1] for a number of elapsed cycles.
-     *
-     * Sine: sin(2 pi p). Triangle: 1 - 4|p - 0.5|, starting at -1. Saw: 2p - 1, rising.
-     * Square: +1 for p < 0.5, otherwise -1.
-     * Sample and hold: one random level per cycle, held until the next cycle.
-     * Random: eight grid points per cycle, each with its own random level, joined by straight lines. It
-     * wanders without repeating, and each cycle has a different shape.
-     * Noise: thirty-two uncorrelated random levels per cycle, each held until the next. There is no
-     * shape to see, only the randomness, so it moves like noise.
-     * Both shapes use the cycle count as a time axis, so they do not repeat. Here p is the fractional part of the cycle count.
+        Per-LFO waveform transforms (plan 17 Phase 7). Every field defaults to identity, so a
+        waveform read without transforms is bit-exact.
+    */
+    struct LfoTransforms
+    {
+        bool invert = false;         // polarity toggle: the waveform is negated
+        bool rectify = false;        // fold into the upper half: |value|; with invert on, the lower half
+        float quantiseSteps = 0.0f; // 0 = off; above 0 the value is quantised to that many levels over [-1, 1]
+        float smooth = 0.0f;         // 0 = off; above 0 sharp corners are rounded (strength, 0 to 1)
+        float pulseWidth = 0.0f;     // 0 = off; above 0 the shape is read as a pulse, high while phase < width
+        float skew = 0.0f;           // phase lean in cycles, 0 = off
+    };
+
+    /**
+     * The raw waveform value in [-1, 1] for a shape at a cycle position.
      */
-    inline float lfoValue (LfoShape shape, double cycles, std::uint32_t seed) noexcept
+    inline float shapeValue (LfoShape shape, double cycles, std::uint32_t seed) noexcept
     {
         const double cycleFloor = std::floor (cycles);
         const double p = cycles - cycleFloor;
@@ -85,15 +90,15 @@ namespace CoreDSP::Modulation
             case LfoShape::noise:
                 return gridLevel (seed + 0x9E37u, std::floor (cycles * 32.0));
 
-            case LfoShape::pendulum:
+            case LfoShape::bouncingBall:
             {
-                // A pendulum swing: the motion lingers at the ends of the arc and runs fastest
-                // through the centre, the way a real pendulum slows at its turnarounds. It repeats
-                // every cycle at full amplitude. The earlier version scaled the swing by
-                // exp(-|cycles|/4), which decayed with the unbounded cycle count and fell silent
-                // after a few cycles (no modulation), while one fixed cycle was all the scope drew.
-                const double swing = std::sin (2.0 * 3.14159265358979323846 * p);
-                return (float) (1.5 * swing - 0.5 * swing * swing * swing);
+                // A bouncing ball: four diminishing bounces across the cycle — the ball drops
+                // from full height (+1), each bounce lower than the last, and rests at the
+                // bottom (-1) at the cycle's end — then re-drops every cycle, so it keeps
+                // modulating at full amplitude. The earlier shape at this index was the
+                // pendulum swing (1.5s - 0.5s³), which the owner replaced.
+                const double bounces = std::cos (2.0 * 3.14159265358979323846 * 4.0 * p);
+                return (float) ((1.0 - p) * std::abs (bounces) * 2.0 - 1.0);
             }
 
             case LfoShape::count:
@@ -101,6 +106,59 @@ namespace CoreDSP::Modulation
         }
 
         return 0.0f;
+    }
+
+    /**
+     * Output in [-1, 1] for a number of elapsed cycles, after the per-LFO transforms and before the
+     * routing offset is added. The plain shape is the transforms-disabled case, so the existing call
+     * sites and tests keep their meaning.
+     */
+    inline float lfoValue (LfoShape shape, double cycles, std::uint32_t seed, const LfoTransforms& transforms) noexcept
+    {
+        const double cycleFloor = std::floor (cycles);
+        double p = cycles - cycleFloor;
+
+        if (transforms.skew != 0.0f)
+            p = std::fmod (p + static_cast<double> (transforms.skew), 1.0);
+
+        float value = shapeValue (shape, cycleFloor + p, seed);
+
+        if (transforms.rectify)
+            value = std::abs (value);
+        if (transforms.invert)
+            value = -value;
+
+        if (transforms.pulseWidth > 0.0f)
+            value = (p < static_cast<double> (transforms.pulseWidth)) ? value : 0.0f;
+
+        if (transforms.smooth > 0.0f)
+        {
+            // Round sharp corners: blend the value at p with the linear interpolation between the
+            // values at p - window and p + window, weighted by the smoothing strength.
+            constexpr double cornerWindow = 0.25;
+            const double pLow = std::max (0.0, p - cornerWindow);
+            const double pHigh = std::min (1.0, p + cornerWindow);
+            const float valueLow = shapeValue (shape, cycleFloor + pLow, seed);
+            const float valueHigh = shapeValue (shape, cycleFloor + pHigh, seed);
+            const float interpolated = valueLow + (valueHigh - valueLow) * static_cast<float> ((p - pLow) / (pHigh - pLow));
+            value = static_cast<float> (transforms.smooth) * interpolated + (1.0f - static_cast<float> (transforms.smooth)) * value;
+        }
+
+        if (transforms.quantiseSteps > 0.0f)
+        {
+            int levels = static_cast<int> (std::round (transforms.quantiseSteps));
+            levels = std::max (2, std::min (16, levels));
+            const float index = std::round ((value + 1.0f) / 2.0f * static_cast<float> (levels - 1));
+            const int snapped = static_cast<int> (std::clamp (index, 0.0f, static_cast<float> (levels - 1)));
+            value = -1.0f + 2.0f * static_cast<float> (snapped) / static_cast<float> (levels - 1);
+        }
+
+        return value;
+    }
+
+    inline float lfoValue (LfoShape shape, double cycles, std::uint32_t seed) noexcept
+    {
+        return lfoValue (shape, cycles, seed, LfoTransforms ());
     }
 
     /**

@@ -159,6 +159,7 @@ SCHEMA = {
         "width": {"min": -100.0, "max": 100.0, "default": 0.0, "type": "float"},
         "drive": {"min": -24.0, "max": 24.0, "default": 0.0, "type": "float"},
         "mix": {"min": 0.0, "max": 100.0, "default": 100.0, "type": "float"},
+        "pan": {"min": -100.0, "max": 100.0, "default": 0.0, "type": "float"},
         "character": {"min": 0, "max": 4, "default": 0, "type": "choice"},
         "transientAttack": {"min": 1.0, "max": 200.0, "default": 5.0, "type": "float"},
         "transientRelease": {"min": 20.0, "max": 2000.0, "default": 150.0, "type": "float"},
@@ -550,9 +551,9 @@ PRESETS = {
                 triggerMode=1, quantize=2, swing=18.0, slot4Granular=1),
         # Plan 14: the new concept - chop with Slice Length, BPM sync with Beats, Toggle
         # trigger, per-slot notes.
-        _preset("Dr Rex Grid", "Electronic", "Two chopped slots play slice-per-key on a 16th grid.",
+        _preset("Dr Rex Grid", "Electronic", "Two chopped slots play slice-per-key on disjoint ranges.",
                 loop_paths=["embedded:kick_4k.wav", "embedded:hats_4k.wav", "embedded:bass_4k.wav", "embedded:perc_4k.wav"],
-                quantize=1, slot1Chop=1, slot1Slices=16, slot2Chop=1, slot2Slices=8),
+                quantize=1, slot1Note=36, slot1Chop=1, slot1Slices=16, slot2Note=64, slot2Chop=1, slot2Slices=8),
         _preset("Late Slices", "Experimental", "A chopped pad whose late slices stretch out.",
                 loop_paths=["embedded:chord_4k.wav", "embedded:drone_4k.wav", "embedded:texture_4k.wav", "embedded:noise_4k.wav"],
                 slot1Chop=1, slot1Slices=8, slot1SliceLength=60.0, slot1Note=48),

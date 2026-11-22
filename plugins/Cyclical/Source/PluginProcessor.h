@@ -283,6 +283,27 @@ private:
     // reverse tool acts on, -1 = none (whole loop). Message thread only.
     std::array<int, numSlots> selectedSlices { -1, -1, -1, -1 };
 
+    // The last trigger's channel, velocity and slice per slot (plan 17 Phase 3): the
+    // transformation tools retrigger the playing voice with the same articulation. Audio
+    // thread writes, message thread reads.
+    std::array<std::atomic<int>, numSlots> lastTriggerChannel {};
+    std::array<std::atomic<int>, numSlots> lastTriggerSlice {};
+    std::array<std::atomic<float>, numSlots> lastTriggerVelocity {};
+
+    // Plan 17 Phase 3: the trigger mode of the previous block (audio thread only). A mode
+    // change stops every voice and clears the toggle state.
+    int lastBlockTriggerMode = -1;
+
+    // Set from the message thread (plan 17 Phase 3): the next processBlock stops every
+    // voice and clears the toggle state (a preset or state load just replaced the
+    // parameters, so a running loop would outlive its own settings).
+    std::atomic<bool> stopAllVoicesPending { false };
+
+    // Set from the message thread (plan 17 Phase 3): the next processBlock restarts the
+    // slot's playing voice on the freshly transformed loop, with the articulation it
+    // started with (Latch/Toggle only — a Gate press plays the transform).
+    std::array<std::atomic<bool>, numSlots> retransformPending {};
+
     /** Starts (or restarts) a slot's voice at a block-relative sample. */
     void startSlotVoice (int slot, int channel, float velocity, int sampleInBlock, int slice = 0);
     void releaseSlotVoice (int slot);

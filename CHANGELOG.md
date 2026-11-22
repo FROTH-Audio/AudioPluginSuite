@@ -7,6 +7,11 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Plan 17 — the fourth DAW-test round (`owner_findings.md`), first phases implemented and verified:
+  - **The Cyclical key map is fixed** (the owner's "each note plays slot 1 only"): a chopped slot's key range shadowed the other slots' base notes. An exact Note match now always wins; a chop range claims only the keys no other slot claims. The Dr Rex Grid preset got disjoint ranges.
+  - **Cyclical loops no longer outlive their settings**: a trigger-mode change or a preset/state load silences every voice and clears the toggle state (a loop started under Toggle kept looping after the mode read Gate). **REV/NORM are heard immediately** — the playing voice restarts on the transformed buffer with the articulation it started with.
+  - **Bouncing Ball replaces Pendulum** as LFO shape index 7 (the owner found the pendulum confusing): the ball drops from full height, each of four bounces lower, rests at the bottom at the cycle's end, and re-drops every cycle at full amplitude.
+  - **Stereo Tool gains a Pan knob** (−100…+100 %) in the LEVEL group and **Pan as an 11th LFO target**: a balance law with exact unity at centre, so the plugin stays bit-transparent at the defaults.
 - Plan 16 — the Cyclical chop workflow (the plan-14 review round), implemented and verified:
   - **Auto-chop at transients**: the AUTO button analyses the loaded loop's region and slices at the onsets instead of equally — rises through 15 % of the loop's peak, merged closer than 100 ms, capped at 16 slices — and every slice then starts on a hit. The detected boundaries travel with the session (`chopNBounds` state properties).
   - **Slice re-arranging**: an arrangement strip along the bottom of each chopped slot's region band shows which source slice every key plays; **left-click cycles** a cell (cycling back to the identity clears it), and key k then plays the slice the arrangement names. Travels with the session (`chopNOrder`).

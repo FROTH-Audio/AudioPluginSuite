@@ -352,6 +352,29 @@ void CyclicalProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mi
     // the map, Phase 3). Other notes are ignored; so is every non-note event.
     const int triggerMode = juce::jlimit (0, 2, (int) (triggerModeParam->load() + 0.5f));   // latch, gate, toggle
     const bool gateMode = triggerMode == 1;
+
+    // Plan 17 Phase 3: a trigger-mode change stops every voice and clears the toggle state
+    // (the owner's "never stops, even if I change mode": a loop started under Toggle kept
+    // looping after the mode read Gate). A preset/state load raises the same command.
+    if (triggerMode != lastBlockTriggerMode || stopAllVoicesPending.exchange (false))
+    {
+        for (auto& state : slotStates)
+            for (auto& voice : state.voices)
+                voice.reset();
+        std::fill (toggledOn.begin(), toggledOn.end(), false);
+    }
+    lastBlockTriggerMode = triggerMode;
+
+    // Plan 17 Phase 3: a transformed loop restarts the slot's playing voice with the
+    // articulation it started with (Latch/Toggle only).
+    for (int slot = 0; slot < numSlots; ++slot)
+        if (retransformPending[(size_t) slot].exchange (false, std::memory_order_acq_rel))
+            startSlotVoice (slot,
+                            lastTriggerChannel[(size_t) slot].load (std::memory_order_relaxed),
+                            lastTriggerVelocity[(size_t) slot].load (std::memory_order_relaxed),
+                            0,
+                            lastTriggerSlice[(size_t) slot].load (std::memory_order_relaxed));
+
     static constexpr double grids[6] = { 0.0, 0.25, 0.5, 1.0, 2.0, 4.0 };
     const double grid = grids[juce::jlimit (0, 5, (int) (quantizeParam->load() + 0.5f))];
     const float swingNorm = juce::jlimit (-0.2f, 0.2f, swingParam->load() / 100.0f);
@@ -631,6 +654,9 @@ void CyclicalProcessor::startSlotVoice (int slot, int channel, float velocity, i
     state.voices[0].start (view, regionFor (slot, view, slice), pitchRatio, gain,
                            triggerCounter.fetch_add (1, std::memory_order_relaxed));
     state.renderFrom[0] = sampleInBlock;
+    lastTriggerChannel[(size_t) slot].store (channel, std::memory_order_relaxed);
+    lastTriggerVelocity[(size_t) slot].store (velocity, std::memory_order_relaxed);
+    lastTriggerSlice[(size_t) slot].store (slice, std::memory_order_relaxed);
 }
 
 void CyclicalProcessor::releaseSlotVoice (int slot)
@@ -657,20 +683,23 @@ int CyclicalProcessor::slotNote (int slot) const
 
 int CyclicalProcessor::slotForNote (int key) const
 {
+    // Two passes (plan 17): an exact Note match wins BEFORE any chop range, so a chopped
+    // slot 1 does not shadow the slots whose base notes sit inside its claimed span. The
+    // default layout (60/61/62/63 with slot 1 chopped) stays fully playable; only keys with
+    // no exact match fall to the chop ranges.
+    for (int slot = 0; slot < numSlots; ++slot)
+        if (key == slotNote (slot))
+            return slot;
+
     for (int slot = 0; slot < numSlots; ++slot)
     {
-        const int base = slotNote (slot);
+        if (! slotChopped (slot))
+            continue;
 
-        if (slotChopped (slot))
-        {
-            // A chopped slot claims base .. base + slices - 1 (slice k on base + k).
-            if (key >= base && key < base + slotSlices (slot))
-                return slot;
-        }
-        else if (key == base)
-        {
+        // A chopped slot claims base .. base + slices - 1 (slice k on base + k).
+        const int base = slotNote (slot);
+        if (key > base && key < base + slotSlices (slot))
             return slot;
-        }
     }
 
     return -1;
@@ -922,6 +951,15 @@ void CyclicalProcessor::installTransformedLoop (int slot, const juce::AudioBuffe
 
     slotStates[(size_t) slot].loop.install (std::move (loop));
     pendingTriggers[(size_t) slot] = {};
+
+    // Plan 17 Phase 3: a transform is heard immediately — the audio thread restarts the
+    // playing voice on the transformed loop with the articulation it started with
+    // (otherwise the old source plays until the next trigger, which the owner read as
+    // "no effect"). Gate slots wait for the next press (a restart with no held key would
+    // loop forever under Gate).
+    if (slotStates[(size_t) slot].voices[0].isActive()
+        && juce::jlimit (0, 2, (int) (triggerModeParam->load() + 0.5f)) != 1)
+        retransformPending[(size_t) slot].store (true, std::memory_order_release);
 }
 
 void CyclicalProcessor::loopToolReverse (int slot)
@@ -1257,6 +1295,10 @@ void CyclicalProcessor::setStateInformation (const void* data, int sizeInBytes)
     // The loop references ride as properties on the replaced state; resolve them.
     applyLoopsFromState (apvts.state);
 
+    // Plan 17 Phase 3: the parameters just changed, so a running loop would outlive its
+    // own settings — the next block silences every voice and clears the toggle state.
+    stopAllVoicesPending.store (true, std::memory_order_release);
+
     // The preset identity rides as a property (plan 09 1.4): restore it from the replaced
     // state. A session without the property reads as Init.
     lastPresetSelection = SuitePresets::decodePresetSelection (
@@ -1287,6 +1329,11 @@ void CyclicalProcessor::applyPresetState (const juce::ValueTree& tree)
         // The caller (the bar or the host program bridge) re-states the selection right
         // after, when it knows the preset.
         lastPresetSelection = {};
+
+        // Plan 17 Phase 3: the parameters just changed — a running loop would outlive its
+        // own settings (the owner's "never stops, even if I change preset"). The next
+        // block silences every voice and clears the toggle state.
+        stopAllVoicesPending.store (true, std::memory_order_release);
 
 #if SUITE_PRESET_BANK_AS_PROGRAMS
         // A preset applied from the bar or a file is no longer one of the host programs.
