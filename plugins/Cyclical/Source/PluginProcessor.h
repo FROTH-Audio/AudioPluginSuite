@@ -82,6 +82,21 @@ public:
     static constexpr const char* loop4PathProperty { "loop4Path" };
     static constexpr const char* embeddedUriPrefix { "embedded:" };
 
+    // Plan 14 post-review: the auto-chop boundaries. One comma-separated share list per
+    // slot (the lerpCurve pattern), written by the transient analyser, cleared when the
+    // user moves Slices or Slice Length. Brace-initialised for the same reason.
+    static constexpr const char* chop1BoundsProperty { "chop1Bounds" };
+    static constexpr const char* chop2BoundsProperty { "chop2Bounds" };
+    static constexpr const char* chop3BoundsProperty { "chop3Bounds" };
+    static constexpr const char* chop4BoundsProperty { "chop4Bounds" };
+
+    // Plan 16 Phase 2: the slice arrangement. One comma-separated permutation per slot:
+    // key k plays the slice the order names. Empty = the slices play in order.
+    static constexpr const char* chop1OrderProperty { "chop1Order" };
+    static constexpr const char* chop2OrderProperty { "chop2Order" };
+    static constexpr const char* chop3OrderProperty { "chop3Order" };
+    static constexpr const char* chop4OrderProperty { "chop4Order" };
+
     /** The embedded defaults the INIT state installs into slots 1-4. */
     static constexpr const char* defaultLoopNames[] = { "kick", "hats", "bass", "chord" };
 
@@ -136,6 +151,28 @@ public:
     juce::String loopPath (int slot) const;
     static juce::String loopPathPropertyId (int slot);
 
+    // ---- Auto-chop (plan 16 Phase 1) ----------------------------------------------------
+    /** The interior slice-boundary shares of one slot, parsed from the state property.
+        Empty when the slot uses the plan-14 equal/skew split. */
+    std::vector<float> chopBounds (int slot) const;
+
+    /** Message thread. The transient analyser (the AUTO button): detects onsets on the
+        slot's loaded loop region, sets Slices to the count, and writes the boundary shares
+        so every slice starts on a hit. */
+    void autoChopSlot (int slot);
+
+    /** The slot's slice arrangement, parsed from the state property. Empty = identity
+        (the slices play in order). */
+    std::vector<int> chopOrder (int slot) const;
+
+    /** Message thread. Cycles the arrangement's entry at key index: the step-cell click
+        (plan 16 Phase 2). Only live in chop mode. */
+    void cycleSliceOrder (int slot, int index);
+
+    /** Message thread. Writes the arrangement property (the tests use it; a preset may
+        carry it too). */
+    void setChopOrderProperty (int slot, const std::vector<int>& order);
+
     /** Message thread. Resolves the four loop references of a <PARAMETERS> tree: an empty
         tree is INIT (all slots back to their embedded defaults), an embedded: URI loads the
         resource, an existing file loads asynchronously, a missing file searches the user
@@ -173,6 +210,11 @@ public:
 
     /** The musical length of the slot's whole loaded loop, in beats (plan 14). */
     int slotBeats (int slot) const;
+
+    /** The interior chop boundary shares a slot plays right now: the auto-chop property
+        when its count matches Slices, the plan-14 power curve otherwise. The editor's
+        waveform draws exactly these. */
+    std::vector<float> activeChopBounds (int slot) const;
 
     /** True when the slot is chopped: its keys then cover slotNote .. slotNote + slices − 1. */
     bool slotChopped (int slot) const;
@@ -311,8 +353,28 @@ private:
     std::array<std::shared_ptr<std::atomic<bool>>, numSlots> loadAliveTokens;
     std::array<std::shared_ptr<juce::Atomic<int>>, numSlots> loadGenerators;
 
+    /** Clears one slot's auto-chop boundaries when the user edits Slice Length (plan 16:
+        a manual edit falls back to the equal/skew split). Message thread. */
+    struct ChopBoundsClearer : juce::AudioProcessorValueTreeState::Listener
+    {
+        explicit ChopBoundsClearer (CyclicalProcessor& o) : owner (o) {}
+
+        void parameterChanged (const juce::String& parameter, float) override
+        {
+            for (int slot = 0; slot < numSlots; ++slot)
+                if (parameter == slotSliceLengthIds[(size_t) slot])
+                    owner.setChopBoundsProperty (slot, {});
+        }
+
+        CyclicalProcessor& owner;
+    };
+    ChopBoundsClearer chopBoundsClearer { *this };
+
     void finishLoopLoad (int slot, std::unique_ptr<LoadedLoop> loop, const juce::String& pathToSave);
     void setLoopPathProperty (int slot, const juce::String& path);
+    void setChopBoundsProperty (int slot, const std::vector<float>& shares);
+    juce::String chopBoundsPropertyId (int slot) const;
+    juce::String chopOrderPropertyId (int slot) const;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (CyclicalProcessor)
 };

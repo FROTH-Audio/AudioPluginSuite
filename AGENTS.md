@@ -732,6 +732,7 @@ If you add a new consumer, use `suite_ui_add_to_target`. Do not add `SuiteUI` to
 ## 10. Open items and known risks
 
 - **MicroTiming DAW load:** the reported failure is not reproduced. JUCE's VST3 host loads and opens it, both before and after the stereo bus change. The remedy applied (stereo pass-through) is a best guess. If it still fails in a DAW, ask for the DAW name, its scanner log, and the exact error.
+- **Ableton's VST3 cache (2026-11-22, plan 14 review):** Cyclical appeared completely inert in Ableton ("nothing reacts at all") after its parameter count changed 35 → 57 — Ableton's plugin cache still held the old parameter list. A full rescan (Preferences → Plug-Ins → Rescan, incompatible cache off) fixed it. After any parameter-count change, a DAW rescan is part of the deployment; tell the owner before blaming the plugin.
 - **Presets (Phase 7 done):** default build (`SUITE_PRESET_BANK=OFF`) is visually and behaviourally unchanged — 20 CTest entries, all green. Bank build (`SUITE_PRESET_BANK=ON`) adds 8 CTest entries, all green: one `*_PresetTests` per plugin. `SUITE_PRESET_BANK_AS_PROGRAMS` adds the host-program virtuals with no entry-count change.
 - **Preset licence (plan §11):** GPL. Decided 2026-11-12: the licence stays GPL, and the factory presets are now publicly available; it stays GPL.
 - **macOS / AU / Standalone / DAW verification:** not performed for presets; same caveats as before.

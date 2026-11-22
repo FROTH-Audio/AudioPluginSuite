@@ -1416,6 +1416,240 @@ namespace
         pass ("testWaveformChopLines");
     }
 
+    /** Plan 16 Phase 1: the AUTO analyser. A synthetic loop with two clear hits at 1/3 and
+        2/3 of the region produces shares at those positions and sets Slices to 3. */
+    void testAutoChop()
+    {
+        const juce::File loopFile = scratchFolder().getChildFile ("auto_chop.wav");
+        juce::WavAudioFormat wav;
+        std::unique_ptr<juce::OutputStream> stream (loopFile.createOutputStream());
+
+        juce::AudioFormatWriterOptions options;
+        options = options.withSampleRate (sampleRate).withNumChannels (1).withBitsPerSample (32);
+        std::unique_ptr<juce::AudioFormatWriter> writer = wav.createWriterFor (stream, options);
+        assert (writer != nullptr);
+
+        const int frames = 24000;
+        juce::AudioBuffer<float> loop (1, frames);
+        loop.clear();
+        for (int i = 0; i < 3000; ++i)   // a hit at frame 8000 (1/3)
+            loop.setSample (0, 8000 + i, 0.9f);
+        for (int i = 0; i < 3000; ++i)   // a hit at frame 16000 (2/3)
+            loop.setSample (0, 16000 + i, 0.9f);
+        writer->writeFromAudioSampleBuffer (loop, 0, frames);
+        writer.reset();
+
+        Processor processor;
+        processor.prepareToPlay (sampleRate, blockSize);
+        processor.loadLoopFromFileAsync (0, loopFile, loopFile.getFullPathName());
+        for (int i = 0; i < 40 && processor.hasPendingLoopLoad(); ++i)
+            juce::MessageManager::getInstance()->runDispatchLoopUntil (50);
+        assert (! processor.hasPendingLoopLoad());
+
+        setParameter (processor.apvts, Processor::slotChopIds[0], 1.0f);
+        processor.autoChopSlot (0);
+
+        // Two onsets -> three slices, and the boundaries sit at the hits (within a window).
+        assert (processor.slotSlices (0) == 3);
+        const auto bounds = processor.chopBounds (0);
+        assert ((int) bounds.size() == 2);
+        assert (std::abs (bounds[0] - 8000.0f / 24000.0f) < 0.03f);
+        assert (std::abs (bounds[1] - 16000.0f / 24000.0f) < 0.03f);
+
+        // The property rides in the state (the session/preset route).
+        assert (! processor.apvts.state.getProperty (Processor::chop1BoundsProperty).toString().isEmpty());
+
+        // A manual Slices edit drops the analyser's shares via the count mismatch (the
+        // activeChopBounds fallback); the stored property survives but stops being used.
+        setParameter (processor.apvts, Processor::slotSlicesIds[0], 6.0f);
+        juce::MessageManager::getInstance()->runDispatchLoopUntil (120);
+        assert ((int) processor.activeChopBounds (0).size() == 5);   // the 6-slice power curve
+        assert (processor.chopBounds (0).empty() == false);
+
+        pass ("testAutoChop");
+    }
+
+    /** Plan 16 Phase 1: a chopped slot reads slice k at the auto-chop boundary — the ramp
+        loop's values name their frame, so the audio shows it. */
+    void testAutoChopRegion()
+    {
+        // A 24000-frame float ramp with a clear hit at 1/3, so the analyser slices there.
+        const juce::File loopFile = scratchFolder().getChildFile ("auto_region.wav");
+        juce::WavAudioFormat wav;
+        std::unique_ptr<juce::OutputStream> stream (loopFile.createOutputStream());
+
+        juce::AudioFormatWriterOptions options;
+        options = options.withSampleRate (sampleRate).withNumChannels (1).withBitsPerSample (32);
+        std::unique_ptr<juce::AudioFormatWriter> writer = wav.createWriterFor (stream, options);
+        assert (writer != nullptr);
+
+        const int frames = 24000;
+        juce::AudioBuffer<float> loop (1, frames);
+        for (int i = 0; i < frames; ++i)
+            loop.setSample (0, i, (float) i);
+        for (int i = 0; i < 300; ++i)      // a short click at 8000: the onset stand-out
+            loop.setSample (0, 8000 + i, 24000.0f);
+        writer->writeFromAudioSampleBuffer (loop, 0, frames);
+        writer.reset();
+
+        Processor processor;
+        processor.prepareToPlay (sampleRate, blockSize);
+        processor.loadLoopFromFileAsync (0, loopFile, loopFile.getFullPathName());
+        for (int i = 0; i < 40 && processor.hasPendingLoopLoad(); ++i)
+            juce::MessageManager::getInstance()->runDispatchLoopUntil (50);
+        assert (! processor.hasPendingLoopLoad());
+
+        setParameter (processor.apvts, Processor::slotChopIds[0], 1.0f);
+        setParameter (processor.apvts, Processor::crossfadeLengthId, 0.0f);
+        processor.autoChopSlot (0);
+        assert (processor.slotSlices (0) == 2);   // one detected onset -> two slices
+
+        // Slice 1 starts at the detected boundary (the onset's rise at ~8000), not at the
+        // equal split (12000): the ramp values name their frame. The click is 300 frames,
+        // so the read at ~923 frames in lands back on the ramp.
+        juce::MidiBuffer midi;
+        midi.addEvent (juce::MidiMessage::noteOn (1, 61, 0.8f), 100);   // slice 1
+        processOne (processor, midi);
+        midi.clear();
+        assert (processor.slotIsActive (0));
+
+        juce::AudioBuffer<float> buffer (2, blockSize);
+        buffer.clear();
+        processor.processBlock (buffer, midi);
+
+        // Block 1 advanced 412 frames, block 2 renders 511 more: ~923 frames into the
+        // slice, within the interpolation slop. The click may still be sounding (the read
+        // can sit on its 24000 plateau), so accept either the plateau or the ramp frame.
+        const double frame = (double) buffer.getSample (0, blockSize - 1) / (0.8 * 0.7071067811865476);
+        const double boundary = processor.chopBounds (0)[0] * 24000.0;
+        const bool onPlateau = std::abs (frame - 24000.0) < 2.0;
+        const bool onRamp = std::abs (frame - (boundary + 923.0)) < 60.0;
+        assert (onPlateau || onRamp);
+
+        pass ("testAutoChopRegion");
+    }
+
+    /** Plan 16 Phase 2: the arrangement. Key k plays the slice the order names; the ramp
+        loop's values name their frame, so the audio shows it. */
+    void testSliceOrder()
+    {
+        const juce::File loopFile = writeRampLoopFloat ("slice_order.wav");
+        const int loopFrames = 24000;
+        const auto firstOutputValue = [&] (int key) -> double
+        {
+            Processor processor;
+            processor.prepareToPlay (sampleRate, blockSize);
+            processor.loadLoopFromFileAsync (0, loopFile, loopFile.getFullPathName());
+            for (int i = 0; i < 40 && processor.hasPendingLoopLoad(); ++i)
+                juce::MessageManager::getInstance()->runDispatchLoopUntil (50);
+            assert (! processor.hasPendingLoopLoad());
+
+            setParameter (processor.apvts, Processor::slotChopIds[0], 1.0f);
+            setParameter (processor.apvts, Processor::slotSlicesIds[0], 3.0f);
+            setParameter (processor.apvts, Processor::crossfadeLengthId, 0.0f);
+
+            juce::MidiBuffer midi;
+            midi.addEvent (juce::MidiMessage::noteOn (1, key, 0.8f), 100);
+            processOne (processor, midi);
+            midi.clear();
+            assert (processor.slotIsActive (0));
+
+            juce::AudioBuffer<float> buffer (2, blockSize);
+            buffer.clear();
+            processor.processBlock (buffer, midi);
+
+            constexpr double gainLaw = 0.8 * 0.7071067811865476;
+            return (double) buffer.getSample (0, buffer.getNumSamples() - 1) / gainLaw;
+        };
+
+        // Identity: key 60 plays slice 0, 923 frames in.
+        assert (std::abs (firstOutputValue (60) - 923.0) < 60.0);
+
+        // The arrangement [2, 0, 1]: key 60 now plays slice 2 (the third third), 923
+        // frames into it.
+        {
+            Processor processor;
+            processor.prepareToPlay (sampleRate, blockSize);
+            processor.loadLoopFromFileAsync (0, loopFile, loopFile.getFullPathName());
+            for (int i = 0; i < 40 && processor.hasPendingLoopLoad(); ++i)
+                juce::MessageManager::getInstance()->runDispatchLoopUntil (50);
+            assert (! processor.hasPendingLoopLoad());
+
+            setParameter (processor.apvts, Processor::slotChopIds[0], 1.0f);
+            setParameter (processor.apvts, Processor::slotSlicesIds[0], 3.0f);
+
+            const std::vector<int> written { 2, 0, 1 };
+            processor.setChopOrderProperty (0, written);
+            assert (processor.chopOrder (0) == written);
+            juce::MidiBuffer midi;
+            midi.addEvent (juce::MidiMessage::noteOn (1, 60, 0.8f), 100);
+            processOne (processor, midi);
+            midi.clear();
+            assert (processor.slotIsActive (0));
+
+            juce::AudioBuffer<float> buffer (2, blockSize);
+            buffer.clear();
+            processor.processBlock (buffer, midi);
+
+            constexpr double gainLaw = 0.8 * 0.7071067811865476;
+            const double frame = (double) buffer.getSample (0, blockSize - 1) / gainLaw;
+
+            // Slice 2 starts at 2/3 of the loop. The seam pre-roll (crossfade = 240
+            // frames) starts the fresh span X frames in, plus the 936 rendered samples.
+            assert (frame > 16000.0 + 240.0 && frame < 16000.0 + 240.0 + 936.0 + 80.0);
+
+            // The property rides in the state (the session/preset route).
+            assert (! processor.apvts.state.getProperty (Processor::chop1OrderProperty).toString().isEmpty());
+        }
+
+        // A count mismatch falls back to the identity arrangement.
+        {
+            Processor processor;
+            processor.prepareToPlay (sampleRate, blockSize);
+            setParameter (processor.apvts, Processor::slotChopIds[0], 1.0f);
+            processor.setChopOrderProperty (0, { 2, 0 });     // 2 entries against 3 slices
+            const std::vector<int> stored { 2, 0 };
+            assert (processor.chopOrder (0) == stored);
+            assert (processor.apvts.state.getProperty (Processor::chop1OrderProperty).toString().isNotEmpty());
+
+            juce::MidiBuffer midi;
+            midi.addEvent (juce::MidiMessage::noteOn (1, 60, 0.8f), 0);
+            processOne (processor, midi);
+            assert (processor.slotIsActive (0));              // it still plays slice 0
+        }
+
+        // Cycling: one click moves key 0 to slice 1; three identity cycles clear the
+        // property again.
+        {
+            Processor processor;
+            processor.prepareToPlay (sampleRate, blockSize);
+            setParameter (processor.apvts, Processor::slotChopIds[0], 1.0f);
+            setParameter (processor.apvts, Processor::slotSlicesIds[0], 3.0f);
+
+            processor.cycleSliceOrder (0, 0);
+            const std::vector<int> afterFirstCycle { 1, 1, 2 };
+            assert (processor.chopOrder (0) == afterFirstCycle);
+            assert (processor.apvts.state.getProperty (Processor::chop1OrderProperty).toString().isNotEmpty());
+
+            processor.cycleSliceOrder (0, 0);
+            processor.cycleSliceOrder (0, 0);
+            assert (processor.chopOrder (0).empty());         // back to identity: no property
+        }
+
+        // Chop off ignores the arrangement.
+        {
+            Processor processor;
+            processor.prepareToPlay (sampleRate, blockSize);
+            processor.setChopOrderProperty (0, { 2, 0, 1 });
+            juce::MidiBuffer midi;
+            midi.addEvent (juce::MidiMessage::noteOn (1, 60, 0.8f), 0);
+            processOne (processor, midi);
+            assert (processor.slotIsActive (0));              // unchopped: the whole loop
+        }
+
+        pass ("testSliceOrder");
+    }
+
     /** Writes the editor renders when SUITE_RENDER_DIR is set (plan 05 R9). */
     void testRenderBaseline()
     {
@@ -1501,6 +1735,9 @@ int main()
     testChopIgnoresSync();
     testChopGranularStaysInsideSlice();
     testWaveformChopLines();
+    testAutoChop();
+    testAutoChopRegion();
+    testSliceOrder();
     testRetriggerRestarts();
     testMonoBuffer();
     testLatencyAndTail();

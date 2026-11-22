@@ -5,7 +5,10 @@ on 2026-11-20 (owner decision). Source of record: `owner_findings.md` at the rep
 Cyclical items: concept overhaul, trigger mode, user-selectable notes, BPM sync, chop mode,
 keep the SLOTS view and window size, new accent.
 
-Status: proposed 2026-11-20. Not started. All owner gates of the review are decided (§1).
+Status: implemented 2026-11-22 (all phases; 210 presets audited; the plan-14 renders under
+`build/renders/plan14-cyclical/`). Owner gates open: approve the measured window 1000×876,
+regenerate `lockup_cyclical.png` with the tangerine accent (owner-local tool), and review the
+regenerated manual screenshots.
 
 Relationship to plan 13: independent in code. Both plans use the Phase-0 warning baseline that plan
 13 records; run that clean build once, before either plan changes code.

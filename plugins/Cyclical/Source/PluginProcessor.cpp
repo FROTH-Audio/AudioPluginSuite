@@ -102,6 +102,14 @@ CyclicalProcessor::CyclicalProcessor()
     tempoParam           = apvts.getRawParameterValue (tempoId);
     syncParam            = apvts.getRawParameterValue (syncId);
 
+    // The auto-chop boundaries: a manual Slice Length edit drops the analyser's shares and
+    // falls back to the equal/skew split. A Slices edit needs no listener — the count
+    // mismatch already makes activeChopBounds fall back (and the analyser itself writes
+    // Slices, which must not clear its own boundaries). The APVTS listener broadcasts on
+    // the message thread, so the property write is safe.
+    for (int slot = 0; slot < numSlots; ++slot)
+        apvts.addParameterListener (slotSliceLengthIds[(size_t) slot], &chopBoundsClearer);
+
     sampleSearchFolder = defaultUserLoopFolder();
 
     // INIT installs one embedded loop per slot, so a fresh instance makes sound on the four
@@ -547,25 +555,37 @@ CoreDSP::Loop::Region CyclicalProcessor::regionFor (int slot, const CoreDSP::Loo
     }
 
     // Plan 14 Phase 3: a chopped slot plays slice k of its region. The slice boundaries
-    // come from the shared chopBoundary() function, rounded per boundary so the slices sum
-    // exactly to the region length (the last boundary is pinned to the region end).
+    // come from activeChopBounds(): the auto-chop property when its count matches Slices,
+    // the shared power curve otherwise (the same values the waveform draws). Rounded per
+    // boundary, the slices sum exactly to the region length.
+    // Plan 16 Phase 2: the arrangement maps key slice k to the source slice the order
+    // names (identity when the property is absent or its count does not match).
     if (chopped)
     {
         const int slices = slotSlices (slot);
         const int k = juce::jlimit (0, slices - 1, slice);
+        const auto bounds = activeChopBounds (slot);
+
+        int sourceSlice = k;
+        const auto order = chopOrder (slot);
+        if ((int) order.size() == slices && k < (int) order.size())
+            sourceSlice = juce::jlimit (0, slices - 1, order[(size_t) k]);
 
         int sliceStart = region.startFrame;
         int sliceEnd = region.startFrame + region.lengthFrames;
 
         for (int i = 0; i <= slices; ++i)
         {
-            const int boundary = region.startFrame
-                + (int) std::lround (chopBoundary (i, slices, sliceLengthParams[(size_t) slot]->load())
-                                         * (double) region.lengthFrames);
+            const double share = (i == 0 || i == slices)
+                ? (i == 0 ? 0.0 : 1.0)
+                : (double) bounds[(size_t) (i - 1)];
 
-            if (i == k)
+            const int boundary = region.startFrame
+                + (int) std::lround (share * (double) region.lengthFrames);
+
+            if (i == sourceSlice)
                 sliceStart = boundary;
-            if (i == k + 1)
+            if (i == sourceSlice + 1)
                 sliceEnd = boundary;
         }
 
@@ -744,6 +764,242 @@ void CyclicalProcessor::setLoopPathProperty (int slot, const juce::String& path)
         apvts.state.removeProperty (loopPathPropertyId (slot), nullptr);
     else
         apvts.state.setProperty (loopPathPropertyId (slot), path, nullptr);
+}
+
+juce::String CyclicalProcessor::chopBoundsPropertyId (int slot) const
+{
+    switch (slot)
+    {
+        case 0: return chop1BoundsProperty;
+        case 1: return chop2BoundsProperty;
+        case 2: return chop3BoundsProperty;
+        default: return chop4BoundsProperty;
+    }
+}
+
+void CyclicalProcessor::setChopBoundsProperty (int slot, const std::vector<float>& shares)
+{
+    if (shares.empty())
+    {
+        apvts.state.removeProperty (chopBoundsPropertyId (slot), nullptr);
+        return;
+    }
+
+    juce::String text;
+
+    for (size_t i = 0; i < shares.size(); ++i)
+    {
+        if (i > 0)
+            text << ",";
+        text << juce::String (shares[i], 4);
+    }
+
+    apvts.state.setProperty (chopBoundsPropertyId (slot), text, nullptr);
+}
+
+std::vector<float> CyclicalProcessor::chopBounds (int slot) const
+{
+    const auto text = apvts.state.getProperty (chopBoundsPropertyId (slot)).toString();
+
+    std::vector<float> shares;
+    juce::StringArray parts;
+    parts.addTokens (text, ",", "");
+
+    for (const auto& part : parts)
+    {
+        const float share = (float) part.trim().getFloatValue();
+
+        if (share > 0.0f && share < 1.0f)
+            shares.push_back (share);
+    }
+
+    return shares;
+}
+
+std::vector<float> CyclicalProcessor::activeChopBounds (int slot) const
+{
+    const auto autoBounds = chopBounds (slot);
+
+    if (slotChopped (slot) && (int) autoBounds.size() + 1 == slotSlices (slot))
+        return autoBounds;
+
+    const int slices = slotSlices (slot);
+    const float sliceLength = sliceLengthParams[(size_t) slot]->load();
+
+    std::vector<float> shares;
+    for (int i = 1; i < slices; ++i)
+        shares.push_back ((float) chopBoundary (i, slices, sliceLength));
+
+    return shares;
+}
+
+juce::String CyclicalProcessor::chopOrderPropertyId (int slot) const
+{
+    switch (slot)
+    {
+        case 0: return chop1OrderProperty;
+        case 1: return chop2OrderProperty;
+        case 2: return chop3OrderProperty;
+        default: return chop4OrderProperty;
+    }
+}
+
+std::vector<int> CyclicalProcessor::chopOrder (int slot) const
+{
+    const auto text = apvts.state.getProperty (chopOrderPropertyId (slot)).toString();
+
+    std::vector<int> order;
+    juce::StringArray parts;
+    parts.addTokens (text, ",", "");
+
+    for (const auto& part : parts)
+        order.push_back ((int) part.trim().getIntValue());
+
+    return order;
+}
+
+void CyclicalProcessor::setChopOrderProperty (int slot, const std::vector<int>& order)
+{
+    if (order.empty())
+    {
+        apvts.state.removeProperty (chopOrderPropertyId (slot), nullptr);
+        return;
+    }
+
+    juce::String text;
+
+    for (size_t i = 0; i < order.size(); ++i)
+    {
+        if (i > 0)
+            text << ",";
+        text << order[i];
+    }
+
+    apvts.state.setProperty (chopOrderPropertyId (slot), text, nullptr);
+}
+
+void CyclicalProcessor::cycleSliceOrder (int slot, int index)
+{
+    if (! slotChopped (slot))
+        return;
+
+    const int slices = slotSlices (slot);
+    auto order = chopOrder (slot);
+
+    if ((int) order.size() != slices)   // identity arrangement: build it first
+    {
+        order.resize ((size_t) slices);
+        for (int i = 0; i < slices; ++i)
+            order[(size_t) i] = i;
+    }
+
+    const int at = juce::jlimit (0, slices - 1, index);
+    order[(size_t) at] = (order[(size_t) at] + 1) % slices;
+
+    // A full identity round returns to no property, so the strip can reset.
+    bool identity = true;
+    for (int i = 0; i < slices; ++i)
+        if (order[(size_t) i] != i)
+            identity = false;
+
+    setChopOrderProperty (slot, identity ? std::vector<int> {} : order);
+}
+
+//==============================================================================
+// Auto-chop (plan 16 Phase 1): the transient analyser behind the AUTO button.
+
+void CyclicalProcessor::autoChopSlot (int slot)
+{
+    const LoadedLoop* loaded = slotStates[(size_t) slot].loop.current();
+
+    if (loaded == nullptr)
+        return;
+
+    const auto view = loaded->source();
+    if (view.numFrames <= 0)
+        return;
+
+    const auto region = CoreDSP::Loop::regionFrames (view.numFrames,
+        startParams[(size_t) slot]->load(), lengthParams[(size_t) slot]->load());
+    const int regionStart = region[0];
+    const int regionLength = region[1];
+    if (regionLength < 4 * maxSlices)      // too short to chop usefully
+        return;
+
+    // The envelope: block maxima over 256-frame windows inside the region.
+    constexpr int window = 256;
+    const int numWindows = regionLength / window;
+    if (numWindows < 4)
+        return;
+
+    std::vector<float> envelope ((size_t) numWindows);
+    float envelopeMax = 0.0f;
+
+    for (int w = 0; w < numWindows; ++w)
+    {
+        float level = 0.0f;
+        for (int n = 0; n < window; ++n)
+            level = juce::jmax (level, std::abs (view.channels[0][regionStart + w * window + n]));
+        envelope[(size_t) w] = level;
+        envelopeMax = juce::jmax (envelopeMax, level);
+    }
+
+    if (envelopeMax <= 0.0f)
+        return;
+
+    // Onsets: a window rising through 15 % of the loop's peak with a clear rise, merged
+    // closer than 100 ms (the threshold keeps quiet tails from splitting slices).
+    constexpr float thresholdShare = 0.15f;
+    constexpr int minGapMs = 100;
+    const int minGap = std::max (1, (int) (minGapMs * 0.001 * loaded->sourceSampleRate / window));
+
+    std::vector<int> onsets;   // window indices
+
+    for (int w = 1; w < numWindows; ++w)
+    {
+        const float level = envelope[(size_t) w];
+
+        if (level < envelopeMax * thresholdShare)
+            continue;
+        if (level < envelope[(size_t) (w - 1)] * 1.5f)
+            continue;
+
+        if (! onsets.empty() && w - onsets.back() < minGap)
+            continue;
+
+        onsets.push_back (w);
+    }
+
+    // Too many onsets for 16 slices: widen the merge window until the count fits.
+    while ((int) onsets.size() > maxSlices - 1)
+    {
+        std::vector<int> merged;
+
+        for (size_t i = 0; i < onsets.size(); i += 2)
+        {
+            if (i + 1 < onsets.size() && envelope[(size_t) onsets[i + 1]] > envelope[(size_t) onsets[i]])
+                merged.push_back (onsets[i + 1]);
+            else
+                merged.push_back (onsets[i]);
+        }
+
+        onsets = merged;
+    }
+
+    if (onsets.empty())
+        return;
+
+    // The shares are the onset positions as a fraction of the region; each is the START of
+    // a slice, so the list is the interior boundaries (slice 0 always starts the region).
+    std::vector<float> shares;
+
+    for (int windowIndex : onsets)
+        shares.push_back (juce::jlimit (0.0f, 1.0f, (float) (windowIndex * window) / (float) regionLength));
+
+    setChopBoundsProperty (slot, shares);
+    setChopOrderProperty (slot, {});   // a fresh analysis resets the arrangement
+    apvts.getParameter (slotSlicesIds[(size_t) slot])->setValueNotifyingHost (
+        apvts.getParameter (slotSlicesIds[(size_t) slot])->convertTo0to1 ((float) ((int) shares.size() + 1)));
 }
 
 void CyclicalProcessor::loadEmbeddedLoop (int slot, const juce::String& name, const juce::String& pathToSave)

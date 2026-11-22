@@ -15,6 +15,22 @@ LoopWaveformView::LoopWaveformView (juce::Colour accentColour)
         if (onLoadClicked)
             onLoadClicked();
     };
+
+    autoButton.setTriggeredOnMouseDown (true);
+    autoButton.setColour (juce::TextButton::buttonColourId, juce::Colours::transparentBlack);
+    autoButton.setColour (juce::TextButton::textColourOffId, SuiteUI::Colours::textDim);
+    addAndMakeVisible (autoButton);
+
+    autoButton.onClick = [this]
+    {
+        if (onAutoClicked)
+            onAutoClicked();
+    };
+}
+
+void LoopWaveformView::setAutoEnabled (bool enabled)
+{
+    autoButton.setEnabled (enabled);
 }
 
 void LoopWaveformView::setLoop (const LoadedLoop* loop)
@@ -77,6 +93,13 @@ void LoopWaveformView::setChopLines (const std::vector<float>& boundaryShares)
     repaint();
 }
 
+void LoopWaveformView::setSliceOrder (const std::vector<int>& order, int slices)
+{
+    sliceOrder = order;
+    orderSlices = slices;
+    repaint();
+}
+
 void LoopWaveformView::setPlayhead (float normalised, bool active)
 {
     playhead = normalised;
@@ -97,15 +120,50 @@ void LoopWaveformView::resized()
 {
     plotBounds = getLocalBounds();
     loadButton.setBounds (getLocalBounds().removeFromTop (22).removeFromRight (56).reduced (3, 1));
+    autoButton.setBounds (getLocalBounds().removeFromTop (22).removeFromRight (112)
+                              .removeFromRight (56).reduced (3, 1));
     rebuildEnvelope();
 }
 
 void LoopWaveformView::mouseDown (const juce::MouseEvent& event)
 {
+    // The arrangement strip's cells (plan 16 Phase 2): a click cycles that key slice's
+    // number. Live only when the strip is shown (chop mode).
+    if (orderSlices > 1)
+    {
+        const int index = orderCellAt (event.getPosition());
+
+        if (index >= 0 && onOrderCellClicked)
+        {
+            onOrderCellClicked (index);
+            return;
+        }
+    }
+
     // The missing overlay covers the whole view; a click on it (and not on the LOAD
     // button, which handles itself) opens the locate flow.
     if (missing && onLoadClicked && ! loadButton.getBounds().contains (event.getPosition()))
         onLoadClicked();
+}
+
+int LoopWaveformView::orderCellAt (juce::Point<int> position) const
+{
+    // The strip spans the region band's bottom (the same geometry paint uses).
+    auto plot = getLocalBounds().toFloat().reduced (4.0f);
+    const float startFraction = regionStart / 100.0f;
+    const float lengthFraction = std::max (0.02f, regionLength / 100.0f);
+    const auto regionArea = plot.withLeft (plot.getX() + startFraction * plot.getWidth())
+                                 .withRight (plot.getX() + startFraction * plot.getWidth()
+                                                 + lengthFraction * plot.getWidth());
+
+    const auto strip = juce::Rectangle<float> (regionArea.getX(), regionArea.getBottom() - 16.0f,
+                                               regionArea.getWidth(), 16.0f).reduced (2.0f, 1.0f);
+
+    if (! strip.contains (position.toFloat()) || orderSlices <= 1)
+        return -1;
+
+    const int index = (int) ((float) (position.x - strip.getX()) / strip.getWidth() * (float) orderSlices);
+    return juce::jlimit (0, orderSlices - 1, index);
 }
 
 void LoopWaveformView::paint (juce::Graphics& g)
@@ -165,6 +223,32 @@ void LoopWaveformView::paint (juce::Graphics& g)
         g.setColour (SuiteUI::Colours::track);
         g.strokePath (top, juce::PathStrokeType (1.0f));
         g.strokePath (bottom, juce::PathStrokeType (1.0f));
+    }
+
+    // The arrangement strip (plan 16 Phase 2): one cell per key slice at the bottom of the
+    // region band, showing the source slice it plays (identity reads 0 1 2 ...). Rule R6:
+    // the number is the state, so the text carries it, not colour alone.
+    if (orderSlices > 1)
+    {
+        const auto strip = juce::Rectangle<float> (regionArea.getX(), regionArea.getBottom() - 16.0f,
+                                                   regionArea.getWidth(), 16.0f).reduced (2.0f, 1.0f);
+        const float cellWidth = strip.getWidth() / (float) orderSlices;
+
+        for (int i = 0; i < orderSlices; ++i)
+        {
+            auto cell = juce::Rectangle<float> (strip.getX() + cellWidth * (float) i, strip.getY(),
+                                                cellWidth, strip.getHeight()).reduced (1.0f, 1.0f);
+
+            g.setColour (SuiteUI::Colours::panel);
+            g.fillRect (cell);
+            g.setColour (SuiteUI::Colours::track);
+            g.drawRect (cell, 1.0f);
+
+            const int source = i < (int) sliceOrder.size() ? sliceOrder[(size_t) i] : i;
+            g.setColour (source == i ? SuiteUI::Colours::textDim : accent);
+            g.setFont (SuiteUI::uiFont (11.0f));
+            g.drawText (juce::String (source), cell, juce::Justification::centred);
+        }
     }
 
     // The playhead over the fresh span.

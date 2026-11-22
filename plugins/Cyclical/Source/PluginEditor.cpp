@@ -188,6 +188,8 @@ CyclicalEditor::CyclicalEditor (CyclicalProcessor& p)
             apvts, Processor::slotChopIds[(size_t) slot], card.chop));
 
         card.waveform.onLoadClicked = [this, slot] { browseForLoop (slot); };
+        card.waveform.onAutoClicked = [this, slot] { processor.autoChopSlot (slot); };
+        card.waveform.onOrderCellClicked = [this, slot] (int index) { processor.cycleSliceOrder (slot, index); };
 
         SuiteUI::describe (card.start, "Where the loop starts, as a share of its length (capped at 95 %).");
         SuiteUI::describe (card.length, "How much of the loop plays, as a share of its length.");
@@ -201,7 +203,7 @@ CyclicalEditor::CyclicalEditor (CyclicalProcessor& p)
         SuiteUI::describe (card.direction, "Forward, Reverse, or Ping-Pong (turns at both bounds).");
         SuiteUI::describe (card.pingRand, "Randomises the ping-pong turn points per trigger. Only in Ping-Pong.");
         SuiteUI::describe (card.granular, "80 ms grains instead of straight playback. Speed is inert.");
-        SuiteUI::describe (card.waveform, "The loaded loop, its region band, the chop lines and the playhead. LOAD opens a browser.");
+        SuiteUI::describe (card.waveform, "The loaded loop, its region band, the chop lines, the arrangement strip and the playhead. LOAD opens a browser; AUTO slices at the loop's transients; the strip's cells rearrange the slices (click to cycle).");
     }
 
     SuiteUI::describe (pageSelector, "SLOTS: the four loop cards. GLOBAL: the shared knobs and the transport.");
@@ -399,6 +401,7 @@ void CyclicalEditor::updateAffinity()
         card.beats.setEnabled (! chopped);
         card.slices.setEnabled (chopped);
         card.sliceLength.setEnabled (chopped);
+        card.waveform.setAutoEnabled (chopped);   // plan 16: AUTO slices only in chop mode
     }
 }
 
@@ -414,21 +417,26 @@ void CyclicalEditor::timerCallback()
         card.waveform.setRegion (processor.apvts.getRawParameterValue (Processor::slotStartIds[(size_t) slot])->load(),
                                  processor.apvts.getRawParameterValue (Processor::slotLengthIds[(size_t) slot])->load());
 
-        // The chop lines come from the same function the processor plays (plan 14 Phase 5).
+        // The chop lines come from the same function the processor plays (plan 14 Phase 5,
+        // plan 16: the auto-chop property when its count matches Slices). The arrangement
+        // strip shows the slot's slice order (identity when the property is absent).
         if (processor.slotChopped (slot))
         {
             std::vector<float> shares;
             const int slices = processor.slotSlices (slot);
-            const float sliceLength = processor.apvts.getRawParameterValue (Processor::slotSliceLengthIds[(size_t) slot])->load();
+            const auto bounds = processor.activeChopBounds (slot);
 
             for (int i = 1; i < slices; ++i)   // the outer boundaries are the region itself
-                shares.push_back ((float) Processor::chopBoundary (i, slices, sliceLength));
+                if (i - 1 < (int) bounds.size())
+                    shares.push_back (bounds[(size_t) (i - 1)]);
 
             card.waveform.setChopLines (shares);
+            card.waveform.setSliceOrder (processor.chopOrder (slot), slices);
         }
         else
         {
             card.waveform.setChopLines ({});
+            card.waveform.setSliceOrder ({}, 0);
         }
 
         card.waveform.setPlayhead (processor.slotPlayhead (slot), processor.slotIsActive (slot));
