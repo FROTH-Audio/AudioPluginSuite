@@ -1,0 +1,17 @@
+{
+  "_name": "Early Slices",
+  "_category": "Experimental",
+  "_description": "The opposite skew: the early slices take the space.",
+  "_plugin": "Cyclical",
+  "_pluginVersion": "1.0.0",
+  "_loopPaths": [
+    "embedded:vox_4k.wav",
+    "embedded:texture_4k.wav",
+    "embedded:bells_4k.wav",
+    "embedded:noise_4k.wav"
+  ],
+  "slot1Note": 48,
+  "slot1Chop": 1,
+  "slot1Slices": 8,
+  "slot1SliceLength": -60.0
+}

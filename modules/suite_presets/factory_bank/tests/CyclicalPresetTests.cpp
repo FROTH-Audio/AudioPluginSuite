@@ -12,8 +12,9 @@ int main()
 
     std::puts ("Running Cyclical Pro preset tests...");
 
-    // Plan 6.1: 15 factory presets for the four-slot loop instrument.
-    PresetTest::runBankShape<CyclicalProcessor> ("Cyclical", 15);
+    // Plan 6.1: 15 factory presets; plan 14 appended 10 more (25 for the four-slot
+    // loop instrument).
+    PresetTest::runBankShape<CyclicalProcessor> ("Cyclical", 25);
 
     {
         CyclicalProcessor processor;
@@ -58,34 +59,41 @@ int main()
             }
         }
 
-        assert (checkedPaths == 15 * 4);
+        assert (checkedPaths == 25 * 4);
 
         // And every bank preset makes sound on its slot keys (the sample library is
-        // complete). One bar of audio per preset at most.
+        // complete). Each slot's key is pressed in its own run of blocks: four
+        // simultaneous presses can collide inside one slot's chop range (the lowest slot
+        // wins), which would silence the higher slots without meaning the preset is bad.
         for (const auto& preset : PresetTest::presetsFor ("Cyclical"))
         {
             processor.applyPresetState (preset.state);
             processor.prepareToPlay (PresetTest::sampleRate, PresetTest::blockSize);
-            processor.reset();
 
-            juce::MidiBuffer midi;
-            for (int key = 60; key <= 63; ++key)
-                midi.addEvent (juce::MidiMessage::noteOn (1, key, 0.8f), 0);
-
+            // Press each slot's own trigger note (plan 14: the notes are per slot; a
+            // chopped slot's base key triggers slice 0).
             float best = 0.0f;
-            for (int block = 0; block < 90; ++block)     // just under a bar
+
+            for (int slot = 0; slot < CyclicalProcessor::numSlots; ++slot)
             {
-                juce::AudioBuffer<float> buffer (2, PresetTest::blockSize);
-                buffer.clear();
-                processor.processBlock (buffer, midi);
-                midi.clear();
-                best = juce::jmax (best, PresetTest::peak (buffer));
+                processor.reset();
+
+                juce::MidiBuffer midi;
+                midi.addEvent (juce::MidiMessage::noteOn (1, processor.slotNote (slot), 0.8f), 0);
+
+                for (int block = 0; block < 90; ++block)     // just under a bar
+                {
+                    juce::AudioBuffer<float> buffer (2, PresetTest::blockSize);
+                    buffer.clear();
+                    processor.processBlock (buffer, midi);
+                    midi.clear();
+                    best = juce::jmax (best, PresetTest::peak (buffer));
+                }
             }
 
             assert (best > 0.01f);
         }
     }
-
 #if SUITE_PRESET_BANK_AS_PROGRAMS
     {
         CyclicalProcessor processor;

@@ -7,6 +7,8 @@
 
 #include <juce_audio_formats/juce_audio_formats.h>
 
+#include <cmath>
+
 #undef NDEBUG
 #include <cassert>
 
@@ -18,6 +20,13 @@ namespace
     constexpr int blockSize = 512;
 
     using Processor = CyclicalProcessor;
+
+    /** A controllable playhead for the transport tests (the MidiEffect pattern). */
+    struct TestPlayHead : juce::AudioPlayHead
+    {
+        juce::AudioPlayHead::PositionInfo info;
+        juce::Optional<PositionInfo> getPosition() const override { return info; }
+    };
 
     /** A scratch folder under build/, so tests never write outside the project. */
     juce::File scratchFolder()
@@ -55,6 +64,31 @@ namespace
         return file;
     }
 
+    /** Like writeTestLoop, but 32-bit float: the sample values keep naming their frame
+        past full scale, which the chop tests read back out of the audio. */
+    juce::File writeRampLoopFloat (const juce::String& name, int frames = 24000)
+    {
+        const juce::File file = scratchFolder().getChildFile (name);
+        juce::WavAudioFormat wav;
+        std::unique_ptr<juce::OutputStream> stream (file.createOutputStream());
+
+        juce::AudioFormatWriterOptions options;
+        options = options.withSampleRate (sampleRate)
+                      .withNumChannels (1)
+                      .withBitsPerSample (32);
+
+        std::unique_ptr<juce::AudioFormatWriter> writer = wav.createWriterFor (stream, options);
+        assert (writer != nullptr);
+
+        juce::AudioBuffer<float> buffer (1, frames);
+        for (int i = 0; i < frames; ++i)
+            buffer.setSample (0, i, (float) i);
+
+        writer->writeFromAudioSampleBuffer (buffer, 0, frames);
+        writer.reset();
+        return file;
+    }
+
     void allParameterIds (std::vector<const char*>& ids)
     {
         ids.push_back (Processor::masterVolumeId);
@@ -72,10 +106,17 @@ namespace
             ids.push_back (Processor::slotPingRandomIds[(size_t) slot]);
             ids.push_back (Processor::slotGranularIds[(size_t) slot]);
             ids.push_back (Processor::slotVelocityIds[(size_t) slot]);
+            ids.push_back (Processor::slotNoteIds[(size_t) slot]);
+            ids.push_back (Processor::slotBeatsIds[(size_t) slot]);
+            ids.push_back (Processor::slotChopIds[(size_t) slot]);
+            ids.push_back (Processor::slotSlicesIds[(size_t) slot]);
+            ids.push_back (Processor::slotSliceLengthIds[(size_t) slot]);
         }
 
         ids.push_back (Processor::pitchShiftId);
         ids.push_back (Processor::crossfadeLengthId);
+        ids.push_back (Processor::tempoId);
+        ids.push_back (Processor::syncId);
     }
 
     void testParameters()
@@ -94,7 +135,7 @@ namespace
         checkRange (processor.apvts, Processor::panId, -100.0f, 100.0f, 0.0f);
         checkRange (processor.apvts, Processor::quantizeId, 0.0f, 5.0f, 0.0f);
         checkRange (processor.apvts, Processor::swingId, -20.0f, 20.0f, 0.0f);
-        checkRange (processor.apvts, Processor::triggerModeId, 0.0f, 1.0f, 0.0f);
+        checkRange (processor.apvts, Processor::triggerModeId, 0.0f, 2.0f, 0.0f);
         checkRange (processor.apvts, Processor::pitchShiftId, -12.0f, 12.0f, 0.0f);
         checkRange (processor.apvts, Processor::crossfadeLengthId, 0.0f, 500.0f, 5.0f);
 
@@ -107,7 +148,16 @@ namespace
             checkRange (processor.apvts, Processor::slotPingRandomIds[(size_t) slot], 0.0f, 1.0f, 0.0f);
             checkRange (processor.apvts, Processor::slotGranularIds[(size_t) slot], 0.0f, 1.0f, 0.0f);
             checkRange (processor.apvts, Processor::slotVelocityIds[(size_t) slot], 30.0f, 150.0f, 100.0f);
+            checkRange (processor.apvts, Processor::slotNoteIds[(size_t) slot], 24.0f, 96.0f,
+                        (float) (Processor::firstSlotNote + slot));
+            checkRange (processor.apvts, Processor::slotBeatsIds[(size_t) slot], 1.0f, 16.0f, 4.0f);
+            checkRange (processor.apvts, Processor::slotChopIds[(size_t) slot], 0.0f, 1.0f, 0.0f);
+            checkRange (processor.apvts, Processor::slotSlicesIds[(size_t) slot], 2.0f, 16.0f, 8.0f);
+            checkRange (processor.apvts, Processor::slotSliceLengthIds[(size_t) slot], -100.0f, 100.0f, 0.0f);
         }
+
+        checkRange (processor.apvts, Processor::tempoId, 40.0f, 240.0f, 120.0f);
+        checkRange (processor.apvts, Processor::syncId, 0.0f, 1.0f, 0.0f);
 
         // The final gain stage is named "Output" everywhere in the suite (plan 12).
         assert (processor.apvts.getParameter (Processor::masterVolumeId)->getName (100) == "Output");
@@ -280,6 +330,512 @@ namespace
             processOne (latch, midi);
         assert (latch.slotIsActive (0));
         pass ("testGateVsLatch");
+    }
+
+    /** Plan 14: Toggle mode. The first press starts the slot looping (scheduled on the
+        quantise grid when Quantize is on); the second press stops it immediately, never
+        delayed to the grid; a note-off does nothing. */
+    void testToggleTrigger()
+    {
+        // Quantise off: the press starts immediately, the note-off is ignored, the second
+        // press stops immediately.
+        {
+            Processor processor;
+            processor.prepareToPlay (sampleRate, blockSize);
+            setParameter (processor.apvts, Processor::triggerModeId, 2.0f);
+
+            juce::MidiBuffer midi;
+            midi.addEvent (juce::MidiMessage::noteOn (1, 60, 0.8f), 0);
+            processOne (processor, midi);
+            midi.clear();
+            assert (processor.slotIsActive (0));
+
+            // It keeps looping over many blocks (the 24000-frame embedded loop at speed 1
+            // is half a second; 20 blocks pass its end, so this proves looping, not a
+            // one-shot that ended).
+            for (int i = 0; i < 20; ++i)
+                processOne (processor, midi);
+            assert (processor.slotIsActive (0));
+
+            midi.addEvent (juce::MidiMessage::noteOff (1, 60), 0);
+            processOne (processor, midi);
+            midi.clear();
+            assert (processor.slotIsActive (0));   // a note-off never stops a toggled slot
+
+            midi.addEvent (juce::MidiMessage::noteOn (1, 60, 0.8f), 0);
+            processOne (processor, midi);
+            midi.clear();
+            for (int i = 0; i < 3; ++i)     // the 5 ms stop fade
+                processOne (processor, midi);
+            assert (! processor.slotIsActive (0));
+        }
+
+        // Quantise 1/4: the start waits for the grid point, the second press cancels the
+        // pending trigger before it fires, and a stop after the start is immediate.
+        {
+            Processor processor;
+            processor.prepareToPlay (sampleRate, blockSize);
+            setParameter (processor.apvts, Processor::triggerModeId, 2.0f);
+            setParameter (processor.apvts, Processor::quantizeId, 3.0f);   // 1/4 = one beat
+
+            juce::MidiBuffer midi;
+            midi.addEvent (juce::MidiMessage::noteOn (1, 60, 0.8f), 100);
+            processOne (processor, midi);
+            midi.clear();
+            assert (! processor.slotIsActive (0));   // scheduled, not started
+
+            // The second press before the grid point cancels the pending start.
+            midi.addEvent (juce::MidiMessage::noteOn (1, 60, 0.8f), 0);
+            processOne (processor, midi);
+            midi.clear();
+            for (int i = 0; i < 12; ++i)     // well past one beat at 120 BPM (24000 samples)
+                processOne (processor, midi);
+            assert (! processor.slotIsActive (0));
+
+            // A fresh press fires on the grid; the next press stops immediately.
+            midi.addEvent (juce::MidiMessage::noteOn (1, 60, 0.8f), 0);
+            processOne (processor, midi);
+            midi.clear();
+            for (int i = 0; i < 50; ++i)     // past the grid point
+                processOne (processor, midi);
+            assert (processor.slotIsActive (0));
+
+            midi.addEvent (juce::MidiMessage::noteOn (1, 60, 0.8f), 0);
+            processOne (processor, midi);
+            midi.clear();
+            for (int i = 0; i < 3; ++i)
+                processOne (processor, midi);
+            assert (! processor.slotIsActive (0));
+        }
+
+        pass ("testToggleTrigger");
+    }
+
+    /** Plan 14: in Toggle mode a stopped transport stops the toggled slots and clears the
+        toggle state, so the next press starts fresh. */
+    void testToggleTransportStop()
+    {
+        Processor processor;
+        processor.prepareToPlay (sampleRate, blockSize);
+        setParameter (processor.apvts, Processor::triggerModeId, 2.0f);
+        setParameter (processor.apvts, Processor::syncId, 1.0f);   // the playhead drives the clock
+
+        TestPlayHead playHead;
+        processor.setPlayHead (&playHead);
+        playHead.info.setIsPlaying (true);
+        playHead.info.setPpqPosition (0.0);
+
+        juce::MidiBuffer midi;
+        midi.addEvent (juce::MidiMessage::noteOn (1, 60, 0.8f), 0);
+        processOne (processor, midi);
+        midi.clear();
+        assert (processor.slotIsActive (0));
+
+        // The transport stops: the toggled slot stops with it.
+        playHead.info.setIsPlaying (false);
+        processOne (processor, midi);
+        for (int i = 0; i < 3; ++i)
+            processOne (processor, midi);
+        assert (! processor.slotIsActive (0));
+
+        // The next press starts fresh (the cleared toggle state does not swallow it).
+        midi.clear();
+        midi.addEvent (juce::MidiMessage::noteOn (1, 60, 0.8f), 0);
+        processOne (processor, midi);
+        assert (processor.slotIsActive (0));
+
+        processor.setPlayHead (nullptr);
+        pass ("testToggleTransportStop");
+    }
+
+    /** Plan 14: the per-slot trigger notes. Defaults are the old fixed map; a moved note
+        claims only its own key. */
+    void testSlotNoteRemap()
+    {
+        Processor processor;
+        processor.prepareToPlay (sampleRate, blockSize);
+
+        // The defaults match today's fixed map.
+        for (int slot = 0; slot < 4; ++slot)
+            assert (processor.slotNote (slot) == 60 + slot);
+
+        // Slot 0 moves to 72: 60 does nothing, 72 triggers slot 0, the other slots keep
+        // their keys.
+        setParameter (processor.apvts, Processor::slotNoteIds[0], 72.0f);
+
+        juce::MidiBuffer midi;
+        midi.addEvent (juce::MidiMessage::noteOn (1, 60, 0.8f), 0);
+        processOne (processor, midi);
+        for (int slot = 0; slot < 4; ++slot)
+            assert (! processor.slotIsActive (slot));
+
+        midi.clear();
+        midi.addEvent (juce::MidiMessage::noteOn (1, 72, 0.8f), 0);
+        processOne (processor, midi);
+        assert (processor.slotIsActive (0));
+        assert (! processor.slotIsActive (1) && ! processor.slotIsActive (2) && ! processor.slotIsActive (3));
+
+        pass ("testSlotNoteRemap");
+    }
+
+    /** Plan 14: the Tempo parameter drives the clock while Host Sync is off; with sync on
+        the host's position and tempo are authoritative. */
+    void testTempoAndSync()
+    {
+        // Sync off, quantise one beat: at 240 BPM one beat is 12000 samples, so the
+        // scheduled trigger fires within 24 blocks; at 60 BPM it needs 48.
+        const auto firesAt = [] (float bpm)
+        {
+            Processor processor;
+            processor.prepareToPlay (sampleRate, blockSize);
+            setParameter (processor.apvts, Processor::tempoId, bpm);
+            setParameter (processor.apvts, Processor::quantizeId, 3.0f);   // one beat
+
+            juce::MidiBuffer midi;
+            midi.addEvent (juce::MidiMessage::noteOn (1, 60, 0.8f), 100);
+            processOne (processor, midi);
+            midi.clear();
+
+            int blocks = 0;
+            while (! processor.slotIsActive (0) && blocks < 200)
+            {
+                processOne (processor, midi);
+                ++blocks;
+            }
+            return blocks;
+        };
+
+        assert (firesAt (240.0f) <= 24);
+        assert (firesAt (60.0f) > 24);
+
+        // Sync on: the host's position drives the clock, and the host tempo is
+        // authoritative even against a very different Tempo parameter.
+        Processor synced;
+        synced.prepareToPlay (sampleRate, blockSize);
+        setParameter (synced.apvts, Processor::syncId, 1.0f);
+        setParameter (synced.apvts, Processor::tempoId, 240.0f);   // must be ignored
+        setParameter (synced.apvts, Processor::quantizeId, 3.0f);
+
+        TestPlayHead playHead;
+        playHead.info.setIsPlaying (true);
+        playHead.info.setBpm (60.0);           // one beat = 48000 samples
+        playHead.info.setPpqPosition (0.0);
+        synced.setPlayHead (&playHead);
+
+        juce::MidiBuffer midi;
+        midi.addEvent (juce::MidiMessage::noteOn (1, 60, 0.8f), 100);
+        processOne (synced, midi);
+        midi.clear();
+
+        int blocks = 0;
+        while (! synced.slotIsActive (0) && blocks < 200)
+        {
+            playHead.info.setPpqPosition ((double) (blocks + 1) * blockSize / 48000.0);
+            processOne (synced, midi);
+            ++blocks;
+        }
+
+        // At the host's 60 BPM the grid point is at 48000 samples (~94 blocks); at the
+        // plugin's 240 it would have fired by block 24.
+        assert (blocks > 40);
+
+        synced.setPlayHead (nullptr);
+        pass ("testTempoAndSync");
+    }
+
+    /** Plan 14: with Host Sync on the whole loop plays in exactly Beats beats: the rate
+        comes from the loop's own duration, Speed is inactive, and Start/Length choose the
+        span without changing the rate. */
+    void testLoopSyncRate()
+    {
+        // A 24000-frame loop at the test rate: half a second at speed 1.
+        const juce::File loopFile = writeTestLoop ("sync_rate.wav");
+        const int loopFrames = 24000;
+
+        const auto measuredRate = [&] (float beats, float speed, float start, float length) -> double
+        {
+            Processor processor;
+            processor.prepareToPlay (sampleRate, blockSize);
+            processor.loadLoopFromFileAsync (0, loopFile, loopFile.getFullPathName());
+            juce::MessageManager::getInstance()->runDispatchLoopUntil (50);
+            for (int i = 0; i < 40 && processor.hasPendingLoopLoad(); ++i)
+                juce::MessageManager::getInstance()->runDispatchLoopUntil (50);
+            assert (! processor.hasPendingLoopLoad());
+
+            setParameter (processor.apvts, Processor::syncId, 1.0f);
+            setParameter (processor.apvts, Processor::slotBeatsIds[0], beats);
+            setParameter (processor.apvts, Processor::slotSpeedIds[0], speed);
+            setParameter (processor.apvts, Processor::slotStartIds[0], start);
+            setParameter (processor.apvts, Processor::slotLengthIds[0], length);
+
+            TestPlayHead playHead;
+            playHead.info.setIsPlaying (true);
+            playHead.info.setBpm (120.0);          // one beat = 24000 samples
+            playHead.info.setPpqPosition (0.0);
+            processor.setPlayHead (&playHead);
+
+            juce::MidiBuffer midi;
+            midi.addEvent (juce::MidiMessage::noteOn (1, 60, 0.8f), 100);
+            processOne (processor, midi);
+            midi.clear();
+            assert (processor.slotIsActive (0));
+
+            // The rate from the playhead's progress over 15 blocks, which cancels the
+            // seam pre-roll's initial offset.
+            for (int i = 0; i < 5; ++i)
+                processOne (processor, midi);
+            const double early = processor.slotPlayhead (0);
+
+            for (int i = 0; i < 15; ++i)
+                processOne (processor, midi);
+            const double late = processor.slotPlayhead (0);
+
+            processor.setPlayHead (nullptr);
+
+            const auto span = CoreDSP::Loop::regionFrames (loopFrames, start, length);
+            return (late - early) * (double) span[1] / (double) (15 * blockSize);
+        };
+
+        const double expected = loopFrames * 120.0 / (4.0 * 60.0 * (double) sampleRate);   // 0.25
+
+        // The whole span: the loop takes four beats (two seconds), so the rate is 0.25
+        // regardless of the Speed knob.
+        assert (std::abs (measuredRate (4.0f, 1.0f, 0.0f, 100.0f) - expected) < 0.02);
+        assert (std::abs (measuredRate (4.0f, 4.0f, 0.0f, 100.0f) - expected) < 0.02);   // Speed inactive
+
+        // A trimmed span (Start 25 %, Length 50 %) keeps the same rate.
+        assert (std::abs (measuredRate (4.0f, 1.0f, 25.0f, 50.0f) - expected) < 0.02);
+
+        // One beat: the rate doubles the musical speed (0.5 s of loop in one beat).
+        assert (std::abs (measuredRate (1.0f, 1.0f, 0.0f, 100.0f) - expected * 4.0) < 0.04);
+
+        pass ("testLoopSyncRate");
+    }
+
+    /** Plan 14 (G-B): with Host Sync on the Speed knobs are dimmed (and Grain dims them
+        as before); sync off keeps them live. */
+    void testSpeedAffinityUnderSync()
+    {
+        Processor processor;
+        std::unique_ptr<juce::AudioProcessorEditor> editor (processor.createEditorAndMakeActive());
+        juce::MessageManager::getInstance()->runDispatchLoopUntil (120);
+        auto* cyclicalEditor = dynamic_cast<CyclicalEditor*> (editor.get());
+        assert (cyclicalEditor != nullptr);
+
+        assert (cyclicalEditor->isSpeedEnabled (0));    // sync off by default
+
+        setParameter (processor.apvts, Processor::syncId, 1.0f);
+        juce::MessageManager::getInstance()->runDispatchLoopUntil (120);
+        assert (! cyclicalEditor->isSpeedEnabled (0));
+
+        setParameter (processor.apvts, Processor::syncId, 0.0f);
+        juce::MessageManager::getInstance()->runDispatchLoopUntil (120);
+        assert (cyclicalEditor->isSpeedEnabled (0));
+
+        processor.editorBeingDeleted (editor.get());
+        pass ("testSpeedAffinityUnderSync");
+    }
+
+    /** Plan 14 Phase 3: the chop boundary maths. b_0 = 0, b_S = 1, strictly increasing;
+        v = 0 is the equal split; positive v lengthens the late slices, negative the early. */
+    void testChopBoundaries()
+    {
+        // Equal split.
+        for (int i = 0; i <= 8; ++i)
+            assert (std::abs (Processor::chopBoundary (i, 8, 0.0f) - (double) i / 8.0) < 1.0e-12);
+
+        // Strictly increasing over the range, for both skews.
+        for (float v : { 60.0f, -60.0f })
+        {
+            double previous = -1.0;
+            for (int i = 0; i <= 16; ++i)
+            {
+                const double b = Processor::chopBoundary (i, 16, v);
+                assert (b > previous);
+                previous = b;
+            }
+        }
+
+        // Positive v: the late slices are longer (first slice shorter than equal, last
+        // slice longer).
+        assert (Processor::chopBoundary (1, 8, 60.0f) - Processor::chopBoundary (0, 8, 60.0f) < 1.0 / 8.0);
+        assert (Processor::chopBoundary (8, 8, 60.0f) - Processor::chopBoundary (7, 8, 60.0f) > 1.0 / 8.0);
+
+        // Negative v: the early slices are longer.
+        assert (Processor::chopBoundary (1, 8, -60.0f) - Processor::chopBoundary (0, 8, -60.0f) > 1.0 / 8.0);
+        assert (Processor::chopBoundary (8, 8, -60.0f) - Processor::chopBoundary (7, 8, -60.0f) < 1.0 / 8.0);
+
+        pass ("testChopBoundaries");
+    }
+
+    /** Plan 14 Phase 3: a chopped slot's keys base..base+slices-1 trigger slice k of the
+        region (the ramp loop's sample values name their frame, so the output reads the
+        slice). Key 68 with 8 slices is unclaimed. */
+    void testChopKeyMapping()
+    {
+        const juce::File loopFile = writeRampLoopFloat ("chop_map.wav");   // 24000 frames, value = frame
+        const int loopFrames = 24000;
+
+        const auto firstOutputValue = [&] (int key) -> double
+        {
+            Processor processor;
+            processor.prepareToPlay (sampleRate, blockSize);
+            processor.loadLoopFromFileAsync (0, loopFile, loopFile.getFullPathName());
+            for (int i = 0; i < 40 && processor.hasPendingLoopLoad(); ++i)
+                juce::MessageManager::getInstance()->runDispatchLoopUntil (50);
+            assert (! processor.hasPendingLoopLoad());
+
+            setParameter (processor.apvts, Processor::slotChopIds[0], 1.0f);
+            setParameter (processor.apvts, Processor::slotSlicesIds[0], 8.0f);
+            setParameter (processor.apvts, Processor::crossfadeLengthId, 0.0f);   // no seam blend
+
+            juce::MidiBuffer midi;
+            midi.addEvent (juce::MidiMessage::noteOn (1, key, 0.8f), 100);
+
+            juce::AudioBuffer<float> first (2, blockSize);
+            first.clear();
+            processor.processBlock (first, midi);
+            midi.clear();
+            assert (processor.slotIsActive (0));
+
+            juce::AudioBuffer<float> buffer (2, blockSize);
+            buffer.clear();
+            processor.processBlock (buffer, midi);
+
+            // The frame the voice reads at block 2's last sample: the output carries the
+            // gain law (velocity 0.8 x the constant-power pan 0.7071), so divide it out.
+            // Press at sample 100: block 1 advanced 412 frames, block 2 renders 511 more.
+            constexpr double gainLaw = 0.8 * 0.7071067811865476;
+            return (double) buffer.getSample (0, buffer.getNumSamples() - 1) / gainLaw;
+        };
+
+        const auto sliceStart = [&] (int k)
+        {
+            return (int) std::lround (Processor::chopBoundary (k, 8, 0.0f) * (double) loopFrames);
+        };
+
+        // Slices 0, 2 and 4 read at their boundary frames, 923 frames in (the two-block
+        // measurement), within interpolation slop.
+        // The frame the voice reads at block 2's last sample: 412 (block 1) + 511 frames
+        // past the slice start, within interpolation slop.
+        assert (std::abs (firstOutputValue (60) - (double) (sliceStart (0) + 923)) < 60.0);
+        assert (std::abs (firstOutputValue (62) - (double) (sliceStart (2) + 923)) < 60.0);
+        assert (std::abs (firstOutputValue (64) - (double) (sliceStart (4) + 923)) < 60.0);
+
+        // Key 68 (one above the slice range) does not trigger slot 0.
+        {
+            Processor processor;
+            processor.prepareToPlay (sampleRate, blockSize);
+            setParameter (processor.apvts, Processor::slotChopIds[0], 1.0f);
+
+            juce::MidiBuffer midi;
+            midi.addEvent (juce::MidiMessage::noteOn (1, 68, 0.8f), 0);
+            processOne (processor, midi);
+            assert (! processor.slotIsActive (0));
+        }
+
+        pass ("testChopKeyMapping");
+    }
+
+    /** Plan 14 Phase 3: a chopped slot ignores Host Sync entirely (its Speed knob stays
+        live and its Beats value is not used. */
+    void testChopIgnoresSync()
+    {
+        const juce::File loopFile = writeRampLoopFloat ("chop_sync.wav");
+        Processor processor;
+        processor.prepareToPlay (sampleRate, blockSize);
+        processor.loadLoopFromFileAsync (0, loopFile, loopFile.getFullPathName());
+        for (int i = 0; i < 40 && processor.hasPendingLoopLoad(); ++i)
+            juce::MessageManager::getInstance()->runDispatchLoopUntil (50);
+        assert (! processor.hasPendingLoopLoad());
+
+        setParameter (processor.apvts, Processor::syncId, 1.0f);
+        setParameter (processor.apvts, Processor::slotBeatsIds[0], 4.0f);
+        setParameter (processor.apvts, Processor::slotChopIds[0], 1.0f);
+        setParameter (processor.apvts, Processor::slotSpeedIds[0], 1.0f);   // must win over sync
+        setParameter (processor.apvts, Processor::crossfadeLengthId, 0.0f);   // the fresh span is the whole slice
+
+        TestPlayHead playHead;
+        playHead.info.setIsPlaying (true);
+        playHead.info.setBpm (120.0);
+        playHead.info.setPpqPosition (0.0);
+        processor.setPlayHead (&playHead);
+
+        juce::MidiBuffer midi;
+        midi.addEvent (juce::MidiMessage::noteOn (1, 60, 0.8f), 100);
+        processOne (processor, midi);
+        midi.clear();
+        assert (processor.slotIsActive (0));
+
+        // The playhead normalises over the fresh span, which for slice 0 (8 equal slices)
+        // is 3000 frames. Two one-block gaps: the traversal stays inside the slice.
+        processOne (processor, midi);
+        const double early = processor.slotPlayhead (0);
+        processOne (processor, midi);
+        processOne (processor, midi);
+        const double late = processor.slotPlayhead (0);
+
+        processor.setPlayHead (nullptr);
+
+        // Speed 1: one frame per output sample, not the synced 0.25.
+        const double rate = (late - early) * 3000.0 / (double) (2 * blockSize);
+        assert (std::abs (rate - 1.0) < 0.06);
+
+        pass ("testChopIgnoresSync");
+    }
+
+    /** Plan 14 Phase 3 (G-D): granular inside a slice stays inside the slice. */
+    void testChopGranularStaysInsideSlice()
+    {
+        const juce::File loopFile = writeRampLoopFloat ("chop_grain.wav");
+        Processor processor;
+        processor.prepareToPlay (sampleRate, blockSize);
+        processor.loadLoopFromFileAsync (0, loopFile, loopFile.getFullPathName());
+        for (int i = 0; i < 40 && processor.hasPendingLoopLoad(); ++i)
+            juce::MessageManager::getInstance()->runDispatchLoopUntil (50);
+        assert (! processor.hasPendingLoopLoad());
+
+        setParameter (processor.apvts, Processor::slotChopIds[0], 1.0f);
+        setParameter (processor.apvts, Processor::slotSlicesIds[0], 4.0f);
+        setParameter (processor.apvts, Processor::slotGranularIds[0], 1.0f);
+        setParameter (processor.apvts, Processor::crossfadeLengthId, 0.0f);
+
+        juce::MidiBuffer midi;
+        midi.addEvent (juce::MidiMessage::noteOn (1, 61, 0.8f), 100);   // slice 1
+        processOne (processor, midi);
+        midi.clear();
+        assert (processor.slotIsActive (0));
+
+        // Many blocks of grains: every output value names a frame inside slice 1.
+        const double start = Processor::chopBoundary (1, 4, 0.0f) * 24000.0;
+        const double end = Processor::chopBoundary (2, 4, 0.0f) * 24000.0;
+
+        bool heard = false;
+        constexpr double gainLaw = 0.8 * 0.7071067811865476;
+
+        for (int b = 0; b < 20; ++b)
+        {
+            juce::AudioBuffer<float> buffer (2, blockSize);
+            buffer.clear();
+            processor.processBlock (buffer, midi);
+
+            for (int n = 0; n < buffer.getNumSamples(); ++n)
+            {
+                const float v = buffer.getSample (0, n);
+                if (std::abs (v) > 1.0e-3f)
+                {
+                    heard = true;
+                    // The upper bound is the behavioural check: no grain reads past the
+                    // slice end. (The lower bound is unmeasurable during the attack ramp;
+                    // readRegion clamps it by construction.)
+                    const double frame = (double) v / gainLaw;
+                    assert (frame <= end + 2.0);
+                }
+            }
+        }
+
+        assert (heard);
+        pass ("testChopGranularStaysInsideSlice");
     }
 
     /** A retrigger starts a fresh voice: the playhead returns to the top of the span. */
@@ -739,7 +1295,8 @@ namespace
         pass ("testHelpLine");
     }
 
-    /** Plan 10 G1: the mode-dependent controls are dimmed, never hidden. */
+    /** Plan 10 G1: the mode-dependent controls are dimmed, never hidden. Plan 14 adds the
+        chop/sync rules, tested in every combination of Chop and Host Sync. */
     void testAffinity()
     {
         Processor processor;
@@ -749,10 +1306,14 @@ namespace
         auto* cyclicalEditor = dynamic_cast<CyclicalEditor*> (editor.get());
         assert (cyclicalEditor != nullptr);
 
-        // Default: forward, no grain. Speed is live; Ping Rand is dimmed outside Ping-Pong.
+        // Default: forward, no grain, no chop, sync off. Speed is live; Ping Rand is
+        // dimmed outside Ping-Pong; the chop cells are dimmed; Beats is live.
         assert (cyclicalEditor->isSpeedEnabled (0));
         assert (! cyclicalEditor->isPingRandomEnabled (0));
         assert (cyclicalEditor->isSpeedVisible (0));
+        assert (cyclicalEditor->isBeatsEnabled (0));
+        assert (! cyclicalEditor->isSlicesEnabled (0));
+        assert (! cyclicalEditor->isSliceLengthEnabled (0));
 
         // Grain on: Speed dims but stays visible.
         setParameter (processor.apvts, Processor::slotGranularIds[0], 1.0f);
@@ -766,6 +1327,38 @@ namespace
         assert (cyclicalEditor->isPingRandomEnabled (0));
         assert (! cyclicalEditor->isSpeedEnabled (0));   // grain is still on
 
+        // Every combination of Chop and Host Sync (plan 14: the three rules interact).
+        setParameter (processor.apvts, Processor::slotGranularIds[0], 0.0f);
+
+        setParameter (processor.apvts, Processor::syncId, 0.0f);
+        setParameter (processor.apvts, Processor::slotChopIds[0], 0.0f);
+        juce::MessageManager::getInstance()->runDispatchLoopUntil (50);
+        assert (cyclicalEditor->isSpeedEnabled (0));
+        assert (cyclicalEditor->isBeatsEnabled (0));
+        assert (! cyclicalEditor->isSlicesEnabled (0));
+
+        setParameter (processor.apvts, Processor::slotChopIds[0], 1.0f);
+        juce::MessageManager::getInstance()->runDispatchLoopUntil (50);
+        assert (cyclicalEditor->isSpeedEnabled (0));     // sync off: Speed stays live
+        assert (! cyclicalEditor->isBeatsEnabled (0));   // chopped: Beats dims
+        assert (cyclicalEditor->isSlicesEnabled (0));
+        assert (cyclicalEditor->isSliceLengthEnabled (0));
+
+        setParameter (processor.apvts, Processor::syncId, 1.0f);
+        juce::MessageManager::getInstance()->runDispatchLoopUntil (50);
+        assert (cyclicalEditor->isSpeedEnabled (0));     // a chopped slot ignores sync
+        assert (! cyclicalEditor->isBeatsEnabled (0));
+
+        setParameter (processor.apvts, Processor::slotChopIds[0], 0.0f);
+        juce::MessageManager::getInstance()->runDispatchLoopUntil (50);
+        assert (! cyclicalEditor->isSpeedEnabled (0));   // unchopped + synced: Speed dims
+        assert (cyclicalEditor->isBeatsEnabled (0));
+        assert (! cyclicalEditor->isSlicesEnabled (0));
+
+        setParameter (processor.apvts, Processor::syncId, 0.0f);
+        juce::MessageManager::getInstance()->runDispatchLoopUntil (50);
+        assert (cyclicalEditor->isSpeedEnabled (0));
+
         // The page switch: both pages show their own controls only.
         assert (cyclicalEditor->getPage() == 0);
         cyclicalEditor->setPage (1);
@@ -777,6 +1370,50 @@ namespace
         processor.editorBeingDeleted (editor.get());
         editor.reset();
         pass ("testAffinity");
+    }
+
+    /** Plan 14 Phase 5: the waveform draws the slice boundaries when the slot is chopped,
+        none when it is not, and the drawn lines sit at the shared chopBoundary shares. */
+    void testWaveformChopLines()
+    {
+        juce::AudioBuffer<float> buffer (1, 24000);
+        for (int i = 0; i < 24000; ++i)
+            buffer.setSample (0, i, (float) i / 24000.0f);
+        auto loop = makeLoadedLoop (juce::AudioBuffer<float> (buffer), (double) sampleRate, "embedded:test.wav");
+
+        LoopWaveformView view { juce::Colour (0xffFF7A45) };
+        view.setBounds (0, 0, 400, 110);
+        view.setLoop (loop.get());
+        view.setRegion (0.0f, 100.0f);
+        view.setMissing (false);
+
+        juce::Image baseline = PluginTest::paintComponent (view);
+
+        // Chop on: the boundaries at the equal-split shares.
+        view.setChopLines ({ 0.25f, 0.5f, 0.75f });
+        juce::Image chopped = PluginTest::paintComponent (view);
+        assert (PluginTest::countChangedPixels (baseline, chopped) > 0);
+
+        // The lines sit at the boundary shares: the plot is the view reduced by 4 px.
+        const int plotLeft = 4;
+        const int plotWidth = 400 - 8;
+        const auto changedAt = [&] (int x)
+        {
+            return baseline.getPixelAt ((float) x, 55.0f) != chopped.getPixelAt ((float) x, 55.0f);
+        };
+        assert (changedAt (plotLeft + (int) (0.25f * (float) plotWidth)));
+        assert (changedAt (plotLeft + (int) (0.5f * (float) plotWidth)));
+        assert (changedAt (plotLeft + (int) (0.75f * (float) plotWidth)));
+
+        // A share with no line: the equal-split 0.125 position stays as the baseline.
+        assert (! changedAt (plotLeft + (int) (0.125f * (float) plotWidth)));
+
+        // Chop off: back to the baseline.
+        view.setChopLines ({});
+        juce::Image cleared = PluginTest::paintComponent (view);
+        assert (PluginTest::countChangedPixels (baseline, cleared) == 0);
+
+        pass ("testWaveformChopLines");
     }
 
     /** Writes the editor renders when SUITE_RENDER_DIR is set (plan 05 R9). */
@@ -853,6 +1490,17 @@ int main()
     testDefaultSilence();
     testMidiMap();
     testGateVsLatch();
+    testToggleTrigger();
+    testToggleTransportStop();
+    testSlotNoteRemap();
+    testTempoAndSync();
+    testLoopSyncRate();
+    testSpeedAffinityUnderSync();
+    testChopBoundaries();
+    testChopKeyMapping();
+    testChopIgnoresSync();
+    testChopGranularStaysInsideSlice();
+    testWaveformChopLines();
     testRetriggerRestarts();
     testMonoBuffer();
     testLatencyAndTail();

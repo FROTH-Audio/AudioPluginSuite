@@ -1853,4 +1853,107 @@
       <PARAM id="slot4Granular" value="1"/>
     </PARAMETERS>
   </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="Cyclical" pluginVersion="1.0.0">
+    <Meta name="Dr Rex Grid" category="Electronic" author="FROTH Audio" description="Two chopped slots play slice-per-key on a 16th grid."/>
+    <PARAMETERS suiteStateVersion="1" loop1Path="embedded:kick_4k.wav" loop2Path="embedded:hats_4k.wav" loop3Path="embedded:bass_4k.wav" loop4Path="embedded:perc_4k.wav">
+      <PARAM id="quantize" value="1"/>
+      <PARAM id="slot1Chop" value="1"/>
+      <PARAM id="slot1Slices" value="16"/>
+      <PARAM id="slot2Chop" value="1"/>
+      <PARAM id="slot2Slices" value="8"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="Cyclical" pluginVersion="1.0.0">
+    <Meta name="Late Slices" category="Experimental" author="FROTH Audio" description="A chopped pad whose late slices stretch out."/>
+    <PARAMETERS suiteStateVersion="1" loop1Path="embedded:chord_4k.wav" loop2Path="embedded:drone_4k.wav" loop3Path="embedded:texture_4k.wav" loop4Path="embedded:noise_4k.wav">
+      <PARAM id="slot1Note" value="48"/>
+      <PARAM id="slot1Chop" value="1"/>
+      <PARAM id="slot1Slices" value="8"/>
+      <PARAM id="slot1SliceLength" value="60"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="Cyclical" pluginVersion="1.0.0">
+    <Meta name="Early Slices" category="Experimental" author="FROTH Audio" description="The opposite skew: the early slices take the space."/>
+    <PARAMETERS suiteStateVersion="1" loop1Path="embedded:vox_4k.wav" loop2Path="embedded:texture_4k.wav" loop3Path="embedded:bells_4k.wav" loop4Path="embedded:noise_4k.wav">
+      <PARAM id="slot1Note" value="48"/>
+      <PARAM id="slot1Chop" value="1"/>
+      <PARAM id="slot1Slices" value="8"/>
+      <PARAM id="slot1SliceLength" value="-60"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="Cyclical" pluginVersion="1.0.0">
+    <Meta name="Slice Skew Pair" category="Texture" author="FROTH Audio" description="Two chopped pads skewed in opposite directions."/>
+    <PARAMETERS suiteStateVersion="1" loop1Path="embedded:texture_4k.wav" loop2Path="embedded:chord_4k.wav" loop3Path="embedded:bells_4k.wav" loop4Path="embedded:drone_4k.wav">
+      <PARAM id="slot1Note" value="48"/>
+      <PARAM id="slot1Chop" value="1"/>
+      <PARAM id="slot1Slices" value="6"/>
+      <PARAM id="slot1SliceLength" value="45"/>
+      <PARAM id="slot2Note" value="60"/>
+      <PARAM id="slot2Chop" value="1"/>
+      <PARAM id="slot2Slices" value="6"/>
+      <PARAM id="slot2SliceLength" value="-45"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="Cyclical" pluginVersion="1.0.0">
+    <Meta name="Chopped Break" category="Bass" author="FROTH Audio" description="A double-speed chopped bass riff, key-per-slice."/>
+    <PARAMETERS suiteStateVersion="1" loop1Path="embedded:bass_4k.wav" loop2Path="embedded:kick_4k.wav" loop3Path="embedded:perc_4k.wav" loop4Path="embedded:noise_4k.wav">
+      <PARAM id="quantize" value="1"/>
+      <PARAM id="slot1Speed" value="2"/>
+      <PARAM id="slot1Chop" value="1"/>
+      <PARAM id="slot1Slices" value="8"/>
+      <PARAM id="slot1SliceLength" value="40"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="Cyclical" pluginVersion="1.0.0">
+    <Meta name="Synced Bars" category="Groove" author="FROTH Audio" description="Every loop locks to the host: whole loop in Beats beats."/>
+    <PARAMETERS suiteStateVersion="1" loop1Path="embedded:kick_4k.wav" loop2Path="embedded:hats_4k.wav" loop3Path="embedded:bass_4k.wav" loop4Path="embedded:chord_4k.wav">
+      <PARAM id="slot1Beats" value="4"/>
+      <PARAM id="slot2Beats" value="8"/>
+      <PARAM id="slot3Beats" value="2"/>
+      <PARAM id="slot4Beats" value="4"/>
+      <PARAM id="sync" value="1"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="Cyclical" pluginVersion="1.0.0">
+    <Meta name="Half-Time Sync" category="Groove" author="FROTH Audio" description="Synced loops stretched over eight beats each."/>
+    <PARAMETERS suiteStateVersion="1" loop1Path="embedded:kick_4k.wav" loop2Path="embedded:snare_4k.wav" loop3Path="embedded:chord_4k.wav" loop4Path="embedded:texture_4k.wav">
+      <PARAM id="masterVolume" value="-3"/>
+      <PARAM id="slot1Beats" value="8"/>
+      <PARAM id="slot2Beats" value="8"/>
+      <PARAM id="slot3Beats" value="8"/>
+      <PARAM id="slot4Beats" value="8"/>
+      <PARAM id="sync" value="1"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="Cyclical" pluginVersion="1.0.0">
+    <Meta name="Toggle Looper" category="Ambient" author="FROTH Audio" description="Toggle mode: one press starts the pad, the next stops it."/>
+    <PARAMETERS suiteStateVersion="1" loop1Path="embedded:drone_4k.wav" loop2Path="embedded:texture_4k.wav" loop3Path="embedded:chord_4k.wav" loop4Path="embedded:noise_4k.wav">
+      <PARAM id="triggerMode" value="2"/>
+      <PARAM id="slot1Note" value="48"/>
+      <PARAM id="slot2Note" value="50"/>
+      <PARAM id="slot3Note" value="52"/>
+      <PARAM id="crossfadeLength" value="120"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="Cyclical" pluginVersion="1.0.0">
+    <Meta name="Spread Keys" category="Electronic" author="FROTH Audio" description="The four slots sit across the keyboard, chops included."/>
+    <PARAMETERS suiteStateVersion="1" loop1Path="embedded:kick_4k.wav" loop2Path="embedded:hats_4k.wav" loop3Path="embedded:snare_4k.wav" loop4Path="embedded:perc_4k.wav">
+      <PARAM id="slot1Note" value="48"/>
+      <PARAM id="slot2Note" value="52"/>
+      <PARAM id="slot2Chop" value="1"/>
+      <PARAM id="slot2Slices" value="4"/>
+      <PARAM id="slot3Note" value="55"/>
+      <PARAM id="slot4Note" value="59"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="Cyclical" pluginVersion="1.0.0">
+    <Meta name="Tempo Runner" category="Electronic" author="FROTH Audio" description="Free-running tempo at 150 BPM drives the quantised chop."/>
+    <PARAMETERS suiteStateVersion="1" loop1Path="embedded:kick_4k.wav" loop2Path="embedded:hats_4k.wav" loop3Path="embedded:arp_4k.wav" loop4Path="embedded:perc_4k.wav">
+      <PARAM id="quantize" value="1"/>
+      <PARAM id="triggerMode" value="1"/>
+      <PARAM id="slot1Chop" value="1"/>
+      <PARAM id="slot1Slices" value="8"/>
+      <PARAM id="tempo" value="150"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
 </Bank>

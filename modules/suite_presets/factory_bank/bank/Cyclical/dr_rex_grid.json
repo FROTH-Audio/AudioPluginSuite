@@ -1,0 +1,18 @@
+{
+  "_name": "Dr Rex Grid",
+  "_category": "Electronic",
+  "_description": "Two chopped slots play slice-per-key on a 16th grid.",
+  "_plugin": "Cyclical",
+  "_pluginVersion": "1.0.0",
+  "_loopPaths": [
+    "embedded:kick_4k.wav",
+    "embedded:hats_4k.wav",
+    "embedded:bass_4k.wav",
+    "embedded:perc_4k.wav"
+  ],
+  "quantize": 1,
+  "slot1Chop": 1,
+  "slot1Slices": 16,
+  "slot2Chop": 1,
+  "slot2Slices": 8
+}

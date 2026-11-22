@@ -7,6 +7,13 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Plan 14 — the Cyclical overhaul (`owner_findings.md`, the owner's four findings), implemented and verified:
+  - **Toggle trigger**: Trigger Mode gains a third choice — the first press starts the slot looping, the second stops it immediately; a note-off never stops it, and a stopped transport stops the toggled slots.
+  - **User-selectable notes**: every slot has a Note key (24–96, defaults 60–63 = the old fixed map); a chopped slot adds one key per slice above its base note.
+  - **BPM sync**: a Tempo parameter and a Host Sync switch, plus a per-slot **Beats** value — with sync on each unchopped loop plays in exactly Beats beats and the Speed knob goes inactive (dimmed).
+  - **Chop mode** (Dr. Rex style): a slot's region splits into 2–16 slices, one key per slice, with a **Slice Length** skew knob (positive lengthens the late slices, negative the early ones). Sync is disabled for a chopped slot; granular inside a slice is allowed; the waveform draws the slice boundaries.
+  - **The SLOTS page keeps its card style** and gains the four new knobs as a second row per card (the window is 1000×876, the height derived from the layout), the GLOBAL page gains Tempo and Host Sync, and every mode-dependent knob dims (never hides) per the plan-10 rule — tested in every Chop × Sync combination.
+  - **Tangerine accent** `#FF7A45` replaces the steel colour; +10 factory presets using the new concept (25 total for Cyclical, the bank is now 210).
 - Plan 15 — the owner's third DAW-test round (`owner_findings.md`), fixed and verified:
   - **Stereo Tool Effect is compact**: the mid/side + follower preview moved to the top of the window, the stereo meter pair is removed (the mid/side bars and the trace keep the space), and the default window height (658) now **is** the minimum resize height — no dead space at the bottom.
   - **MultiSat's stereo meters are removed**, the visualiser draws a **frequency × level grid** behind the band bars (vertical lines at 80 Hz – 8 kHz, horizontal ones at 0 … −60 dB, the axes the crossover and the band bars use), and the SOUND / MOD switch moved into the header row, left of the preset bar.

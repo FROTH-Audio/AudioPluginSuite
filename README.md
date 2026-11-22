@@ -153,7 +153,7 @@ Spectral Drift, Dynamic Saturation and Micro-Timing Chaos share a preset system 
 
 **Preset files** use the `.ausp` extension: UTF-8 XML (`<AudioSuitePreset formatVersion="1" plugin="..." pluginVersion="...">`, `<Meta>`, `<PARAMETERS suiteStateVersion="N">`). User presets are stored under `Documents/AudioSuite/<plugin>/Presets` (Windows) or the platform equivalent, and the plugin id and state version are checked on read — a preset saved with a newer plugin version is refused rather than partially applied.
 
-**Factory bank.** With `SUITE_PRESET_BANK=ON`, 200 factory presets are embedded in the plugin binary (`bank/AudioSuitePresets.xml`): 36 for Spectral Drift, 36 for Dynamic Saturation, 28 for Micro-Timing Chaos, 20 for Sgraffito, 15 for MIDI Chord Arp Scale Tool, 25 each for Stereo Tool and Multiband Saturation, and 15 for Cyclical (plans 6.1, 11 and 13 — the plan-13 additions in SD, DS, Stereo Tool and MultiSat use the shared LFO routing). Each preset is a delta from the default state, so absent parameters are set to their defaults at load time. The bank is checked by `tools/audit_bank.py` (unique names, in-range values, no preset equal to the default, category rules, Micro-Timing Chaos base patterns that fire at least one step, and a `samplePath` only as an `embedded:` URI — five Sgraffito presets ship the embedded cloud variant; file paths are rejected). Without the flag, the bank compiles as empty and the bar shows only user presets and INIT.
+**Factory bank.** With `SUITE_PRESET_BANK=ON`, 210 factory presets are embedded in the plugin binary (`bank/AudioSuitePresets.xml`): 36 for Spectral Drift, 36 for Dynamic Saturation, 28 for Micro-Timing Chaos, 20 for Sgraffito, 15 for MIDI Chord Arp Scale Tool, 25 each for Stereo Tool and Multiband Saturation, and 25 for Cyclical (plans 6.1, 11, 13 and 14 — the plan-13 additions in SD, DS, Stereo Tool and MultiSat use the shared LFO routing, the plan-14 additions in Cyclical use chop/sync/Toggle/notes). Each preset is a delta from the default state, so absent parameters are set to their defaults at load time. The bank is checked by `tools/audit_bank.py` (unique names, in-range values, no preset equal to the default, category rules, Micro-Timing Chaos base patterns that fire at least one step, and a `samplePath` only as an `embedded:` URI — five Sgraffito presets ship the embedded cloud variant; file paths are rejected). Without the flag, the bank compiles as empty and the bar shows only user presets and INIT.
 
 **Preset bar.** Each editor gains a header bar (right-aligned in the title area) that lists factory presets by category, INIT (reset-all-defaults) and SAVE. The bar is always visible (height 30); when the bank is empty it lists only user presets.
 
@@ -488,7 +488,7 @@ The band sum is clamped to the rails, so the output cannot exceed full scale. Th
 <img src="docs/manuals/cyclical-slots.png" alt="Cyclical screenshot" width="653">
 
 The [user manual](plugins/Cyclical/MANUAL.md) walks through both pages.
-A four-slot loop instrument (plan 6.1). Four loaded audio loops play with a region, a speed, a direction (forward, reverse or ping-pong with randomised turn points), a granular mode and velocity scaling — quantised to the host grid with swing. No recording, no audio input: the four fixed keys C4–D#4 (MIDI 60–63) trigger slots 1–4.
+A four-slot loop instrument (plan 6.1, overhauled by plan 14). Four loaded audio loops play with a region, a speed, a direction (forward, reverse or ping-pong with randomised turn points), a granular mode and velocity scaling — quantised to a musical grid with swing. No recording, no audio input: each slot is triggered by its own **Note** key (defaults 60–63), and a chopped slot adds one key per slice above its base note (Dr. Rex style). With **Host Sync on** each unchopped loop plays in exactly **Beats** beats (Speed is inactive); **Chop** splits a slot's region into Slices with a **Slice Length** skew. The window is 1000×876 with a tangerine accent.
 
 | Control | Range | Default | Description |
 |---|---|---|---|
@@ -496,16 +496,23 @@ A four-slot loop instrument (plan 6.1). Four loaded audio loops play with a regi
 | **Pan** | −100 – +100 % | 0 % | Constant-power law. |
 | **Quantize** | Off / 1/16 / 1/8 / 1/4 / 1/2 / Bar | Off | Triggers start on the next grid point. |
 | **Swing** | −20 – +20 % | 0 % | Shifts odd grid points. |
-| **Trigger Mode** | Latch / Gate | Latch | Gate plays only while the key is held. |
+| **Trigger Mode** | Latch / Gate / Toggle | Latch | Gate plays only while the key is held; Toggle starts on the first press and stops on the second. |
 | **Start** | 0 – 100 % | 0 % | Where the slot's loop starts (capped at 95 %). |
 | **Length** | 5 – 100 % | 100 % | How much of the loop plays. |
-| **Speed** | 0.25 – 4.0 × | 1.0 | Tape varispeed; inert in granular mode. |
+| **Speed** | 0.25 – 4.0 × | 1.0 | Tape varispeed; inert in granular mode and under Host Sync (unless chopped). |
 | **Direction** | Forward / Reverse / Ping-Pong | Forward | Ping-pong turns at both bounds. |
 | **Ping Rand** | on / off | off | Randomises the ping-pong turn points per trigger; the rate is untouched. |
 | **Grain** | on / off | off | One 80 ms grain at a time, deterministic. |
 | **Velocity** | 30 – 150 % | 100 % | Scales the slot's key velocity. |
+| **Note** | 24 – 96 | 60–63 | The slot's trigger key. |
+| **Beats** | 1 – 16 | 4 | The whole loop's musical length under Host Sync. |
+| **Chop** | on / off | off | Slice mode: one key per slice; sync is disabled for a chopped slot. |
+| **Slices** | 2 – 16 | 8 | The chop slice count. |
+| **Slice Length** | −100 – +100 % | 0 % | Skews the slice boundaries; 0 % is the equal split. |
 | **Pitch** | −12 – +12 | 0 | Detunes all slots together (speed and pitch move). |
 | **Crossfade** | 0 – 500 ms | 5 ms | The loop-seam blend, shared by all slots. |
+| **Tempo** | 40 – 240 BPM | 120 | The clock while Host Sync is off. |
+| **Host Sync** | off / on | off | On: the clock and the synced loops follow the host. |
 
 Loops come from a 12-loop embedded library or the user's disk; the loaded loop travels with the session and with presets as a state property, and a path that cannot be found keeps the slot playing with a "Loop missing" overlay. A retrigger cuts the sounding loop into a 2 ms tail and starts fresh. No latency is added; the tail length is 2 s.
 
@@ -570,7 +577,7 @@ Plugin bundles are written to `build/plugins/<Name>/<Name>_artefacts/Release/`.
 |---|---|---|
 | `SUITE_BUILD_PLUGINS` | `ON` | Build the plugins, their editors and the host-level tests. Set to `OFF` to build only the DSP core and its tests, which is faster. |
 | `SUITE_BUILD_TESTS` | `ON` | Build and register the unit tests. |
-| `SUITE_PRESET_BANK` | `OFF` | Embed the factory preset bank into the plugin binaries (`factory_bank/bank/AudioSuitePresets.xml`, 200 presets: 36 SD / 36 DS / 28 MTC / 20 Sgraffito / 15 MidiEffect / 25 StereoTool / 25 Multiband / 15 Cyclical). The preset bar, `.ausp` files and user presets ship in every build; this flag only adds the embedded bank. |
+| `SUITE_PRESET_BANK` | `OFF` | Embed the factory preset bank into the plugin binaries (`factory_bank/bank/AudioSuitePresets.xml`, 210 presets: 36 SD / 36 DS / 28 MTC / 20 Sgraffito / 15 MidiEffect / 25 StereoTool / 25 Multiband / 25 Cyclical). The preset bar, `.ausp` files and user presets ship in every build; this flag only adds the embedded bank. |
 | `SUITE_PRESET_BANK_AS_PROGRAMS` | `OFF` | With `SUITE_PRESET_BANK=ON`, expose the factory bank as host programs (program 0 = Init, then one per preset). Bank order is append-only once hosts cache indices. |
 
 Example, DSP tests only:
@@ -604,7 +611,7 @@ ctest --test-dir build -C Release --output-on-failure
 | `StereoToolTests` | Stereo Tool Effect processor and editor | 24 |
 | `MidiEffectTests` | MIDI Chord Arp Scale Tool processor and editor | 26 |
 | `MultibandSaturationTests` | Multiband Saturation processor and editor | 14 |
-| `CyclicalTests` | Cyclical processor and editor | 23 |
+| `CyclicalTests` | Cyclical processor and editor | 35 |
 | `PluginHostTests` (×7) | Each built VST3 bundle, loaded through JUCE's own plugin host | 1 per plugin |
 
 **Bank build** (`SUITE_PRESET_BANK=ON`): twenty-eight CTest entries - the twenty public entries plus eight `*_PresetTests` executables, one per plugin (bank ranges, apply/reset, editor, menu model, audio sanity). With `SUITE_PRESET_BANK_AS_PROGRAMS=ON`, the program-list virtuals are also exercised inside the plugin preset tests.

@@ -31,8 +31,9 @@ class CyclicalProcessor : public juce::AudioProcessor,
 {
 public:
     static constexpr int numSlots = 4;
-    static constexpr int numControls = 35;
-    static constexpr int firstSlotNote = 60;      // C4..D#4 = slots 1..4
+    static constexpr int numControls = 57;   // plan 14: +4 Note, +4 Beats, +Tempo, +Sync, +4 Chop/Slices/Slice Length
+    static constexpr int maxSlices = 16;
+    static constexpr int firstSlotNote = 60;      // the default base: C4..D#4 = slots 1..4
 
     // Parameter IDs are saved in sessions. Never rename or reuse one after a release.
     static constexpr const char* masterVolumeId = "masterVolume";
@@ -51,8 +52,27 @@ public:
     static constexpr const char* slotGranularIds[4] = { "slot1Granular", "slot2Granular", "slot3Granular", "slot4Granular" };
     static constexpr const char* slotVelocityIds[4] = { "slot1Velocity", "slot2Velocity", "slot3Velocity", "slot4Velocity" };
 
+    // Plan 14: the per-slot trigger notes (appended after Velocity). Defaults are today's
+    // fixed map, so a saved session that lacks the IDs reads the same keys via resetMissing.
+    static constexpr const char* slotNoteIds[4] = { "slot1Note", "slot2Note", "slot3Note", "slot4Note" };
+
+    // Plan 14: the musical length of the whole loaded loop, in beats. With Host Sync on
+    // the loop plays in exactly this many beats (Speed is inactive then).
+    static constexpr const char* slotBeatsIds[4] = { "slot1Beats", "slot2Beats", "slot3Beats", "slot4Beats" };
+
+    // Plan 14 Phase 3: the chop mode. A chopped slot splits its region into Slices, and
+    // key slotNNote + k triggers slice k. Sync is disabled for a chopped slot.
+    static constexpr const char* slotChopIds[4] = { "slot1Chop", "slot2Chop", "slot3Chop", "slot4Chop" };
+    static constexpr const char* slotSlicesIds[4] = { "slot1Slices", "slot2Slices", "slot3Slices", "slot4Slices" };
+    static constexpr const char* slotSliceLengthIds[4] = { "slot1SliceLength", "slot2SliceLength", "slot3SliceLength", "slot4SliceLength" };
+
     static constexpr const char* pitchShiftId = "pitchShift";
     static constexpr const char* crossfadeLengthId = "crossfadeLength";
+
+    // Plan 14: the musical clock. Sync on follows the host position and tempo; sync off
+    // runs on the Tempo parameter (the MTC pattern).
+    static constexpr const char* tempoId = "tempo";
+    static constexpr const char* syncId = "sync";
 
     // The loop references are state properties, not parameters (the lerpCurve/samplePath
     // route). Brace-initialised, so the audit's parameter-ID regex does not see them.
@@ -147,6 +167,24 @@ public:
     bool slotIsActive (int slot) const noexcept { return activeFlags[(size_t) slot].load (std::memory_order_relaxed); }
     double beatPositionUi() const noexcept { return beatPositionUiValue.load (std::memory_order_relaxed); }
 
+    /** The note a slot triggers on. Chop mode extends the claimed range upward (Phase 3):
+        key slotNote + k triggers slice k. */
+    int slotNote (int slot) const;
+
+    /** The musical length of the slot's whole loaded loop, in beats (plan 14). */
+    int slotBeats (int slot) const;
+
+    /** True when the slot is chopped: its keys then cover slotNote .. slotNote + slices − 1. */
+    bool slotChopped (int slot) const;
+    int slotSlices (int slot) const;
+
+    /** The chop boundary of slice i, as a share (0..1) of the slot's region: b_i = (i/S)^e
+        with e = 2^(2·v) and v = Slice Length / 100. v = 0 is the equal split; positive v
+        lengthens the late slices, negative the early ones. b_0 = 0, b_S = 1, and the
+        boundaries are strictly increasing. Shared with the waveform view, so the display
+        and the audio cannot disagree. */
+    static double chopBoundary (int i, int slices, float sliceLengthPercent);
+
     /** Message thread. The loaded loop of one slot, for the waveform views (may be null). */
     const LoadedLoop* loopForUi (int slot) const { return slotStates[(size_t) slot].loop.current(); }
 
@@ -170,15 +208,39 @@ private:
         int channel = 1;
         float velocity = 0.0f;
         double beatTime = 0.0;
+        int slice = 0;
     };
     std::array<PendingTrigger, numSlots> pendingTriggers {};
 
+    /** Toggle trigger mode (plan 14): the slots a toggle press started. The press
+        semantics look at this flag; transport stop and a relocate clear it. */
+    std::array<bool, numSlots> toggledOn {};
+
     /** Starts (or restarts) a slot's voice at a block-relative sample. */
-    void startSlotVoice (int slot, int channel, float velocity, int sampleInBlock);
+    void startSlotVoice (int slot, int channel, float velocity, int sampleInBlock, int slice = 0);
     void releaseSlotVoice (int slot);
 
-    /** Reads one slot's parameters into a Region, against the loaded loop's length. */
-    CoreDSP::Loop::Region regionFor (int slot, int numFrames) const;
+    /** The slot that claims a MIDI note: the slot whose Note parameter equals the key
+        (a chopped slot claims the range slotNote .. slotNote + slices − 1, slice k on
+        base + k). Two slots sharing a note: the lowest index wins. -1 when none.
+        Phase 3 widens this for chop mode (base note + k). */
+    int slotForNote (int key) const;
+
+    /** The slice index a key triggers on a slot: 0 for an unchopped slot (the whole
+        region), key − base for a chopped one. */
+    int sliceForNote (int slot, int key) const;
+
+    /** The next quantise grid point at or after an event, with the suite's swing on odd points. */
+    double nextGridBeat (double blockStartBeat, int sampleInBlock, double samplesPerBeat,
+                         double grid, float swingNorm) const;
+
+    /** Reads one slot's parameters into a Region, against the loaded loop's length. A
+        chopped slot narrows it to the given slice (0 for an unchopped slot). */
+    CoreDSP::Loop::Region regionFor (int slot, const CoreDSP::Loop::Source& view, int slice = 0);
+
+    /** The beat-clock tempo of the current block: the host's when Host Sync is on and it
+        reports one, the Tempo parameter otherwise. Audio thread only. */
+    double effectiveBpm (const juce::Optional<juce::AudioPlayHead::PositionInfo>& position) const;
 
     void flushPendingTriggers();
 
@@ -189,6 +251,10 @@ private:
     // (120 BPM with no playhead). It only accumulates, so loops never jump on relocate.
     double beatPosition = 0.0;
     bool wasRunning = false;
+
+    // The effective tempo of the current block (plan 14): regionFor reads it for the
+    // synced loop rate. Audio thread only.
+    double blockBpm = 120.0;
 
     // The trigger seed: deterministic per instance and reproducible in a session.
     std::atomic<std::uint32_t> triggerCounter { 0 };
@@ -225,8 +291,15 @@ private:
     std::array<std::atomic<float>*, numSlots> pingRandomParams {};
     std::array<std::atomic<float>*, numSlots> granularParams {};
     std::array<std::atomic<float>*, numSlots> velocityParams {};
+    std::array<std::atomic<float>*, numSlots> noteParams {};
+    std::array<std::atomic<float>*, numSlots> beatsParams {};
+    std::array<std::atomic<float>*, numSlots> chopParams {};
+    std::array<std::atomic<float>*, numSlots> slicesParams {};
+    std::array<std::atomic<float>*, numSlots> sliceLengthParams {};
     std::atomic<float>* pitchShiftParam = nullptr;
     std::atomic<float>* crossfadeLengthParam = nullptr;
+    std::atomic<float>* tempoParam = nullptr;
+    std::atomic<float>* syncParam = nullptr;
 
     // The background loop loader. Declared last, so it is destroyed first and waits for
     // its jobs before the members it touches go away.

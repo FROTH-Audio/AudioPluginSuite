@@ -28,6 +28,11 @@ public:
     /** The region band, as the parameters resolve it (Start/Length percents). */
     void setRegion (float startPercent, float lengthPercent);
 
+    /** The chop lines (plan 14 Phase 5): the slice boundaries as shares 0..1 of the
+        region, from the same function the processor plays (so display and audio agree).
+        Empty when the slot is unchopped. */
+    void setChopLines (const std::vector<float>& boundaryShares);
+
     /** The active voice's playhead over the fresh span, 0..1 (inactive: no line). */
     void setPlayhead (float normalised, bool active);
 
@@ -49,6 +54,7 @@ private:
     std::vector<float> minima, maxima;
 
     float regionStart = 0.0f, regionLength = 100.0f;
+    std::vector<float> chopLineShares;   // slice boundaries as shares of the region (plan 14)
     float playhead = 0.0f;
     bool playheadActive = false;
     bool missing = false;

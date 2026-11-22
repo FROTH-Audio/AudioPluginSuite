@@ -1,0 +1,18 @@
+{
+  "_name": "Tempo Runner",
+  "_category": "Electronic",
+  "_description": "Free-running tempo at 150 BPM drives the quantised chop.",
+  "_plugin": "Cyclical",
+  "_pluginVersion": "1.0.0",
+  "_loopPaths": [
+    "embedded:kick_4k.wav",
+    "embedded:hats_4k.wav",
+    "embedded:arp_4k.wav",
+    "embedded:perc_4k.wav"
+  ],
+  "quantize": 1,
+  "triggerMode": 1,
+  "slot1Chop": 1,
+  "slot1Slices": 8,
+  "tempo": 150.0
+}

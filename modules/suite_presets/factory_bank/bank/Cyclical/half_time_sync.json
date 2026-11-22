@@ -1,0 +1,19 @@
+{
+  "_name": "Half-Time Sync",
+  "_category": "Groove",
+  "_description": "Synced loops stretched over eight beats each.",
+  "_plugin": "Cyclical",
+  "_pluginVersion": "1.0.0",
+  "_loopPaths": [
+    "embedded:kick_4k.wav",
+    "embedded:snare_4k.wav",
+    "embedded:chord_4k.wav",
+    "embedded:texture_4k.wav"
+  ],
+  "masterVolume": -3.0,
+  "slot1Beats": 8,
+  "slot2Beats": 8,
+  "slot3Beats": 8,
+  "slot4Beats": 8,
+  "sync": 1
+}

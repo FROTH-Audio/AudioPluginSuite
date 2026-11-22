@@ -1,0 +1,17 @@
+{
+  "_name": "Late Slices",
+  "_category": "Experimental",
+  "_description": "A chopped pad whose late slices stretch out.",
+  "_plugin": "Cyclical",
+  "_pluginVersion": "1.0.0",
+  "_loopPaths": [
+    "embedded:chord_4k.wav",
+    "embedded:drone_4k.wav",
+    "embedded:texture_4k.wav",
+    "embedded:noise_4k.wav"
+  ],
+  "slot1Note": 48,
+  "slot1Chop": 1,
+  "slot1Slices": 8,
+  "slot1SliceLength": 60.0
+}

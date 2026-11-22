@@ -1,0 +1,18 @@
+{
+  "_name": "Synced Bars",
+  "_category": "Groove",
+  "_description": "Every loop locks to the host: whole loop in Beats beats.",
+  "_plugin": "Cyclical",
+  "_pluginVersion": "1.0.0",
+  "_loopPaths": [
+    "embedded:kick_4k.wav",
+    "embedded:hats_4k.wav",
+    "embedded:bass_4k.wav",
+    "embedded:chord_4k.wav"
+  ],
+  "slot1Beats": 4,
+  "slot2Beats": 8,
+  "slot3Beats": 2,
+  "slot4Beats": 4,
+  "sync": 1
+}

@@ -6,13 +6,23 @@
 
 namespace
 {
-    // Plan 05 R4: the default window is 980 x 700, resizable from 940 x 660 (plan 6.1).
-    constexpr int editorWidth = 980;
-    constexpr int editorHeight = 700;
+    // Plan 05 R4: the window is per plugin and owner-approved (AGENTS R4). Plan 14 (G-C):
+    // the width grows to 1000 and each card gains a second knob row (Note, Beats, Slices,
+    // Slice Length) plus the Chop toggle in its pill row, so the height grows to fit. The
+    // height is derived from the layout, so the window has no dead space.
     constexpr int headerHeight = 44;
     constexpr int footerHeight = 26;
     constexpr int groupGap = 8;   // the suite's one-gap rule (plan 05 R7)
     constexpr int groupTitleHeight = SuiteUI::groupTitleHeight;
+    constexpr int waveHeight = 110;
+    constexpr int pillRowHeight = SuiteUI::pillHeight + 8;
+    constexpr int cardContentHeight = 20 + 2 + waveHeight + groupGap
+                                    + SuiteUI::knobRowHeight + groupGap
+                                    + SuiteUI::knobRowHeight + groupGap
+                                    + pillRowHeight;
+    constexpr int cardHeight = cardContentHeight + 8;
+    constexpr int editorWidth = 1000;
+    constexpr int editorHeight = 16 + headerHeight + groupGap + 2 * cardHeight + groupGap + 16;
 
     using Processor = CyclicalProcessor;
 
@@ -30,9 +40,10 @@ CyclicalEditor::SlotCard::SlotCard (int slotIndex, juce::Colour accentColour)
       slot (slotIndex),
       waveform (accentColour)
 {
-    const int note = CyclicalProcessor::firstSlotNote + slot;
+    const int initialNote = CyclicalProcessor::firstSlotNote + slot;
+    titleNote = initialNote;
     title.setText ("SLOT " + juce::String (slot + 1) + "  -  "
-                       + juce::MidiMessage::getMidiNoteName (note, true, false, 4),
+                       + juce::MidiMessage::getMidiNoteName (initialNote, true, false, 4),
                    juce::dontSendNotification);
     title.setFont (SuiteUI::uiFont (15.0f, true));
     title.setColour (juce::Label::textColourId, accentColour);
@@ -43,12 +54,17 @@ CyclicalEditor::SlotCard::SlotCard (int slotIndex, juce::Colour accentColour)
     addAndMakeVisible (length);
     addAndMakeVisible (speed);
     addAndMakeVisible (velocity);
+    addAndMakeVisible (note);
+    addAndMakeVisible (beats);
+    addAndMakeVisible (slices);
+    addAndMakeVisible (sliceLength);
 
     direction.setOptions ({ "FWD", "REV", "PP" });
     addAndMakeVisible (direction);
 
     addAndMakeVisible (pingRand);
     addAndMakeVisible (granular);
+    addAndMakeVisible (chop);
 
     start.slider.setTextValueSuffix (" %");
     start.slider.setNumDecimalPlacesToDisplay (1);
@@ -57,9 +73,25 @@ CyclicalEditor::SlotCard::SlotCard (int slotIndex, juce::Colour accentColour)
     speed.slider.setNumDecimalPlacesToDisplay (2);   // the "x" unit comes from the parameter
     velocity.slider.setTextValueSuffix (" %");
     velocity.slider.setNumDecimalPlacesToDisplay (0);
+    note.slider.setNumDecimalPlacesToDisplay (0);
+    beats.slider.setNumDecimalPlacesToDisplay (0);
+    slices.slider.setNumDecimalPlacesToDisplay (0);
+    sliceLength.slider.setTextValueSuffix (" %");
+    sliceLength.slider.setNumDecimalPlacesToDisplay (1);
 
-    for (auto* pill : { &pingRand, &granular })
+    for (auto* pill : { &pingRand, &granular, &chop })
         pill->setClickingTogglesState (true);
+}
+
+void CyclicalEditor::SlotCard::setTriggerNote (int note)
+{
+    if (note == titleNote)
+        return;
+
+    titleNote = note;
+    title.setText ("SLOT " + juce::String (slot + 1) + "  -  "
+                       + juce::MidiMessage::getMidiNoteName (note, true, false, 4),
+                   juce::dontSendNotification);
 }
 
 void CyclicalEditor::SlotCard::resized()
@@ -68,10 +100,11 @@ void CyclicalEditor::SlotCard::resized()
     title.setBounds (area.removeFromTop (20));
     area.removeFromTop (2);
 
-    waveform.setBounds (area.removeFromTop (110));
+    waveform.setBounds (area.removeFromTop (waveHeight));
     area.removeFromTop (groupGap);
 
-    // Four knobs at the suite size (R1/R2).
+    // Four knobs at the suite size (R1/R2): Start/Length/Speed/Velocity, then the plan-14
+    // row of Note/Beats/Slices/Slice Length.
     const int knobWidth = area.getWidth() / 4;
     auto knobRow = area.removeFromTop (SuiteUI::knobRowHeight);
     start.setBounds (knobRow.removeFromLeft (knobWidth).reduced (3));
@@ -80,16 +113,27 @@ void CyclicalEditor::SlotCard::resized()
     velocity.setBounds (knobRow.removeFromLeft (knobWidth).reduced (3));
     area.removeFromTop (groupGap);
 
-    // Direction selector and the two switches (pills at 36 px, R3). Ping Rand's caption
-    // needs the wide pill: the look and feel trims the dot's column from the text bounds.
-    auto pillRow = area;
-    direction.setBounds (pillRow.removeFromLeft (150).reduced (6, 2)
+    auto knobRow2 = area.removeFromTop (SuiteUI::knobRowHeight);
+    note.setBounds (knobRow2.removeFromLeft (knobWidth).reduced (3));
+    beats.setBounds (knobRow2.removeFromLeft (knobWidth).reduced (3));
+    slices.setBounds (knobRow2.removeFromLeft (knobWidth).reduced (3));
+    sliceLength.setBounds (knobRow2.removeFromLeft (knobWidth).reduced (3));
+    area.removeFromTop (groupGap);
+
+    // Direction selector and the three switches (pills at 36 px, R3). The widths sum to
+    // the card's inner width; Ping Rand keeps the wider pill for its caption.
+    auto pillRow = area.removeFromTop (pillRowHeight);
+    direction.setBounds (pillRow.removeFromLeft (132).reduced (6, 2)
                              .withHeight (SuiteUI::pillHeight)
                              .withY (pillRow.getY() + (pillRow.getHeight() - SuiteUI::pillHeight) / 2));
-    pingRand.setBounds (pillRow.removeFromLeft (175).reduced (4, 2)
-                            .withSizeKeepingCentre (167, SuiteUI::pillHeight));
-    granular.setBounds (pillRow.reduced (4, 2)
-                            .withSizeKeepingCentre (juce::jmin (96, pillRow.getWidth() - 6), SuiteUI::pillHeight));
+    pingRand.setBounds (pillRow.removeFromLeft (148).reduced (4, 2)
+                            .withSizeKeepingCentre (140, SuiteUI::pillHeight));
+
+    auto rest = pillRow;
+    granular.setBounds (rest.removeFromLeft (96).reduced (4, 2)
+                            .withSizeKeepingCentre (88, SuiteUI::pillHeight));
+    chop.setBounds (rest.reduced (4, 2)
+                        .withSizeKeepingCentre (juce::jmin (88, rest.getWidth() - 6), SuiteUI::pillHeight));
 }
 
 //==============================================================================
@@ -100,7 +144,7 @@ CyclicalEditor::CyclicalEditor (CyclicalProcessor& p)
     setLookAndFeel (&lookAndFeel);
 
     // The bar exists before setSize(), because setSize() runs resized(), which lays it out.
-    presetBar.reset (new SuitePresets::PresetBar (processor, juce::Colour (0xff8fa3b8)));
+    presetBar.reset (new SuitePresets::PresetBar (processor, juce::Colour (0xffFF7A45)));
 
     // The cards exist before setSize() too: resized() lays the page out.
     auto& apvts = processor.apvts;
@@ -112,7 +156,7 @@ CyclicalEditor::CyclicalEditor (CyclicalProcessor& p)
 
     for (int slot = 0; slot < Processor::numSlots; ++slot)
     {
-        cards[(size_t) slot] = std::make_unique<SlotCard> (slot, juce::Colour (0xff8fa3b8));
+        cards[(size_t) slot] = std::make_unique<SlotCard> (slot, juce::Colour (0xffFF7A45));
         auto& card = *cards[(size_t) slot];
         addAndMakeVisible (card);
 
@@ -120,6 +164,10 @@ CyclicalEditor::CyclicalEditor (CyclicalProcessor& p)
         bind (Processor::slotLengthIds[(size_t) slot], card.length.slider);
         bind (Processor::slotSpeedIds[(size_t) slot], card.speed.slider);
         bind (Processor::slotVelocityIds[(size_t) slot], card.velocity.slider);
+        bind (Processor::slotNoteIds[(size_t) slot], card.note.slider);
+        bind (Processor::slotBeatsIds[(size_t) slot], card.beats.slider);
+        bind (Processor::slotSlicesIds[(size_t) slot], card.slices.slider);
+        bind (Processor::slotSliceLengthIds[(size_t) slot], card.sliceLength.slider);
 
         // A choice parameter through a ParameterAttachment: the denormalised value is the
         // choice index as a float (the Micro-Timing Chaos rate selector pattern).
@@ -136,17 +184,24 @@ CyclicalEditor::CyclicalEditor (CyclicalProcessor& p)
             apvts, Processor::slotPingRandomIds[(size_t) slot], card.pingRand));
         buttonAttachments.push_back (std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (
             apvts, Processor::slotGranularIds[(size_t) slot], card.granular));
+        buttonAttachments.push_back (std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (
+            apvts, Processor::slotChopIds[(size_t) slot], card.chop));
 
         card.waveform.onLoadClicked = [this, slot] { browseForLoop (slot); };
 
         SuiteUI::describe (card.start, "Where the loop starts, as a share of its length (capped at 95 %).");
         SuiteUI::describe (card.length, "How much of the loop plays, as a share of its length.");
-        SuiteUI::describe (card.speed, "Playback speed. Inert while Grain is on.");
+        SuiteUI::describe (card.speed, "Playback speed. Inert while Grain is on, and while Host Sync is on (the loop then plays in exactly Beats beats).");
         SuiteUI::describe (card.velocity, "How strongly the slot's key velocity scales the level.");
+        SuiteUI::describe (card.note, "The MIDI key that triggers the slot. Chopped slots add one key per slice above it.");
+        SuiteUI::describe (card.beats, "The musical length of the whole loop, in beats. Used while Host Sync is on; dimmed in Chop mode (sync is disabled there).");
+        SuiteUI::describe (card.slices, "How many slices Chop divides the region into. Only in Chop mode.");
+        SuiteUI::describe (card.sliceLength, "Skews the slice boundaries: positive lengthens the late slices, negative the early ones. 0 % is the equal split.");
+        SuiteUI::describe (card.chop, "Chop mode: the slot's region splits into Slices, one key each (Dr. Rex style). Sync is disabled for a chopped slot.");
         SuiteUI::describe (card.direction, "Forward, Reverse, or Ping-Pong (turns at both bounds).");
         SuiteUI::describe (card.pingRand, "Randomises the ping-pong turn points per trigger. Only in Ping-Pong.");
         SuiteUI::describe (card.granular, "80 ms grains instead of straight playback. Speed is inert.");
-        SuiteUI::describe (card.waveform, "The loaded loop, its region band and the playhead. LOAD opens a browser.");
+        SuiteUI::describe (card.waveform, "The loaded loop, its region band, the chop lines and the playhead. LOAD opens a browser.");
     }
 
     SuiteUI::describe (pageSelector, "SLOTS: the four loop cards. GLOBAL: the shared knobs and the transport.");
@@ -159,7 +214,7 @@ CyclicalEditor::CyclicalEditor (CyclicalProcessor& p)
 
     // The shared help line (plan 12): one line, one idle text, no stale strings. The
     // footer sentence is the idle text, so the band reads the same before a hover.
-    helpLine.setIdleText ("Keys C4-D#4 trigger slots 1-4. No recording: loops load from the library or disk.");
+    helpLine.setIdleText ("Each slot's Note key triggers it; chopped slots add one key per slice above the base note. No recording: loops load from the library or disk.");
     helpLine.setComponentID ("cyclical-help");
     helpLine.setEnablePredicate ([] { return SuiteSettings::shared().getBool (SuiteSettings::tooltipsKey, true); });
     SuiteUI::attachHelpLine (*this, helpLine, helpTracker);
@@ -176,6 +231,8 @@ CyclicalEditor::CyclicalEditor (CyclicalProcessor& p)
     addAndMakeVisible (triggerCaption);
     addAndMakeVisible (triggerSelector);
     addAndMakeVisible (beatReadout);
+    addAndMakeVisible (tempoCtrl);
+    addAndMakeVisible (syncToggle);
 
     masterCtrl.slider.setTextValueSuffix (" dB");
     masterCtrl.slider.setNumDecimalPlacesToDisplay (1);
@@ -192,6 +249,9 @@ CyclicalEditor::CyclicalEditor (CyclicalProcessor& p)
     bind (Processor::crossfadeLengthId, crossfadeCtrl.slider);
     bind (Processor::swingId, swingCtrl.slider);
     bind (Processor::pitchShiftId, pitchCtrl.slider);
+    bind (Processor::tempoId, tempoCtrl.slider);
+    buttonAttachments.push_back (std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (
+        apvts, Processor::syncId, syncToggle));
 
     quantizeSelector.setOptions ({ "OFF", "1/16", "1/8", "1/4", "1/2", "BAR" });
     {
@@ -206,7 +266,7 @@ CyclicalEditor::CyclicalEditor (CyclicalProcessor& p)
         choiceAttachments.push_back (std::move (attachment));
     }
 
-    triggerSelector.setOptions ({ "LATCH", "GATE" });
+    triggerSelector.setOptions ({ "LATCH", "GATE", "TOGGLE" });
     {
         auto attachment = std::make_unique<juce::ParameterAttachment> (
             *apvts.getParameter (Processor::triggerModeId),
@@ -239,8 +299,10 @@ CyclicalEditor::CyclicalEditor (CyclicalProcessor& p)
     SuiteUI::describe (crossfadeCtrl, "The loop-seam blend, shared by all slots.");
     SuiteUI::describe (swingCtrl, "Shifts odd grid points. Positive is late.");
     SuiteUI::describe (quantizeSelector, "Triggers start on the next grid point.");
-    SuiteUI::describe (triggerSelector, "Latch: a note runs until retriggered. Gate: only while held.");
+    SuiteUI::describe (triggerSelector, "Latch: a note runs until retriggered. Gate: only while held. Toggle: the first press starts the loop, the second stops it.");
     SuiteUI::describe (beatReadout, "The beat clock's position, for reference.");
+    SuiteUI::describe (tempoCtrl, "The Tempo parameter runs the clock while Host Sync is off.");
+    SuiteUI::describe (syncToggle, "Host Sync on: the clock and the synced loops follow the host's position and tempo. Chopped slots ignore it.");
 
     // The header contract: preset bar (R12), page selector (R8), menu (R13).
     if (presetBar->getPreferredHeight() > 0)
@@ -286,7 +348,8 @@ void CyclicalEditor::setPage (int newPage)
                              static_cast<juce::Component*> (&pitchCtrl), static_cast<juce::Component*> (&crossfadeCtrl),
                              static_cast<juce::Component*> (&swingCtrl), static_cast<juce::Component*> (&quantizeCaption),
                              static_cast<juce::Component*> (&quantizeSelector), static_cast<juce::Component*> (&triggerCaption),
-                             static_cast<juce::Component*> (&triggerSelector), static_cast<juce::Component*> (&beatReadout) })
+                             static_cast<juce::Component*> (&triggerSelector), static_cast<juce::Component*> (&beatReadout),
+                             static_cast<juce::Component*> (&tempoCtrl), static_cast<juce::Component*> (&syncToggle) })
         component->setVisible (page == 1);
 
     resized();
@@ -317,15 +380,25 @@ void CyclicalEditor::browseForLoop (int slot)
 void CyclicalEditor::updateAffinity()
 {
     // Plan 10 G1: controls that only work in one mode are dimmed, never hidden.
+    // Plan 14 adds three rules, tested in every combination: Beats is dimmed while the
+    // slot is chopped (sync is disabled there), Slices and Slice Length are dimmed while
+    // chop is off, and Speed is dimmed while Host Sync is on - unless the slot is chopped
+    // (a chopped slot ignores sync, so its Speed stays live).
+    const bool synced = processor.apvts.getRawParameterValue (Processor::syncId)->load() > 0.5f;
+
     for (int slot = 0; slot < Processor::numSlots; ++slot)
     {
         auto& card = *cards[(size_t) slot];
 
         const bool grainOn = processor.apvts.getRawParameterValue (Processor::slotGranularIds[(size_t) slot])->load() > 0.5f;
         const bool pingPong = processor.apvts.getRawParameterValue (Processor::slotDirectionIds[(size_t) slot])->load() > 1.5f;
+        const bool chopped = processor.apvts.getRawParameterValue (Processor::slotChopIds[(size_t) slot])->load() > 0.5f;
 
-        card.speed.setEnabled (! grainOn);
+        card.speed.setEnabled (! grainOn && (! synced || chopped));
         card.pingRand.setEnabled (pingPong);
+        card.beats.setEnabled (! chopped);
+        card.slices.setEnabled (chopped);
+        card.sliceLength.setEnabled (chopped);
     }
 }
 
@@ -336,9 +409,28 @@ void CyclicalEditor::timerCallback()
     for (int slot = 0; slot < Processor::numSlots; ++slot)
     {
         auto& card = *cards[(size_t) slot];
+        card.setTriggerNote (processor.slotNote (slot));
         card.waveform.setLoop (processor.loopForUi (slot));
         card.waveform.setRegion (processor.apvts.getRawParameterValue (Processor::slotStartIds[(size_t) slot])->load(),
                                  processor.apvts.getRawParameterValue (Processor::slotLengthIds[(size_t) slot])->load());
+
+        // The chop lines come from the same function the processor plays (plan 14 Phase 5).
+        if (processor.slotChopped (slot))
+        {
+            std::vector<float> shares;
+            const int slices = processor.slotSlices (slot);
+            const float sliceLength = processor.apvts.getRawParameterValue (Processor::slotSliceLengthIds[(size_t) slot])->load();
+
+            for (int i = 1; i < slices; ++i)   // the outer boundaries are the region itself
+                shares.push_back ((float) Processor::chopBoundary (i, slices, sliceLength));
+
+            card.waveform.setChopLines (shares);
+        }
+        else
+        {
+            card.waveform.setChopLines ({});
+        }
+
         card.waveform.setPlayhead (processor.slotPlayhead (slot), processor.slotIsActive (slot));
         card.waveform.setMissing (processor.isLoopMissing (slot));
     }
@@ -446,6 +538,15 @@ void CyclicalEditor::resized()
         triggerSelector.setBounds (triggerCell.withHeight (SuiteUI::pillHeight).withY (triggerCell.getY()));
 
         beatReadout.setBounds (row2.reduced (6, 4));
+
+        // Plan 14 row 3: the Tempo knob runs the clock while Host Sync is off; the sync
+        // toggle sits beside it.
+        inner.removeFromTop (groupGap);
+        auto row3 = inner.removeFromTop (SuiteUI::knobRowHeight);
+        tempoCtrl.setBounds (row3.removeFromLeft (cellWidth).reduced (3));
+
+        auto syncCell = row3.removeFromLeft (cellWidth).reduced (6, 4);
+        syncToggle.setBounds (syncCell.withSizeKeepingCentre (syncCell.getWidth() - 12, SuiteUI::pillHeight));
     }
 
     // The help line lives in the band the paint used to draw its footer sentence in.

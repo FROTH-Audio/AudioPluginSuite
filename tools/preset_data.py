@@ -190,13 +190,14 @@ SCHEMA = {
         "outputLevel": {"min": -12.0, "max": 6.0, "default": 0.0, "type": "float"},
         **_routing(10),
     },
-    # Plan 6.1: Cyclical, the four-slot loop instrument (35 parameters).
+    # Plan 6.1: Cyclical, the four-slot loop instrument; plan 14 adds the trigger note,
+    # Beats, the chop parameters and the tempo/sync pair (57 parameters).
     "Cyclical": {
         "masterVolume": {"min": -24.0, "max": 12.0, "default": 0.0, "type": "float"},
         "pan": {"min": -100.0, "max": 100.0, "default": 0.0, "type": "float"},
         "quantize": {"min": 0, "max": 5, "default": 0, "type": "choice"},
         "swing": {"min": -20.0, "max": 20.0, "default": 0.0, "type": "float"},
-        "triggerMode": {"min": 0, "max": 1, "default": 0, "type": "choice"},
+        "triggerMode": {"min": 0, "max": 2, "default": 0, "type": "choice"},
         **{f"slot{slot}{field}": spec
            for slot in (1, 2, 3, 4)
            for field, spec in {
@@ -207,9 +208,16 @@ SCHEMA = {
                "PingRandom": {"min": 0, "max": 1, "default": 0, "type": "bool"},
                "Granular": {"min": 0, "max": 1, "default": 0, "type": "bool"},
                "Velocity": {"min": 30.0, "max": 150.0, "default": 100.0, "type": "float"},
+               "Note": {"min": 24, "max": 96, "default": 60, "type": "int"},
+               "Beats": {"min": 1, "max": 16, "default": 4, "type": "int"},
+               "Chop": {"min": 0, "max": 1, "default": 0, "type": "bool"},
+               "Slices": {"min": 2, "max": 16, "default": 8, "type": "int"},
+               "SliceLength": {"min": -100.0, "max": 100.0, "default": 0.0, "type": "float"},
            }.items()},
         "pitchShift": {"min": -12, "max": 12, "default": 0, "type": "int"},
         "crossfadeLength": {"min": 0.0, "max": 500.0, "default": 5.0, "type": "float"},
+        "tempo": {"min": 40.0, "max": 240.0, "default": 120.0, "type": "float"},
+        "sync": {"min": 0, "max": 1, "default": 0, "type": "choice"},
     },
 }
 
@@ -540,5 +548,39 @@ PRESETS = {
         _preset("Gate Cutter", "Groove", "Gate mode chops the held notes.",
                 loop_paths=["embedded:kick_4k.wav", "embedded:hats_4k.wav", "embedded:chord_4k.wav", "embedded:vox_4k.wav"],
                 triggerMode=1, quantize=2, swing=18.0, slot4Granular=1),
+        # Plan 14: the new concept - chop with Slice Length, BPM sync with Beats, Toggle
+        # trigger, per-slot notes.
+        _preset("Dr Rex Grid", "Electronic", "Two chopped slots play slice-per-key on a 16th grid.",
+                loop_paths=["embedded:kick_4k.wav", "embedded:hats_4k.wav", "embedded:bass_4k.wav", "embedded:perc_4k.wav"],
+                quantize=1, slot1Chop=1, slot1Slices=16, slot2Chop=1, slot2Slices=8),
+        _preset("Late Slices", "Experimental", "A chopped pad whose late slices stretch out.",
+                loop_paths=["embedded:chord_4k.wav", "embedded:drone_4k.wav", "embedded:texture_4k.wav", "embedded:noise_4k.wav"],
+                slot1Chop=1, slot1Slices=8, slot1SliceLength=60.0, slot1Note=48),
+        _preset("Early Slices", "Experimental", "The opposite skew: the early slices take the space.",
+                loop_paths=["embedded:vox_4k.wav", "embedded:texture_4k.wav", "embedded:bells_4k.wav", "embedded:noise_4k.wav"],
+                slot1Chop=1, slot1Slices=8, slot1SliceLength=-60.0, slot1Note=48),
+        _preset("Slice Skew Pair", "Texture", "Two chopped pads skewed in opposite directions.",
+                loop_paths=["embedded:texture_4k.wav", "embedded:chord_4k.wav", "embedded:bells_4k.wav", "embedded:drone_4k.wav"],
+                slot1Chop=1, slot1Slices=6, slot1SliceLength=45.0, slot1Note=48,
+                slot2Chop=1, slot2Slices=6, slot2SliceLength=-45.0, slot2Note=60),
+        _preset("Chopped Break", "Bass", "A double-speed chopped bass riff, key-per-slice.",
+                loop_paths=["embedded:bass_4k.wav", "embedded:kick_4k.wav", "embedded:perc_4k.wav", "embedded:noise_4k.wav"],
+                quantize=1, slot1Chop=1, slot1Slices=8, slot1SliceLength=40.0, slot1Speed=2.0),
+        _preset("Synced Bars", "Groove", "Every loop locks to the host: whole loop in Beats beats.",
+                loop_paths=["embedded:kick_4k.wav", "embedded:hats_4k.wav", "embedded:bass_4k.wav", "embedded:chord_4k.wav"],
+                sync=1, slot1Beats=4, slot2Beats=8, slot3Beats=2, slot4Beats=4),
+        _preset("Half-Time Sync", "Groove", "Synced loops stretched over eight beats each.",
+                loop_paths=["embedded:kick_4k.wav", "embedded:snare_4k.wav", "embedded:chord_4k.wav", "embedded:texture_4k.wav"],
+                sync=1, slot1Beats=8, slot2Beats=8, slot3Beats=8, slot4Beats=8, masterVolume=-3.0),
+        _preset("Toggle Looper", "Ambient", "Toggle mode: one press starts the pad, the next stops it.",
+                loop_paths=["embedded:drone_4k.wav", "embedded:texture_4k.wav", "embedded:chord_4k.wav", "embedded:noise_4k.wav"],
+                triggerMode=2, slot1Note=48, slot2Note=50, slot3Note=52, crossfadeLength=120.0),
+        _preset("Spread Keys", "Electronic", "The four slots sit across the keyboard, chops included.",
+                loop_paths=["embedded:kick_4k.wav", "embedded:hats_4k.wav", "embedded:snare_4k.wav", "embedded:perc_4k.wav"],
+                slot1Note=48, slot2Note=52, slot3Note=55, slot4Note=59,
+                slot2Chop=1, slot2Slices=4),
+        _preset("Tempo Runner", "Electronic", "Free-running tempo at 150 BPM drives the quantised chop.",
+                loop_paths=["embedded:kick_4k.wav", "embedded:hats_4k.wav", "embedded:arp_4k.wav", "embedded:perc_4k.wav"],
+                tempo=150.0, quantize=1, triggerMode=1, slot1Chop=1, slot1Slices=8),
     ],
 }

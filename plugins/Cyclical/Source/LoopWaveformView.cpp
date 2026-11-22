@@ -71,6 +71,12 @@ void LoopWaveformView::setRegion (float startPercent, float lengthPercent)
     repaint();
 }
 
+void LoopWaveformView::setChopLines (const std::vector<float>& boundaryShares)
+{
+    chopLineShares = boundaryShares;
+    repaint();
+}
+
 void LoopWaveformView::setPlayhead (float normalised, bool active)
 {
     playhead = normalised;
@@ -120,6 +126,15 @@ void LoopWaveformView::paint (juce::Graphics& g)
 
     g.setColour (SuiteUI::Colours::panelLight.withAlpha (0.6f));
     g.fillRoundedRectangle (regionArea, 4.0f);
+
+    // The chop lines (plan 14 Phase 5): the slice boundaries as shares of the region,
+    // the same values the processor plays, drawn as short vertical ticks.
+    g.setColour (accent.withAlpha (0.8f));
+    for (float share : chopLineShares)
+    {
+        const float x = regionArea.getX() + juce::jlimit (0.0f, 1.0f, share) * regionArea.getWidth();
+        g.drawVerticalLine ((int) x, regionArea.getY(), regionArea.getBottom());
+    }
 
     // The waveform envelope (cached per loop).
     if (! minima.empty() && maxima.size() == minima.size())
