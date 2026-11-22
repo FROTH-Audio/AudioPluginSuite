@@ -190,6 +190,10 @@ CyclicalEditor::CyclicalEditor (CyclicalProcessor& p)
         card.waveform.onLoadClicked = [this, slot] { browseForLoop (slot); };
         card.waveform.onAutoClicked = [this, slot] { processor.autoChopSlot (slot); };
         card.waveform.onOrderCellClicked = [this, slot] (int index) { processor.cycleSliceOrder (slot, index); };
+        card.waveform.onOrderCellSelected = [this, slot] (int index) { processor.selectChopSlice (slot, index); };
+        card.waveform.onReverseClicked = [this, slot] { processor.loopToolReverse (slot); };
+        card.waveform.onNormaliseClicked = [this, slot] { processor.loopToolNormalise (slot); };
+        card.waveform.onTrimClicked = [this, slot] { processor.loopToolTrim (slot); };
 
         SuiteUI::describe (card.start, "Where the loop starts, as a share of its length (capped at 95 %).");
         SuiteUI::describe (card.length, "How much of the loop plays, as a share of its length.");
@@ -203,7 +207,7 @@ CyclicalEditor::CyclicalEditor (CyclicalProcessor& p)
         SuiteUI::describe (card.direction, "Forward, Reverse, or Ping-Pong (turns at both bounds).");
         SuiteUI::describe (card.pingRand, "Randomises the ping-pong turn points per trigger. Only in Ping-Pong.");
         SuiteUI::describe (card.granular, "80 ms grains instead of straight playback. Speed is inert.");
-        SuiteUI::describe (card.waveform, "The loaded loop, its region band, the chop lines, the arrangement strip and the playhead. LOAD opens a browser; AUTO slices at the loop's transients; the strip's cells rearrange the slices (click to cycle).");
+        SuiteUI::describe (card.waveform, "The loaded loop, its region band, the chop lines, the arrangement strip and the playhead. LOAD opens a browser; AUTO slices at the loop's transients; the strip's cells rearrange the slices (click) and select one for the tools (right click); REV reverses the loop or the selected slice, NORM matches the peak, TRIM aligns the region to the content.");
     }
 
     SuiteUI::describe (pageSelector, "SLOTS: the four loop cards. GLOBAL: the shared knobs and the transport.");
@@ -431,12 +435,12 @@ void CyclicalEditor::timerCallback()
                     shares.push_back (bounds[(size_t) (i - 1)]);
 
             card.waveform.setChopLines (shares);
-            card.waveform.setSliceOrder (processor.chopOrder (slot), slices);
+            card.waveform.setSliceOrder (processor.chopOrder (slot), slices, processor.selectedChopSlice (slot));
         }
         else
         {
             card.waveform.setChopLines ({});
-            card.waveform.setSliceOrder ({}, 0);
+            card.waveform.setSliceOrder ({}, 0, -1);
         }
 
         card.waveform.setPlayhead (processor.slotPlayhead (slot), processor.slotIsActive (slot));

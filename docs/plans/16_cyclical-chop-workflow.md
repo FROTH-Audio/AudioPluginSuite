@@ -6,6 +6,10 @@ for workflow tools. Plan 14's overhaul itself is implemented and verified.
 
 Naming: MidiTool = `plugins/MidiEffect` (AGENTS §4).
 
+Status: implemented 2026-11-22 (Phases 1-3 and 5; Phase 4 dropped by the owner — the rescan
+fixed the Ableton path). 28/28 CTest; 210 presets audited; renders under
+`build/renders/plan16-cyclical/`.
+
 ---
 
 ## 0. Verified state of the Ableton silence (2026-11-22)
@@ -76,15 +80,32 @@ Status: implemented and verified 2026-11-22 (plugin tests 37 functions; CTest 28
    sample count as the window), the mismatch fallback, cycling to identity, chop-off.
 
 ### Phase 3 — Loop transformation tools (owner defines the tool set)
-Ask first: candidates are per-slice or whole-loop reverse, normalise/level match, silence trim
-and an export of the transformed loop. Nothing is implemented before the owner picks.
+Files: processor, editor, `LoopWaveformView.*`, tests.
+
+Status: implemented and verified 2026-11-22. The owner picked **Reverse (loop / slice),
+Normalise, Silence trim** (no export).
+
+1. Three buttons join the waveform header (LOAD, AUTO, REV, NORM, TRIM — five 48 px buttons
+   in the 22 px band). Each tool builds a **fresh buffer** and installs it through the
+   retirement queue (a playing voice keeps its old buffer); the loop reference (path/URI) is
+   unchanged, so a session reload re-reads the original file — the transforms are
+   session-local.
+2. **REV** reverses the whole loop; with a **selected source slice** it reverses only that
+   slice's span. The selection: **right-click an arrangement-strip cell** (left-click keeps
+   cycling); the selected cell carries the accent fill and its number; the same cell again
+   deselects. NORM scales the peak to −0.1 dBFS (silent loops stay silent). TRIM sets
+   Start/Length to the first/last frames above a small threshold — the buffer is untouched,
+   the region covers the content.
+3. The selection is message-thread state (not saved); the AUTO analyser resets it.
+4. Tests: the reversed buffer reads backwards and the audio sits in the reversed content;
+   the slice-scoped reverse touches only the selected span; the normalised peak sits at
+   −0.1 dBFS; TRIM's Start/Length match the content with the buffer untouched. The JUCE 9
+   right-click test is `event.mods.isPopupMenu()` (the MouseEvent::isPopupMenu helper is
+   gone in JUCE 9).
 
 ### Phase 4 — Playable keyboard strip (the Ableton workaround)
-Files: editor, tests. The suite's `PlayableKeyboardStrip` (plan 13, shared with MidiTool/
-Sgraffito) joins the SLOTS page, below the cards: keys base note upward trigger the slots and
-the chop slices through the same SPSC UI-note ring pattern. The plan-13 note-off guarantee
-applies to every UI trigger (mouse-up, drag off, mouse exit, focus lost, editor destroyed,
-transport stop, reset).
+**Dropped by the owner, 2026-11-22**: the rescan fixed the Ableton path, so the keyboard strip
+is no longer needed. Cyclical keeps its DAW-side triggering only.
 
 ### Phase 5 — Documentation, renders, verification
 Manual + README + AGENTS + CHANGELOG, renders, clean build, 28/28 CTest, bank audit
@@ -95,8 +116,10 @@ Manual + README + AGENTS + CHANGELOG, renders, clean build, 28/28 CTest, bank au
 | Item | Note |
 |---|---|
 | Ableton silence | **Resolved**: the rescan fixed it (Ableton's cache held the old parameter list); the host-test sound check stays as a regression guard |
-| Transformation tools | Owner defines the set (Phase 3) |
+| Transformation tools | **Shipped** (owner's pick: reverse loop/slice, normalise, trim; no export) |
 | The bounds property vs presets | A preset may carry `chopNBounds` like `loopNPath`; INIT clears it |
 | Auto-chop thresholds | Relative (15 % of the loop peak) and merge window (100 ms); tuned against the embedded library |
 | Knobs untouchable | No knob change anywhere; the AUTO button is a pill-style button, not a knob |
 | The arrangement vs the analyser | A Slices edit falls back via the count mismatch (no listener — the analyser's own Slices write must not clear its boundaries); a Slice Length edit clears through the APVTS listener |
+| Transforms are session-local | The buffer is transformed in memory; the loop reference is unchanged, so a reload re-reads the original file (documented in the manual) |
+| Target naming | The MSBuild targets are `<Name>Tests`, `<Name>PresetTests` (no underscore between name and Tests) — `--target Cyclical_PresetTests` matches nothing and MSB1009 is easy to miss in a filtered build log |

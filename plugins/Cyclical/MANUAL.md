@@ -23,7 +23,7 @@ Note knob) and holds two knob rows and a pill row:
 
 | Control | Range | What it does |
 |---|---|---|
-| **Waveform** | — | The loaded loop with its region band, the chop lines (Chop mode) and the playhead. **LOAD** (top-right) opens a WAV/AIFF browser; a missing loop draws "Loop missing - click to locate" over the still-playing audio, and clicking it opens the same browser. |
+| **Waveform** | — | The loaded loop with its region band, the chop lines (Chop mode), the arrangement strip (Chop mode) and the playhead. The header band carries six actions: **LOAD** opens a WAV/AIFF browser; **AUTO** slices the region at the loop's transients (Chop mode only, dimmed otherwise); **REV** reverses the whole loop, or the selected slice; **NORM** matches the loop's peak to −0.1 dBFS; **TRIM** aligns Start/Length to the first and last non-silent frames. A missing loop draws "Loop missing - click to locate" over the still-playing audio, and clicking it opens the same browser. |
 | **Start** | 0 – 100 % | Where the loop starts, as a share of its length (capped at 95 %). |
 | **Length** | 5 – 100 % | How much of the loop plays. Effective length = min(Length, 100 − Start). |
 | **Speed** | 0.25 – 4.0 × | Playback speed (a tape varispeed: pitch moves with it). Dimmed while Grain is on, and while Host Sync is on — unless the slot is chopped (a chopped slot ignores sync). |
@@ -36,6 +36,20 @@ Note knob) and holds two knob rows and a pill row:
 | **PING RAND** | on / off | Random turn points on each trigger. The rate is untouched, so the pitch never drifts. Only live in Ping-Pong — dimmed otherwise, never hidden. |
 | **GRAIN** | on / off | Granular playback: one 80 ms grain at a time (a stutter, not a cloud). Speed is dimmed while it is on. Allowed inside a chopped slice — very short slices sound grainy. |
 | **CHOP** | on / off | Chop mode: the slot's region splits into **Slices** parts, and key Note + k plays slice k (Dr. Rex style). **Host Sync is disabled for a chopped slot** — its Speed knob stays live. |
+
+### The arrangement strip and the tools
+
+In Chop mode a strip of cells runs along the bottom of the region band, one per key slice;
+each cell shows the **source slice** the key plays. **Left-click a cell** to cycle its number
+(re-arranging, Dr. Rex style — cycling back to the identity clears the arrangement).
+**Right-click a cell** to select that source slice for the tools: the cell fills with the
+accent, and **REV** then reverses only that slice's span (right-click again to deselect and
+reverse the whole loop).
+
+The three tools transform the loop in memory: the loop reference (file or library URI) is
+unchanged, so **a session reload re-reads the original file** — the transforms are
+session-local. A playing voice keeps its old buffer until the transform installs, so nothing
+tears.
 
 The seam of the region crossfades so loops don't click at the wrap; **Crossfade** (GLOBAL)
 sets the blend length for all four slots. A retrigger cuts the sounding loop into a 2 ms tail
@@ -89,6 +103,13 @@ slot (its Speed knob stays live and its Beats value is unused); granular is allo
 slice, and very short slices sound grainy. The waveform draws the slice boundaries while
 chop is on.
 
+**AUTO** analyses the region and slices at the loop's transients instead of equally: it
+detects the onsets (rises through 15 % of the loop's peak, merged closer than 100 ms), sets
+Slices to the count, and every slice then starts on a hit. The detected boundaries travel
+with the session. **Right-click a strip cell** to select a slice for the tools; **left-click**
+re-arranges (key k plays the source slice the cell shows). The three tools (REV, NORM, TRIM)
+transform the loop in memory — session-local, as above.
+
 ## Missing loops
 
 Each slot's loop reference (a file path or an `embedded:` library URI) travels with the
@@ -124,6 +145,10 @@ bar in the header to browse, save and load. The fifteen plan-6.1 presets come fi
 | Toggle Looper | Ambient | Toggle mode: one press starts the pad, the next stops it. |
 | Spread Keys | Electronic | The four slots sit across the keyboard, one chop included. |
 | Tempo Runner | Electronic | Free-running 150 BPM drives the quantised chop. |
+
+**Ableton Live note:** after a plugin update, rescan the VST3s (Preferences → Plug-Ins →
+Rescan, "use incompatible cache" off) — Ableton's cache keeps the old parameter list and the
+plugin then receives no notes at all.
 
 ## MIDI / host notes
 

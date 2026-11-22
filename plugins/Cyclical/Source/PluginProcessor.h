@@ -169,6 +169,27 @@ public:
         (plan 16 Phase 2). Only live in chop mode. */
     void cycleSliceOrder (int slot, int index);
 
+    // ---- Loop transformation tools (plan 16 Phase 3) ------------------------------------
+    /** Message thread. Reverses the loaded loop; when the slot is chopped and a source
+        slice is selected in the arrangement strip, only that slice's span reverses. The
+        transform installs as a fresh loop through the retirement queue (a playing voice
+        keeps its old buffer), and the loop reference (path/URI) is unchanged — a session
+        reload re-reads the original file. */
+    void loopToolReverse (int slot);
+
+    /** Message thread. Scales the loaded loop so its peak sits at -0.1 dBFS, so slots
+        match in loudness. Silent loops are left alone. */
+    void loopToolNormalise (int slot);
+
+    /** Message thread. Aligns Start/Length to the loop's non-silent content: the first and
+        last frames above a small threshold define the region. The buffer is untouched. */
+    void loopToolTrim (int slot);
+
+    /** Message thread. Selects the source slice the arrangement strip's tools act on
+        (right-click a strip cell; the same index again deselects). */
+    void selectChopSlice (int slot, int sourceSlice);
+    int selectedChopSlice (int slot) const noexcept { return selectedSlices[(size_t) slot]; }
+
     /** Message thread. Writes the arrangement property (the tests use it; a preset may
         carry it too). */
     void setChopOrderProperty (int slot, const std::vector<int>& order);
@@ -257,6 +278,10 @@ private:
     /** Toggle trigger mode (plan 14): the slots a toggle press started. The press
         semantics look at this flag; transport stop and a relocate clear it. */
     std::array<bool, numSlots> toggledOn {};
+
+    // The arrangement strip's tool selection (plan 16 Phase 3): the source slice the
+    // reverse tool acts on, -1 = none (whole loop). Message thread only.
+    std::array<int, numSlots> selectedSlices { -1, -1, -1, -1 };
 
     /** Starts (or restarts) a slot's voice at a block-relative sample. */
     void startSlotVoice (int slot, int channel, float velocity, int sampleInBlock, int slice = 0);
@@ -375,6 +400,7 @@ private:
     void setChopBoundsProperty (int slot, const std::vector<float>& shares);
     juce::String chopBoundsPropertyId (int slot) const;
     juce::String chopOrderPropertyId (int slot) const;
+    void installTransformedLoop (int slot, const juce::AudioBuffer<float>& transformed);
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (CyclicalProcessor)
 };

@@ -488,7 +488,7 @@ The band sum is clamped to the rails, so the output cannot exceed full scale. Th
 <img src="docs/manuals/cyclical-slots.png" alt="Cyclical screenshot" width="653">
 
 The [user manual](plugins/Cyclical/MANUAL.md) walks through both pages.
-A four-slot loop instrument (plan 6.1, overhauled by plan 14). Four loaded audio loops play with a region, a speed, a direction (forward, reverse or ping-pong with randomised turn points), a granular mode and velocity scaling — quantised to a musical grid with swing. No recording, no audio input: each slot is triggered by its own **Note** key (defaults 60–63), and a chopped slot adds one key per slice above its base note (Dr. Rex style). With **Host Sync on** each unchopped loop plays in exactly **Beats** beats (Speed is inactive); **Chop** splits a slot's region into Slices with a **Slice Length** skew. The window is 1000×876 with a tangerine accent.
+A four-slot loop instrument (plan 6.1, overhauled by plan 14 with a chop workflow from plan 16). Four loaded audio loops play with a region, a speed, a direction (forward, reverse or ping-pong with randomised turn points), a granular mode and velocity scaling — quantised to a musical grid with swing. No recording, no audio input: each slot is triggered by its own **Note** key (defaults 60–63), and a chopped slot adds one key per slice above its base note (Dr. Rex style). With **Host Sync on** each unchopped loop plays in exactly **Beats** beats (Speed is inactive); **Chop** splits a slot's region into Slices with a **Slice Length** skew; **AUTO** re-slices at the loop's transients; the arrangement strip re-arranges the slices per key (click to cycle, right-click to select one for the tools); **REV / NORM / TRIM** reverse (loop or slice), normalise to −0.1 dBFS and align the region to the content — all in-memory, session-local. The window is 1000×876 with a tangerine accent.
 
 | Control | Range | Default | Description |
 |---|---|---|---|
@@ -611,7 +611,7 @@ ctest --test-dir build -C Release --output-on-failure
 | `StereoToolTests` | Stereo Tool Effect processor and editor | 24 |
 | `MidiEffectTests` | MIDI Chord Arp Scale Tool processor and editor | 26 |
 | `MultibandSaturationTests` | Multiband Saturation processor and editor | 14 |
-| `CyclicalTests` | Cyclical processor and editor | 35 |
+| `CyclicalTests` | Cyclical processor and editor | 39 |
 | `PluginHostTests` (×7) | Each built VST3 bundle, loaded through JUCE's own plugin host | 1 per plugin |
 
 **Bank build** (`SUITE_PRESET_BANK=ON`): twenty-eight CTest entries - the twenty public entries plus eight `*_PresetTests` executables, one per plugin (bank ranges, apply/reset, editor, menu model, audio sanity). With `SUITE_PRESET_BANK_AS_PROGRAMS=ON`, the program-list virtuals are also exercised inside the plugin preset tests.

@@ -26,6 +26,18 @@ LoopWaveformView::LoopWaveformView (juce::Colour accentColour)
         if (onAutoClicked)
             onAutoClicked();
     };
+
+    for (auto* button : { &reverseButton, &normaliseButton, &trimButton })
+    {
+        button->setTriggeredOnMouseDown (true);
+        button->setColour (juce::TextButton::buttonColourId, juce::Colours::transparentBlack);
+        button->setColour (juce::TextButton::textColourOffId, SuiteUI::Colours::textDim);
+        addAndMakeVisible (button);
+    }
+
+    reverseButton.onClick = [this] { if (onReverseClicked) onReverseClicked(); };
+    normaliseButton.onClick = [this] { if (onNormaliseClicked) onNormaliseClicked(); };
+    trimButton.onClick = [this] { if (onTrimClicked) onTrimClicked(); };
 }
 
 void LoopWaveformView::setAutoEnabled (bool enabled)
@@ -93,10 +105,11 @@ void LoopWaveformView::setChopLines (const std::vector<float>& boundaryShares)
     repaint();
 }
 
-void LoopWaveformView::setSliceOrder (const std::vector<int>& order, int slices)
+void LoopWaveformView::setSliceOrder (const std::vector<int>& order, int slices, int selectedSlice)
 {
     sliceOrder = order;
     orderSlices = slices;
+    selectedSlice = selectedSlice;
     repaint();
 }
 
@@ -119,30 +132,45 @@ void LoopWaveformView::setMissing (bool isMissing)
 void LoopWaveformView::resized()
 {
     plotBounds = getLocalBounds();
-    loadButton.setBounds (getLocalBounds().removeFromTop (22).removeFromRight (56).reduced (3, 1));
-    autoButton.setBounds (getLocalBounds().removeFromTop (22).removeFromRight (112)
-                              .removeFromRight (56).reduced (3, 1));
+
+    // The header band: LOAD, AUTO and the three transformation tools (plan 16), right to
+    // left. Five 48 px buttons fit the band's width.
+    auto header = getLocalBounds().removeFromTop (22).removeFromRight (240);
+
+    for (auto* button : { &loadButton, &autoButton, &reverseButton, &normaliseButton, &trimButton })
+        button->setBounds (header.removeFromRight (48).reduced (3, 1));
+
     rebuildEnvelope();
 }
 
 void LoopWaveformView::mouseDown (const juce::MouseEvent& event)
 {
-    // The arrangement strip's cells (plan 16 Phase 2): a click cycles that key slice's
-    // number. Live only when the strip is shown (chop mode).
+    // The arrangement strip's cells (plan 16 Phase 2): a left click cycles that key
+    // slice's number; a right click selects it for the tools (plan 16 Phase 3). Live
+    // only when the strip is shown (chop mode).
     if (orderSlices > 1)
     {
         const int index = orderCellAt (event.getPosition());
 
-        if (index >= 0 && onOrderCellClicked)
+        if (index >= 0)
         {
-            onOrderCellClicked (index);
+            if (event.mods.isPopupMenu() && onOrderCellSelected)
+                onOrderCellSelected (index);
+            else if (! event.mods.isPopupMenu() && onOrderCellClicked)
+                onOrderCellClicked (index);
+
             return;
         }
     }
 
-    // The missing overlay covers the whole view; a click on it (and not on the LOAD
-    // button, which handles itself) opens the locate flow.
-    if (missing && onLoadClicked && ! loadButton.getBounds().contains (event.getPosition()))
+    // The missing overlay covers the whole view; a click on it (and not on the header
+    // buttons, which handle themselves) opens the locate flow.
+    if (missing && onLoadClicked
+        && ! (loadButton.getBounds().contains (event.getPosition())
+              || autoButton.getBounds().contains (event.getPosition())
+              || reverseButton.getBounds().contains (event.getPosition())
+              || normaliseButton.getBounds().contains (event.getPosition())
+              || trimButton.getBounds().contains (event.getPosition())))
         onLoadClicked();
 }
 
@@ -239,13 +267,25 @@ void LoopWaveformView::paint (juce::Graphics& g)
             auto cell = juce::Rectangle<float> (strip.getX() + cellWidth * (float) i, strip.getY(),
                                                 cellWidth, strip.getHeight()).reduced (1.0f, 1.0f);
 
-            g.setColour (SuiteUI::Colours::panel);
-            g.fillRect (cell);
-            g.setColour (SuiteUI::Colours::track);
-            g.drawRect (cell, 1.0f);
-
             const int source = i < (int) sliceOrder.size() ? sliceOrder[(size_t) i] : i;
-            g.setColour (source == i ? SuiteUI::Colours::textDim : accent);
+
+            if (source == selectedSlice)
+            {
+                // Rule R6: the selection is state, so it carries the accent fill AND the
+                // number, not colour alone.
+                g.setColour (accent);
+                g.fillRect (cell);
+                g.setColour (SuiteUI::Colours::background);
+            }
+            else
+            {
+                g.setColour (SuiteUI::Colours::panel);
+                g.fillRect (cell);
+                g.setColour (SuiteUI::Colours::track);
+                g.drawRect (cell, 1.0f);
+                g.setColour (source == i ? SuiteUI::Colours::textDim : accent);
+            }
+
             g.setFont (SuiteUI::uiFont (11.0f));
             g.drawText (juce::String (source), cell, juce::Justification::centred);
         }

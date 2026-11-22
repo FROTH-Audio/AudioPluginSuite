@@ -906,6 +906,133 @@ void CyclicalProcessor::cycleSliceOrder (int slot, int index)
 }
 
 //==============================================================================
+// Loop transformation tools (plan 16 Phase 3). Every tool builds a fresh buffer and
+// installs it through the retirement queue (a playing voice keeps its old buffer); the
+// loop reference is unchanged, so a session reload re-reads the original file.
+
+void CyclicalProcessor::installTransformedLoop (int slot, const juce::AudioBuffer<float>& transformed)
+{
+    const LoadedLoop* current = slotStates[(size_t) slot].loop.current();
+
+    if (current == nullptr)
+        return;
+
+    auto loop = makeLoadedLoop (juce::AudioBuffer<float> (transformed),
+                                current->sourceSampleRate, current->sourcePath);
+
+    slotStates[(size_t) slot].loop.install (std::move (loop));
+    pendingTriggers[(size_t) slot] = {};
+}
+
+void CyclicalProcessor::loopToolReverse (int slot)
+{
+    const LoadedLoop* current = slotStates[(size_t) slot].loop.current();
+
+    if (current == nullptr || current->buffer.getNumSamples() <= 1)
+        return;
+
+    juce::AudioBuffer<float> transformed (current->buffer);
+    const int numFrames = transformed.getNumSamples();
+
+    // Whole loop unless the slot is chopped with a selected source slice.
+    int spanStart = 0;
+    int spanLength = numFrames;
+
+    if (slotChopped (slot) && selectedSlices[(size_t) slot] >= 0)
+    {
+        const auto frames = CoreDSP::Loop::regionFrames (numFrames,
+            startParams[(size_t) slot]->load(), lengthParams[(size_t) slot]->load());
+        const auto bounds = activeChopBounds (slot);
+        const int slices = slotSlices (slot);
+        const int k = juce::jlimit (0, slices - 1, selectedSlices[(size_t) slot]);
+
+        const double startShare = k == 0 ? 0.0 : (double) bounds[(size_t) (k - 1)];
+        const double endShare = k == slices ? 1.0 : (double) bounds[(size_t) std::min (k, slices - 1)];
+
+        spanStart = frames[0] + (int) std::lround (startShare * (double) frames[1]);
+        spanLength = juce::jlimit (2, frames[1],
+            (int) std::lround ((endShare - startShare) * (double) frames[1]));
+    }
+
+    for (int ch = 0; ch < transformed.getNumChannels(); ++ch)
+    {
+        auto* data = transformed.getWritePointer (ch);
+        const int half = spanLength / 2;
+
+        for (int i = 0; i < half; ++i)
+            std::swap (data[spanStart + i], data[spanStart + spanLength - 1 - i]);
+    }
+
+    installTransformedLoop (slot, transformed);
+}
+
+void CyclicalProcessor::loopToolNormalise (int slot)
+{
+    const LoadedLoop* current = slotStates[(size_t) slot].loop.current();
+
+    if (current == nullptr)
+        return;
+
+    const auto& source = current->buffer;
+    const int numFrames = source.getNumSamples();
+    float peak = 0.0f;
+
+    for (int ch = 0; ch < source.getNumChannels(); ++ch)
+        for (int n = 0; n < numFrames; ++n)
+            peak = juce::jmax (peak, std::abs (source.getSample (ch, n)));
+
+    if (peak < 1.0e-6f)
+        return;   // silence stays silence
+
+    juce::AudioBuffer<float> transformed (source);
+    transformed.applyGain (juce::Decibels::decibelsToGain (-0.1f) / peak);   // peak at -0.1 dBFS
+
+    installTransformedLoop (slot, transformed);
+}
+
+void CyclicalProcessor::loopToolTrim (int slot)
+{
+    const LoadedLoop* current = slotStates[(size_t) slot].loop.current();
+
+    if (current == nullptr)
+        return;
+
+    const auto& source = current->buffer;
+    const int numFrames = source.getNumSamples();
+    constexpr float threshold = 1.0e-4f;
+
+    int first = numFrames;
+    int last = -1;
+
+    for (int n = 0; n < numFrames && first == numFrames; ++n)
+        for (int ch = 0; ch < source.getNumChannels(); ++ch)
+            if (std::abs (source.getSample (ch, n)) > threshold) { first = n; break; }
+
+    for (int n = numFrames - 1; n >= 0 && last < 0; --n)
+        for (int ch = 0; ch < source.getNumChannels(); ++ch)
+            if (std::abs (source.getSample (ch, n)) > threshold) { last = n; break; }
+
+    if (last < 0)
+        return;   // silence: nothing to align to
+
+    auto* startParameter = apvts.getParameter (slotStartIds[(size_t) slot]);
+    auto* lengthParameter = apvts.getParameter (slotLengthIds[(size_t) slot]);
+
+    const double startPercent = (double) first / (double) numFrames * 100.0;
+    const double lengthPercent = juce::jlimit (5.0, 100.0,
+        (double) (last + 1 - first) / (double) numFrames * 100.0);
+
+    startParameter->setValueNotifyingHost (startParameter->convertTo0to1 ((float) startPercent));
+    lengthParameter->setValueNotifyingHost (lengthParameter->convertTo0to1 ((float) lengthPercent));
+}
+
+void CyclicalProcessor::selectChopSlice (int slot, int sourceSlice)
+{
+    selectedSlices[(size_t) slot] = selectedSlices[(size_t) slot] == sourceSlice
+        ? -1 : juce::jlimit (0, maxSlices, sourceSlice);
+}
+
+//==============================================================================
 // Auto-chop (plan 16 Phase 1): the transient analyser behind the AUTO button.
 
 void CyclicalProcessor::autoChopSlot (int slot)
@@ -998,6 +1125,7 @@ void CyclicalProcessor::autoChopSlot (int slot)
 
     setChopBoundsProperty (slot, shares);
     setChopOrderProperty (slot, {});   // a fresh analysis resets the arrangement
+    selectedSlices[(size_t) slot] = -1;   // and the tool selection with it
     apvts.getParameter (slotSlicesIds[(size_t) slot])->setValueNotifyingHost (
         apvts.getParameter (slotSlicesIds[(size_t) slot])->convertTo0to1 ((float) ((int) shares.size() + 1)));
 }

@@ -36,7 +36,7 @@ public:
     /** The arrangement strip (plan 16 Phase 2): when the slot is chopped, a row of step
         cells along the bottom of the region band, one per key slice, each showing the
         source slice it plays. A click cycles that cell's number. */
-    void setSliceOrder (const std::vector<int>& order, int slices);
+    void setSliceOrder (const std::vector<int>& order, int slices, int selectedSlice);
 
     /** The active voice's playhead over the fresh span, 0..1 (inactive: no line). */
     void setPlayhead (float normalised, bool active);
@@ -54,6 +54,15 @@ public:
     /** The arrangement strip's click (plan 16 Phase 2): the key-slice index the owner
         clicked. The editor forwards it to the processor's cycleSliceOrder. */
     std::function<void (int index)> onOrderCellClicked;
+
+    /** The arrangement strip's tool selection (plan 16 Phase 3): right-click a cell to
+        select that source slice for the reverse tool. */
+    std::function<void (int index)> onOrderCellSelected;
+
+    /** The transformation tools (plan 16 Phase 3). */
+    std::function<void()> onReverseClicked;
+    std::function<void()> onNormaliseClicked;
+    std::function<void()> onTrimClicked;
 
     /** The AUTO button is dimmed while chop is off (the plan 10 G1 rule). */
     void setAutoEnabled (bool enabled);
@@ -73,6 +82,7 @@ private:
     std::vector<float> chopLineShares;   // slice boundaries as shares of the region (plan 14)
     std::vector<int> sliceOrder;         // the arrangement (plan 16); empty = identity
     int orderSlices = 0;                 // the slice count the strip was built with
+    int selectedSlice = -1;              // the tool selection (plan 16 Phase 3); -1 = none
     float playhead = 0.0f;
     bool playheadActive = false;
     bool missing = false;
@@ -80,6 +90,9 @@ private:
     juce::Rectangle<int> plotBounds;
     juce::TextButton loadButton { "LOAD" };
     juce::TextButton autoButton { "AUTO" };
+    juce::TextButton reverseButton { "REV" };
+    juce::TextButton normaliseButton { "NORM" };
+    juce::TextButton trimButton { "TRIM" };
 
     /** The arrangement cell's bounds under a position (plan 16 Phase 2), or -1. */
     int orderCellAt (juce::Point<int> position) const;

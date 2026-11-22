@@ -1650,6 +1650,158 @@ namespace
         pass ("testSliceOrder");
     }
 
+    /** Plan 16 Phase 3: the loop transformation tools. REV reverses the whole loop (or a
+        selected source slice), NORM matches the peak to -0.1 dBFS, TRIM aligns Start and
+        Length to the non-silent content. Transforms install as fresh loops (the reference
+        is unchanged) and are readable through loopForUi. */
+    void testLoopTools()
+    {
+        // ---- Reverse: the ramp plays backwards -----------------------------------------
+        {
+            const juce::File loopFile = writeRampLoopFloat ("tool_rev.wav");
+            Processor processor;
+            processor.prepareToPlay (sampleRate, blockSize);
+            processor.loadLoopFromFileAsync (0, loopFile, loopFile.getFullPathName());
+            for (int i = 0; i < 40 && processor.hasPendingLoopLoad(); ++i)
+                juce::MessageManager::getInstance()->runDispatchLoopUntil (50);
+            assert (! processor.hasPendingLoopLoad());
+
+            setParameter (processor.apvts, Processor::crossfadeLengthId, 0.0f);
+            processor.loopToolReverse (0);
+
+            const auto* loop = processor.loopForUi (0);
+            assert (loop != nullptr);
+            assert (loop->sourcePath == "file://" + loopFile.getFullPathName()
+                    || loop->sourcePath == loopFile.getFullPathName());
+
+            // The buffer reversed: frame 0 now holds the loop's last value.
+            assert (std::abs (loop->buffer.getSample (0, 0) - (float) (24000 - 1)) < 1.0f);
+            assert (std::abs (loop->buffer.getSample (0, 23999) - 0.0f) < 1.0f);
+
+            // And the audio reads the reversed ramp: the last sample of block 2 reads
+            // ~1175 frames into the reversed content = 24000 - 1175.
+            juce::MidiBuffer midi;
+            midi.addEvent (juce::MidiMessage::noteOn (1, 60, 0.8f), 100);
+            processOne (processor, midi);
+            midi.clear();
+
+            juce::AudioBuffer<float> buffer (2, blockSize);
+            buffer.clear();
+            processor.processBlock (buffer, midi);
+
+            constexpr double gainLaw = 0.8 * 0.7071067811865476;
+            const double frame = (double) buffer.getSample (0, blockSize - 1) / gainLaw;
+
+            // The read sits deep in the reversed content (the original ramp's tail): an
+            // un-reversed read would be near frame 924. The exact position carries the
+            // seam pre-roll and interpolation slop, so only the reversal is asserted.
+            assert (frame > 20000.0);
+        }
+
+        // ---- Reverse a selected slice: only the middle third flips ---------------------
+        {
+            const juce::File loopFile = writeRampLoopFloat ("tool_rev_slice.wav");
+            Processor processor;
+            processor.prepareToPlay (sampleRate, blockSize);
+            processor.loadLoopFromFileAsync (0, loopFile, loopFile.getFullPathName());
+            for (int i = 0; i < 40 && processor.hasPendingLoopLoad(); ++i)
+                juce::MessageManager::getInstance()->runDispatchLoopUntil (50);
+            assert (! processor.hasPendingLoopLoad());
+
+            setParameter (processor.apvts, Processor::slotChopIds[0], 1.0f);
+            setParameter (processor.apvts, Processor::slotSlicesIds[0], 3.0f);
+            processor.selectChopSlice (0, 1);       // the middle third
+            assert (processor.selectedChopSlice (0) == 1);
+            processor.selectChopSlice (0, 1);       // again: deselects
+            assert (processor.selectedChopSlice (0) == -1);
+            processor.selectChopSlice (0, 1);
+
+            processor.loopToolReverse (0);
+
+            const auto* loop = processor.loopForUi (0);
+            assert (loop != nullptr);
+
+            // Slice 1 spans [8000, 16000): frame 8000 now holds the old 15999.
+            assert (std::abs (loop->buffer.getSample (0, 8000) - (float) 15999) < 1.0f);
+            assert (std::abs (loop->buffer.getSample (0, 15999) - 8000.0f) < 1.0f);
+
+            // Outside the slice the ramp is untouched.
+            assert (std::abs (loop->buffer.getSample (0, 4000) - 4000.0f) < 1.0f);
+            assert (std::abs (loop->buffer.getSample (0, 20000) - 20000.0f) < 1.0f);
+        }
+
+        // ---- Normalise: a quiet loop peaks at -0.1 dBFS --------------------------------
+        {
+            const juce::File loopFile = scratchFolder().getChildFile ("tool_norm.wav");
+            juce::WavAudioFormat wav;
+            std::unique_ptr<juce::OutputStream> stream (loopFile.createOutputStream());
+            juce::AudioFormatWriterOptions options;
+            options = options.withSampleRate (sampleRate).withNumChannels (1).withBitsPerSample (32);
+            std::unique_ptr<juce::AudioFormatWriter> writer = wav.createWriterFor (stream, options);
+            assert (writer != nullptr);
+
+            juce::AudioBuffer<float> quiet (1, 24000);
+            for (int i = 0; i < 24000; ++i)
+                quiet.setSample (0, i, 0.25f * std::sin ((double) i * 0.05));
+            writer->writeFromAudioSampleBuffer (quiet, 0, 24000);
+            writer.reset();
+
+            Processor processor;
+            processor.prepareToPlay (sampleRate, blockSize);
+            processor.loadLoopFromFileAsync (0, loopFile, loopFile.getFullPathName());
+            for (int i = 0; i < 40 && processor.hasPendingLoopLoad(); ++i)
+                juce::MessageManager::getInstance()->runDispatchLoopUntil (50);
+            assert (! processor.hasPendingLoopLoad());
+
+            processor.loopToolNormalise (0);
+
+            const auto* loop = processor.loopForUi (0);
+            assert (loop != nullptr);
+            const double peak = (double) loop->buffer.getMagnitude (0, 0, 24000);
+            const double target = std::pow (10.0, -0.1 / 20.0);   // -0.1 dBFS
+            assert (std::abs (peak - target) < 0.01);
+        }
+
+        // ---- Trim: Start/Length align to the content -----------------------------------
+        {
+            const juce::File loopFile = scratchFolder().getChildFile ("tool_trim.wav");
+            juce::WavAudioFormat wav;
+            std::unique_ptr<juce::OutputStream> stream (loopFile.createOutputStream());
+            juce::AudioFormatWriterOptions options;
+            options = options.withSampleRate (sampleRate).withNumChannels (1).withBitsPerSample (32);
+            std::unique_ptr<juce::AudioFormatWriter> writer = wav.createWriterFor (stream, options);
+            assert (writer != nullptr);
+
+            const int frames = 24000;
+            juce::AudioBuffer<float> padded (1, frames);
+            padded.clear();
+            for (int i = 2000; i < 21000; ++i)   // content 2000..20999
+                padded.setSample (0, i, 0.5f * std::sin ((double) i * 0.05));
+            writer->writeFromAudioSampleBuffer (padded, 0, frames);
+            writer.reset();
+
+            Processor processor;
+            processor.prepareToPlay (sampleRate, blockSize);
+            processor.loadLoopFromFileAsync (0, loopFile, loopFile.getFullPathName());
+            for (int i = 0; i < 40 && processor.hasPendingLoopLoad(); ++i)
+                juce::MessageManager::getInstance()->runDispatchLoopUntil (50);
+            assert (! processor.hasPendingLoopLoad());
+
+            processor.loopToolTrim (0);
+
+            const double start = getParameter (processor.apvts, Processor::slotStartIds[0]);
+            const double length = getParameter (processor.apvts, Processor::slotLengthIds[0]);
+            assert (std::abs (start - 2000.0 / 24000.0 * 100.0) < 0.3);
+            assert (std::abs (length - 19000.0 / 24000.0 * 100.0) < 0.3);
+
+            // The buffer is untouched by TRIM.
+            const auto* loop = processor.loopForUi (0);
+            assert (loop != nullptr && loop->buffer.getNumSamples() == frames);
+        }
+
+        pass ("testLoopTools");
+    }
+
     /** Writes the editor renders when SUITE_RENDER_DIR is set (plan 05 R9). */
     void testRenderBaseline()
     {
@@ -1738,6 +1890,7 @@ int main()
     testAutoChop();
     testAutoChopRegion();
     testSliceOrder();
+    testLoopTools();
     testRetriggerRestarts();
     testMonoBuffer();
     testLatencyAndTail();

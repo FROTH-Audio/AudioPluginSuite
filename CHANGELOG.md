@@ -7,6 +7,11 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Plan 16 — the Cyclical chop workflow (the plan-14 review round), implemented and verified:
+  - **Auto-chop at transients**: the AUTO button analyses the loaded loop's region and slices at the onsets instead of equally — rises through 15 % of the loop's peak, merged closer than 100 ms, capped at 16 slices — and every slice then starts on a hit. The detected boundaries travel with the session (`chopNBounds` state properties).
+  - **Slice re-arranging**: an arrangement strip along the bottom of each chopped slot's region band shows which source slice every key plays; **left-click cycles** a cell (cycling back to the identity clears it), and key k then plays the slice the arrangement names. Travels with the session (`chopNOrder`).
+  - **Loop transformation tools**: **REV** reverses the whole loop or a right-click-selected slice; **NORM** matches the peak to −0.1 dBFS; **TRIM** aligns Start/Length to the first/last non-silent frames. All in-memory through the loop retirement queue — session-local by design (a reload re-reads the original file).
+  - **The Ableton silence was Ableton's VST3 cache**: a full rescan (incompatible cache off) fixed Cyclical receiving no notes at all; the host test now permanently asserts the plugin makes sound after a note-on.
 - Plan 14 — the Cyclical overhaul (`owner_findings.md`, the owner's four findings), implemented and verified:
   - **Toggle trigger**: Trigger Mode gains a third choice — the first press starts the slot looping, the second stops it immediately; a note-off never stops it, and a stopped transport stops the toggled slots.
   - **User-selectable notes**: every slot has a Note key (24–96, defaults 60–63 = the old fixed map); a chopped slot adds one key per slice above its base note.
