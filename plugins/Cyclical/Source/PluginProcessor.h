@@ -1,6 +1,7 @@
 #pragma once
 
 #include <juce_audio_processors/juce_audio_processors.h>
+#include <juce_dsp/juce_dsp.h>
 #include <juce_gui_basics/juce_gui_basics.h>
 
 #include <array>
@@ -31,16 +32,29 @@ class CyclicalProcessor : public juce::AudioProcessor,
 {
 public:
     static constexpr int numSlots = 4;
-    static constexpr int numControls = 73;   // plan 14 + plan 17: +16 Filter/Attack/Release/Level per slot
+    static constexpr int numControls = 105;   // 73 - 8 globals + 32 per-slot + 8 cutoff/reso (plan 18 Phase 4)
     static constexpr int maxSlices = 16;
     static constexpr int firstSlotNote = 60;      // the default base: C4..D#4 = slots 1..4
 
     // Parameter IDs are saved in sessions. Never rename or reuse one after a release.
     static constexpr const char* masterVolumeId = "masterVolume";
-    static constexpr const char* panId = "pan";
-    static constexpr const char* quantizeId = "quantize";
-    static constexpr const char* swingId = "swing";
-    static constexpr const char* triggerModeId = "triggerMode";
+
+    // Plan 18 Phase 4 (owner decision 2026-11-23): the former GLOBAL controls are per
+    // slot and work independently — each slot runs its own grid, swing, trigger mode,
+    // pitch, crossfade, tempo, host sync and pan. Master Output stays the one global.
+    static constexpr const char* slotQuantizeIds[4] = { "slot1Quantize", "slot2Quantize", "slot3Quantize", "slot4Quantize" };
+    static constexpr const char* slotSwingIds[4] = { "slot1Swing", "slot2Swing", "slot3Swing", "slot4Swing" };
+    static constexpr const char* slotTriggerIds[4] = { "slot1Trigger", "slot2Trigger", "slot3Trigger", "slot4Trigger" };
+    static constexpr const char* slotPitchIds[4] = { "slot1Pitch", "slot2Pitch", "slot3Pitch", "slot4Pitch" };
+    static constexpr const char* slotCrossfadeIds[4] = { "slot1Crossfade", "slot2Crossfade", "slot3Crossfade", "slot4Crossfade" };
+    static constexpr const char* slotTempoIds[4] = { "slot1Tempo", "slot2Tempo", "slot3Tempo", "slot4Tempo" };
+    static constexpr const char* slotSyncIds[4] = { "slot1Sync", "slot2Sync", "slot3Sync", "slot4Sync" };
+    static constexpr const char* slotPanIds[4] = { "slot1Pan", "slot2Pan", "slot3Pan", "slot4Pan" };
+
+    // Plan 18 §1.1 (owner answer: default): the filter is the type selector (the Phase-9
+    // slotNFilter choice) plus cutoff and resonance per slot.
+    static constexpr const char* slotCutoffIds[4] = { "slot1Cutoff", "slot2Cutoff", "slot3Cutoff", "slot4Cutoff" };
+    static constexpr const char* slotResoIds[4] = { "slot1Reso", "slot2Reso", "slot3Reso", "slot4Reso" };
 
     // The per-slot IDs are arrays, which is the form tools/audit_bank.py's coverage check
     // parses (getRawParameterValue (slotStartIds[i]) contributes every element).
@@ -73,14 +87,6 @@ public:
     static constexpr const char* slotLevelIds[4] = { "slot1Level", "slot2Level", "slot3Level", "slot4Level" };
     std::atomic<float>* levelParams[4] = { nullptr };
 
-    static constexpr const char* pitchShiftId = "pitchShift";
-    static constexpr const char* crossfadeLengthId = "crossfadeLength";
-
-    // Plan 14: the musical clock. Sync on follows the host position and tempo; sync off
-    // runs on the Tempo parameter (the MTC pattern).
-    static constexpr const char* tempoId = "tempo";
-    static constexpr const char* syncId = "sync";
-
     // The loop references are state properties, not parameters (the lerpCurve/samplePath
     // route). Brace-initialised, so the audit's parameter-ID regex does not see them.
     static constexpr const char* loop1PathProperty { "loop1Path" };
@@ -88,7 +94,6 @@ public:
     static constexpr const char* loop3PathProperty { "loop3Path" };
     static constexpr const char* loop4PathProperty { "loop4Path" };
     static constexpr const char* embeddedUriPrefix { "embedded:" };
-
     // Plan 14 post-review: the auto-chop boundaries. One comma-separated share list per
     // slot (the lerpCurve pattern), written by the transient analyser, cleared when the
     // user moves Slices or Slice Length. Brace-initialised for the same reason.
@@ -248,6 +253,11 @@ public:
     bool slotChopped (int slot) const;
     int slotSlices (int slot) const;
 
+    /** Plan 18 §1.4 (owner answer): the region knobs apply live — a knob release
+        retriggers the playing voice with the new region (the plan-16 retransform
+        pattern). Gate slots wait for the next press. Message thread. */
+    void requestRegionRetrigger (int slot);
+
     /** The chop boundary of slice i, as a share (0..1) of the slot's region: b_i = (i/S)^e
         with e = 2^(2·v) and v = Slice Length / 100. v = 0 is the equal split; positive v
         lengthens the late slices, negative the early ones. b_0 = 0, b_S = 1, and the
@@ -298,8 +308,7 @@ private:
     std::array<std::atomic<float>, numSlots> lastTriggerVelocity {};
 
     // Plan 17 Phase 3: the trigger mode of the previous block (audio thread only). A mode
-    // change stops every voice and clears the toggle state.
-    int lastBlockTriggerMode = -1;
+    // change stops every voice and clears the toggle state. Per slot since plan 18.
 
     // Set from the message thread (plan 17 Phase 3): the next processBlock stops every
     // voice and clears the toggle state (a preset or state load just replaced the
@@ -342,22 +351,16 @@ private:
     // The rate is the one prepareToPlay was given: getSampleRate() is 0 in a bare test harness.
     double preparedSampleRate = 44100.0;
 
-    // The beat clock: host PPQ while the host plays, otherwise accrued at the host tempo
-    // (120 BPM with no playhead). It only accumulates, so loops never jump on relocate.
-    double beatPosition = 0.0;
-    bool wasRunning = false;
-
-    // The effective tempo of the current block (plan 14): regionFor reads it for the
-    // synced loop rate. Audio thread only.
+    // The effective tempo of the current block (plan 14): the host's when it reports one,
+    // 120 BPM otherwise. Synced slots read it for the loop rate; unsynced slots use their
+    // own Tempo parameter. Audio thread only.
     double blockBpm = 120.0;
 
     // The trigger seed: deterministic per instance and reproducible in a session.
     std::atomic<std::uint32_t> triggerCounter { 0 };
 
-    // Master stage, smoothed 20 ms as per-sample curves (the Spectral Drift rule).
+    // Master stage (plan 18): the one global Output, smoothed 20 ms. Pan moved per slot.
     juce::SmoothedValue<float> masterSmoother;
-    juce::SmoothedValue<float> panSmoother;
-    std::vector<float> gainCurveL, gainCurveR;
 
     // UI snapshots.
     std::array<std::atomic<float>, numSlots> playheads {};
@@ -375,10 +378,6 @@ private:
 
     // Parameters, cached as atomics (the audio thread never locks).
     std::atomic<float>* masterVolumeParam = nullptr;
-    std::atomic<float>* panParam = nullptr;
-    std::atomic<float>* quantizeParam = nullptr;
-    std::atomic<float>* swingParam = nullptr;
-    std::atomic<float>* triggerModeParam = nullptr;
     std::array<std::atomic<float>*, numSlots> startParams {};
     std::array<std::atomic<float>*, numSlots> lengthParams {};
     std::array<std::atomic<float>*, numSlots> speedParams {};
@@ -391,10 +390,38 @@ private:
     std::array<std::atomic<float>*, numSlots> chopParams {};
     std::array<std::atomic<float>*, numSlots> slicesParams {};
     std::array<std::atomic<float>*, numSlots> sliceLengthParams {};
-    std::atomic<float>* pitchShiftParam = nullptr;
-    std::atomic<float>* crossfadeLengthParam = nullptr;
-    std::atomic<float>* tempoParam = nullptr;
-    std::atomic<float>* syncParam = nullptr;
+
+    // Plan 17 Phase 2 (creative) and plan 18 Phase 4 (the former globals, per slot).
+    std::array<std::atomic<float>*, numSlots> filterParams {};
+    std::array<std::atomic<float>*, numSlots> attackParams {};
+    std::array<std::atomic<float>*, numSlots> releaseParams {};
+    std::array<std::atomic<float>*, numSlots> quantizeParams {};
+    std::array<std::atomic<float>*, numSlots> swingParams {};
+    std::array<std::atomic<float>*, numSlots> triggerParams {};
+    std::array<std::atomic<float>*, numSlots> pitchParams {};
+    std::array<std::atomic<float>*, numSlots> crossfadeParams {};
+    std::array<std::atomic<float>*, numSlots> tempoParams {};
+    std::array<std::atomic<float>*, numSlots> syncParams {};
+    std::array<std::atomic<float>*, numSlots> panParams {};
+    std::array<std::atomic<float>*, numSlots> cutoffParams {};
+    std::array<std::atomic<float>*, numSlots> resoParams {};
+
+    // Plan 18 Phase 4: the per-slot beat clocks (the plan-14 clock, one per slot).
+    std::array<double, numSlots> slotClockBeats { 0.0, 0.0, 0.0, 0.0 };
+    std::array<bool, numSlots> slotWasRunning { false, false, false, false };
+    std::array<int, numSlots> lastBlockTriggerMode { -1, -1, -1, -1 };
+
+    // The per-slot render stage (plan 18 Phase 4): each slot renders into its own scratch,
+    // then filter, level and pan are applied before the master sum. Audio thread only.
+    std::array<juce::AudioBuffer<float>, numSlots> slotScratch;
+    std::array<juce::SmoothedValue<float>, numSlots> panSmoothers;
+    std::array<juce::SmoothedValue<float>, numSlots> levelSmoothers;
+    std::array<juce::dsp::StateVariableTPTFilter<float>, numSlots> slotFilters;
+
+    // The per-slot tempo of the current block (plan 18 Phase 4): the host's when the slot
+    // is synced and the host reports one, the slot's Tempo parameter otherwise. regionFor
+    // reads it for the synced loop rate. Audio thread only.
+    std::array<double, numSlots> slotBpmNow { 120.0, 120.0, 120.0, 120.0 };
 
     // The background loop loader. Declared last, so it is destroyed first and waits for
     // its jobs before the members it touches go away.

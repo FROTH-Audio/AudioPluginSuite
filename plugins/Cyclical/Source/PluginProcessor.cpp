@@ -1,4 +1,4 @@
-#include "PluginProcessor.h"
+﻿#include "PluginProcessor.h"
 #include "PluginEditor.h"
 
 #include "BinaryData.h"
@@ -74,10 +74,6 @@ CyclicalProcessor::CyclicalProcessor()
       apvts (*this, nullptr, "PARAMETERS", createParameterLayout())
 {
     masterVolumeParam = apvts.getRawParameterValue (masterVolumeId);
-    panParam          = apvts.getRawParameterValue (panId);
-    quantizeParam     = apvts.getRawParameterValue (quantizeId);
-    swingParam        = apvts.getRawParameterValue (swingId);
-    triggerModeParam  = apvts.getRawParameterValue (triggerModeId);
 
     for (int slot = 0; slot < numSlots; ++slot)
     {
@@ -95,16 +91,29 @@ CyclicalProcessor::CyclicalProcessor()
         slicesParams[(size_t) slot]       = apvts.getRawParameterValue (slotSlicesIds[(size_t) slot]);
         sliceLengthParams[(size_t) slot]  = apvts.getRawParameterValue (slotSliceLengthIds[(size_t) slot]);
 
+        // Plan 17 Phase 2 (creative) and plan 18 Phase 4 (the former globals, per slot).
+        filterParams[(size_t) slot]     = apvts.getRawParameterValue (slotFilterIds[(size_t) slot]);
+        attackParams[(size_t) slot]     = apvts.getRawParameterValue (slotAttackIds[(size_t) slot]);
+        releaseParams[(size_t) slot]    = apvts.getRawParameterValue (slotReleaseIds[(size_t) slot]);
+        quantizeParams[(size_t) slot]   = apvts.getRawParameterValue (slotQuantizeIds[(size_t) slot]);
+        swingParams[(size_t) slot]      = apvts.getRawParameterValue (slotSwingIds[(size_t) slot]);
+        triggerParams[(size_t) slot]    = apvts.getRawParameterValue (slotTriggerIds[(size_t) slot]);
+        pitchParams[(size_t) slot]      = apvts.getRawParameterValue (slotPitchIds[(size_t) slot]);
+        crossfadeParams[(size_t) slot]  = apvts.getRawParameterValue (slotCrossfadeIds[(size_t) slot]);
+        tempoParams[(size_t) slot]      = apvts.getRawParameterValue (slotTempoIds[(size_t) slot]);
+        syncParams[(size_t) slot]       = apvts.getRawParameterValue (slotSyncIds[(size_t) slot]);
+        panParams[(size_t) slot]        = apvts.getRawParameterValue (slotPanIds[(size_t) slot]);
+        cutoffParams[(size_t) slot]     = apvts.getRawParameterValue (slotCutoffIds[(size_t) slot]);
+        resoParams[(size_t) slot]       = apvts.getRawParameterValue (slotResoIds[(size_t) slot]);
+
+        panSmoothers[(size_t) slot].reset (44100.0, 0.02);
+        panSmoothers[(size_t) slot].setCurrentAndTargetValue (0.0f);
+
         loadGenerators[(size_t) slot] = std::make_shared<juce::Atomic<int>> (0);
     }
 
-    pitchShiftParam      = apvts.getRawParameterValue (pitchShiftId);
-    crossfadeLengthParam = apvts.getRawParameterValue (crossfadeLengthId);
-    tempoParam           = apvts.getRawParameterValue (tempoId);
-    syncParam            = apvts.getRawParameterValue (syncId);
-
     // The auto-chop boundaries: a manual Slice Length edit drops the analyser's shares and
-    // falls back to the equal/skew split. A Slices edit needs no listener — the count
+    // falls back to the equal/skew split. A Slices edit needs no listener â€” the count
     // mismatch already makes activeChopBounds fall back (and the analyser itself writes
     // Slices, which must not clear its own boundaries). The APVTS listener broadcasts on
     // the message thread, so the property write is safe.
@@ -135,26 +144,11 @@ juce::AudioProcessorValueTreeState::ParameterLayout CyclicalProcessor::createPar
 {
     std::vector<std::unique_ptr<juce::RangedAudioParameter>> params;
 
-    //---- Global (5). Plan 12: the final gain stage is named "Output" everywhere.
+    //---- Global (1). Plan 12: the final gain stage is named "Output" everywhere.
+    // Plan 18 Phase 4: everything else from the old GLOBAL page is now per slot.
     params.push_back (std::make_unique<juce::AudioParameterFloat> (
         juce::ParameterID { masterVolumeId, 1 }, "Output",
         juce::NormalisableRange<float> (-24.0f, 12.0f, 0.1f), 0.0f, "dB"));
-
-    params.push_back (std::make_unique<juce::AudioParameterFloat> (
-        juce::ParameterID { panId, 1 }, "Pan",
-        juce::NormalisableRange<float> (-100.0f, 100.0f, 0.1f), 0.0f, "%"));
-
-    params.push_back (std::make_unique<juce::AudioParameterChoice> (
-        juce::ParameterID { quantizeId, 1 }, "Quantize",
-        juce::StringArray { "Off", "1/16", "1/8", "1/4", "1/2", "1 Bar" }, 0));
-
-    params.push_back (std::make_unique<juce::AudioParameterFloat> (
-        juce::ParameterID { swingId, 1 }, "Swing",
-        juce::NormalisableRange<float> (-20.0f, 20.0f, 0.1f), 0.0f, "%"));
-
-        params.push_back (std::make_unique<juce::AudioParameterChoice> (
-            juce::ParameterID { triggerModeId, 1 }, "Trigger Mode",
-            juce::StringArray { "Latch", "Gate", "Toggle" }, 0));
 
     //---- Per slot (7 x 4), slot 1 first so the bank order is stable
     for (int slot = 0; slot < numSlots; ++slot)
@@ -225,28 +219,59 @@ juce::AudioProcessorValueTreeState::ParameterLayout CyclicalProcessor::createPar
 
         params.push_back (std::make_unique<juce::AudioParameterFloat> (
             juce::ParameterID { slotReleaseIds[(size_t) slot], 1 }, "Release " + juce::String (slot + 1),
-            juce::NormalisableRange<float> (1.0f, 10000.0f, 1.0f), 1000.0f, "ms"));
+            juce::NormalisableRange<float> (1.0f, 10000.0f, 1.0f), 5.0f, "ms"));
 
         params.push_back (std::make_unique<juce::AudioParameterFloat> (
             juce::ParameterID { slotLevelIds[(size_t) slot], 1 }, "Level " + juce::String (slot + 1),
             juce::NormalisableRange<float> (0.0f, 200.0f, 0.1f), 100.0f, "%"));
+
+        // Plan 18 Â§1.1 (owner answer: default): the filter's cutoff and resonance.
+        params.push_back (std::make_unique<juce::AudioParameterFloat> (
+            juce::ParameterID { slotCutoffIds[(size_t) slot], 1 }, "Cutoff " + juce::String (slot + 1),
+            juce::NormalisableRange<float> (20.0f, 20000.0f, 0.0f, 0.25f), 20000.0f, "Hz"));
+
+        params.push_back (std::make_unique<juce::AudioParameterFloat> (
+            juce::ParameterID { slotResoIds[(size_t) slot], 1 }, "Reso " + juce::String (slot + 1),
+            juce::NormalisableRange<float> (0.5f, 10.0f, 0.01f), 0.7f, ""));
     }
 
-    //---- Playback (2)
-    params.push_back (std::make_unique<juce::AudioParameterInt> (
-        juce::ParameterID { pitchShiftId, 1 }, "Pitch", -12, 12, 0));
+    //---- The former GLOBAL controls, per slot (plan 18 Phase 4, appended so no saved
+    // index moves; the old globals are removed, which is safe before a release).
+    for (int slot = 0; slot < numSlots; ++slot)
+    {
+        const auto n = juce::String (slot + 1);
 
-    params.push_back (std::make_unique<juce::AudioParameterFloat> (
-        juce::ParameterID { crossfadeLengthId, 1 }, "Crossfade",
-        juce::NormalisableRange<float> (0.0f, 500.0f, 1.0f), 5.0f, "ms"));
+        params.push_back (std::make_unique<juce::AudioParameterChoice> (
+            juce::ParameterID { slotQuantizeIds[(size_t) slot], 1 }, "Quantize " + n,
+            juce::StringArray { "Off", "1/16", "1/8", "1/4", "1/2", "1 Bar" }, 0));
 
-    //---- Musical clock (plan 14, appended so no saved index moves)
-    params.push_back (std::make_unique<juce::AudioParameterFloat> (
-        juce::ParameterID { tempoId, 1 }, "Tempo",
-        juce::NormalisableRange<float> (40.0f, 240.0f, 0.1f), 120.0f, "BPM"));
+        params.push_back (std::make_unique<juce::AudioParameterFloat> (
+            juce::ParameterID { slotSwingIds[(size_t) slot], 1 }, "Swing " + n,
+            juce::NormalisableRange<float> (-20.0f, 20.0f, 0.1f), 0.0f, "%"));
 
-    params.push_back (std::make_unique<juce::AudioParameterChoice> (
-        juce::ParameterID { syncId, 1 }, "Host Sync", juce::StringArray { "Off", "On" }, 0));
+        params.push_back (std::make_unique<juce::AudioParameterChoice> (
+            juce::ParameterID { slotTriggerIds[(size_t) slot], 1 }, "Trigger " + n,
+            juce::StringArray { "Latch", "Gate", "Toggle" }, 0));
+
+        params.push_back (std::make_unique<juce::AudioParameterInt> (
+            juce::ParameterID { slotPitchIds[(size_t) slot], 1 }, "Pitch " + n, -12, 12, 0));
+
+        params.push_back (std::make_unique<juce::AudioParameterFloat> (
+            juce::ParameterID { slotCrossfadeIds[(size_t) slot], 1 }, "Crossfade " + n,
+            juce::NormalisableRange<float> (0.0f, 500.0f, 1.0f), 5.0f, "ms"));
+
+        params.push_back (std::make_unique<juce::AudioParameterFloat> (
+            juce::ParameterID { slotTempoIds[(size_t) slot], 1 }, "Tempo " + n,
+            juce::NormalisableRange<float> (40.0f, 240.0f, 0.1f), 120.0f, "BPM"));
+
+        params.push_back (std::make_unique<juce::AudioParameterChoice> (
+            juce::ParameterID { slotSyncIds[(size_t) slot], 1 }, "Host Sync " + n,
+            juce::StringArray { "Off", "On" }, 0));
+
+        params.push_back (std::make_unique<juce::AudioParameterFloat> (
+            juce::ParameterID { slotPanIds[(size_t) slot], 1 }, "Pan " + n,
+            juce::NormalisableRange<float> (-100.0f, 100.0f, 0.1f), 0.0f, "%"));
+    }
 
     return { params.begin(), params.end() };
 }
@@ -265,16 +290,35 @@ void CyclicalProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     flushPendingTriggers();
 
     masterSmoother.reset (preparedSampleRate, 0.02);
-    panSmoother.reset (preparedSampleRate, 0.02);
     masterSmoother.setCurrentAndTargetValue (juce::Decibels::decibelsToGain (masterVolumeParam->load()));
-    panSmoother.setCurrentAndTargetValue (juce::jlimit (-100.0f, 100.0f, panParam->load()) / 100.0f);
 
+    // The per-slot stage (plan 18 Phase 4): pan smoothing, the filter nodes and the
+    // scratch buffers.
     const auto size = (size_t) juce::jmax (1, samplesPerBlock);
-    gainCurveL.assign (size, 0.0f);
-    gainCurveR.assign (size, 1.0f);
+    for (int slot = 0; slot < numSlots; ++slot)
+    {
+        panSmoothers[(size_t) slot].reset (preparedSampleRate, 0.02);
+        panSmoothers[(size_t) slot].setCurrentAndTargetValue (
+            juce::jlimit (-100.0f, 100.0f, panParams[(size_t) slot]->load()) / 100.0f);
 
-    beatPosition = 0.0;
-    wasRunning = false;
+        levelSmoothers[(size_t) slot].reset (preparedSampleRate, 0.02);
+        levelSmoothers[(size_t) slot].setCurrentAndTargetValue (
+            juce::jlimit (0.0f, 2.0f, levelParams[(size_t) slot]->load()) / 100.0f);
+
+        slotFilters[(size_t) slot].prepare ({ preparedSampleRate, 2, (juce::uint32) size });
+        slotFilters[(size_t) slot].reset();
+        slotFilters[(size_t) slot].setResonance (0.7f);
+
+        slotScratch[(size_t) slot].setSize (2, size, false, true, true);
+        slotScratch[(size_t) slot].clear();
+    }
+
+    for (int slot = 0; slot < numSlots; ++slot)
+    {
+        slotClockBeats[(size_t) slot] = 0.0;
+        slotWasRunning[(size_t) slot] = false;
+        lastBlockTriggerMode[(size_t) slot] = -1;
+    }
     std::fill (toggledOn.begin(), toggledOn.end(), false);
 }
 
@@ -308,83 +352,92 @@ void CyclicalProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mi
 
     buffer.clear();
 
-    // Every loop is bounded by the buffer's own channel count, never by the declared output
-    // width: the host-load test hands an instrument a mono buffer while reporting two
-    // outputs. The slot mix folds into the available width (mono: the pan gains summed).
+    // The host-load test hands an instrument a mono buffer while reporting two outputs;
+    // the slot mix folds into the available width (mono: the pan gains summed).
     const int outChannels = buffer.getNumChannels();
 
-    // The host rate is read per block, so a rate change mid-note keeps the speed right.
     for (auto& state : slotStates)
         for (auto& voice : state.voices)
             voice.prepare (preparedSampleRate);
 
-    //---- The beat clock (plan 14). Sync on: the host's position and tempo (the host tempo
-    // is authoritative when it reports one). Sync off: the Tempo parameter. The clock only
-    // accumulates, so loops never jump on relocate. The effective tempo also drives the
-    // synced loop rate (regionFor reads blockBpm).
+    //---- The per-slot beat clocks (plan 18 Phase 4). Each slot runs its own clock: the
+    // host's position and tempo while THAT slot's Host Sync is on, its own Tempo parameter
+    // otherwise. The clocks only accumulate, so loops never jump on relocate.
     const auto* playHead = getPlayHead();
     const auto position = playHead != nullptr ? playHead->getPosition()
                                               : juce::Optional<juce::AudioPlayHead::PositionInfo>();
-    blockBpm = effectiveBpm (position);
-    const double bpm = blockBpm;
-
-    const double samplesPerBeat = 60.0 / bpm * preparedSampleRate;
-
-    const bool hostDrives = syncParam->load() > 0.5f && position.hasValue()
-                         && position->getIsPlaying() && position->getPpqPosition().hasValue();
-
-    if (hostDrives)
     {
-        const double ppq = *position->getPpqPosition();
-
-        if (! wasRunning || std::abs (ppq - beatPosition) > 1.0e-3)
-        {
-            beatPosition = ppq;
-            flushPendingTriggers();     // a relocate invalidates the pending grid times
-            std::fill (toggledOn.begin(), toggledOn.end(), false);   // plan 14: a relocate clears the toggle state
-        }
-
-        wasRunning = true;
+        double hostBpm = 120.0;
+        if (position.hasValue())
+            if (const auto reported = position->getBpm(); reported.hasValue() && *reported > 1.0)
+                hostBpm = juce::jlimit (20.0, 300.0, (double) *reported);
+        blockBpm = hostBpm;
     }
-    else
-    {
-        if (wasRunning)
-        {
-            flushPendingTriggers();     // a transport stop flushes the pending list
 
-            // Plan 14: in Toggle mode a stopped transport stops the toggled slots (the
-            // suite's transport-stop rule) and clears the toggle state. Latch keeps its
-            // one-shot tails, as today.
-            if (juce::jlimit (0, 2, (int) (triggerModeParam->load() + 0.5f)) == 2)
+    const bool hostPlaying = position.hasValue() && position->getIsPlaying()
+                          && position->getPpqPosition().hasValue();
+    const double hostPpq = hostPlaying ? *position->getPpqPosition() : 0.0;
+
+    static constexpr double grids[6] = { 0.0, 0.25, 0.5, 1.0, 2.0, 4.0 };
+
+    std::array<double, numSlots> slotSamplesPerBeat { 60.0 / 120.0 * preparedSampleRate,
+                                                     60.0 / 120.0 * preparedSampleRate,
+                                                     60.0 / 120.0 * preparedSampleRate,
+                                                     60.0 / 120.0 * preparedSampleRate };
+
+    for (int slot = 0; slot < numSlots; ++slot)
+    {
+        const auto i = (size_t) slot;
+
+        // The slot's effective tempo: the host's while its sync is on (with a reported
+        // tempo), its own Tempo parameter otherwise.
+        const bool synced = syncParams[i]->load() > 0.5f;
+        double bpm = juce::jlimit (40.0, 240.0, (double) tempoParams[i]->load());
+        if (synced && position.hasValue())
+            if (const auto reported = position->getBpm(); reported.hasValue() && *reported > 1.0)
+                bpm = blockBpm;
+        slotBpmNow[i] = bpm;
+        slotSamplesPerBeat[i] = 60.0 / bpm * preparedSampleRate;
+
+        const bool hostDrives = synced && hostPlaying;
+
+        if (hostDrives)
+        {
+            if (! slotWasRunning[i] || std::abs (hostPpq - slotClockBeats[i]) > 1.0e-3)
             {
-                for (auto& state : slotStates)
-                    state.voices[(size_t) 0].release();
+                slotClockBeats[i] = hostPpq;
+                pendingTriggers[i] = {};      // a relocate invalidates the pending grid time
+                toggledOn[i] = false;         // plan 14: a relocate clears the toggle state
             }
-            std::fill (toggledOn.begin(), toggledOn.end(), false);
+            slotWasRunning[i] = true;
+        }
+        else
+        {
+            if (slotWasRunning[i])
+            {
+                pendingTriggers[i] = {};      // a transport stop flushes the pending list
+
+                // Plan 14: in Toggle mode a stopped transport stops the toggled slot and
+                // clears the toggle state. Latch keeps its one-shot tails, as today.
+                if (juce::jlimit (0, 2, (int) (triggerParams[i]->load() + 0.5f)) == 2)
+                    slotStates[i].voices[(size_t) 0].release();
+                toggledOn[i] = false;
+            }
+            slotWasRunning[i] = false;
         }
 
-        wasRunning = false;
-    }
-
-    const double blockStartBeat = beatPosition;
-    const double blockEndBeat = blockStartBeat + numSamples / samplesPerBeat;
-
-    //---- MIDI (plan 14): a slot claims the key its Note parameter names (chop mode widens
-    // the map, Phase 3). Other notes are ignored; so is every non-note event.
-    const int triggerMode = juce::jlimit (0, 2, (int) (triggerModeParam->load() + 0.5f));   // latch, gate, toggle
-    const bool gateMode = triggerMode == 1;
-
-    // Plan 17 Phase 3: a trigger-mode change stops every voice and clears the toggle state
-    // (the owner's "never stops, even if I change mode": a loop started under Toggle kept
-    // looping after the mode read Gate). A preset/state load raises the same command.
-    if (triggerMode != lastBlockTriggerMode || stopAllVoicesPending.exchange (false))
-    {
-        for (auto& state : slotStates)
-            for (auto& voice : state.voices)
+        // Plan 17 Phase 3, per slot: a trigger-mode change stops the slot's voices and
+        // clears its toggle state. A preset/state load raises the shared command.
+        const int triggerMode = juce::jlimit (0, 2, (int) (triggerParams[i]->load() + 0.5f));
+        if (triggerMode != lastBlockTriggerMode[i] || stopAllVoicesPending.exchange (false))
+        {
+            for (auto& voice : slotStates[i].voices)
                 voice.reset();
-        std::fill (toggledOn.begin(), toggledOn.end(), false);
+            toggledOn[i] = false;
+        }
+        lastBlockTriggerMode[i] = triggerMode;
     }
-    lastBlockTriggerMode = triggerMode;
+    stopAllVoicesPending.store (false, std::memory_order_release);
 
     // Plan 17 Phase 3: a transformed loop restarts the slot's playing voice with the
     // articulation it started with (Latch/Toggle only).
@@ -396,16 +449,14 @@ void CyclicalProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mi
                             0,
                             lastTriggerSlice[(size_t) slot].load (std::memory_order_relaxed));
 
-    static constexpr double grids[6] = { 0.0, 0.25, 0.5, 1.0, 2.0, 4.0 };
-    const double grid = grids[juce::jlimit (0, 5, (int) (quantizeParam->load() + 0.5f))];
-    const float swingNorm = juce::jlimit (-0.2f, 0.2f, swingParam->load() / 100.0f);
-
+    //---- MIDI (plan 14): a slot claims the key its Note parameter names (chop mode widens
+    // the map, Phase 3). Each note is handled with ITS slot's trigger mode, grid, swing
+    // and clock (plan 18 Phase 4: the controls work independently per slot).
     for (const auto metadata : midi)
     {
         const auto message = metadata.getMessage();
         const int sample = (int) metadata.samplePosition;
 
-        // A note-on with velocity 0 is a note-off (the host convention).
         const bool noteOn = message.isNoteOn() && message.getVelocity() > 0;
         const bool noteOff = message.isNoteOff() || (message.isNoteOn() && message.getVelocity() == 0);
 
@@ -417,6 +468,12 @@ void CyclicalProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mi
         if (slot < 0)
             continue;
 
+        const auto i = (size_t) slot;
+        const double blockStartBeat = slotClockBeats[i];
+        const double blockEndBeat = blockStartBeat + numSamples / slotSamplesPerBeat[i];
+        const double grid = grids[juce::jlimit (0, 5, (int) (quantizeParams[i]->load() + 0.5f))];
+        const float swingNorm = juce::jlimit (-0.2f, 0.2f, swingParams[i]->load() / 100.0f);
+        const int triggerMode = juce::jlimit (0, 2, (int) (triggerParams[i]->load() + 0.5f));
         const int slice = sliceForNote (slot, key);
 
         if (noteOn)
@@ -425,29 +482,27 @@ void CyclicalProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mi
             {
                 // Toggle (plan 14): the first press starts the slot looping (scheduled on
                 // the next grid point when Quantize is on); the second press stops it
-                // immediately, never delayed to the grid. A note-off does nothing. A
-                // chopped slot shares one toggle across its slices (the slot plays at
-                // most one looping voice).
-                auto& pending = pendingTriggers[(size_t) slot];
-                if (toggledOn[(size_t) slot] || pending.active)
+                // immediately, never delayed to the grid. A note-off does nothing.
+                auto& pending = pendingTriggers[i];
+                if (toggledOn[i] || pending.active)
                 {
                     pending = {};
-                    toggledOn[(size_t) slot] = false;
+                    toggledOn[i] = false;
                     releaseSlotVoice (slot);
                 }
                 else if (grid <= 0.0)
                 {
                     startSlotVoice (slot, message.getChannel(), message.getFloatVelocity(), sample, slice);
-                    toggledOn[(size_t) slot] = true;
+                    toggledOn[i] = true;
                 }
                 else
                 {
                     pending.active = true;
                     pending.channel = message.getChannel();
                     pending.velocity = message.getFloatVelocity();
-                    pending.beatTime = nextGridBeat (blockStartBeat, sample, samplesPerBeat, grid, swingNorm);
+                    pending.beatTime = nextGridBeat (blockStartBeat, sample, slotSamplesPerBeat[i], grid, swingNorm);
                     pending.slice = slice;
-                    toggledOn[(size_t) slot] = true;
+                    toggledOn[i] = true;
                 }
                 continue;
             }
@@ -455,17 +510,17 @@ void CyclicalProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mi
             if (grid <= 0.0)
             {
                 startSlotVoice (slot, message.getChannel(), message.getFloatVelocity(), sample, slice);
-                pendingTriggers[(size_t) slot] = {};
+                pendingTriggers[i] = {};
             }
             else
             {
-                // Schedule on the next grid point; a second trigger replaces the pending
-                // one, and odd grid points swing by the suite's swingBeats convention.
-                auto& pending = pendingTriggers[(size_t) slot];
+                // Schedule on the slot's next grid point; a second trigger replaces the
+                // pending one, and odd grid points swing by the suite's swingBeats rule.
+                auto& pending = pendingTriggers[i];
                 pending.active = true;
                 pending.channel = message.getChannel();
                 pending.velocity = message.getFloatVelocity();
-                pending.beatTime = nextGridBeat (blockStartBeat, sample, samplesPerBeat, grid, swingNorm);
+                pending.beatTime = nextGridBeat (blockStartBeat, sample, slotSamplesPerBeat[i], grid, swingNorm);
                 pending.slice = slice;
             }
         }
@@ -474,98 +529,128 @@ void CyclicalProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mi
             if (triggerMode == 2)
                 continue;   // a note-off never stops a toggled slot (plan 14)
 
-            // A note-off before the scheduled start cancels the pending trigger (a tap
-            // shorter than the grid step produces nothing in Gate mode).
-            pendingTriggers[(size_t) slot] = {};
+            // A note-off before the scheduled start cancels the pending trigger; in Gate
+            // mode a note-off after the start releases the voice.
+            pendingTriggers[i] = {};
 
-            if (gateMode)
+            if (triggerMode == 1)
                 releaseSlotVoice (slot);
         }
     }
 
-    //---- Fire the pending triggers that fall inside this block.
+    //---- Fire the pending triggers that fall inside this block (each on its own clock).
     for (int slot = 0; slot < numSlots; ++slot)
     {
-        auto& pending = pendingTriggers[(size_t) slot];
-        if (! pending.active || pending.beatTime >= blockEndBeat)
+        const auto i = (size_t) slot;
+        auto& pending = pendingTriggers[i];
+        if (! pending.active)
+            continue;
+
+        const double blockEndBeat = slotClockBeats[i] + numSamples / slotSamplesPerBeat[i];
+        if (pending.beatTime >= blockEndBeat)
             continue;
 
         const int at = juce::jlimit (0, juce::jmax (0, numSamples - 1),
-            (int) std::lround ((pending.beatTime - blockStartBeat) * samplesPerBeat));
+            (int) std::lround ((pending.beatTime - slotClockBeats[i]) * slotSamplesPerBeat[i]));
         startSlotVoice (slot, pending.channel, pending.velocity, at, pending.slice);
         pending = {};
     }
 
-    //---- Render the voices. Each slot renders at most two voices: the active one and the
-    // fading tail of a retrigger.
-    for (auto& state : slotStates)
-    {
-        for (int v = 0; v < 2; ++v)
-        {
-            auto& voice = state.voices[(size_t) v];
-            if (! voice.isActive())
-                continue;
-
-            const int from = juce::jlimit (0, juce::jmax (0, numSamples - 1), state.renderFrom[(size_t) v]);
-            voice.render (buffer, from, numSamples - from);
-            state.renderFrom[(size_t) v] = 0;
-        }
-    }
-
-    //---- Master stage: smoothed volume and constant-power pan as per-sample curves, both
-    // channels reading the same curve (the Spectral Drift lesson).
-    masterSmoother.setTargetValue (juce::Decibels::decibelsToGain (
-        juce::jlimit (-24.0f, 12.0f, masterVolumeParam->load())));
-    panSmoother.setTargetValue (juce::jlimit (-100.0f, 100.0f, panParam->load()) / 100.0f);
-
-    if ((size_t) numSamples > gainCurveL.size())
-    {
-        gainCurveL.resize ((size_t) numSamples);
-        gainCurveR.resize ((size_t) numSamples);
-    }
-
-    for (int n = 0; n < numSamples; ++n)
-    {
-        const float master = masterSmoother.getNextValue();
-        const float pan = panSmoother.getNextValue();
-
-        // Constant-power law: -3.01 dB at centre, the two gains always sum in power.
-        const double angle = (double) (pan + 1.0f) * juce::MathConstants<double>::pi * 0.25;
-        gainCurveL[(size_t) n] = (float) (master * std::cos (angle));
-        gainCurveR[(size_t) n] = (float) (master * std::sin (angle));
-    }
-
-    if (outChannels >= 2)
-    {
-        for (int ch = 0; ch < 2; ++ch)
-        {
-            auto* data = buffer.getWritePointer (ch);
-            const auto& curve = ch == 0 ? gainCurveL : gainCurveR;
-
-            for (int n = 0; n < numSamples; ++n)
-                data[n] *= curve[(size_t) n];
-        }
-    }
-    else if (outChannels == 1)
-    {
-        // Mono: fold the pan's two gains into one (the energy is preserved).
-        auto* data = buffer.getWritePointer (0);
-
-        for (int n = 0; n < numSamples; ++n)
-            data[n] *= gainCurveL[(size_t) n] + gainCurveR[(size_t) n];
-    }
-
-    //---- UI snapshots and the clock advance.
+    //---- Render: each slot into its own scratch, then the per-slot stage (filter, level,
+    // pan, plan 18 Phase 4) before the master sum.
     for (int slot = 0; slot < numSlots; ++slot)
     {
-        auto& state = slotStates[(size_t) slot];
-        activeFlags[(size_t) slot].store (state.voices[(size_t) 0].isActive(), std::memory_order_relaxed);
-        playheads[(size_t) slot].store (state.voices[(size_t) 0].isActive()
-            ? (float) state.voices[(size_t) 0].playheadNormalised() : 0.0f, std::memory_order_relaxed);
+        const auto i = (size_t) slot;
+        auto& scratch = slotScratch[i];
+        if ((size_t) numSamples > (size_t) scratch.getNumSamples())
+            scratch.setSize (2, numSamples, false, true, true);
+        scratch.clear();
+
+        auto& state = slotStates[i];
+        for (int v = 0; v < 2; ++v)
+        {
+            const int from = juce::jlimit (0, juce::jmax (0, numSamples - 1), state.renderFrom[(size_t) v]);
+            state.voices[(size_t) v].render (scratch, from, numSamples - from);
+            state.renderFrom[(size_t) v] = 0;
+        }
+
+        // The per-slot filter (plan 17 Phase 2, wired in plan 18): Off/HP/LP/BP with the
+        // slot's cutoff and resonance. Off skips the node.
+        const int filterIndex = juce::jlimit (0, 3, (int) (filterParams[i]->load() + 0.5f));
+        if (filterIndex != 0)
+        {
+            using Type = juce::dsp::StateVariableTPTFilterType;
+            slotFilters[i].setType (filterIndex == 1 ? Type::highpass
+                                    : filterIndex == 2 ? Type::lowpass
+                                                       : Type::bandpass);
+
+            const float highestCorner = juce::jmin (20000.0f, 0.45f * (float) preparedSampleRate);
+            const float cutoff = juce::jlimit (20.0f, highestCorner, cutoffParams[i]->load());
+            slotFilters[i].setCutoffFrequency (cutoff);
+            slotFilters[i].setResonance (juce::jlimit (0.5f, 10.0f, resoParams[i]->load()));
+
+            for (int ch = 0; ch < juce::jmin (2, outChannels); ++ch)
+                for (int n = 0; n < numSamples; ++n)
+                    scratch.setSample (ch, n, slotFilters[i].processSample (ch, scratch.getSample (ch, n)));
+        }
+
+        // The per-slot level (plan 17 Phase 2), smoothed 20 ms like the master stage.
+        levelSmoothers[i].setTargetValue (
+            juce::jlimit (0.0f, 2.0f, levelParams[i]->load() / 100.0f));
+
+        // The per-slot pan (plan 18 Phase 4): a constant-power law, smoothed 20 ms.
+        panSmoothers[i].setTargetValue (
+            juce::jlimit (-100.0f, 100.0f, panParams[i]->load()) / 100.0f);
+
+        const float panNorm = panSmoothers[i].getNextValue();
+        const double angle = (double) (panNorm + 1.0f) * juce::MathConstants<double>::pi * 0.25;
+        const float panGainL = (float) std::cos (angle);
+        const float panGainR = (float) std::sin (angle);
+
+        // Fold the panned scratch into the master buffer (mono: the two gains summed).
+        if (outChannels >= 2)
+        {
+            for (int n = 0; n < numSamples; ++n)
+            {
+                const float levelGain = levelSmoothers[i].getNextValue();
+                buffer.addSample (0, n, scratch.getSample (0, n) * levelGain * panGainL);
+                buffer.addSample (1, n, scratch.getSample (1, n) * levelGain * panGainR);
+            }
+        }
+        else if (outChannels == 1)
+        {
+            for (int n = 0; n < numSamples; ++n)
+            {
+                const float levelGain = levelSmoothers[i].getNextValue();
+                buffer.addSample (0, n, (scratch.getSample (0, n) * panGainL
+                                         + scratch.getSample (1, n) * panGainR) * levelGain);
+            }
+        }
     }
 
-    beatPositionUiValue.store (blockStartBeat, std::memory_order_relaxed);
-    beatPosition = blockEndBeat;
+    //---- Master stage (plan 18): the one global Output, smoothed 20 ms.
+    masterSmoother.setTargetValue (juce::Decibels::decibelsToGain (
+        juce::jlimit (-24.0f, 12.0f, masterVolumeParam->load())));
+
+    for (int ch = 0; ch < outChannels; ++ch)
+    {
+        auto* data = buffer.getWritePointer (ch);
+        for (int n = 0; n < numSamples; ++n)
+            data[n] *= masterSmoother.getNextValue();
+    }
+
+    //---- UI snapshots and the clock advance (the clocks only accumulate).
+    for (int slot = 0; slot < numSlots; ++slot)
+    {
+        const auto i = (size_t) slot;
+        activeFlags[i].store (slotStates[i].voices[(size_t) 0].isActive(), std::memory_order_relaxed);
+        playheads[i].store (slotStates[i].voices[(size_t) 0].isActive()
+            ? (float) slotStates[i].voices[(size_t) 0].playheadNormalised() : 0.0f, std::memory_order_relaxed);
+
+        if (! (syncParams[i]->load() > 0.5f && hostPlaying))
+            slotClockBeats[i] += (double) numSamples / slotSamplesPerBeat[i];
+    }
+    beatPositionUiValue.store (slotClockBeats[0], std::memory_order_relaxed);
 }
 
 //==============================================================================
@@ -579,7 +664,7 @@ CoreDSP::Loop::Region CyclicalProcessor::regionFor (int slot, const CoreDSP::Loo
     region.startFrame = frames[0];
     region.lengthFrames = frames[1];
 
-    // Plan 14 (G-B): with Host Sync on the whole loop plays in exactly Beats beats — the
+    // Plan 14 (G-B): with Host Sync on the whole loop plays in exactly Beats beats â€” the
     // rate comes from the loop's own duration, so the Speed knob is inactive (the editor
     // dims it). Start and Length choose the played span; they do not change the rate.
     // The voice computes rate = speed x sourceRate / hostRate, so speed here is
@@ -588,9 +673,9 @@ CoreDSP::Loop::Region CyclicalProcessor::regionFor (int slot, const CoreDSP::Loo
     // Beats value is not used.
     const bool chopped = slotChopped (slot);
 
-    if (syncParam->load() > 0.5f && ! chopped)
+    if (syncParams[(size_t) slot]->load() > 0.5f && ! chopped)
     {
-        region.speed = (double) view.numFrames * blockBpm
+        region.speed = (double) view.numFrames * slotBpmNow[(size_t) slot]
                      / ((double) slotBeats (slot) * 60.0 * std::max (1.0, view.sourceSampleRate));
     }
     else
@@ -641,7 +726,7 @@ CoreDSP::Loop::Region CyclicalProcessor::regionFor (int slot, const CoreDSP::Loo
     region.granular = granularParams[(size_t) slot]->load() > 0.5f;
     region.pingRandom = pingRandomParams[(size_t) slot]->load() > 0.5f;
     region.crossfadeFrames = (int) std::lround (
-        juce::jlimit (0.0f, 500.0f, crossfadeLengthParam->load()) * 0.001 * preparedSampleRate);
+        juce::jlimit (0.0f, 500.0f, crossfadeParams[(size_t) slot]->load()) * 0.001 * preparedSampleRate);
 
     return region;
 }
@@ -659,7 +744,7 @@ void CyclicalProcessor::startSlotVoice (int slot, int channel, float velocity, i
         return;
 
     const double pitchRatio = std::pow (2.0,
-        juce::jlimit (-12, 12, (int) (pitchShiftParam->load() + 0.5f)) / 12.0);
+        juce::jlimit (-12, 12, (int) (pitchParams[(size_t) slot]->load() + 0.5f)) / 12.0);
     const double gain = juce::jlimit (0.0f, 1.0f, velocity)
         * juce::jlimit (30.0f, 150.0f, velocityParams[(size_t) slot]->load()) / 100.0f;
 
@@ -674,6 +759,13 @@ void CyclicalProcessor::startSlotVoice (int slot, int channel, float velocity, i
 
     state.voices[0].start (view, regionFor (slot, view, slice), pitchRatio, gain,
                            triggerCounter.fetch_add (1, std::memory_order_relaxed));
+
+    // The slot's own attack and release shape the loop's gain envelope (plan 17 Phase 5,
+    // wired in plan 18): the attack replaces the engine's 5 ms default, the release its
+    // 5 ms fade on stop. The knob times apply from this trigger.
+    state.voices[0].setEnvelopeTimes (juce::jlimit (1.0f, 1000.0f, attackParams[(size_t) slot]->load()),
+                                      juce::jlimit (1.0f, 10000.0f, releaseParams[(size_t) slot]->load()));
+
     state.renderFrom[0] = sampleInBlock;
     lastTriggerChannel[(size_t) slot].store (channel, std::memory_order_relaxed);
     lastTriggerVelocity[(size_t) slot].store (velocity, std::memory_order_relaxed);
@@ -685,16 +777,14 @@ void CyclicalProcessor::releaseSlotVoice (int slot)
     slotStates[(size_t) slot].voices[(size_t) 0].release();
 }
 
-double CyclicalProcessor::effectiveBpm (const juce::Optional<juce::AudioPlayHead::PositionInfo>& position) const
+void CyclicalProcessor::requestRegionRetrigger (int slot)
 {
-    const bool synced = syncParam->load() > 0.5f;
-    double bpm = juce::jlimit (40.0f, 240.0f, tempoParam->load());
-
-    if (synced && position.hasValue())
-        if (const auto hostBpm = position->getBpm(); hostBpm.hasValue() && *hostBpm > 1.0)
-            bpm = juce::jlimit (20.0, 300.0, (double) *hostBpm);
-
-    return bpm;
+    // Plan 18 §1.4 (owner answer 2026-11-23): Start/Length/Slices/Slice Length/Beats
+    // apply live — the knob's release retriggers the playing voice, which reads the new
+    // region (and the new sync rate) at its restart. Gate slots wait for the next press.
+    if (slotStates[(size_t) slot].voices[0].isActive()
+        && juce::jlimit (0, 2, (int) (triggerParams[(size_t) slot]->load() + 0.5f)) != 1)
+        retransformPending[(size_t) slot].store (true, std::memory_order_release);
 }
 
 int CyclicalProcessor::slotNote (int slot) const
@@ -973,13 +1063,13 @@ void CyclicalProcessor::installTransformedLoop (int slot, const juce::AudioBuffe
     slotStates[(size_t) slot].loop.install (std::move (loop));
     pendingTriggers[(size_t) slot] = {};
 
-    // Plan 17 Phase 3: a transform is heard immediately — the audio thread restarts the
+    // Plan 17 Phase 3: a transform is heard immediately â€” the audio thread restarts the
     // playing voice on the transformed loop with the articulation it started with
     // (otherwise the old source plays until the next trigger, which the owner read as
     // "no effect"). Gate slots wait for the next press (a restart with no held key would
     // loop forever under Gate).
     if (slotStates[(size_t) slot].voices[0].isActive()
-        && juce::jlimit (0, 2, (int) (triggerModeParam->load() + 0.5f)) != 1)
+        && juce::jlimit (0, 2, (int) (triggerParams[(size_t) slot]->load() + 0.5f)) != 1)
         retransformPending[(size_t) slot].store (true, std::memory_order_release);
 }
 
@@ -1317,7 +1407,7 @@ void CyclicalProcessor::setStateInformation (const void* data, int sizeInBytes)
     applyLoopsFromState (apvts.state);
 
     // Plan 17 Phase 3: the parameters just changed, so a running loop would outlive its
-    // own settings — the next block silences every voice and clears the toggle state.
+    // own settings â€” the next block silences every voice and clears the toggle state.
     stopAllVoicesPending.store (true, std::memory_order_release);
 
     // The preset identity rides as a property (plan 09 1.4): restore it from the replaced
@@ -1351,7 +1441,7 @@ void CyclicalProcessor::applyPresetState (const juce::ValueTree& tree)
         // after, when it knows the preset.
         lastPresetSelection = {};
 
-        // Plan 17 Phase 3: the parameters just changed — a running loop would outlive its
+        // Plan 17 Phase 3: the parameters just changed â€” a running loop would outlive its
         // own settings (the owner's "never stops, even if I change preset"). The next
         // block silences every voice and clears the toggle state.
         stopAllVoicesPending.store (true, std::memory_order_release);

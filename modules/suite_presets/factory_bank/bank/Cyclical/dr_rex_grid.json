@@ -10,11 +10,14 @@
     "embedded:bass_4k.wav",
     "embedded:perc_4k.wav"
   ],
-  "quantize": 1,
   "slot1Note": 36,
   "slot1Chop": 1,
   "slot1Slices": 16,
+  "slot1Quantize": 1,
   "slot2Note": 64,
   "slot2Chop": 1,
-  "slot2Slices": 8
+  "slot2Slices": 8,
+  "slot2Quantize": 1,
+  "slot3Quantize": 1,
+  "slot4Quantize": 1
 }

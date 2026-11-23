@@ -377,6 +377,10 @@ ROUTER_PARAMETER_IDS = (
      for suffix in ("Rate", "Shape", "Sync", "Division", "Offset")]
     + [f"mod{slot}{suffix}" for slot in range(1, 7)
        for suffix in ("Source", "Target", "Amount", "Delay")]
+    # Plan 17 Phase 7: the per-LFO waveform transforms, appended after every existing
+    # parameter (12 more, six per LFO).
+    + [f"lfo{index}{suffix}" for index in (1, 2)
+       for suffix in ("Invert", "Rectify", "Quantise", "Smooth", "PulseWidth", "Skew")]
 )
 
 

@@ -6,32 +6,37 @@
 
 namespace
 {
-    // Plan 05 R4: the window is per plugin and owner-approved (AGENTS R4). Plan 14 (G-C):
-    // the width grows to 1000 and each card gains a second knob row (Note, Beats, Slices,
-    // Slice Length) plus the Chop toggle in its pill row, so the height grows to fit. The
-    // height is derived from the layout, so the window has no dead space.
+    // Plan 05 R4: the window is per plugin and owner-approved (AGENTS R4). Plan 18 Phase 4
+    // (owner decision): one tab per slot — the former GLOBAL controls are per slot and
+    // live on the card, so each page carries that slot's complete set. The height is
+    // derived from the layout: title + waveform + six knob rows + the pill row + the
+    // master Output row.
     constexpr int headerHeight = 44;
     constexpr int footerHeight = 26;
     constexpr int groupGap = 8;   // the suite's one-gap rule (plan 05 R7)
     constexpr int groupTitleHeight = SuiteUI::groupTitleHeight;
     constexpr int waveHeight = 110;
     constexpr int pillRowHeight = SuiteUI::pillHeight + 8;
+    constexpr int knobRows = 6;
     constexpr int cardContentHeight = 20 + 2 + waveHeight + groupGap
-                                    + SuiteUI::knobRowHeight + groupGap
-                                    + SuiteUI::knobRowHeight + groupGap
+                                    + knobRows * SuiteUI::knobRowHeight
+                                    + (knobRows - 1) * groupGap
                                     + pillRowHeight;
-    constexpr int cardHeight = cardContentHeight + 8;
+    constexpr int masterRowHeight = SuiteUI::knobRowHeight;
     constexpr int editorWidth = 1000;
-    constexpr int editorHeight = 16 + headerHeight + groupGap + 2 * cardHeight + groupGap + 16;
-
-    using Processor = CyclicalProcessor;
+    constexpr int editorHeight = 16 + headerHeight + groupGap
+                               + cardContentHeight + groupGap
+                               + masterRowHeight
+                               + footerHeight + groupGap;
 
     const juce::Image& brandLockup()
     {
         static const juce::Image image = juce::ImageCache::getFromMemory (BinaryData::lockup_cyclical_png,
-                                                                         BinaryData::lockup_cyclical_pngSize);
+                                                                          BinaryData::lockup_cyclical_pngSize);
         return image;
     }
+
+    using Processor = CyclicalProcessor;
 }
 
 //==============================================================================
@@ -59,7 +64,7 @@ CyclicalEditor::SlotCard::SlotCard (int slotIndex, juce::Colour accentColour)
     addAndMakeVisible (slices);
     addAndMakeVisible (sliceLength);
 
-    // Plan 17 Phase 2: per-slot creative controls
+    // Plan 17 Phase 2 + plan 18 §1.1: per-slot creative controls with cutoff and resonance.
     filter.addItem ("Off", 1);
     filter.addItem ("High Pass", 2);
     filter.addItem ("Low Pass", 3);
@@ -67,17 +72,52 @@ CyclicalEditor::SlotCard::SlotCard (int slotIndex, juce::Colour accentColour)
     filter.setSelectedItemIndex (0, juce::dontSendNotification);
     addAndMakeVisible (filter);
 
+    cutoff.slider.setTextValueSuffix (" Hz");
+    cutoff.slider.setNumDecimalPlacesToDisplay (0);
+    reso.slider.setNumDecimalPlacesToDisplay (2);
     attack.slider.setTextValueSuffix (" ms");
     attack.slider.setNumDecimalPlacesToDisplay (1);
-    addAndMakeVisible (attack.slider);
-
     release.slider.setTextValueSuffix (" ms");
     release.slider.setNumDecimalPlacesToDisplay (1);
-    addAndMakeVisible (release.slider);
-
     level.slider.setTextValueSuffix (" %");
     level.slider.setNumDecimalPlacesToDisplay (1);
-    addAndMakeVisible (level.slider);
+    addAndMakeVisible (cutoff);
+    addAndMakeVisible (reso);
+    addAndMakeVisible (attack);
+    addAndMakeVisible (release);
+    addAndMakeVisible (level);
+
+    // Plan 18 Phase 4: the slot's own transport and mix controls (the former GLOBALs).
+    panCtrl.slider.setTextValueSuffix (" %");
+    panCtrl.slider.setNumDecimalPlacesToDisplay (1);
+    pitchCtrl.slider.setNumDecimalPlacesToDisplay (0);
+    swingCtrl.slider.setTextValueSuffix (" %");
+    swingCtrl.slider.setNumDecimalPlacesToDisplay (1);
+    tempoCtrl.slider.setTextValueSuffix (" BPM");
+    tempoCtrl.slider.setNumDecimalPlacesToDisplay (1);
+    crossfadeCtrl.slider.setTextValueSuffix (" ms");
+    crossfadeCtrl.slider.setNumDecimalPlacesToDisplay (0);
+    addAndMakeVisible (panCtrl);
+    addAndMakeVisible (pitchCtrl);
+    addAndMakeVisible (swingCtrl);
+    addAndMakeVisible (tempoCtrl);
+    addAndMakeVisible (crossfadeCtrl);
+    addAndMakeVisible (syncToggle);
+
+    quantizeSelector.setOptions ({ "OFF", "1/16", "1/8", "1/4", "1/2", "BAR" });
+    triggerSelector.setOptions ({ "LATCH", "GATE", "TOGGLE" });
+    for (auto* caption : { &quantizeCaption, &triggerCaption })
+    {
+        caption->setFont (SuiteUI::uiFont (13.0f, true));
+        caption->setColour (juce::Label::textColourId, SuiteUI::Colours::textDim);
+        caption->setJustificationType (juce::Justification::centred);
+    }
+    quantizeCaption.setText ("QUANTIZE", juce::dontSendNotification);
+    triggerCaption.setText ("TRIGGER", juce::dontSendNotification);
+    addAndMakeVisible (quantizeCaption);
+    addAndMakeVisible (quantizeSelector);
+    addAndMakeVisible (triggerCaption);
+    addAndMakeVisible (triggerSelector);
 
     direction.setOptions ({ "FWD", "REV", "PP" });
     addAndMakeVisible (direction);
@@ -85,6 +125,7 @@ CyclicalEditor::SlotCard::SlotCard (int slotIndex, juce::Colour accentColour)
     addAndMakeVisible (pingRand);
     addAndMakeVisible (granular);
     addAndMakeVisible (chop);
+    syncToggle.setClickingTogglesState (true);
 
     start.slider.setTextValueSuffix (" %");
     start.slider.setNumDecimalPlacesToDisplay (1);
@@ -99,7 +140,7 @@ CyclicalEditor::SlotCard::SlotCard (int slotIndex, juce::Colour accentColour)
     sliceLength.slider.setTextValueSuffix (" %");
     sliceLength.slider.setNumDecimalPlacesToDisplay (1);
 
-    for (auto* pill : { &pingRand, &granular, &chop })
+    for (auto* pill : { &pingRand, &granular, &chop, &syncToggle })
         pill->setClickingTogglesState (true);
 }
 
@@ -123,39 +164,58 @@ void CyclicalEditor::SlotCard::resized()
     waveform.setBounds (area.removeFromTop (waveHeight));
     area.removeFromTop (groupGap);
 
-    // Four knobs at the suite size (R1/R2): Start/Length/Speed/Velocity, then the plan-14
-    // row of Note/Beats/Slices/Slice Length.
+    // Six knob rows at the suite size (R1/R2), four cells each: playback, then the
+    // creative controls, then the slot's own transport and mix (plan 18 Phase 4).
     const int knobWidth = area.getWidth() / 4;
-    auto knobRow = area.removeFromTop (SuiteUI::knobRowHeight);
-    start.setBounds (knobRow.removeFromLeft (knobWidth).reduced (3));
-    length.setBounds (knobRow.removeFromLeft (knobWidth).reduced (3));
-    speed.setBounds (knobRow.removeFromLeft (knobWidth).reduced (3));
-    velocity.setBounds (knobRow.removeFromLeft (knobWidth).reduced (3));
-    area.removeFromTop (groupGap);
+    auto row = [&area, knobWidth] (int index)
+    {
+        if (index > 0)
+            area.removeFromTop (groupGap);
+        return area.removeFromTop (SuiteUI::knobRowHeight);
+    };
 
-    auto knobRow2 = area.removeFromTop (SuiteUI::knobRowHeight);
-    note.setBounds (knobRow2.removeFromLeft (knobWidth).reduced (3));
-    beats.setBounds (knobRow2.removeFromLeft (knobWidth).reduced (3));
-    slices.setBounds (knobRow2.removeFromLeft (knobWidth).reduced (3));
-    sliceLength.setBounds (knobRow2.removeFromLeft (knobWidth).reduced (3));
+    auto row1 = row (0);
+    start.setBounds (row1.removeFromLeft (knobWidth).reduced (3));
+    length.setBounds (row1.removeFromLeft (knobWidth).reduced (3));
+    speed.setBounds (row1.removeFromLeft (knobWidth).reduced (3));
+    velocity.setBounds (row1.removeFromLeft (knobWidth).reduced (3));
 
-    // Plan 17 Phase 2: per-slot creative controls — filter, attack, release, level.
-    const int creativeWidth = area.getWidth() / 4;
-    area.removeFromTop (groupGap);
-    auto creativeRow = area.removeFromTop (SuiteUI::knobRowHeight);
-    filter.setBounds (creativeRow.removeFromLeft (creativeWidth).reduced (3));
-    area.removeFromTop (groupGap);
-    auto creativeRow2 = area.removeFromTop (SuiteUI::knobRowHeight);
-    attack.setBounds (creativeRow2.removeFromLeft (creativeWidth).reduced (3));
-    area.removeFromTop (groupGap);
-    auto creativeRow3 = area.removeFromTop (SuiteUI::knobRowHeight);
-    release.setBounds (creativeRow3.removeFromLeft (creativeWidth).reduced (3));
-    area.removeFromTop (groupGap);
-    auto creativeRow4 = area.removeFromTop (SuiteUI::knobRowHeight);
-    level.setBounds (creativeRow4.removeFromLeft (creativeWidth).reduced (3));
-    area.removeFromTop (groupGap);
+    auto row2 = row (1);
+    note.setBounds (row2.removeFromLeft (knobWidth).reduced (3));
+    beats.setBounds (row2.removeFromLeft (knobWidth).reduced (3));
+    slices.setBounds (row2.removeFromLeft (knobWidth).reduced (3));
+    sliceLength.setBounds (row2.removeFromLeft (knobWidth).reduced (3));
 
-    // Direction selector and the three switches (pills at 36 px, R3). The widths sum to
+    auto row3 = row (2);   // creative: filter type, cutoff, resonance, level
+    filter.setBounds (row3.removeFromLeft (knobWidth).reduced (3));
+    cutoff.setBounds (row3.removeFromLeft (knobWidth).reduced (3));
+    reso.setBounds (row3.removeFromLeft (knobWidth).reduced (3));
+    level.setBounds (row3.removeFromLeft (knobWidth).reduced (3));
+
+    auto row4 = row (3);   // envelope tail and the slot's image: attack, release, pan, pitch
+    attack.setBounds (row4.removeFromLeft (knobWidth).reduced (3));
+    release.setBounds (row4.removeFromLeft (knobWidth).reduced (3));
+    panCtrl.setBounds (row4.removeFromLeft (knobWidth).reduced (3));
+    pitchCtrl.setBounds (row4.removeFromLeft (knobWidth).reduced (3));
+
+    auto row5 = row (4);   // the slot's clock: swing, tempo, crossfade, quantise
+    swingCtrl.setBounds (row5.removeFromLeft (knobWidth).reduced (3));
+    tempoCtrl.setBounds (row5.removeFromLeft (knobWidth).reduced (3));
+    crossfadeCtrl.setBounds (row5.removeFromLeft (knobWidth).reduced (3));
+
+    auto quantizeCell = row5.removeFromLeft (knobWidth).reduced (6, 4);
+    quantizeCaption.setBounds (quantizeCell.removeFromTop (18));
+    quantizeSelector.setBounds (quantizeCell.withHeight (SuiteUI::pillHeight).withY (quantizeCell.getY()));
+
+    auto row6 = row (5);   // trigger selector, host sync and the two spare cells
+    auto triggerCell = row6.removeFromLeft (knobWidth).reduced (6, 4);
+    triggerCaption.setBounds (triggerCell.removeFromTop (18));
+    triggerSelector.setBounds (triggerCell.withHeight (SuiteUI::pillHeight).withY (triggerCell.getY()));
+
+    auto syncCell = row6.removeFromLeft (knobWidth).reduced (6, 4);
+    syncToggle.setBounds (syncCell.withSizeKeepingCentre (syncCell.getWidth() - 12, SuiteUI::pillHeight));
+
+    // Direction selector and the four switches (pills at 36 px, R3). The widths sum to
     // the card's inner width; Ping Rand keeps the wider pill for its caption.
     auto pillRow = area.removeFromTop (pillRowHeight);
     direction.setBounds (pillRow.removeFromLeft (132).reduced (6, 2)
@@ -211,17 +271,54 @@ CyclicalEditor::CyclicalEditor (CyclicalProcessor& p)
         bind (Processor::slotAttackIds[(size_t) slot], card.attack.slider);
         bind (Processor::slotReleaseIds[(size_t) slot], card.release.slider);
         bind (Processor::slotLevelIds[(size_t) slot], card.level.slider);
+        bind (Processor::slotCutoffIds[(size_t) slot], card.cutoff.slider);
+        bind (Processor::slotResoIds[(size_t) slot], card.reso.slider);
+
+        // Plan 18 Phase 4: the slot's own transport and mix controls (the former globals).
+        bind (Processor::slotPanIds[(size_t) slot], card.panCtrl.slider);
+        bind (Processor::slotPitchIds[(size_t) slot], card.pitchCtrl.slider);
+        bind (Processor::slotSwingIds[(size_t) slot], card.swingCtrl.slider);
+        bind (Processor::slotTempoIds[(size_t) slot], card.tempoCtrl.slider);
+        bind (Processor::slotCrossfadeIds[(size_t) slot], card.crossfadeCtrl.slider);
+        buttonAttachments.push_back (std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (
+            apvts, Processor::slotSyncIds[(size_t) slot], card.syncToggle));
+
+        // The per-slot quantise and trigger selectors (the ParameterAttachment pattern).
+        {
+            auto quantizeAttachment = std::make_unique<juce::ParameterAttachment> (
+                *apvts.getParameter (Processor::slotQuantizeIds[(size_t) slot]),
+                [&card] (float value) { card.quantizeSelector.setSelectedIndex (juce::roundToInt (value)); });
+            card.quantizeSelector.onChange = [raw = quantizeAttachment.get()] (int index)
+            {
+                raw->setValueAsCompleteGesture ((float) index);
+            };
+            quantizeAttachment->sendInitialUpdate();
+            choiceAttachments.push_back (std::move (quantizeAttachment));
+        }
+        {
+            auto triggerAttachment = std::make_unique<juce::ParameterAttachment> (
+                *apvts.getParameter (Processor::slotTriggerIds[(size_t) slot]),
+                [&card] (float value) { card.triggerSelector.setSelectedIndex (juce::roundToInt (value)); });
+            card.triggerSelector.onChange = [raw = triggerAttachment.get()] (int index)
+            {
+                raw->setValueAsCompleteGesture ((float) index);
+            };
+            triggerAttachment->sendInitialUpdate();
+            choiceAttachments.push_back (std::move (triggerAttachment));
+        }
 
         // A choice parameter through a ParameterAttachment: the denormalised value is the
-        // choice index as a float (the Micro-Timing Chaos rate selector pattern).
-        choiceAttachments.push_back (std::make_unique<juce::ParameterAttachment> (
+        // choice index as a float (the Micro-Timing Chaos rate selector pattern). The raw
+        // pointer is captured, so no index arithmetic breaks when other attachments join.
+        auto directionAttachment = std::make_unique<juce::ParameterAttachment> (
             *apvts.getParameter (Processor::slotDirectionIds[(size_t) slot]),
-            [&card] (float value) { card.direction.setSelectedIndex (juce::roundToInt (value)); }));
-        cards[(size_t) slot]->direction.onChange = [this, slot] (int index)
+            [&card] (float value) { card.direction.setSelectedIndex (juce::roundToInt (value)); });
+        card.direction.onChange = [raw = directionAttachment.get()] (int index)
         {
-            choiceAttachments[(size_t) slot]->setValueAsCompleteGesture ((float) index);
+            raw->setValueAsCompleteGesture ((float) index);
         };
-        choiceAttachments.back()->sendInitialUpdate();
+        directionAttachment->sendInitialUpdate();
+        choiceAttachments.push_back (std::move (directionAttachment));
 
         buttonAttachments.push_back (std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (
             apvts, Processor::slotPingRandomIds[(size_t) slot], card.pingRand));
@@ -238,6 +335,16 @@ CyclicalEditor::CyclicalEditor (CyclicalProcessor& p)
         card.waveform.onNormaliseClicked = [this, slot] { processor.loopToolNormalise (slot); };
         card.waveform.onTrimClicked = [this, slot] { processor.loopToolTrim (slot); };
 
+        // Plan 18 §1.4 (owner answer): the region knobs apply live — a drag that moved
+        // the value retriggers the slot's voice on release, so Start/Length/Slices/Slice
+        // Length/Beats are heard immediately.
+        for (auto* slider : { &card.start.slider, &card.length.slider, &card.slices.slider,
+                              &card.sliceLength.slider, &card.beats.slider })
+        {
+            regionRetriggerListeners.push_back (std::make_unique<RegionRetriggerListener> (*this, slot));
+            slider->addListener (regionRetriggerListeners.back().get());
+        }
+
         SuiteUI::describe (card.start, "Where the loop starts, as a share of its length (capped at 95 %).");
         SuiteUI::describe (card.length, "How much of the loop plays, as a share of its length.");
         SuiteUI::describe (card.speed, "Playback speed. Inert while Grain is on, and while Host Sync is on (the loop then plays in exactly Beats beats).");
@@ -250,10 +357,24 @@ CyclicalEditor::CyclicalEditor (CyclicalProcessor& p)
         SuiteUI::describe (card.direction, "Forward, Reverse, or Ping-Pong (turns at both bounds).");
         SuiteUI::describe (card.pingRand, "Randomises the ping-pong turn points per trigger. Only in Ping-Pong.");
         SuiteUI::describe (card.granular, "80 ms grains instead of straight playback. Speed is inert.");
+        SuiteUI::describe (card.filter, "The slot's filter type. Off is a true bypass.");
+        SuiteUI::describe (card.cutoff, "The slot filter's corner frequency.");
+        SuiteUI::describe (card.reso, "The slot filter's resonance.");
+        SuiteUI::describe (card.attack, "How fast the slot's level rises on a trigger.");
+        SuiteUI::describe (card.release, "How fast the slot's level falls on stop or retrigger.");
+        SuiteUI::describe (card.level, "The slot's output level before the master stage.");
+        SuiteUI::describe (card.panCtrl, "The slot's own constant-power pan before the master sum.");
+        SuiteUI::describe (card.pitchCtrl, "Detunes this slot (speed and pitch move, like tape).");
+        SuiteUI::describe (card.swingCtrl, "Shifts this slot's odd grid points. Positive is late.");
+        SuiteUI::describe (card.tempoCtrl, "This slot's clock tempo while its Host Sync is off.");
+        SuiteUI::describe (card.crossfadeCtrl, "This slot's loop-seam blend.");
+        SuiteUI::describe (card.quantizeSelector, "This slot's triggers start on the next grid point.");
+        SuiteUI::describe (card.triggerSelector, "Latch: a note runs until retriggered. Gate: only while held. Toggle: the first press starts the loop, the second stops it.");
+        SuiteUI::describe (card.syncToggle, "This slot follows the host's position and tempo. Chopped slots ignore it.");
         SuiteUI::describe (card.waveform, "The loaded loop, its region band, the chop lines, the arrangement strip and the playhead. LOAD opens a browser; AUTO slices at the loop's transients; the strip's cells rearrange the slices (click) and select one for the tools (right click); REV reverses the loop or the selected slice, NORM matches the peak, TRIM aligns the region to the content.");
     }
 
-    SuiteUI::describe (pageSelector, "SLOTS: the four loop cards. GLOBAL: the shared knobs and the transport.");
+    SuiteUI::describe (pageSelector, "One tab per slot: the card carries that slot's complete control set, and the former GLOBAL controls work independently per slot.");
     SuiteUI::describe (*presetBar, "Factory presets, INIT and SAVE. The menu lists user presets.");
     SuiteUI::describe (headerMenu, "Settings... and About...");
 
@@ -263,102 +384,25 @@ CyclicalEditor::CyclicalEditor (CyclicalProcessor& p)
 
     // The shared help line (plan 12): one line, one idle text, no stale strings. The
     // footer sentence is the idle text, so the band reads the same before a hover.
-    helpLine.setIdleText ("Each slot's Note key triggers it; chopped slots add one key per slice above the base note. No recording: loops load from the library or disk.");
+    helpLine.setIdleText ("Each slot's Note key triggers it; chopped slots add one key per slice above the base note. Every slot runs its own grid, swing, trigger and clock. No recording: loops load from the library or disk.");
     helpLine.setComponentID ("cyclical-help");
     helpLine.setEnablePredicate ([] { return SuiteSettings::shared().getBool (SuiteSettings::tooltipsKey, true); });
     SuiteUI::attachHelpLine (*this, helpLine, helpTracker);
     addAndMakeVisible (helpLine);
 
-    // GLOBAL page: the shared knobs and selectors.
+    // The one global (plan 18 Phase 4): master Output, shown on every slot page.
     addAndMakeVisible (masterCtrl);
-    addAndMakeVisible (panCtrl);
-    addAndMakeVisible (pitchCtrl);
-    addAndMakeVisible (crossfadeCtrl);
-    addAndMakeVisible (swingCtrl);
-    addAndMakeVisible (quantizeCaption);
-    addAndMakeVisible (quantizeSelector);
-    addAndMakeVisible (triggerCaption);
-    addAndMakeVisible (triggerSelector);
-    addAndMakeVisible (beatReadout);
-    addAndMakeVisible (tempoCtrl);
-    addAndMakeVisible (syncToggle);
-
     masterCtrl.slider.setTextValueSuffix (" dB");
     masterCtrl.slider.setNumDecimalPlacesToDisplay (1);
-    panCtrl.slider.setTextValueSuffix (" %");
-    panCtrl.slider.setNumDecimalPlacesToDisplay (1);
-    crossfadeCtrl.slider.setTextValueSuffix (" ms");
-    crossfadeCtrl.slider.setNumDecimalPlacesToDisplay (0);
-    swingCtrl.slider.setTextValueSuffix (" %");
-    swingCtrl.slider.setNumDecimalPlacesToDisplay (1);
-    pitchCtrl.slider.setNumDecimalPlacesToDisplay (0);
-
     bind (Processor::masterVolumeId, masterCtrl.slider);
-    bind (Processor::panId, panCtrl.slider);
-    bind (Processor::crossfadeLengthId, crossfadeCtrl.slider);
-    bind (Processor::swingId, swingCtrl.slider);
-    bind (Processor::pitchShiftId, pitchCtrl.slider);
-    bind (Processor::tempoId, tempoCtrl.slider);
-    buttonAttachments.push_back (std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (
-        apvts, Processor::syncId, syncToggle));
-
-    quantizeSelector.setOptions ({ "OFF", "1/16", "1/8", "1/4", "1/2", "BAR" });
-    {
-        auto attachment = std::make_unique<juce::ParameterAttachment> (
-            *apvts.getParameter (Processor::quantizeId),
-            [&selector = quantizeSelector] (float value) { selector.setSelectedIndex (juce::roundToInt (value)); });
-        quantizeSelector.onChange = [raw = attachment.get()] (int index)
-        {
-            raw->setValueAsCompleteGesture ((float) index);
-        };
-        attachment->sendInitialUpdate();
-        choiceAttachments.push_back (std::move (attachment));
-    }
-
-    triggerSelector.setOptions ({ "LATCH", "GATE", "TOGGLE" });
-    {
-        auto attachment = std::make_unique<juce::ParameterAttachment> (
-            *apvts.getParameter (Processor::triggerModeId),
-            [&selector = triggerSelector] (float value) { selector.setSelectedIndex (juce::roundToInt (value)); });
-        triggerSelector.onChange = [raw = attachment.get()] (int index)
-        {
-            raw->setValueAsCompleteGesture ((float) index);
-        };
-        attachment->sendInitialUpdate();
-        choiceAttachments.push_back (std::move (attachment));
-    }
-
-    for (auto* caption : { &quantizeCaption, &triggerCaption })
-    {
-        caption->setFont (SuiteUI::uiFont (13.0f, true));
-        caption->setColour (juce::Label::textColourId, SuiteUI::Colours::textDim);
-        caption->setJustificationType (juce::Justification::centred);
-    }
-    quantizeCaption.setText ("QUANTIZE", juce::dontSendNotification);
-    triggerCaption.setText ("TRIGGER", juce::dontSendNotification);
-
-    beatReadout.setFont (SuiteUI::uiFont (15.0f, true));
-    beatReadout.setColour (juce::Label::textColourId, SuiteUI::Colours::text);
-    beatReadout.setJustificationType (juce::Justification::centred);
-    beatReadout.setText ("0.00", juce::dontSendNotification);
-
     SuiteUI::describe (masterCtrl, "Output level of the whole instrument.");
-    SuiteUI::describe (panCtrl, "Constant-power pan: +100 % pans right, -100 % pans left.");
-    SuiteUI::describe (pitchCtrl, "Detunes all four slots together (speed and pitch move, like tape).");
-    SuiteUI::describe (crossfadeCtrl, "The loop-seam blend, shared by all slots.");
-    SuiteUI::describe (swingCtrl, "Shifts odd grid points. Positive is late.");
-    SuiteUI::describe (quantizeSelector, "Triggers start on the next grid point.");
-    SuiteUI::describe (triggerSelector, "Latch: a note runs until retriggered. Gate: only while held. Toggle: the first press starts the loop, the second stops it.");
-    SuiteUI::describe (beatReadout, "The beat clock's position, for reference.");
-    SuiteUI::describe (tempoCtrl, "The Tempo parameter runs the clock while Host Sync is off.");
-    SuiteUI::describe (syncToggle, "Host Sync on: the clock and the synced loops follow the host's position and tempo. Chopped slots ignore it.");
 
     // The header contract: preset bar (R12), page selector (R8), menu (R13).
     if (presetBar->getPreferredHeight() > 0)
         addAndMakeVisible (*presetBar);
     presetBar->onPresetLoaded = [this] { repaint(); };
 
-    pageSelector.setOptions ({ "SLOTS", "GLOBAL" });
+    pageSelector.setOptions ({ "SLOT 1", "SLOT 2", "SLOT 3", "SLOT 4" });
     pageSelector.onChange = [this] (int index) { setPage (index); };
     addAndMakeVisible (pageSelector);
 
@@ -387,19 +431,14 @@ CyclicalEditor::~CyclicalEditor()
 
 void CyclicalEditor::setPage (int newPage)
 {
-    page = juce::jlimit (0, 1, newPage);
+    page = juce::jlimit (0, Processor::numSlots - 1, newPage);
     pageSelector.setSelectedIndex (page);
 
-    for (auto& card : cards)
-        card->setVisible (page == 0);
+    for (int slot = 0; slot < Processor::numSlots; ++slot)
+        cards[(size_t) slot]->setVisible (slot == page);
 
-    for (auto* component : { static_cast<juce::Component*> (&masterCtrl), static_cast<juce::Component*> (&panCtrl),
-                             static_cast<juce::Component*> (&pitchCtrl), static_cast<juce::Component*> (&crossfadeCtrl),
-                             static_cast<juce::Component*> (&swingCtrl), static_cast<juce::Component*> (&quantizeCaption),
-                             static_cast<juce::Component*> (&quantizeSelector), static_cast<juce::Component*> (&triggerCaption),
-                             static_cast<juce::Component*> (&triggerSelector), static_cast<juce::Component*> (&beatReadout),
-                             static_cast<juce::Component*> (&tempoCtrl), static_cast<juce::Component*> (&syncToggle) })
-        component->setVisible (page == 1);
+    // The one global sits on every slot page (plan 18 Phase 4).
+    masterCtrl.setVisible (true);
 
     resized();
     repaint();
@@ -431,15 +470,14 @@ void CyclicalEditor::updateAffinity()
     // Plan 10 G1: controls that only work in one mode are dimmed, never hidden.
     // Plan 14 adds three rules, tested in every combination: Beats is dimmed while the
     // slot is chopped (sync is disabled there), Slices and Slice Length are dimmed while
-    // chop is off, and Speed is dimmed while Host Sync is on - unless the slot is chopped
-    // (a chopped slot ignores sync, so its Speed stays live).
-    // Plan 17 Phase 2: filter, attack, release, level are always enabled (no mode dependency).
-    const bool synced = processor.apvts.getRawParameterValue (Processor::syncId)->load() > 0.5f;
-
+    // chop is off, and Speed is dimmed while THAT slot's Host Sync is on - unless the slot
+    // is chopped (a chopped slot ignores sync, so its Speed stays live). Plan 18: sync is
+    // a per-slot parameter, so each slot's rule reads its own.
     for (int slot = 0; slot < Processor::numSlots; ++slot)
     {
         auto& card = *cards[(size_t) slot];
 
+        const bool synced = processor.apvts.getRawParameterValue (Processor::slotSyncIds[(size_t) slot])->load() > 0.5f;
         const bool grainOn = processor.apvts.getRawParameterValue (Processor::slotGranularIds[(size_t) slot])->load() > 0.5f;
         const bool pingPong = processor.apvts.getRawParameterValue (Processor::slotDirectionIds[(size_t) slot])->load() > 1.5f;
         const bool chopped = processor.apvts.getRawParameterValue (Processor::slotChopIds[(size_t) slot])->load() > 0.5f;
@@ -450,16 +488,6 @@ void CyclicalEditor::updateAffinity()
         card.slices.setEnabled (chopped);
         card.sliceLength.setEnabled (chopped);
         card.waveform.setAutoEnabled (chopped);   // plan 16: AUTO slices only in chop mode
-    }
-
-    // Plan 17 Phase 2: always enable the new creative controls.
-    for (int slot = 0; slot < Processor::numSlots; ++slot)
-    {
-        auto& card = *cards[(size_t) slot];
-        card.filter.setEnabled (true);
-        card.attack.slider.setEnabled (true);
-        card.release.slider.setEnabled (true);
-        card.level.slider.setEnabled (true);
     }
 }
 
@@ -500,9 +528,6 @@ void CyclicalEditor::timerCallback()
         card.waveform.setPlayhead (processor.slotPlayhead (slot), processor.slotIsActive (slot));
         card.waveform.setMissing (processor.isLoopMissing (slot));
     }
-
-    beatReadout.setText (juce::String (processor.beatPositionUi(), 2) + " beats",
-                         juce::dontSendNotification);
 }
 
 void CyclicalEditor::paint (juce::Graphics& g)
@@ -514,34 +539,19 @@ void CyclicalEditor::paint (juce::Graphics& g)
 
     SuiteUI::drawBrandLockup (g, getLocalBounds().removeFromTop (headerHeight).reduced (16, 0), brandLockup());
 
-    // The four slot cards are their own frames; the GLOBAL page draws one group.
-    if (page == 1)
+    // Each slot's card is its own frame; only the visible page draws (plan 18 Phase 4:
+    // one tab per slot, no GLOBAL group).
+    for (int slot = 0; slot < Processor::numSlots; ++slot)
     {
-        const auto frame = globalGroupBounds.toFloat();
+        if (! cards[(size_t) slot]->isVisible())
+            continue;
 
-        g.setColour (SuiteUI::Colours::panel.withAlpha (0.55f));
+        const auto frame = cards[(size_t) slot]->getBounds().toFloat();
+
+        g.setColour (SuiteUI::Colours::panel.withAlpha (0.35f));
         g.fillRoundedRectangle (frame, 8.0f);
         g.setColour (SuiteUI::Colours::track);
         g.drawRoundedRectangle (frame, 8.0f, 1.0f);
-
-        g.setColour (lookAndFeel.getAccent());
-        g.setFont (juce::Font (juce::FontOptions (15.0f, juce::Font::bold)));
-        g.drawText ("GLOBAL", globalGroupBounds.withHeight (groupTitleHeight).translated (0, 4).reduced (12, 0),
-                    juce::Justification::centredLeft);
-    }
-
-    // The cards' frames, on the SLOTS page only (their bounds are stale on GLOBAL).
-    if (page == 0)
-    {
-        for (auto& card : cards)
-        {
-            const auto frame = card->getBounds().toFloat();
-
-            g.setColour (SuiteUI::Colours::panel.withAlpha (0.35f));
-            g.fillRoundedRectangle (frame, 8.0f);
-            g.setColour (SuiteUI::Colours::track);
-            g.drawRoundedRectangle (frame, 8.0f, 1.0f);
-        }
     }
 }
 
@@ -564,56 +574,12 @@ void CyclicalEditor::resized()
 
     area.removeFromTop (groupGap);
 
-    if (page == 0)
-    {
-        // Two columns of two cards.
-        const int cardWidth = area.getWidth() / 2;
-        const int cardHeight = area.getHeight() / 2;
-
-        for (int slot = 0; slot < Processor::numSlots; ++slot)
-        {
-            const int column = slot % 2;
-            const int row = slot / 2;
-            cards[(size_t) slot]->setBounds (juce::Rectangle<int> (area.getX() + column * cardWidth,
-                                                                    area.getY() + row * cardHeight,
-                                                                    cardWidth, cardHeight).reduced (groupGap / 2, 2));
-        }
-    }
-    else
-    {
-        globalGroupBounds = area;
-        auto inner = area.withTrimmedTop (groupTitleHeight + 4).reduced (12, 6);
-
-        const int cellWidth = inner.getWidth() / 4;
-        auto row1 = inner.removeFromTop (SuiteUI::knobRowHeight);
-        masterCtrl.setBounds (row1.removeFromLeft (cellWidth).reduced (3));
-        panCtrl.setBounds (row1.removeFromLeft (cellWidth).reduced (3));
-        pitchCtrl.setBounds (row1.removeFromLeft (cellWidth).reduced (3));
-        crossfadeCtrl.setBounds (row1.removeFromLeft (cellWidth).reduced (3));
-
-        inner.removeFromTop (groupGap);
-        auto row2 = inner.removeFromTop (SuiteUI::knobRowHeight);   // one knob row, not the whole rest
-        swingCtrl.setBounds (row2.removeFromLeft (cellWidth).reduced (3));
-
-        auto quantizeCell = row2.removeFromLeft (cellWidth).reduced (6, 4);
-        quantizeCaption.setBounds (quantizeCell.removeFromTop (18));
-        quantizeSelector.setBounds (quantizeCell.withHeight (SuiteUI::pillHeight).withY (quantizeCell.getY()));
-
-        auto triggerCell = row2.removeFromLeft (cellWidth).reduced (6, 4);
-        triggerCaption.setBounds (triggerCell.removeFromTop (18));
-        triggerSelector.setBounds (triggerCell.withHeight (SuiteUI::pillHeight).withY (triggerCell.getY()));
-
-        beatReadout.setBounds (row2.reduced (6, 4));
-
-        // Plan 14 row 3: the Tempo knob runs the clock while Host Sync is off; the sync
-        // toggle sits beside it.
-        inner.removeFromTop (groupGap);
-        auto row3 = inner.removeFromTop (SuiteUI::knobRowHeight);
-        tempoCtrl.setBounds (row3.removeFromLeft (cellWidth).reduced (3));
-
-        auto syncCell = row3.removeFromLeft (cellWidth).reduced (6, 4);
-        syncToggle.setBounds (syncCell.withSizeKeepingCentre (syncCell.getWidth() - 12, SuiteUI::pillHeight));
-    }
+    // One slot per page (plan 18 Phase 4): the card takes the full width, and the one
+    // global (master Output) sits in its own row beneath it.
+    cards[(size_t) page]->setBounds (area.removeFromTop (cardContentHeight));
+    area.removeFromTop (groupGap);
+    masterCtrl.setBounds (area.removeFromTop (masterRowHeight)
+                              .removeFromRight (area.getWidth() / 4).reduced (3));
 
     // The help line lives in the band the paint used to draw its footer sentence in.
     helpLine.setBounds (getLocalBounds().removeFromBottom (footerHeight));

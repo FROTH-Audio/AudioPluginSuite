@@ -1721,15 +1721,24 @@
   <AudioSuitePreset formatVersion="1" plugin="Cyclical" pluginVersion="1.0.0">
     <Meta name="Four on the Floor" category="Groove" author="FROTH Audio" description="Kick, hats, bass and chord locked to 16ths."/>
     <PARAMETERS suiteStateVersion="1" loop1Path="embedded:kick_4k.wav" loop2Path="embedded:hats_4k.wav" loop3Path="embedded:bass_4k.wav" loop4Path="embedded:chord_4k.wav">
-      <PARAM id="quantize" value="1"/>
+      <PARAM id="slot1Quantize" value="1"/>
+      <PARAM id="slot2Quantize" value="1"/>
       <PARAM id="slot3Speed" value="2"/>
+      <PARAM id="slot3Quantize" value="1"/>
+      <PARAM id="slot4Quantize" value="1"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="Cyclical" pluginVersion="1.0.0">
     <Meta name="Backbeat Stack" category="Groove" author="FROTH Audio" description="Snare, hats and bass interlock with swing."/>
     <PARAMETERS suiteStateVersion="1" loop1Path="embedded:snare_4k.wav" loop2Path="embedded:hats_4k.wav" loop3Path="embedded:bass_4k.wav" loop4Path="embedded:perc_4k.wav">
-      <PARAM id="quantize" value="1"/>
-      <PARAM id="swing" value="12"/>
+      <PARAM id="slot1Quantize" value="1"/>
+      <PARAM id="slot1Swing" value="12"/>
+      <PARAM id="slot2Quantize" value="1"/>
+      <PARAM id="slot2Swing" value="12"/>
+      <PARAM id="slot3Quantize" value="1"/>
+      <PARAM id="slot3Swing" value="12"/>
+      <PARAM id="slot4Quantize" value="1"/>
+      <PARAM id="slot4Swing" value="12"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="Cyclical" pluginVersion="1.0.0">
@@ -1745,7 +1754,7 @@
     <PARAMETERS suiteStateVersion="1" loop1Path="embedded:bass_4k.wav" loop2Path="embedded:kick_4k.wav" loop3Path="embedded:perc_4k.wav" loop4Path="embedded:noise_4k.wav">
       <PARAM id="slot2Speed" value="0.5"/>
       <PARAM id="slot2Direction" value="1"/>
-      <PARAM id="pitchShift" value="-12"/>
+      <PARAM id="slot2Pitch" value="-12"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="Cyclical" pluginVersion="1.0.0">
@@ -1759,17 +1768,23 @@
   <AudioSuitePreset formatVersion="1" plugin="Cyclical" pluginVersion="1.0.0">
     <Meta name="Glass Loop" category="Texture" author="FROTH Audio" description="Bells and pads drifting at uneven speeds."/>
     <PARAMETERS suiteStateVersion="1" loop1Path="embedded:bells_4k.wav" loop2Path="embedded:texture_4k.wav" loop3Path="embedded:drone_4k.wav" loop4Path="embedded:noise_4k.wav">
+      <PARAM id="slot1Crossfade" value="50"/>
       <PARAM id="slot2Speed" value="0.75"/>
+      <PARAM id="slot2Crossfade" value="50"/>
       <PARAM id="slot3Speed" value="0.5"/>
-      <PARAM id="crossfadeLength" value="50"/>
+      <PARAM id="slot3Crossfade" value="50"/>
+      <PARAM id="slot4Crossfade" value="50"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="Cyclical" pluginVersion="1.0.0">
     <Meta name="Tape Halo" category="Texture" author="FROTH Audio" description="A reversed pad over a slow forward texture."/>
     <PARAMETERS suiteStateVersion="1" loop1Path="embedded:texture_4k.wav" loop2Path="embedded:drone_4k.wav" loop3Path="embedded:bells_4k.wav" loop4Path="embedded:noise_4k.wav">
       <PARAM id="slot1Speed" value="0.5"/>
+      <PARAM id="slot1Crossfade" value="200"/>
       <PARAM id="slot2Direction" value="1"/>
-      <PARAM id="crossfadeLength" value="200"/>
+      <PARAM id="slot2Crossfade" value="200"/>
+      <PARAM id="slot3Crossfade" value="200"/>
+      <PARAM id="slot4Crossfade" value="200"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="Cyclical" pluginVersion="1.0.0">
@@ -1788,41 +1803,59 @@
   <AudioSuitePreset formatVersion="1" plugin="Cyclical" pluginVersion="1.0.0">
     <Meta name="Broken Clock" category="Experimental" author="FROTH Audio" description="Ping-pong slots with randomised turn points."/>
     <PARAMETERS suiteStateVersion="1" loop1Path="embedded:kick_4k.wav" loop2Path="embedded:snare_4k.wav" loop3Path="embedded:arp_4k.wav" loop4Path="embedded:vox_4k.wav">
-      <PARAM id="quantize" value="2"/>
-      <PARAM id="swing" value="-10"/>
       <PARAM id="slot1Direction" value="2"/>
       <PARAM id="slot1PingRandom" value="1"/>
+      <PARAM id="slot1Quantize" value="2"/>
+      <PARAM id="slot1Swing" value="-10"/>
       <PARAM id="slot2Direction" value="2"/>
+      <PARAM id="slot2Quantize" value="2"/>
+      <PARAM id="slot2Swing" value="-10"/>
       <PARAM id="slot3Direction" value="2"/>
       <PARAM id="slot3PingRandom" value="1"/>
+      <PARAM id="slot3Quantize" value="2"/>
+      <PARAM id="slot3Swing" value="-10"/>
       <PARAM id="slot4Direction" value="2"/>
+      <PARAM id="slot4Quantize" value="2"/>
+      <PARAM id="slot4Swing" value="-10"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="Cyclical" pluginVersion="1.0.0">
     <Meta name="Reverse Universe" category="Experimental" author="FROTH Audio" description="Three reversed loops behind a forward kick."/>
     <PARAMETERS suiteStateVersion="1" loop1Path="embedded:kick_4k.wav" loop2Path="embedded:chord_4k.wav" loop3Path="embedded:vox_4k.wav" loop4Path="embedded:texture_4k.wav">
+      <PARAM id="slot1Crossfade" value="120"/>
       <PARAM id="slot2Direction" value="1"/>
+      <PARAM id="slot2Crossfade" value="120"/>
       <PARAM id="slot3Direction" value="1"/>
+      <PARAM id="slot3Crossfade" value="120"/>
       <PARAM id="slot4Speed" value="0.5"/>
       <PARAM id="slot4Direction" value="1"/>
-      <PARAM id="crossfadeLength" value="120"/>
+      <PARAM id="slot4Crossfade" value="120"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="Cyclical" pluginVersion="1.0.0">
     <Meta name="Stutter Grid" category="Electronic" author="FROTH Audio" description="Sprinting hats over a 16th grid."/>
     <PARAMETERS suiteStateVersion="1" loop1Path="embedded:kick_4k.wav" loop2Path="embedded:hats_4k.wav" loop3Path="embedded:snare_4k.wav" loop4Path="embedded:perc_4k.wav">
-      <PARAM id="quantize" value="1"/>
       <PARAM id="slot1Speed" value="2"/>
+      <PARAM id="slot1Quantize" value="1"/>
       <PARAM id="slot2Speed" value="4"/>
+      <PARAM id="slot2Quantize" value="1"/>
+      <PARAM id="slot3Quantize" value="1"/>
+      <PARAM id="slot4Quantize" value="1"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="Cyclical" pluginVersion="1.0.0">
     <Meta name="Warehouse" category="Electronic" author="FROTH Audio" description="Wide pan, long crossfade, driving kick."/>
     <PARAMETERS suiteStateVersion="1" loop1Path="embedded:kick_4k.wav" loop2Path="embedded:bass_4k.wav" loop3Path="embedded:chord_4k.wav" loop4Path="embedded:drone_4k.wav">
-      <PARAM id="pan" value="30"/>
       <PARAM id="slot1Speed" value="2"/>
+      <PARAM id="slot1Crossfade" value="30"/>
+      <PARAM id="slot1Pan" value="30"/>
+      <PARAM id="slot2Crossfade" value="30"/>
+      <PARAM id="slot2Pan" value="30"/>
       <PARAM id="slot3Speed" value="0.5"/>
-      <PARAM id="crossfadeLength" value="30"/>
+      <PARAM id="slot3Crossfade" value="30"/>
+      <PARAM id="slot3Pan" value="30"/>
+      <PARAM id="slot4Crossfade" value="30"/>
+      <PARAM id="slot4Pan" value="30"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="Cyclical" pluginVersion="1.0.0">
@@ -1830,39 +1863,57 @@
     <PARAMETERS suiteStateVersion="1" loop1Path="embedded:texture_4k.wav" loop2Path="embedded:bells_4k.wav" loop3Path="embedded:drone_4k.wav" loop4Path="embedded:noise_4k.wav">
       <PARAM id="masterVolume" value="-6"/>
       <PARAM id="slot1Speed" value="0.5"/>
+      <PARAM id="slot1Crossfade" value="300"/>
       <PARAM id="slot2Speed" value="0.5"/>
+      <PARAM id="slot2Crossfade" value="300"/>
       <PARAM id="slot3Speed" value="0.25"/>
-      <PARAM id="crossfadeLength" value="300"/>
+      <PARAM id="slot3Crossfade" value="300"/>
+      <PARAM id="slot4Crossfade" value="300"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="Cyclical" pluginVersion="1.0.0">
     <Meta name="Night Drive" category="Ambient" author="FROTH Audio" description="A granular texture under a straight pulse."/>
     <PARAMETERS suiteStateVersion="1" loop1Path="embedded:kick_4k.wav" loop2Path="embedded:texture_4k.wav" loop3Path="embedded:drone_4k.wav" loop4Path="embedded:vox_4k.wav">
+      <PARAM id="slot1Crossfade" value="200"/>
       <PARAM id="slot2Granular" value="1"/>
+      <PARAM id="slot2Crossfade" value="200"/>
+      <PARAM id="slot3Crossfade" value="200"/>
       <PARAM id="slot4Speed" value="0.5"/>
       <PARAM id="slot4Direction" value="1"/>
-      <PARAM id="crossfadeLength" value="200"/>
+      <PARAM id="slot4Crossfade" value="200"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="Cyclical" pluginVersion="1.0.0">
     <Meta name="Gate Cutter" category="Groove" author="FROTH Audio" description="Gate mode chops the held notes."/>
     <PARAMETERS suiteStateVersion="1" loop1Path="embedded:kick_4k.wav" loop2Path="embedded:hats_4k.wav" loop3Path="embedded:chord_4k.wav" loop4Path="embedded:vox_4k.wav">
-      <PARAM id="quantize" value="2"/>
-      <PARAM id="swing" value="18"/>
-      <PARAM id="triggerMode" value="1"/>
+      <PARAM id="slot1Quantize" value="2"/>
+      <PARAM id="slot1Swing" value="18"/>
+      <PARAM id="slot1Trigger" value="1"/>
+      <PARAM id="slot2Quantize" value="2"/>
+      <PARAM id="slot2Swing" value="18"/>
+      <PARAM id="slot2Trigger" value="1"/>
+      <PARAM id="slot3Quantize" value="2"/>
+      <PARAM id="slot3Swing" value="18"/>
+      <PARAM id="slot3Trigger" value="1"/>
       <PARAM id="slot4Granular" value="1"/>
+      <PARAM id="slot4Quantize" value="2"/>
+      <PARAM id="slot4Swing" value="18"/>
+      <PARAM id="slot4Trigger" value="1"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="Cyclical" pluginVersion="1.0.0">
     <Meta name="Dr Rex Grid" category="Electronic" author="FROTH Audio" description="Two chopped slots play slice-per-key on disjoint ranges."/>
     <PARAMETERS suiteStateVersion="1" loop1Path="embedded:kick_4k.wav" loop2Path="embedded:hats_4k.wav" loop3Path="embedded:bass_4k.wav" loop4Path="embedded:perc_4k.wav">
-      <PARAM id="quantize" value="1"/>
       <PARAM id="slot1Note" value="36"/>
       <PARAM id="slot1Chop" value="1"/>
       <PARAM id="slot1Slices" value="16"/>
+      <PARAM id="slot1Quantize" value="1"/>
       <PARAM id="slot2Note" value="64"/>
       <PARAM id="slot2Chop" value="1"/>
       <PARAM id="slot2Slices" value="8"/>
+      <PARAM id="slot2Quantize" value="1"/>
+      <PARAM id="slot3Quantize" value="1"/>
+      <PARAM id="slot4Quantize" value="1"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="Cyclical" pluginVersion="1.0.0">
@@ -1899,21 +1950,27 @@
   <AudioSuitePreset formatVersion="1" plugin="Cyclical" pluginVersion="1.0.0">
     <Meta name="Chopped Break" category="Bass" author="FROTH Audio" description="A double-speed chopped bass riff, key-per-slice."/>
     <PARAMETERS suiteStateVersion="1" loop1Path="embedded:bass_4k.wav" loop2Path="embedded:kick_4k.wav" loop3Path="embedded:perc_4k.wav" loop4Path="embedded:noise_4k.wav">
-      <PARAM id="quantize" value="1"/>
       <PARAM id="slot1Speed" value="2"/>
       <PARAM id="slot1Chop" value="1"/>
       <PARAM id="slot1Slices" value="8"/>
       <PARAM id="slot1SliceLength" value="40"/>
+      <PARAM id="slot1Quantize" value="1"/>
+      <PARAM id="slot2Quantize" value="1"/>
+      <PARAM id="slot3Quantize" value="1"/>
+      <PARAM id="slot4Quantize" value="1"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="Cyclical" pluginVersion="1.0.0">
     <Meta name="Synced Bars" category="Groove" author="FROTH Audio" description="Every loop locks to the host: whole loop in Beats beats."/>
     <PARAMETERS suiteStateVersion="1" loop1Path="embedded:kick_4k.wav" loop2Path="embedded:hats_4k.wav" loop3Path="embedded:bass_4k.wav" loop4Path="embedded:chord_4k.wav">
       <PARAM id="slot1Beats" value="4"/>
+      <PARAM id="slot1Sync" value="1"/>
       <PARAM id="slot2Beats" value="8"/>
+      <PARAM id="slot2Sync" value="1"/>
       <PARAM id="slot3Beats" value="2"/>
+      <PARAM id="slot3Sync" value="1"/>
       <PARAM id="slot4Beats" value="4"/>
-      <PARAM id="sync" value="1"/>
+      <PARAM id="slot4Sync" value="1"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="Cyclical" pluginVersion="1.0.0">
@@ -1921,20 +1978,29 @@
     <PARAMETERS suiteStateVersion="1" loop1Path="embedded:kick_4k.wav" loop2Path="embedded:snare_4k.wav" loop3Path="embedded:chord_4k.wav" loop4Path="embedded:texture_4k.wav">
       <PARAM id="masterVolume" value="-3"/>
       <PARAM id="slot1Beats" value="8"/>
+      <PARAM id="slot1Sync" value="1"/>
       <PARAM id="slot2Beats" value="8"/>
+      <PARAM id="slot2Sync" value="1"/>
       <PARAM id="slot3Beats" value="8"/>
+      <PARAM id="slot3Sync" value="1"/>
       <PARAM id="slot4Beats" value="8"/>
-      <PARAM id="sync" value="1"/>
+      <PARAM id="slot4Sync" value="1"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="Cyclical" pluginVersion="1.0.0">
     <Meta name="Toggle Looper" category="Ambient" author="FROTH Audio" description="Toggle mode: one press starts the pad, the next stops it."/>
     <PARAMETERS suiteStateVersion="1" loop1Path="embedded:drone_4k.wav" loop2Path="embedded:texture_4k.wav" loop3Path="embedded:chord_4k.wav" loop4Path="embedded:noise_4k.wav">
-      <PARAM id="triggerMode" value="2"/>
       <PARAM id="slot1Note" value="48"/>
+      <PARAM id="slot1Trigger" value="2"/>
+      <PARAM id="slot1Crossfade" value="120"/>
       <PARAM id="slot2Note" value="50"/>
+      <PARAM id="slot2Trigger" value="2"/>
+      <PARAM id="slot2Crossfade" value="120"/>
       <PARAM id="slot3Note" value="52"/>
-      <PARAM id="crossfadeLength" value="120"/>
+      <PARAM id="slot3Trigger" value="2"/>
+      <PARAM id="slot3Crossfade" value="120"/>
+      <PARAM id="slot4Trigger" value="2"/>
+      <PARAM id="slot4Crossfade" value="120"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="Cyclical" pluginVersion="1.0.0">
@@ -1951,11 +2017,20 @@
   <AudioSuitePreset formatVersion="1" plugin="Cyclical" pluginVersion="1.0.0">
     <Meta name="Tempo Runner" category="Electronic" author="FROTH Audio" description="Free-running tempo at 150 BPM drives the quantised chop."/>
     <PARAMETERS suiteStateVersion="1" loop1Path="embedded:kick_4k.wav" loop2Path="embedded:hats_4k.wav" loop3Path="embedded:arp_4k.wav" loop4Path="embedded:perc_4k.wav">
-      <PARAM id="quantize" value="1"/>
-      <PARAM id="triggerMode" value="1"/>
       <PARAM id="slot1Chop" value="1"/>
       <PARAM id="slot1Slices" value="8"/>
-      <PARAM id="tempo" value="150"/>
+      <PARAM id="slot1Quantize" value="1"/>
+      <PARAM id="slot1Trigger" value="1"/>
+      <PARAM id="slot1Tempo" value="150"/>
+      <PARAM id="slot2Quantize" value="1"/>
+      <PARAM id="slot2Trigger" value="1"/>
+      <PARAM id="slot2Tempo" value="150"/>
+      <PARAM id="slot3Quantize" value="1"/>
+      <PARAM id="slot3Trigger" value="1"/>
+      <PARAM id="slot3Tempo" value="150"/>
+      <PARAM id="slot4Quantize" value="1"/>
+      <PARAM id="slot4Trigger" value="1"/>
+      <PARAM id="slot4Tempo" value="150"/>
     </PARAMETERS>
   </AudioSuitePreset>
 </Bank>

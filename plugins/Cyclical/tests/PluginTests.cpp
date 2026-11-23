@@ -92,10 +92,6 @@ namespace
     void allParameterIds (std::vector<const char*>& ids)
     {
         ids.push_back (Processor::masterVolumeId);
-        ids.push_back (Processor::panId);
-        ids.push_back (Processor::quantizeId);
-        ids.push_back (Processor::swingId);
-        ids.push_back (Processor::triggerModeId);
 
         for (int slot = 0; slot < Processor::numSlots; ++slot)
         {
@@ -115,12 +111,17 @@ namespace
             ids.push_back (Processor::slotAttackIds[(size_t) slot]);
             ids.push_back (Processor::slotReleaseIds[(size_t) slot]);
             ids.push_back (Processor::slotLevelIds[(size_t) slot]);
+            ids.push_back (Processor::slotCutoffIds[(size_t) slot]);
+            ids.push_back (Processor::slotResoIds[(size_t) slot]);
+            ids.push_back (Processor::slotQuantizeIds[(size_t) slot]);
+            ids.push_back (Processor::slotSwingIds[(size_t) slot]);
+            ids.push_back (Processor::slotTriggerIds[(size_t) slot]);
+            ids.push_back (Processor::slotPitchIds[(size_t) slot]);
+            ids.push_back (Processor::slotCrossfadeIds[(size_t) slot]);
+            ids.push_back (Processor::slotTempoIds[(size_t) slot]);
+            ids.push_back (Processor::slotSyncIds[(size_t) slot]);
+            ids.push_back (Processor::slotPanIds[(size_t) slot]);
         }
-
-        ids.push_back (Processor::pitchShiftId);
-        ids.push_back (Processor::crossfadeLengthId);
-        ids.push_back (Processor::tempoId);
-        ids.push_back (Processor::syncId);
     }
 
     void testParameters()
@@ -136,12 +137,6 @@ namespace
             assert (processor.apvts.getParameter (id) != nullptr);
 
         checkRange (processor.apvts, Processor::masterVolumeId, -24.0f, 12.0f, 0.0f);
-        checkRange (processor.apvts, Processor::panId, -100.0f, 100.0f, 0.0f);
-        checkRange (processor.apvts, Processor::quantizeId, 0.0f, 5.0f, 0.0f);
-        checkRange (processor.apvts, Processor::swingId, -20.0f, 20.0f, 0.0f);
-        checkRange (processor.apvts, Processor::triggerModeId, 0.0f, 2.0f, 0.0f);
-        checkRange (processor.apvts, Processor::pitchShiftId, -12.0f, 12.0f, 0.0f);
-        checkRange (processor.apvts, Processor::crossfadeLengthId, 0.0f, 500.0f, 5.0f);
 
         for (int slot = 0; slot < Processor::numSlots; ++slot)
         {
@@ -160,12 +155,21 @@ namespace
             checkRange (processor.apvts, Processor::slotSliceLengthIds[(size_t) slot], -100.0f, 100.0f, 0.0f);
             checkRange (processor.apvts, Processor::slotFilterIds[(size_t) slot], 0.0f, 3.0f, 0.0f);
             checkRange (processor.apvts, Processor::slotAttackIds[(size_t) slot], 1.0f, 1000.0f, 1.0f);
-            checkRange (processor.apvts, Processor::slotReleaseIds[(size_t) slot], 1.0f, 10000.0f, 1000.0f);
+            checkRange (processor.apvts, Processor::slotReleaseIds[(size_t) slot], 1.0f, 10000.0f, 5.0f);
             checkRange (processor.apvts, Processor::slotLevelIds[(size_t) slot], 0.0f, 200.0f, 100.0f);
-        }
 
-        checkRange (processor.apvts, Processor::tempoId, 40.0f, 240.0f, 120.0f);
-        checkRange (processor.apvts, Processor::syncId, 0.0f, 1.0f, 0.0f);
+            // Plan 18 Phase 4: the former globals, per slot, plus the filter's cutoff/reso.
+            checkRange (processor.apvts, Processor::slotCutoffIds[(size_t) slot], 20.0f, 20000.0f, 20000.0f);
+            checkRange (processor.apvts, Processor::slotResoIds[(size_t) slot], 0.5f, 10.0f, 0.7f);
+            checkRange (processor.apvts, Processor::slotQuantizeIds[(size_t) slot], 0.0f, 5.0f, 0.0f);
+            checkRange (processor.apvts, Processor::slotSwingIds[(size_t) slot], -20.0f, 20.0f, 0.0f);
+            checkRange (processor.apvts, Processor::slotTriggerIds[(size_t) slot], 0.0f, 2.0f, 0.0f);
+            checkRange (processor.apvts, Processor::slotPitchIds[(size_t) slot], -12.0f, 12.0f, 0.0f);
+            checkRange (processor.apvts, Processor::slotCrossfadeIds[(size_t) slot], 0.0f, 500.0f, 5.0f);
+            checkRange (processor.apvts, Processor::slotTempoIds[(size_t) slot], 40.0f, 240.0f, 120.0f);
+            checkRange (processor.apvts, Processor::slotSyncIds[(size_t) slot], 0.0f, 1.0f, 0.0f);
+            checkRange (processor.apvts, Processor::slotPanIds[(size_t) slot], -100.0f, 100.0f, 0.0f);
+        }
 
         // The final gain stage is named "Output" everywhere in the suite (plan 12).
         assert (processor.apvts.getParameter (Processor::masterVolumeId)->getName (100) == "Output");
@@ -177,12 +181,12 @@ namespace
         Processor processor;
 
         checkStateRoundTrip (processor, processor.apvts, Processor::masterVolumeId, -6.0f);
-        checkStateRoundTrip (processor, processor.apvts, Processor::panId, 40.0f);
-        checkStateRoundTrip (processor, processor.apvts, Processor::quantizeId, 2.0f);
-        checkStateRoundTrip (processor, processor.apvts, Processor::swingId, 12.0f);
-        checkStateRoundTrip (processor, processor.apvts, Processor::triggerModeId, 1.0f);
-        checkStateRoundTrip (processor, processor.apvts, Processor::pitchShiftId, 5.0f);
-        checkStateRoundTrip (processor, processor.apvts, Processor::crossfadeLengthId, 120.0f);
+        checkStateRoundTrip (processor, processor.apvts, Processor::slotPanIds[0], 40.0f);
+        checkStateRoundTrip (processor, processor.apvts, Processor::slotQuantizeIds[0], 2.0f);
+        checkStateRoundTrip (processor, processor.apvts, Processor::slotSwingIds[0], 12.0f);
+        checkStateRoundTrip (processor, processor.apvts, Processor::slotTriggerIds[0], 1.0f);
+        checkStateRoundTrip (processor, processor.apvts, Processor::slotPitchIds[0], 5.0f);
+        checkStateRoundTrip (processor, processor.apvts, Processor::slotCrossfadeIds[0], 120.0f);
 
         for (int slot = 0; slot < Processor::numSlots; ++slot)
         {
@@ -357,7 +361,7 @@ namespace
         {
             Processor processor;
             processor.prepareToPlay (sampleRate, blockSize);
-            setParameter (processor.apvts, Processor::triggerModeId, 2.0f);
+            setParameter (processor.apvts, Processor::slotTriggerIds[0], 2.0f);
 
             juce::MidiBuffer midi;
             midi.addEvent (juce::MidiMessage::noteOn (1, 60, 0.8f), 0);
@@ -365,7 +369,7 @@ namespace
             midi.clear();
             assert (processor.slotIsActive (0));
 
-            setParameter (processor.apvts, Processor::triggerModeId, 1.0f);   // Gate
+            setParameter (processor.apvts, Processor::slotTriggerIds[0], 1.0f);   // Gate
             processOne (processor, midi);
             for (int i = 0; i < 3; ++i)
                 processOne (processor, midi);
@@ -407,7 +411,7 @@ namespace
                 juce::MessageManager::getInstance()->runDispatchLoopUntil (50);
             assert (! processor.hasPendingLoopLoad());
 
-            setParameter (processor.apvts, Processor::crossfadeLengthId, 0.0f);
+            setParameter (processor.apvts, Processor::slotCrossfadeIds[0], 0.0f);
 
             juce::MidiBuffer midi;
             midi.addEvent (juce::MidiMessage::noteOn (1, 60, 0.8f), 0);
@@ -436,7 +440,7 @@ namespace
         // Gate: the voice stops after the note-off (5 ms fade, then inactive).
         Processor gate;
         gate.prepareToPlay (sampleRate, blockSize);
-        setParameter (gate.apvts, Processor::triggerModeId, 1.0f);
+        setParameter (gate.apvts, Processor::slotTriggerIds[0], 1.0f);
 
         juce::MidiBuffer midi;
         midi.addEvent (juce::MidiMessage::noteOn (1, 60, 0.8f), 0);
@@ -474,7 +478,7 @@ namespace
         {
             Processor processor;
             processor.prepareToPlay (sampleRate, blockSize);
-            setParameter (processor.apvts, Processor::triggerModeId, 2.0f);
+            setParameter (processor.apvts, Processor::slotTriggerIds[0], 2.0f);
 
             juce::MidiBuffer midi;
             midi.addEvent (juce::MidiMessage::noteOn (1, 60, 0.8f), 0);
@@ -507,8 +511,8 @@ namespace
         {
             Processor processor;
             processor.prepareToPlay (sampleRate, blockSize);
-            setParameter (processor.apvts, Processor::triggerModeId, 2.0f);
-            setParameter (processor.apvts, Processor::quantizeId, 3.0f);   // 1/4 = one beat
+            setParameter (processor.apvts, Processor::slotTriggerIds[0], 2.0f);
+            setParameter (processor.apvts, Processor::slotQuantizeIds[0], 3.0f);   // 1/4 = one beat
 
             juce::MidiBuffer midi;
             midi.addEvent (juce::MidiMessage::noteOn (1, 60, 0.8f), 100);
@@ -549,8 +553,8 @@ namespace
     {
         Processor processor;
         processor.prepareToPlay (sampleRate, blockSize);
-        setParameter (processor.apvts, Processor::triggerModeId, 2.0f);
-        setParameter (processor.apvts, Processor::syncId, 1.0f);   // the playhead drives the clock
+        setParameter (processor.apvts, Processor::slotTriggerIds[0], 2.0f);
+        setParameter (processor.apvts, Processor::slotSyncIds[0], 1.0f);   // the playhead drives the clock
 
         TestPlayHead playHead;
         processor.setPlayHead (&playHead);
@@ -620,8 +624,8 @@ namespace
         {
             Processor processor;
             processor.prepareToPlay (sampleRate, blockSize);
-            setParameter (processor.apvts, Processor::tempoId, bpm);
-            setParameter (processor.apvts, Processor::quantizeId, 3.0f);   // one beat
+            setParameter (processor.apvts, Processor::slotTempoIds[0], bpm);
+            setParameter (processor.apvts, Processor::slotQuantizeIds[0], 3.0f);   // one beat
 
             juce::MidiBuffer midi;
             midi.addEvent (juce::MidiMessage::noteOn (1, 60, 0.8f), 100);
@@ -644,9 +648,9 @@ namespace
         // authoritative even against a very different Tempo parameter.
         Processor synced;
         synced.prepareToPlay (sampleRate, blockSize);
-        setParameter (synced.apvts, Processor::syncId, 1.0f);
-        setParameter (synced.apvts, Processor::tempoId, 240.0f);   // must be ignored
-        setParameter (synced.apvts, Processor::quantizeId, 3.0f);
+        setParameter (synced.apvts, Processor::slotSyncIds[0], 1.0f);
+        setParameter (synced.apvts, Processor::slotTempoIds[0], 240.0f);   // must be ignored
+        setParameter (synced.apvts, Processor::slotQuantizeIds[0], 3.0f);
 
         TestPlayHead playHead;
         playHead.info.setIsPlaying (true);
@@ -694,7 +698,7 @@ namespace
                 juce::MessageManager::getInstance()->runDispatchLoopUntil (50);
             assert (! processor.hasPendingLoopLoad());
 
-            setParameter (processor.apvts, Processor::syncId, 1.0f);
+            setParameter (processor.apvts, Processor::slotSyncIds[0], 1.0f);
             setParameter (processor.apvts, Processor::slotBeatsIds[0], beats);
             setParameter (processor.apvts, Processor::slotSpeedIds[0], speed);
             setParameter (processor.apvts, Processor::slotStartIds[0], start);
@@ -756,11 +760,11 @@ namespace
 
         assert (cyclicalEditor->isSpeedEnabled (0));    // sync off by default
 
-        setParameter (processor.apvts, Processor::syncId, 1.0f);
+        setParameter (processor.apvts, Processor::slotSyncIds[0], 1.0f);
         juce::MessageManager::getInstance()->runDispatchLoopUntil (120);
         assert (! cyclicalEditor->isSpeedEnabled (0));
 
-        setParameter (processor.apvts, Processor::syncId, 0.0f);
+        setParameter (processor.apvts, Processor::slotSyncIds[0], 0.0f);
         juce::MessageManager::getInstance()->runDispatchLoopUntil (120);
         assert (cyclicalEditor->isSpeedEnabled (0));
 
@@ -819,7 +823,7 @@ namespace
 
             setParameter (processor.apvts, Processor::slotChopIds[0], 1.0f);
             setParameter (processor.apvts, Processor::slotSlicesIds[0], 8.0f);
-            setParameter (processor.apvts, Processor::crossfadeLengthId, 0.0f);   // no seam blend
+            setParameter (processor.apvts, Processor::slotCrossfadeIds[0], 0.0f);   // no seam blend
 
             juce::MidiBuffer midi;
             midi.addEvent (juce::MidiMessage::noteOn (1, key, 0.8f), 100);
@@ -880,11 +884,11 @@ namespace
             juce::MessageManager::getInstance()->runDispatchLoopUntil (50);
         assert (! processor.hasPendingLoopLoad());
 
-        setParameter (processor.apvts, Processor::syncId, 1.0f);
+        setParameter (processor.apvts, Processor::slotSyncIds[0], 1.0f);
         setParameter (processor.apvts, Processor::slotBeatsIds[0], 4.0f);
         setParameter (processor.apvts, Processor::slotChopIds[0], 1.0f);
         setParameter (processor.apvts, Processor::slotSpeedIds[0], 1.0f);   // must win over sync
-        setParameter (processor.apvts, Processor::crossfadeLengthId, 0.0f);   // the fresh span is the whole slice
+        setParameter (processor.apvts, Processor::slotCrossfadeIds[0], 0.0f);   // the fresh span is the whole slice
 
         TestPlayHead playHead;
         playHead.info.setIsPlaying (true);
@@ -929,7 +933,7 @@ namespace
         setParameter (processor.apvts, Processor::slotChopIds[0], 1.0f);
         setParameter (processor.apvts, Processor::slotSlicesIds[0], 4.0f);
         setParameter (processor.apvts, Processor::slotGranularIds[0], 1.0f);
-        setParameter (processor.apvts, Processor::crossfadeLengthId, 0.0f);
+        setParameter (processor.apvts, Processor::slotCrossfadeIds[0], 0.0f);
         setParameter (processor.apvts, Processor::slotNoteIds[0], 72.0f);   // 72..75: no exact matches
 
         juce::MidiBuffer midi;
@@ -992,6 +996,43 @@ namespace
         pass ("testRetriggerRestarts");
     }
 
+    /** Plan 18 §1.4 (owner answer): the region knobs apply live. A knob release that
+        moved the value retriggers the playing voice, which restarts inside the new
+        region (the plan-16 retransform machinery, driven from the editor's drag end). */
+    void testRegionKnobsApplyLive()
+    {
+        Processor processor;
+        processor.prepareToPlay (sampleRate, blockSize);
+
+        juce::MidiBuffer midi;
+        midi.addEvent (juce::MidiMessage::noteOn (1, 60, 0.8f), 0);
+        processOne (processor, midi);
+        midi.clear();
+
+        for (int i = 0; i < 10; ++i)
+            processOne (processor, midi);
+        assert (processor.slotIsActive (0));
+        const float playheadBefore = processor.slotPlayhead (0);
+        assert (playheadBefore > 0.02f);   // well into the loop
+
+        // The knob moved: Start 0 -> 50 %. The drag-end retrigger restarts the voice,
+        // so the playhead goes back to the (new) region's beginning.
+        setParameter (processor.apvts, Processor::slotStartIds[0], 50.0f);
+        processor.requestRegionRetrigger (0);
+        processOne (processor, midi);
+
+        assert (processor.slotIsActive (0));   // the restart kept the loop sounding
+        assert (processor.slotPlayhead (0) < playheadBefore);
+
+        // A no-op release (no value change) is a no-op: the voice keeps playing through.
+        const float playheadAtNoop = processor.slotPlayhead (0);
+        processor.requestRegionRetrigger (0);   // without a value change the editor never calls it; direct call is the guard
+        processOne (processor, midi);
+        assert (processor.slotIsActive (0));
+        juce::ignoreUnused (playheadAtNoop);
+        pass ("testRegionKnobsApplyLive");
+    }
+
     /** The host-load channel case: a one-channel buffer produces finite output. */
     void testMonoBuffer()
     {
@@ -1025,7 +1066,7 @@ namespace
     {
         Processor processor;
         processor.prepareToPlay (sampleRate, blockSize);
-        setParameter (processor.apvts, Processor::quantizeId, 1.0f);     // 1/16
+        setParameter (processor.apvts, Processor::slotQuantizeIds[0], 1.0f);     // 1/16
 
         // At 120 BPM a 1/16 step is 6000 samples. A trigger inside a step starts on the
         // next grid sample, so the slot stays silent until the block that contains it.
@@ -1049,7 +1090,7 @@ namespace
         assert (processor.slotIsActive (0));
 
         // Quantize Off starts immediately.
-        setParameter (processor.apvts, Processor::quantizeId, 0.0f);
+        setParameter (processor.apvts, Processor::slotQuantizeIds[0], 0.0f);
         Processor immediate;
         immediate.prepareToPlay (sampleRate, blockSize);
         midi.clear();
@@ -1064,8 +1105,8 @@ namespace
     {
         Processor processor;
         processor.prepareToPlay (sampleRate, blockSize);
-        setParameter (processor.apvts, Processor::quantizeId, 1.0f);     // 1/16
-        setParameter (processor.apvts, Processor::swingId, 20.0f);       // +20 %
+        setParameter (processor.apvts, Processor::slotQuantizeIds[0], 1.0f);     // 1/16
+        setParameter (processor.apvts, Processor::slotSwingIds[0], 20.0f);       // +20 %
 
         // A trigger at beat 0.25 (sample 6000) schedules grid index 1, which swings
         // +0.2 x 0.25 beats = 0.05 beats = 1200 samples later: 7200 instead of 6000.
@@ -1094,8 +1135,8 @@ namespace
         // Cancel: a note-off before the scheduled start cancels the pending trigger.
         Processor processor;
         processor.prepareToPlay (sampleRate, blockSize);
-        setParameter (processor.apvts, Processor::quantizeId, 1.0f);
-        setParameter (processor.apvts, Processor::triggerModeId, 1.0f);   // Gate
+        setParameter (processor.apvts, Processor::slotQuantizeIds[0], 1.0f);
+        setParameter (processor.apvts, Processor::slotTriggerIds[0], 1.0f);   // Gate
 
         juce::MidiBuffer midi;
         midi.addEvent (juce::MidiMessage::noteOn (1, 60, 0.8f), 100);
@@ -1108,7 +1149,7 @@ namespace
         // Replace: two triggers in a row produce a single grid start, not two.
         Processor replaced;
         replaced.prepareToPlay (sampleRate, blockSize);
-        setParameter (replaced.apvts, Processor::quantizeId, 1.0f);
+        setParameter (replaced.apvts, Processor::slotQuantizeIds[0], 1.0f);
 
         midi.clear();
         midi.addEvent (juce::MidiMessage::noteOn (1, 60, 0.8f), 100);
@@ -1281,7 +1322,7 @@ namespace
 
         // Pan +100: everything lands in the right channel; the power sum stays put.
         // (Constant-power law: cos/sin, so +100 % pans right.)
-        setParameter (processor.apvts, Processor::panId, 100.0f);
+        setParameter (processor.apvts, Processor::slotPanIds[0], 100.0f);
         processor.prepareToPlay (sampleRate, blockSize);
 
         midi.addEvent (juce::MidiMessage::noteOn (1, 60, 0.8f), 0);
@@ -1462,7 +1503,7 @@ namespace
         // Every combination of Chop and Host Sync (plan 14: the three rules interact).
         setParameter (processor.apvts, Processor::slotGranularIds[0], 0.0f);
 
-        setParameter (processor.apvts, Processor::syncId, 0.0f);
+        setParameter (processor.apvts, Processor::slotSyncIds[0], 0.0f);
         setParameter (processor.apvts, Processor::slotChopIds[0], 0.0f);
         juce::MessageManager::getInstance()->runDispatchLoopUntil (50);
         assert (cyclicalEditor->isSpeedEnabled (0));
@@ -1476,7 +1517,7 @@ namespace
         assert (cyclicalEditor->isSlicesEnabled (0));
         assert (cyclicalEditor->isSliceLengthEnabled (0));
 
-        setParameter (processor.apvts, Processor::syncId, 1.0f);
+        setParameter (processor.apvts, Processor::slotSyncIds[0], 1.0f);
         juce::MessageManager::getInstance()->runDispatchLoopUntil (50);
         assert (cyclicalEditor->isSpeedEnabled (0));     // a chopped slot ignores sync
         assert (! cyclicalEditor->isBeatsEnabled (0));
@@ -1487,7 +1528,7 @@ namespace
         assert (cyclicalEditor->isBeatsEnabled (0));
         assert (! cyclicalEditor->isSlicesEnabled (0));
 
-        setParameter (processor.apvts, Processor::syncId, 0.0f);
+        setParameter (processor.apvts, Processor::slotSyncIds[0], 0.0f);
         juce::MessageManager::getInstance()->runDispatchLoopUntil (50);
         assert (cyclicalEditor->isSpeedEnabled (0));
 
@@ -1632,7 +1673,7 @@ namespace
         assert (! processor.hasPendingLoopLoad());
 
         setParameter (processor.apvts, Processor::slotChopIds[0], 1.0f);
-        setParameter (processor.apvts, Processor::crossfadeLengthId, 0.0f);
+        setParameter (processor.apvts, Processor::slotCrossfadeIds[0], 0.0f);
         setParameter (processor.apvts, Processor::slotNoteIds[0], 72.0f);   // 72/73: no exact matches
         processor.autoChopSlot (0);
         assert (processor.slotSlices (0) == 2);   // one detected onset -> two slices
@@ -1679,7 +1720,7 @@ namespace
 
             setParameter (processor.apvts, Processor::slotChopIds[0], 1.0f);
             setParameter (processor.apvts, Processor::slotSlicesIds[0], 3.0f);
-            setParameter (processor.apvts, Processor::crossfadeLengthId, 0.0f);
+            setParameter (processor.apvts, Processor::slotCrossfadeIds[0], 0.0f);
 
             juce::MidiBuffer midi;
             midi.addEvent (juce::MidiMessage::noteOn (1, key, 0.8f), 100);
@@ -1799,7 +1840,7 @@ namespace
                 juce::MessageManager::getInstance()->runDispatchLoopUntil (50);
             assert (! processor.hasPendingLoopLoad());
 
-            setParameter (processor.apvts, Processor::crossfadeLengthId, 0.0f);
+            setParameter (processor.apvts, Processor::slotCrossfadeIds[0], 0.0f);
             processor.loopToolReverse (0);
 
             const auto* loop = processor.loopForUi (0);
@@ -2027,6 +2068,7 @@ int main()
     testSliceOrder();
     testLoopTools();
     testRetriggerRestarts();
+    testRegionKnobsApplyLive();
     testMonoBuffer();
     testLatencyAndTail();
     testQuantisedStarts();

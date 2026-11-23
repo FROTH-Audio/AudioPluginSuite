@@ -11,6 +11,9 @@
     "embedded:noise_4k.wav"
   ],
   "slot1Speed": 0.5,
+  "slot1Crossfade": 200.0,
   "slot2Direction": 1,
-  "crossfadeLength": 200.0
+  "slot2Crossfade": 200.0,
+  "slot3Crossfade": 200.0,
+  "slot4Crossfade": 200.0
 }

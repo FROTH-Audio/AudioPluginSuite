@@ -10,12 +10,18 @@
     "embedded:arp_4k.wav",
     "embedded:vox_4k.wav"
   ],
-  "quantize": 2,
-  "swing": -10.0,
   "slot1Direction": 2,
   "slot1PingRandom": 1,
+  "slot1Quantize": 2,
+  "slot1Swing": -10.0,
   "slot2Direction": 2,
+  "slot2Quantize": 2,
+  "slot2Swing": -10.0,
   "slot3Direction": 2,
   "slot3PingRandom": 1,
-  "slot4Direction": 2
+  "slot3Quantize": 2,
+  "slot3Swing": -10.0,
+  "slot4Direction": 2,
+  "slot4Quantize": 2,
+  "slot4Swing": -10.0
 }

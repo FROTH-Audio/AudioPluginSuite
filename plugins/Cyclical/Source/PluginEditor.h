@@ -25,7 +25,7 @@ public:
     void paint (juce::Graphics&) override;
     void resized() override;
 
-    /** The page switch: 0 = SLOTS, 1 = GLOBAL (tests use it too). */
+    /** The page switch: 0..3 = SLOT 1..4 (plan 18 Phase 4; tests use it too). */
     void setPage (int page);
     int getPage() const noexcept { return page; }
 
@@ -40,8 +40,34 @@ public:
     bool isSliceLengthEnabled (int slot) const { return cards[(size_t) slot]->sliceLength.isEnabled(); }
 
 private:
-    /** One slot's card: title, waveform, two knob rows and the mode switches (plan 14:
-        the second row carries Note, Beats, Slices and Slice Length; Chop joins the pills). */
+    /** Plan 18 §1.4 (owner answer): the region knobs apply live. The listener captures
+        the value at drag start and retriggers the slot's voice on release when the knob
+        actually moved (a no-op drag does not restart the loop). */
+    struct RegionRetriggerListener : juce::Slider::Listener
+    {
+        RegionRetriggerListener (CyclicalEditor& e, int s) : editor (e), slot (s) {}
+
+        void sliderValueChanged (juce::Slider*) override {}   // only the drag boundaries matter
+
+        void sliderDragStarted (juce::Slider* slider) override
+        {
+            valueAtDragStart = slider->getValue();
+        }
+
+        void sliderDragEnded (juce::Slider* slider) override
+        {
+            if (slider->getValue() != valueAtDragStart)
+                editor.processor.requestRegionRetrigger (slot);
+        }
+
+        CyclicalEditor& editor;
+        int slot = 0;
+        double valueAtDragStart = 0.0;
+    };
+    /** One slot's full page (plan 18 Phase 4): title, waveform, the playback rows, the
+        creative controls (filter + cutoff/reso, attack/release, level) and the slot's own
+        quantise/swing/trigger/pitch/crossfade/tempo/sync/pan — the former GLOBAL controls,
+        working independently per slot. */
     struct SlotCard : juce::Component
     {
         SlotCard (int slotIndex, juce::Colour accentColour);
@@ -63,11 +89,23 @@ private:
         SuiteUI::LabelledSlider beats { "BEATS", juce::Slider::RotaryVerticalDrag };
         SuiteUI::LabelledSlider slices { "SLICES", juce::Slider::RotaryVerticalDrag };
         SuiteUI::LabelledSlider sliceLength { "SLICE LENGTH", juce::Slider::RotaryVerticalDrag };
-        // Plan 17 Phase 2: per-slot creative controls.
+        // Plan 17 Phase 2 + plan 18 §1.1: the creative controls with cutoff and resonance.
         juce::ComboBox filter;
+        SuiteUI::LabelledSlider cutoff { "CUTOFF", juce::Slider::RotaryVerticalDrag };
+        SuiteUI::LabelledSlider reso { "RESO", juce::Slider::RotaryVerticalDrag };
         SuiteUI::LabelledSlider attack { "ATTACK", juce::Slider::RotaryVerticalDrag };
         SuiteUI::LabelledSlider release { "RELEASE", juce::Slider::RotaryVerticalDrag };
         SuiteUI::LabelledSlider level { "LEVEL", juce::Slider::RotaryVerticalDrag };
+        // Plan 18 Phase 4: the slot's own transport and mix controls (the former GLOBALs).
+        SuiteUI::LabelledSlider panCtrl { "PAN", juce::Slider::RotaryVerticalDrag };
+        SuiteUI::LabelledSlider pitchCtrl { "PITCH", juce::Slider::RotaryVerticalDrag };
+        SuiteUI::LabelledSlider swingCtrl { "SWING", juce::Slider::RotaryVerticalDrag };
+        SuiteUI::LabelledSlider tempoCtrl { "TEMPO", juce::Slider::RotaryVerticalDrag };
+        SuiteUI::LabelledSlider crossfadeCtrl { "CROSSFADE", juce::Slider::RotaryVerticalDrag };
+        juce::ToggleButton syncToggle { "HOST SYNC" };
+        juce::Label quantizeCaption, triggerCaption;
+        SuiteUI::SegmentedSelector quantizeSelector { accentColour };
+        SuiteUI::SegmentedSelector triggerSelector { accentColour };
         SuiteUI::SegmentedSelector direction { accentColour };
         juce::ToggleButton pingRand { "PING RAND" };
         juce::ToggleButton granular { "GRAIN" };
@@ -101,20 +139,8 @@ private:
 
     std::array<std::unique_ptr<SlotCard>, CyclicalProcessor::numSlots> cards;
 
-    // GLOBAL page: the shared knobs and the transport selectors.
+    // The one global: master Output, shown on every slot page (plan 18 Phase 4).
     SuiteUI::LabelledSlider masterCtrl { "OUTPUT", juce::Slider::RotaryVerticalDrag };
-    SuiteUI::LabelledSlider panCtrl { "PAN", juce::Slider::RotaryVerticalDrag };
-    SuiteUI::LabelledSlider pitchCtrl { "PITCH", juce::Slider::RotaryVerticalDrag };
-    SuiteUI::LabelledSlider crossfadeCtrl { "CROSSFADE", juce::Slider::RotaryVerticalDrag };
-    SuiteUI::LabelledSlider swingCtrl { "SWING", juce::Slider::RotaryVerticalDrag };
-    SuiteUI::LabelledSlider tempoCtrl { "TEMPO", juce::Slider::RotaryVerticalDrag };
-    juce::ToggleButton syncToggle { "HOST SYNC" };
-    SuiteUI::SegmentedSelector quantizeSelector { juce::Colour (0xffFF7A45) };
-    SuiteUI::SegmentedSelector triggerSelector { juce::Colour (0xffFF7A45) };
-    juce::Label quantizeCaption, triggerCaption;
-    juce::Label beatReadout;
-
-    juce::Rectangle<int> globalGroupBounds;
 
     // Attachments, built in the constructor once the widgets exist.
     std::vector<std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>> sliderAttachments;
@@ -124,6 +150,10 @@ private:
     // The loop browser, kept alive as a member (deleting the chooser aborts the dialog).
     std::unique_ptr<juce::FileChooser> loopChooser;
     int chooserSlot = 0;
+
+    // Plan 18 §1.4: one listener per region knob (start/length/slices/slice length/beats
+    // x four slots); the listener retriggers the slot's voice when the drag changed the value.
+    std::vector<std::unique_ptr<RegionRetriggerListener>> regionRetriggerListeners;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (CyclicalEditor)
 };

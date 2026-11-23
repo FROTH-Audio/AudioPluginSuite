@@ -10,9 +10,18 @@
     "embedded:arp_4k.wav",
     "embedded:perc_4k.wav"
   ],
-  "quantize": 1,
-  "triggerMode": 1,
   "slot1Chop": 1,
   "slot1Slices": 8,
-  "tempo": 150.0
+  "slot1Quantize": 1,
+  "slot1Trigger": 1,
+  "slot1Tempo": 150.0,
+  "slot2Quantize": 1,
+  "slot2Trigger": 1,
+  "slot2Tempo": 150.0,
+  "slot3Quantize": 1,
+  "slot3Trigger": 1,
+  "slot3Tempo": 150.0,
+  "slot4Quantize": 1,
+  "slot4Trigger": 1,
+  "slot4Tempo": 150.0
 }

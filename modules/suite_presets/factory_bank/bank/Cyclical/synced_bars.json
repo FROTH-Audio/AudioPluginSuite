@@ -11,8 +11,11 @@
     "embedded:chord_4k.wav"
   ],
   "slot1Beats": 4,
+  "slot1Sync": 1,
   "slot2Beats": 8,
+  "slot2Sync": 1,
   "slot3Beats": 2,
+  "slot3Sync": 1,
   "slot4Beats": 4,
-  "sync": 1
+  "slot4Sync": 1
 }

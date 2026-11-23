@@ -15,8 +15,21 @@ toggle — plus the LEVEL→MASTER rename, and the plan-17 Phase 8 DSP: the eigh
 parameters are now implemented in `processBlock` with audio regression tests; the
 Mono-Maker default changed 200 Hz → 0 = Off to keep the identity contract, the routing
 table gained the missing Pan + eight targets, the IMAGE group grew to four knob rows and
-the window to 720×858 — **R4 gate: owner approves the render** at
-`build/renders/plan18/stereotool-default.png`). CTest 28/28. Phases 1, 4–9 open.
+the window to 720×858 — **R4 gate approved by the owner 2026-11-23**). **Phase 4 done**
+(the owner's three §1 answers are in: the filter is the type selector + cutoff + reso;
+the former GLOBAL controls are **per-slot parameters that work independently** — Quantize,
+Swing, Trigger, Pitch, Crossfade, Tempo, Host Sync, Pan ×4, master Output the one global;
+the editor is four SLOT tabs, the GLOBAL page removed; the per-slot Level knob was already
+a parameter and is now visible and wired; the Phase-9 filter/attack/release/level params
+are wired into a per-slot render stage — scratch → filter → level → pan → master; the
+Cyclical count is 105). **Phase 5 done** (the region knobs — Start, Length, Slices, Slice
+Length, Beats — apply live: a knob release that moved the value retriggers the slot's
+voice, the plan-16 retransform pattern; the per-slot Release default is 5 ms, matching the
+engine's old feel). The bank schema covers every live ID; `audit_bank.py` passes with 210
+presets (the Cyclical presets' former global values now apply to all four slots). CTest
+28/28. **R4 gate: the owner approves the new Cyclical window (1000×994) from
+`build/renders/plan18/cyclical-slots.png`.** Phases 1 (transform UI), 6 (Cyclical MOD
+page), 7–9 open.
 
 ---
 

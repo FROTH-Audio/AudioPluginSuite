@@ -164,9 +164,7 @@ namespace CoreDSP::Loop
                 position = (double) region.startFrame;
                 grainPosition = 0;
                 return;
-            }
-
-            if (region.direction == Direction::pingPong)
+            }            if (region.direction == Direction::pingPong)
             {
                 position = (double) region.startFrame + turnA;
                 direction = 1;
@@ -177,6 +175,15 @@ namespace CoreDSP::Loop
             // frames in (the mirrored span in reverse), so the pre-roll is heard only
             // inside the seam blend.
             position = (double) crossfade;
+        }
+
+        /** Plan 18: the slot's own attack and release times (ms) replace the engine's
+            5 ms defaults. Call after start(), so the fresh voice uses them from sample 0;
+            the tail voice keeps the times it was started with. */
+        void setEnvelopeTimes (float attackMs, float releaseMs) noexcept
+        {
+            attackSamples = std::max (1, (int) std::lround (attackMs * 0.001 * hostSampleRateHz));
+            releaseSamples = std::max (1, (int) std::lround (releaseMs * 0.001 * hostSampleRateHz));
         }
 
         /** Gate note-off: a 5 ms fade, then inactive. Latch mode ignores it. */

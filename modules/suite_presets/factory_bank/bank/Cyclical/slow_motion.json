@@ -12,7 +12,10 @@
   ],
   "masterVolume": -6.0,
   "slot1Speed": 0.5,
+  "slot1Crossfade": 300.0,
   "slot2Speed": 0.5,
+  "slot2Crossfade": 300.0,
   "slot3Speed": 0.25,
-  "crossfadeLength": 300.0
+  "slot3Crossfade": 300.0,
+  "slot4Crossfade": 300.0
 }
