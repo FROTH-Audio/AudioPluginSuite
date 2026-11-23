@@ -134,6 +134,39 @@ juce::AudioProcessorValueTreeState::ParameterLayout StereoToolProcessor::createP
         juce::ParameterID { panId, 1 }, "Pan",
         juce::NormalisableRange<float> (-100.0f, 100.0f, 0.1f), 0.0f, "%"));
 
+    //---- Plan 17 Phase 8: interest features, appended so no saved index moves.
+    // 1. Mono-maker: frequency below which the stereo image collapses to mono.
+    params.push_back (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { monoMakerCrossoverId, 1 }, "Mono Maker Crossover",
+        juce::NormalisableRange<float> (20.0f, 800.0f, 0.1f), 200.0f, "Hz")));
+
+    // 2. Multiband width: per-band width controls (low/mid/high).
+    params.push_back (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { multibandWidthLowId, 1 }, "Multiband Width Low",
+        juce::NormalisableRange<float> (-100.0f, 100.0f, 0.1f), 0.0f, "%"));
+    params.push_back (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { multibandWidthMidId, 1 }, "Multiband Width Mid",
+        juce::NormalisableRange<float> (-100.0f, 100.0f, 0.1f), 0.0f, "%"));
+    params.push_back (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { multibandWidthHighId, 1 }, "Multiband Width High",
+        juce::NormalisableRange<float> (-100.0f, 100.0f, 0.1f), 0.0f, "%"));
+
+    // 3. M/S tone shaping: separate tilt/bell for mid and side channels.
+    params.push_back (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { msToneMidId, 1 }, "MS Tone Mid",
+        juce::NormalisableRange<float> (-1.0f, 1.0f, 0.01f), 0.0f, ""));
+    params.push_back (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { msToneSideId, 1 }, "MS Tone Side",
+        juce::NormalisableRange<float> (-1.0f, 1.0f, 0.01f), 0.0f, ""));
+
+    // 4. Image rotation: slow LFO that swings the stereo image left-right.
+    params.push_back (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { imageRotationRateId, 1 }, "Image Rotation Rate",
+        juce::NormalisableRange<float> (0.02f, 2.0f, 0.01f), 0.25f, "Hz")));
+    params.push_back (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { imageRotationDepthId, 1 }, "Image Rotation Depth",
+        juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 0.0f, "%"));
+
     //---- Plan 13: the LFOs and the six routing slots, appended last so no saved parameter
     // index moves. Every routing amount defaults to 0, so the sound is bit-identical.
     SuiteModulation::Router::addParameters (params, modTargetNames());
@@ -145,7 +178,10 @@ juce::StringArray StereoToolProcessor::modTargetNames()
 {
     // Must follow the ModTarget enum order exactly.
     return { "None", "Width", "Drive", "Mix", "Transient Attack", "Transient Release",
-             "Transient Amount", "Mid Focus", "Side Crossover", "Input", "Output", "Pan" };
+             "Transient Amount", "Mid Focus", "Side Crossover", "Input", "Output", "Pan",
+             "Mono Maker Crossover", "Multiband Width Low", "Multiband Width Mid",
+             "Multiband Width High", "MS Tone Mid", "MS Tone Side",
+             "Image Rotation Rate", "Image Rotation Depth" };
 }
 
 void StereoToolProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)

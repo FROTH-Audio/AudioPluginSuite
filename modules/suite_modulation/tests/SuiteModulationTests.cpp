@@ -273,11 +273,14 @@ namespace
     {
         StubProcessor stub;
         juce::AudioProcessorValueTreeState apvts (stub, nullptr, "PARAMETERS", makeLayout());
+
+        // Set up LFO before creating router so the router reads the correct parameters.
+        setLfo (apvts, 0, 1.0f, 0.0f, false, 4.0f);  // sine, free running
+        setRoute (apvts, 0, 0, 1, 100.0f);  // source LFO 0, target 1 (tA), amount 100%
+
         SuiteModulation::Router router (apvts, targets, numTargets, "sync");
         router.prepare (sampleRate);
 
-        setLfo (apvts, 0, 1.0f, 0.0f, false, 4.0f);  // sine, free running
-        setRoute (apvts, 0, 0, 1, 100.0f);
         router.publish (router.computeOffsets (0.25 * sampleRate, 0.0, 0.0), 0.25 * sampleRate, 0.0);
         assert (std::abs (router.getLfoValue (0) - 1.0f) < 1e-4);   // sine at a quarter cycle: +1
 

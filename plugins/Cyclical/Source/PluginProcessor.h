@@ -31,7 +31,7 @@ class CyclicalProcessor : public juce::AudioProcessor,
 {
 public:
     static constexpr int numSlots = 4;
-    static constexpr int numControls = 57;   // plan 14: +4 Note, +4 Beats, +Tempo, +Sync, +4 Chop/Slices/Slice Length
+    static constexpr int numControls = 73;   // plan 14 + plan 17: +16 Filter/Attack/Release/Level per slot
     static constexpr int maxSlices = 16;
     static constexpr int firstSlotNote = 60;      // the default base: C4..D#4 = slots 1..4
 
@@ -65,6 +65,12 @@ public:
     static constexpr const char* slotChopIds[4] = { "slot1Chop", "slot2Chop", "slot3Chop", "slot4Chop" };
     static constexpr const char* slotSlicesIds[4] = { "slot1Slices", "slot2Slices", "slot3Slices", "slot4Slices" };
     static constexpr const char* slotSliceLengthIds[4] = { "slot1SliceLength", "slot2SliceLength", "slot3SliceLength", "slot4SliceLength" };
+
+    // Plan 17 Phase 2: per-slot creative controls — filter, attack, release, level.
+    static constexpr const char* slotFilterIds[4] = { "slot1Filter", "slot2Filter", "slot3Filter", "slot4Filter" };
+    static constexpr const char* slotAttackIds[4] = { "slot1Attack", "slot2Attack", "slot3Attack", "slot4Attack" };
+    static constexpr const char* slotReleaseIds[4] = { "slot1Release", "slot2Release", "slot3Release", "slot4Release" };
+    static constexpr const char* slotLevelIds[4] = { "slot1Level", "slot2Level", "slot3Level", "slot4Level" };
 
     static constexpr const char* pitchShiftId = "pitchShift";
     static constexpr const char* crossfadeLengthId = "crossfadeLength";

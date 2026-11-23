@@ -62,6 +62,16 @@ public:
     // A balance law with exact unity at centre, so the defaults stay bit-transparent.
     static constexpr const char* panId = "pan";
 
+    // Plan 17 Phase 8: interest features, appended after Pan so no saved index moves.
+    static constexpr const char* monoMakerCrossoverId = "monoMakerCrossover";
+    static constexpr const char* multibandWidthLowId  = "multibandWidthLow";
+    static constexpr const char* multibandWidthMidId  = "multibandWidthMid";
+    static constexpr const char* multibandWidthHighId = "multibandWidthHigh";
+    static constexpr const char* msToneMidId        = "msToneMid";
+    static constexpr const char* msToneSideId       = "msToneSide";
+    static constexpr const char* imageRotationRateId    = "imageRotationRate";
+    static constexpr const char* imageRotationDepthId = "imageRotationDepth";
+
     // LFO 1 and LFO 2 (plan 13). The IDs are fixed by suite_modulation, so every plugin
     // saves them the same way.
     static constexpr const char* lfo1RateId      = "lfo1Rate";
@@ -81,8 +91,8 @@ public:
     static constexpr const char* modAmountIds[6] = { "mod1Amount", "mod2Amount", "mod3Amount", "mod4Amount", "mod5Amount", "mod6Amount" };
     static constexpr const char* modDelayIds[6]  = { "mod1Delay",  "mod2Delay",  "mod3Delay",  "mod4Delay",  "mod5Delay",  "mod6Delay" };
 
-    /** The 13 sound parameters plus the pan (plan 17) plus the shared router's 34 (plan 13). */
-    static constexpr int numControls = 48;
+    /** The 13 sound parameters plus the pan (plan 17) plus the shared router's 34 (plan 13) plus Phase 8 interest features (8 params). */
+    static constexpr int numControls = 56;
 
     /** The parameters an LFO can move (plan 13). The order is part of the saved session:
         append new targets at the end, never reorder or remove. Names come from
@@ -101,6 +111,14 @@ public:
         Input,
         Output,
         Pan,
+        MonoMakerCrossover,      // Phase 8: mono-maker crossover freq
+        MultibandWidthLow,       // Phase 8: low band width
+        MultibandWidthMid,       // Phase 8: mid band width
+        MultibandWidthHigh,      // Phase 8: high band width
+        MSToneMid,               // Phase 8: mid tone shape
+        MSToneSide,              // Phase 8: side tone shape
+        ImageRotationRate,       // Phase 8: LFO rotation rate
+        ImageRotationDepth,      // Phase 8: LFO rotation depth
         count
     };
 

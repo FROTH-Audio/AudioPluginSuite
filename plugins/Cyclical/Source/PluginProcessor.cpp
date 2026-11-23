@@ -89,6 +89,7 @@ CyclicalProcessor::CyclicalProcessor()
         granularParams[(size_t) slot]     = apvts.getRawParameterValue (slotGranularIds[(size_t) slot]);
         velocityParams[(size_t) slot]     = apvts.getRawParameterValue (slotVelocityIds[(size_t) slot]);
         noteParams[(size_t) slot]         = apvts.getRawParameterValue (slotNoteIds[(size_t) slot]);
+        levelParams[(size_t) slot]        = apvts.getRawParameterValue (slotLevelIds[(size_t) slot]);
         beatsParams[(size_t) slot]        = apvts.getRawParameterValue (slotBeatsIds[(size_t) slot]);
         chopParams[(size_t) slot]         = apvts.getRawParameterValue (slotChopIds[(size_t) slot]);
         slicesParams[(size_t) slot]       = apvts.getRawParameterValue (slotSlicesIds[(size_t) slot]);
@@ -209,6 +210,26 @@ juce::AudioProcessorValueTreeState::ParameterLayout CyclicalProcessor::createPar
         params.push_back (std::make_unique<juce::AudioParameterFloat> (
             juce::ParameterID { slotSliceLengthIds[(size_t) slot], 1 }, "Slice Length " + juce::String (slot + 1),
             juce::NormalisableRange<float> (-100.0f, 100.0f, 0.1f), 0.0f, "%"));
+    }
+
+    //---- Per-slot creative controls (Plan 17 Phase 2)
+    for (int slot = 0; slot < numSlots; ++slot)
+    {
+        params.push_back (std::make_unique<juce::AudioParameterChoice> (
+            juce::ParameterID { slotFilterIds[(size_t) slot], 1 }, "Filter " + juce::String (slot + 1),
+            juce::StringArray { "Off", "High Pass", "Low Pass", "Band Pass" }, 0));
+
+        params.push_back (std::make_unique<juce::AudioParameterFloat> (
+            juce::ParameterID { slotAttackIds[(size_t) slot], 1 }, "Attack " + juce::String (slot + 1),
+            juce::NormalisableRange<float> (1.0f, 1000.0f, 1.0f), 1.0f, "ms"));
+
+        params.push_back (std::make_unique<juce::AudioParameterFloat> (
+            juce::ParameterID { slotReleaseIds[(size_t) slot], 1 }, "Release " + juce::String (slot + 1),
+            juce::NormalisableRange<float> (1.0f, 10000.0f, 1.0f), 1000.0f, "ms"));
+
+        params.push_back (std::make_unique<juce::AudioParameterFloat> (
+            juce::ParameterID { slotLevelIds[(size_t) slot], 1 }, "Level " + juce::String (slot + 1),
+            juce::NormalisableRange<float> (0.0f, 200.0f, 0.1f), 100.0f, "%"));
     }
 
     //---- Playback (2)

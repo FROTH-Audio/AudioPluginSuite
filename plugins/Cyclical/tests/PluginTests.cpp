@@ -111,6 +111,10 @@ namespace
             ids.push_back (Processor::slotChopIds[(size_t) slot]);
             ids.push_back (Processor::slotSlicesIds[(size_t) slot]);
             ids.push_back (Processor::slotSliceLengthIds[(size_t) slot]);
+            ids.push_back (Processor::slotFilterIds[(size_t) slot]);
+            ids.push_back (Processor::slotAttackIds[(size_t) slot]);
+            ids.push_back (Processor::slotReleaseIds[(size_t) slot]);
+            ids.push_back (Processor::slotLevelIds[(size_t) slot]);
         }
 
         ids.push_back (Processor::pitchShiftId);
@@ -154,6 +158,10 @@ namespace
             checkRange (processor.apvts, Processor::slotChopIds[(size_t) slot], 0.0f, 1.0f, 0.0f);
             checkRange (processor.apvts, Processor::slotSlicesIds[(size_t) slot], 2.0f, 16.0f, 8.0f);
             checkRange (processor.apvts, Processor::slotSliceLengthIds[(size_t) slot], -100.0f, 100.0f, 0.0f);
+            checkRange (processor.apvts, Processor::slotFilterIds[(size_t) slot], 0.0f, 3.0f, 0.0f);
+            checkRange (processor.apvts, Processor::slotAttackIds[(size_t) slot], 1.0f, 1000.0f, 1.0f);
+            checkRange (processor.apvts, Processor::slotReleaseIds[(size_t) slot], 1.0f, 10000.0f, 1000.0f);
+            checkRange (processor.apvts, Processor::slotLevelIds[(size_t) slot], 0.0f, 200.0f, 100.0f);
         }
 
         checkRange (processor.apvts, Processor::tempoId, 40.0f, 240.0f, 120.0f);
@@ -185,6 +193,10 @@ namespace
             checkStateRoundTrip (processor, processor.apvts, Processor::slotPingRandomIds[(size_t) slot], 1.0f);
             checkStateRoundTrip (processor, processor.apvts, Processor::slotGranularIds[(size_t) slot], 1.0f);
             checkStateRoundTrip (processor, processor.apvts, Processor::slotVelocityIds[(size_t) slot], 80.0f);
+            checkStateRoundTrip (processor, processor.apvts, Processor::slotFilterIds[(size_t) slot], 0.0f);
+            checkStateRoundTrip (processor, processor.apvts, Processor::slotAttackIds[(size_t) slot], 100.0f);
+            checkStateRoundTrip (processor, processor.apvts, Processor::slotReleaseIds[(size_t) slot], 1000.0f);
+            checkStateRoundTrip (processor, processor.apvts, Processor::slotLevelIds[(size_t) slot], 100.0f);
         }
 
         pass ("testStateRoundTrip");

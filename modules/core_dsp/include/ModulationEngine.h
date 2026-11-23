@@ -168,4 +168,12 @@ namespace CoreDSP::Modulation
     {
         return std::clamp (normalised + offsetSum, 0.0f, 1.0f);
     }
+
+    /**
+     * Adds an offset to a waveform value (no clamping).
+     */
+    inline float withOffset (float wave, float offset) noexcept
+    {
+        return wave + offset;
+    }
 }

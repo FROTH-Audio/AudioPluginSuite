@@ -1413,11 +1413,11 @@ namespace
         noSmooth.smooth = 0.0f;
         assert (Mod::lfoValue (Mod::LfoShape::square, 0.75, seed, noSmooth) == -1.0f);
 
-        // Quantise: snaps to N levels over [-1, 1]; 0 is off. Three levels are -1, 0, +1, so the
-        // sine at 0.125 (0.707) snaps to the middle level, and at 0.75 (the bottom) stays.
+        // Quantise: snaps to N levels over [-1, 1]; 0 is off. Three levels are -1, 0, +1.
+        // The sine at 0.125 (0.707) is closest to +1, and at 0.75 (the bottom) snaps to -1.
         Mod::LfoTransforms quantise;
         quantise.quantiseSteps = 3.0f;
-        assert (Mod::lfoValue (Mod::LfoShape::sine, 0.125, seed, quantise) == 0.0f);
+        assert (Mod::lfoValue (Mod::LfoShape::sine, 0.125, seed, quantise) == 1.0f);
         assert (Mod::lfoValue (Mod::LfoShape::sine, 0.75, seed, quantise) == -1.0f);
         Mod::LfoTransforms noQuantise;
         noQuantise.quantiseSteps = 0.0f;

@@ -59,6 +59,26 @@ CyclicalEditor::SlotCard::SlotCard (int slotIndex, juce::Colour accentColour)
     addAndMakeVisible (slices);
     addAndMakeVisible (sliceLength);
 
+    // Plan 17 Phase 2: per-slot creative controls
+    filter.setTextValueSuffix ("");
+    filter.setItemText ("Off");
+    filter.setItemText ("High Pass");
+    filter.setItemText ("Low Pass");
+    filter.setItemText ("Band Pass");
+    addAndMakeVisible (filter);
+
+    attack.slider.setTextValueSuffix (" ms");
+    attack.slider.setNumDecimalPlacesToDisplay (1);
+    addAndMakeVisible (attack.slider);
+
+    release.slider.setTextValueSuffix (" ms");
+    release.slider.setNumDecimalPlacesToDisplay (1);
+    addAndMakeVisible (release.slider);
+
+    level.slider.setTextValueSuffix (" %");
+    level.slider.setNumDecimalPlacesToDisplay (1);
+    addAndMakeVisible (level.slider);
+
     direction.setOptions ({ "FWD", "REV", "PP" });
     addAndMakeVisible (direction);
 
@@ -118,6 +138,21 @@ void CyclicalEditor::SlotCard::resized()
     beats.setBounds (knobRow2.removeFromLeft (knobWidth).reduced (3));
     slices.setBounds (knobRow2.removeFromLeft (knobWidth).reduced (3));
     sliceLength.setBounds (knobRow2.removeFromLeft (knobWidth).reduced (3));
+
+    // Plan 17 Phase 2: per-slot creative controls — filter, attack, release, level.
+    const int creativeWidth = area.getWidth() / 4;
+    area.removeFromTop (groupGap);
+    auto creativeRow = area.removeFromTop (SuiteUI::knobRowHeight);
+    filter.setBounds (creativeRow.removeFromLeft (creativeWidth).reduced (3));
+    area.removeFromTop (groupGap);
+    auto creativeRow2 = area.removeFromTop (SuiteUI::knobRowHeight);
+    attack.setBounds (creativeRow2.removeFromLeft (creativeWidth).reduced (3));
+    area.removeFromTop (groupGap);
+    auto creativeRow3 = area.removeFromTop (SuiteUI::knobRowHeight);
+    release.setBounds (creativeRow3.removeFromLeft (creativeWidth).reduced (3));
+    area.removeFromTop (groupGap);
+    auto creativeRow4 = area.removeFromTop (SuiteUI::knobRowHeight);
+    level.setBounds (creativeRow4.removeFromLeft (creativeWidth).reduced (3));
     area.removeFromTop (groupGap);
 
     // Direction selector and the three switches (pills at 36 px, R3). The widths sum to
@@ -168,6 +203,10 @@ CyclicalEditor::CyclicalEditor (CyclicalProcessor& p)
         bind (Processor::slotBeatsIds[(size_t) slot], card.beats.slider);
         bind (Processor::slotSlicesIds[(size_t) slot], card.slices.slider);
         bind (Processor::slotSliceLengthIds[(size_t) slot], card.sliceLength.slider);
+        bind (Processor::slotFilterIds[(size_t) slot], card.filter);
+        bind (Processor::slotAttackIds[(size_t) slot], card.attack.slider);
+        bind (Processor::slotReleaseIds[(size_t) slot], card.release.slider);
+        bind (Processor::slotLevelIds[(size_t) slot], card.level.slider);
 
         // A choice parameter through a ParameterAttachment: the denormalised value is the
         // choice index as a float (the Micro-Timing Chaos rate selector pattern).
@@ -390,6 +429,7 @@ void CyclicalEditor::updateAffinity()
     // slot is chopped (sync is disabled there), Slices and Slice Length are dimmed while
     // chop is off, and Speed is dimmed while Host Sync is on - unless the slot is chopped
     // (a chopped slot ignores sync, so its Speed stays live).
+    // Plan 17 Phase 2: filter, attack, release, level are always enabled (no mode dependency).
     const bool synced = processor.apvts.getRawParameterValue (Processor::syncId)->load() > 0.5f;
 
     for (int slot = 0; slot < Processor::numSlots; ++slot)
@@ -406,6 +446,16 @@ void CyclicalEditor::updateAffinity()
         card.slices.setEnabled (chopped);
         card.sliceLength.setEnabled (chopped);
         card.waveform.setAutoEnabled (chopped);   // plan 16: AUTO slices only in chop mode
+    }
+
+    // Plan 17 Phase 2: always enable the new creative controls.
+    for (int slot = 0; slot < Processor::numSlots; ++slot)
+    {
+        auto& card = *cards[(size_t) slot];
+        card.filter.setEnabled (true);
+        card.attack.slider.setEnabled (true);
+        card.release.slider.setEnabled (true);
+        card.level.slider.setEnabled (true);
     }
 }
 
