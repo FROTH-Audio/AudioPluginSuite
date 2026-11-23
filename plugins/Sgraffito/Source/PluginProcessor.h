@@ -89,7 +89,7 @@ public:
     static constexpr const char* modAmountIds[6] = { "mod1Amount", "mod2Amount", "mod3Amount", "mod4Amount", "mod5Amount", "mod6Amount" };
     static constexpr const char* modDelayIds[6] = { "mod1Delay", "mod2Delay", "mod3Delay", "mod4Delay", "mod5Delay", "mod6Delay" };
 
-    static constexpr int numControls = 71;
+    static constexpr int numControls = 83;   // 71 + 12 plan-17 Phase 7 LFO transforms
     static constexpr int lfoCount = 2;
     static constexpr int slotCount = 6;
 

@@ -281,6 +281,10 @@ namespace
         SuiteModulation::Router router (apvts, targets, numTargets, "sync");
         router.prepare (sampleRate);
 
+        // The block flow: the phase is advanced at the END of a block (advanceBlock), and
+        // publish then reports the value the accumulated phase has reached at the next block
+        // start. Advance one quarter second so the 1 Hz sine sits on its quarter-cycle peak.
+        router.advanceBlock ((int) (0.25 * sampleRate));
         router.publish (router.computeOffsets (0.25 * sampleRate, 0.0, 0.0), 0.25 * sampleRate, 0.0);
         assert (std::abs (router.getLfoValue (0) - 1.0f) < 1e-4);   // sine at a quarter cycle: +1
 

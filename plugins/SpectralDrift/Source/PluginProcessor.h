@@ -73,7 +73,7 @@ public:
     static constexpr const char* sidechainAmountId = "sidechainAmount";
     static constexpr const char* sidechainTargetId = "sidechainTarget";
 
-    static constexpr int numControls = 48;
+    static constexpr int numControls = 60;   // 48 + 12 plan-17 Phase 7 LFO transforms
 
     /** Largest feedback the plugin allows. The engine itself can go to 0.95. */
     static constexpr float maxFeedbackPercent = 12.0f;

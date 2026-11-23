@@ -92,7 +92,7 @@ public:
     static constexpr const char* modDelayIds[6]  = { "mod1Delay",  "mod2Delay",  "mod3Delay",  "mod4Delay",  "mod5Delay",  "mod6Delay" };
 
     /** The 13 sound parameters plus the pan (plan 17) plus the shared router's 34 (plan 13) plus Phase 8 interest features (8 params). */
-    static constexpr int numControls = 56;
+    static constexpr int numControls = 68;   // 56 + 12 plan-17 Phase 7 LFO transforms
 
     /** The parameters an LFO can move (plan 13). The order is part of the saved session:
         append new targets at the end, never reorder or remove. Names come from

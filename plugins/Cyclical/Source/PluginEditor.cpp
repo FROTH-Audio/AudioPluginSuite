@@ -60,11 +60,11 @@ CyclicalEditor::SlotCard::SlotCard (int slotIndex, juce::Colour accentColour)
     addAndMakeVisible (sliceLength);
 
     // Plan 17 Phase 2: per-slot creative controls
-    filter.setTextValueSuffix ("");
-    filter.setItemText ("Off");
-    filter.setItemText ("High Pass");
-    filter.setItemText ("Low Pass");
-    filter.setItemText ("Band Pass");
+    filter.addItem ("Off", 1);
+    filter.addItem ("High Pass", 2);
+    filter.addItem ("Low Pass", 3);
+    filter.addItem ("Band Pass", 4);
+    filter.setSelectedItemIndex (0, juce::dontSendNotification);
     addAndMakeVisible (filter);
 
     attack.slider.setTextValueSuffix (" ms");
@@ -203,7 +203,11 @@ CyclicalEditor::CyclicalEditor (CyclicalProcessor& p)
         bind (Processor::slotBeatsIds[(size_t) slot], card.beats.slider);
         bind (Processor::slotSlicesIds[(size_t) slot], card.slices.slider);
         bind (Processor::slotSliceLengthIds[(size_t) slot], card.sliceLength.slider);
-        bind (Processor::slotFilterIds[(size_t) slot], card.filter);
+        /// Plan 17 Phase 2: filter is a ComboBox, not a Slider — use ParameterAttachment directly.
+        choiceAttachments.push_back (std::make_unique<juce::ParameterAttachment> (
+            *apvts.getParameter (Processor::slotFilterIds[(size_t) slot]),
+            [&card] (float value) { card.filter.setSelectedItemIndex (juce::roundToInt (value), juce::dontSendNotification); }));
+
         bind (Processor::slotAttackIds[(size_t) slot], card.attack.slider);
         bind (Processor::slotReleaseIds[(size_t) slot], card.release.slider);
         bind (Processor::slotLevelIds[(size_t) slot], card.level.slider);

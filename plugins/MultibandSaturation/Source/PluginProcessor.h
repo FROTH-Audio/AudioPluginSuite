@@ -57,7 +57,7 @@ public:
     static constexpr const char* modAmountIds[6] = { "mod1Amount", "mod2Amount", "mod3Amount", "mod4Amount", "mod5Amount", "mod6Amount" };
     static constexpr const char* modDelayIds[6]  = { "mod1Delay",  "mod2Delay",  "mod3Delay",  "mod4Delay",  "mod5Delay",  "mod6Delay" };
 
-    static constexpr int numControls = 45;
+    static constexpr int numControls = 57;   // 45 + 12 plan-17 Phase 7 LFO transforms
 
     /** The parameters that an LFO can move. The order is part of the saved session: append new
         targets at the end, and never reorder or remove existing ones. Names come from modTargetNames(). */

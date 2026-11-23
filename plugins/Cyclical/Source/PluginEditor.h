@@ -63,6 +63,11 @@ private:
         SuiteUI::LabelledSlider beats { "BEATS", juce::Slider::RotaryVerticalDrag };
         SuiteUI::LabelledSlider slices { "SLICES", juce::Slider::RotaryVerticalDrag };
         SuiteUI::LabelledSlider sliceLength { "SLICE LENGTH", juce::Slider::RotaryVerticalDrag };
+        // Plan 17 Phase 2: per-slot creative controls.
+        juce::ComboBox filter;
+        SuiteUI::LabelledSlider attack { "ATTACK", juce::Slider::RotaryVerticalDrag };
+        SuiteUI::LabelledSlider release { "RELEASE", juce::Slider::RotaryVerticalDrag };
+        SuiteUI::LabelledSlider level { "LEVEL", juce::Slider::RotaryVerticalDrag };
         SuiteUI::SegmentedSelector direction { accentColour };
         juce::ToggleButton pingRand { "PING RAND" };
         juce::ToggleButton granular { "GRAIN" };

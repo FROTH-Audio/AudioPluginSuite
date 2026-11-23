@@ -71,6 +71,7 @@ public:
     static constexpr const char* slotAttackIds[4] = { "slot1Attack", "slot2Attack", "slot3Attack", "slot4Attack" };
     static constexpr const char* slotReleaseIds[4] = { "slot1Release", "slot2Release", "slot3Release", "slot4Release" };
     static constexpr const char* slotLevelIds[4] = { "slot1Level", "slot2Level", "slot3Level", "slot4Level" };
+    std::atomic<float>* levelParams[4] = { nullptr };
 
     static constexpr const char* pitchShiftId = "pitchShift";
     static constexpr const char* crossfadeLengthId = "crossfadeLength";

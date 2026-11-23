@@ -138,7 +138,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout StereoToolProcessor::createP
     // 1. Mono-maker: frequency below which the stereo image collapses to mono.
     params.push_back (std::make_unique<juce::AudioParameterFloat> (
         juce::ParameterID { monoMakerCrossoverId, 1 }, "Mono Maker Crossover",
-        juce::NormalisableRange<float> (20.0f, 800.0f, 0.1f), 200.0f, "Hz")));
+        juce::NormalisableRange<float> (20.0f, 800.0f, 0.1f), 200.0f, "Hz"));
 
     // 2. Multiband width: per-band width controls (low/mid/high).
     params.push_back (std::make_unique<juce::AudioParameterFloat> (
@@ -162,7 +162,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout StereoToolProcessor::createP
     // 4. Image rotation: slow LFO that swings the stereo image left-right.
     params.push_back (std::make_unique<juce::AudioParameterFloat> (
         juce::ParameterID { imageRotationRateId, 1 }, "Image Rotation Rate",
-        juce::NormalisableRange<float> (0.02f, 2.0f, 0.01f), 0.25f, "Hz")));
+        juce::NormalisableRange<float> (0.02f, 2.0f, 0.01f), 0.25f, "Hz"));
     params.push_back (std::make_unique<juce::AudioParameterFloat> (
         juce::ParameterID { imageRotationDepthId, 1 }, "Image Rotation Depth",
         juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 0.0f, "%"));

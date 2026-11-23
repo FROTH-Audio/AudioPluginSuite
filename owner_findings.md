@@ -4,28 +4,24 @@
 
 ### General
 
-- LFO/Mod Grid: I don't understand Pendulum. Replace it by Bouncing Ball
-- LFO/Mod Waveform: Should have more possibilies to transform Waveform.
-- Create 10 more presets (focus on new controls) for MultiSat, StereoTool and Spectral Drift
-
-### Plugin Stereo Tool
-
-- How could we make this plugin a little more interesting/unique/fancy?
-- Add pan knob and LFO-target
+- LFO/Mod Waveform: Should have more possibilies to transform Waveform. Can't see any changes.
+- Create 10 more presets (10 per plugin; focus on new LFO Waveforms) for DS, Sgraffito and MTC
 
 ### Plugin Cyclical
 
-- Loop should play as long as note is triggered.
-- Add Filter per slot
-- Add Attack/Release per slot.
-- Assigned slot-note does not work; each played/selected note plays slot 1 only.
-- properly enable/disable the per-mode knob/button states
-- Reverse, Start/Length seems to have no effect on Loop.
+- Make a Tab per Slot.
+- Add Filter knobs freq/reso per slot.
+- Every control from "GLOBAL"-Tab should be available per slot, so add controls to slot-page and remove Tab "GLOBAL".
+- Add Attack/Release per slot currently (not visible).
+- Start/Length/SliceLength(CHOP)/SLICES(CHOP)/Beats seems to have no effect on Loop. These should modify have loop is played/performed.
+- Add Modulation (LFO) Page
+- Loops must retrigger synchronically with DAW if HostSync is active.
 
 ### Plugin MultiSat
 
-- How could we make this plugin a little more interesting/unique/fancy?
+- Crossover Hz Marker in preview doesn't sync correctly when modulated.
 
-### Plugin MidiTool
+### Plugin Stereo Tool
 
-- properly enable/disable the per-mode knob/button states
+- All controls within group "IMAGE" seem to have no effect at all.
+- Add Phase-control to group "LEVEL" and rename group to "MASTER"
