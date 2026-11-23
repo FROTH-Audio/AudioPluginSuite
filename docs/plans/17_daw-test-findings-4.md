@@ -161,6 +161,15 @@ Files: `plugins/StereoTool/*`, `CoreDSP::Stereo`, tests, presets. The owner pick
 Big architectural round: the width path gains the multiband split; the window/affinity and
 the owner's render approval gate the layout.
 
+Status: parameters landed 2026-11-22 (numControls 48 → 56); **the DSP was missing** — the
+eight parameters existed but nothing read them in `processBlock`, and the routing table
+lacked Pan + the eight targets. **Implemented and verified 2026-11-23 (plan 18 Phase 3,
+CTest 28/28)**: mono-maker = a true side high-pass (0 = Off; the original 200 Hz default
+would have broken the bit-transparent identity contract), multiband width = a two-filter
+side split (200 Hz / 2 kHz), M/S tone = the shared `ToneControl` per channel, image
+rotation = an orthonormal L/R plane rotation with an accumulated phase. Five new audio
+regression tests; the window is now 720×858 (render awaiting the owner's R4 approval).
+
 ### Phase 9 — MultiSat interest features + 10 presets
 Files: `plugins/MultibandSaturation/*`, tests, presets. The owner picked:
 1. **Per-band mix** — blend each band's saturation separately (parallel per band).

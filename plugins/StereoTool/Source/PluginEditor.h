@@ -69,17 +69,29 @@ private:
     SuiteUI::LabelledSelector targetCell    { "TARGET", juce::Colour (0xffB18CFF) };
 
     // IMAGE group: the stereo image controls. The side filter uses a dropdown for the same
-    // reason (owner finding, plan 13).
+    // reason (owner finding, plan 13). Plan 17 Phase 8 appends the interest features;
+    // plan 18 adds the master Phase toggle.
     SuiteUI::LabelledSlider widthCtrl    { "WIDTH",    juce::Slider::RotaryVerticalDrag };
     SuiteUI::LabelledSlider mixCtrl      { "MIX",      juce::Slider::RotaryVerticalDrag };
     SuiteUI::LabelledSlider midFocusCtrl { "MID FOCUS", juce::Slider::RotaryVerticalDrag };
     SuiteUI::LabelledSlider crossoverCtrl { "CROSSOVER", juce::Slider::RotaryVerticalDrag };
     SuiteUI::LabelledDropdown filterCell { "SIDE FILTER" };
 
+    // The Phase-8 interest features (plan 17), appended to the IMAGE group's rows.
+    SuiteUI::LabelledSlider monoMakerCtrl  { "MONO MAKER", juce::Slider::RotaryVerticalDrag };
+    SuiteUI::LabelledSlider msToneMidCtrl  { "MS TONE MID", juce::Slider::RotaryVerticalDrag };
+    SuiteUI::LabelledSlider msToneSideCtrl { "MS TONE SIDE", juce::Slider::RotaryVerticalDrag };
+    SuiteUI::LabelledSlider mbWidthLowCtrl  { "WIDTH LOW", juce::Slider::RotaryVerticalDrag };
+    SuiteUI::LabelledSlider mbWidthMidCtrl  { "WIDTH MID", juce::Slider::RotaryVerticalDrag };
+    SuiteUI::LabelledSlider mbWidthHighCtrl { "WIDTH HIGH", juce::Slider::RotaryVerticalDrag };
+    SuiteUI::LabelledSlider rotRateCtrl  { "ROT RATE", juce::Slider::RotaryVerticalDrag };
+    SuiteUI::LabelledSlider rotDepthCtrl { "ROT DEPTH", juce::Slider::RotaryVerticalDrag };
+
     // LEVEL group (plan 12): beside the visualiser, so the window stays 880x700.
     SuiteUI::LabelledSlider inputCtrl  { "INPUT",  juce::Slider::RotaryVerticalDrag };
     SuiteUI::LabelledSlider outputCtrl { "OUTPUT", juce::Slider::RotaryVerticalDrag };
     SuiteUI::LabelledSlider panCtrl    { "PAN",    juce::Slider::RotaryVerticalDrag };
+    SuiteUI::LabelledSlider phaseCtrl  { "PHASE",  juce::Slider::RotaryVerticalDrag };
 
     // The choice widgets' parameter attachments (declared after the cells, so they are
     // destroyed first — wired through SuiteUI::attachSelector / attachDropdown).
@@ -100,6 +112,15 @@ private:
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> inputAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> outputAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> panAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> monoMakerAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> msToneMidAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> msToneSideAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> mbWidthLowAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> mbWidthMidAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> mbWidthHighAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> rotRateAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> rotDepthAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> phaseAttachment;
 
     juce::Rectangle<int> characterGroupBounds, imageGroupBounds, levelGroupBounds, visualBounds;
     juce::Rectangle<int> modulationGroupBounds;

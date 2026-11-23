@@ -25,6 +25,11 @@ namespace
               Processor::transientAmountId, Processor::transientTargetId, Processor::midFocusId,
               Processor::sideFilterId, Processor::sideCrossoverId,
               Processor::inputLevelId, Processor::outputLevelId, Processor::panId,
+              Processor::monoMakerCrossoverId, Processor::multibandWidthLowId,
+              Processor::multibandWidthMidId, Processor::multibandWidthHighId,
+              Processor::msToneMidId, Processor::msToneSideId,
+              Processor::imageRotationRateId, Processor::imageRotationDepthId,
+              Processor::phaseId,
               Processor::lfo1RateId, Processor::lfo1ShapeId, Processor::lfo1SyncId, Processor::lfo1DivisionId, Processor::lfo1OffsetId,
               Processor::lfo2RateId, Processor::lfo2ShapeId, Processor::lfo2SyncId, Processor::lfo2DivisionId, Processor::lfo2OffsetId,
               Processor::modSourceIds[0], Processor::modTargetIds[0], Processor::modAmountIds[0], Processor::modDelayIds[0],
@@ -45,11 +50,23 @@ namespace
         checkRange (processor.apvts, Processor::outputLevelId,     -24.0f, 24.0f, 0.0f);
         checkRange (processor.apvts, Processor::panId,             -100.0f, 100.0f, 0.0f);
 
+        // Plan 17 Phase 8 + plan 18: the interest features and the master polarity. The
+        // mono-maker's 0 is Off, so the default keeps the identity path bit-exact.
+        checkRange (processor.apvts, Processor::monoMakerCrossoverId, 0.0f, 800.0f, 0.0f);
+        checkRange (processor.apvts, Processor::multibandWidthLowId,  -100.0f, 100.0f, 0.0f);
+        checkRange (processor.apvts, Processor::multibandWidthMidId,  -100.0f, 100.0f, 0.0f);
+        checkRange (processor.apvts, Processor::multibandWidthHighId, -100.0f, 100.0f, 0.0f);
+        checkRange (processor.apvts, Processor::msToneMidId,  -1.0f, 1.0f, 0.0f);
+        checkRange (processor.apvts, Processor::msToneSideId, -1.0f, 1.0f, 0.0f);
+        checkRange (processor.apvts, Processor::imageRotationRateId,  0.02f, 2.0f, 0.25f);
+        checkRange (processor.apvts, Processor::imageRotationDepthId, 0.0f, 100.0f, 0.0f);
+        checkRange (processor.apvts, Processor::phaseId, 0.0f, 360.0f, 0.0f);
+
         // Plan 12: the final gain stage is named "Output" everywhere in the suite.
         assert (processor.apvts.getParameter (Processor::outputLevelId)->getName (100) == "Output");
 
-        // Plan 13: the routing table has 10 targets.
-        assert (processor.getRouter().getNumTargets() == 10);
+        // Plan 13 + plan 17 Phase 8: the routing table covers every ModTarget (19).
+        assert (processor.getRouter().getNumTargets() == 19);
         pass ("testParameters");
     }
 
@@ -518,7 +535,7 @@ namespace
         Processor processor;
         std::unique_ptr<juce::AudioProcessorEditor> editor (processor.createEditorAndMakeActive());
         assert (editor != nullptr);
-        assert (editor->getWidth() == 720 && editor->getHeight() == 658);
+        assert (editor->getWidth() == 720 && editor->getHeight() == 858);   // plan 17 Phase 8: the IMAGE group grew to four knob rows
 
         // A slider whose caption reads INPUT, in the second row on the left (LEVEL).
         juce::Component* inputSlider = nullptr;
@@ -699,6 +716,226 @@ namespace
     /** Plan 11 D7: the meter snapshot describes the signal — mid carries the correlated
         sine, side rises only off-centre, the follower moves with amount 1, and everything
         stays at zero when idle. */
+    //---- Plan 17 Phase 8 + plan 18: the interest features and the master polarity. ----
+
+    /** The mono-maker folds the side below the crossover to mono: an anti-phase low tone
+        comes out centred, a high tone keeps its width. Peak-based asserts (the side is
+        phase-shifted by the filter, so a single sample would be meaningless). */
+    void testMonoMakerFoldsLowSideToMono()
+    {
+        Processor processor;
+        processor.prepareToPlay (sampleRate, blockSize);
+
+        // 50 Hz, side-heavy (L=0.6, R=-0.4 -> mid 0.1, side 0.5): two octaves below a
+        // 200 Hz corner, the side folds away and both channels land on the mid.
+        setParameter (processor.apvts, Processor::monoMakerCrossoverId, 200.0f);
+        juce::MidiBuffer midi;
+        {
+            juce::AudioBuffer<float> buffer (2, blockSize);
+            buffer.clear();
+            addSine (buffer, 0, sampleRate, 50.0, 0.6f, 0);
+            addSine (buffer, 1, sampleRate, 50.0, -0.4f, 0);
+            processor.processBlock (buffer, midi);
+
+            float maxSum = 0.0f, maxDiff = 0.0f;   // the last half block is steady state
+            for (int n = blockSize / 2; n < blockSize; ++n)
+            {
+                maxSum = juce::jmax (maxSum, std::abs (buffer.getSample (0, n) + buffer.getSample (1, n)));
+                maxDiff = juce::jmax (maxDiff, std::abs (buffer.getSample (0, n) - buffer.getSample (1, n)));
+            }
+            assert (maxSum > 2.0f * maxDiff);   // mostly mono now
+        }
+
+        // 2 kHz, the same setting: far above the crossover, the image keeps its width.
+        {
+            juce::AudioBuffer<float> buffer (2, blockSize);
+            buffer.clear();
+            addSine (buffer, 0, sampleRate, 2000.0, 0.6f, 0);
+            addSine (buffer, 1, sampleRate, 2000.0, -0.4f, 0);
+            processor.processBlock (buffer, midi);
+
+            float maxSum = 0.0f, maxDiff = 0.0f;
+            for (int n = blockSize / 2; n < blockSize; ++n)
+            {
+                maxSum = juce::jmax (maxSum, std::abs (buffer.getSample (0, n) + buffer.getSample (1, n)));
+                maxDiff = juce::jmax (maxDiff, std::abs (buffer.getSample (0, n) - buffer.getSample (1, n)));
+            }
+            assert (maxDiff > 3.0f * maxSum);   // still side-heavy
+        }
+        pass ("testMonoMakerFoldsLowSideToMono");
+    }
+
+    /** The multiband width moves the band's side energy: a wide low band doubles the low
+        side only, a wide high band doubles the high side only. */
+    void testMultibandWidthPerBand()
+    {
+        Processor processor;
+        processor.prepareToPlay (sampleRate, blockSize);
+        juce::MidiBuffer midi;
+
+        // 100 Hz anti-phase: width low +100 doubles the low band's side.
+        setParameter (processor.apvts, Processor::multibandWidthLowId, 100.0f);
+        {
+            juce::AudioBuffer<float> buffer (2, blockSize);
+            buffer.clear();
+            addSine (buffer, 0, sampleRate, 100.0, 0.5f, 0);
+            addSine (buffer, 1, sampleRate, 100.0, -0.5f, 0);
+            processor.processBlock (buffer, midi);
+            assert (peak (buffer) > 0.9f);   // 0.5 in -> about 1.0 out
+        }
+
+        // 4 kHz anti-phase: width high +100 doubles the high band's side.
+        setParameter (processor.apvts, Processor::multibandWidthLowId, 0.0f);
+        setParameter (processor.apvts, Processor::multibandWidthHighId, 100.0f);
+        {
+            juce::AudioBuffer<float> buffer (2, blockSize);
+            buffer.clear();
+            addSine (buffer, 0, sampleRate, 4000.0, 0.5f, 0);
+            addSine (buffer, 1, sampleRate, 4000.0, -0.5f, 0);
+            processor.processBlock (buffer, midi);
+            assert (peak (buffer) > 0.9f);
+        }
+        pass ("testMultibandWidthPerBand");
+    }
+
+    /** The M/S tone shapers act separately: a mid tone moves mid-only content, a side tone
+        leaves mid-only content exactly where it was. */
+    void testMsToneSeparate()
+    {
+        Processor processor;
+        processor.prepareToPlay (sampleRate, blockSize);
+        juce::MidiBuffer midi;
+
+        // Mid-only content (L = R): the side channel carries zero, so MS Tone Side must
+        // change nothing at all.
+        setParameter (processor.apvts, Processor::msToneSideId, 1.0f);
+        {
+            juce::AudioBuffer<float> buffer (2, blockSize);
+            buffer.clear();
+            addSine (buffer, 0, sampleRate, 440.0, 0.5f, 0);
+            addSine (buffer, 1, sampleRate, 440.0, 0.5f, 0);
+            processor.processBlock (buffer, midi);
+            for (int n = 0; n < blockSize; ++n)
+                assert (buffer.getSample (0, n) == buffer.getSample (1, n));
+        }
+
+        // MS Tone Mid +1 brightens: the high-frequency content of the mid grows.
+        setParameter (processor.apvts, Processor::msToneMidId, 1.0f);
+        {
+            juce::AudioBuffer<float> reference (2, blockSize), buffer (2, blockSize);
+            for (auto* b : { &reference, &buffer })
+            {
+                b->clear();
+                addSine (*b, 0, sampleRate, 4000.0, 0.5f, 0);
+                addSine (*b, 1, sampleRate, 4000.0, 0.5f, 0);
+            }
+            juce::MidiBuffer quiet;
+            processor.processBlock (reference, quiet);   // this instance has both tones at +1
+
+            Processor flat;
+            flat.prepareToPlay (sampleRate, blockSize);
+            flat.processBlock (buffer, quiet);
+            assert (peak (reference) > 1.05f * peak (buffer));  // the tilt brightened 4 kHz
+        }
+        pass ("testMsToneSeparate");
+    }
+
+    /** The image rotation is an orthonormal L/R rotation: at depth 100 % and rate 1 Hz the
+        angle at the quarter cycle is exactly 90 degrees, so (1, 0.3) comes out (-0.3, 1). */
+    void testImageRotationQuarterCycle()
+    {
+        Processor processor;
+        processor.prepareToPlay (sampleRate, blockSize);
+        setParameter (processor.apvts, Processor::imageRotationRateId, 1.0f);
+        setParameter (processor.apvts, Processor::imageRotationDepthId, 100.0f);
+
+        // A quarter cycle at 1 Hz is 12000 samples: 24 full blocks of 512.
+        const int total = 24 * blockSize;
+        juce::AudioBuffer<float> buffer (2, total);
+        for (int n = 0; n < total; ++n)
+        {
+            buffer.setSample (0, n, 1.0f);
+            buffer.setSample (1, n, 0.3f);
+        }
+
+        juce::MidiBuffer midi;
+        for (int start = 0; start < total; start += blockSize)
+        {
+            juce::AudioBuffer<float> block (2, blockSize);
+            for (int ch = 0; ch < 2; ++ch)
+                block.copyFrom (ch, 0, buffer, ch, start, blockSize);
+            processor.processBlock (block, midi);
+            for (int ch = 0; ch < 2; ++ch)
+                buffer.copyFrom (ch, start, block, ch, 0, blockSize);
+        }
+
+        // 48000 samples into a 48000 Hz 1 Hz rotation is the quarter cycle: theta = +90 degrees.
+        const int quarter = (int) (0.25 * sampleRate);
+        const float outL = buffer.getSample (0, quarter);
+        const float outR = buffer.getSample (1, quarter);
+        assert (std::abs (outL - (-0.3f)) < 1e-3f);
+        assert (std::abs (outR - 1.0f) < 1e-3f);
+
+        // The energy is preserved (an orthonormal rotation).
+        assert (std::abs (outL * outL + outR * outR - (1.0f * 1.0f + 0.3f * 0.3f)) < 1e-3f);
+        pass ("testImageRotationQuarterCycle");
+    }
+
+    /** The master Phase knob (plan 18): an all-pass rotation of the right channel. At 180
+        degrees a 1 kHz sine comes out inverted on the right, the left untouched; at 0 the
+        identity path is bit-exact. */
+    void testPhaseRotation()
+    {
+        // 0 degrees: the identity path returns the input bit for bit.
+        {
+            Processor processor;
+            processor.prepareToPlay (sampleRate, blockSize);
+            juce::AudioBuffer<float> buffer (2, blockSize);
+            fillStereoSignal (buffer);
+            juce::AudioBuffer<float> expected (buffer);
+            juce::MidiBuffer midi;
+            processor.processBlock (buffer, midi);
+            for (int ch = 0; ch < 2; ++ch)
+                for (int n = 0; n < blockSize; ++n)
+                    assert (buffer.getSample (ch, n) == expected.getSample (ch, n));
+        }
+
+        // 180 degrees: the right channel's 1 kHz content inverts, the left does not.
+        {
+            Processor processor;
+            processor.prepareToPlay (sampleRate, blockSize);
+            setParameter (processor.apvts, Processor::phaseId, 180.0f);
+
+            juce::AudioBuffer<float> buffer (2, blockSize);
+            buffer.clear();
+            addSine (buffer, 0, sampleRate, 1000.0, 0.5f, 0);
+            addSine (buffer, 1, sampleRate, 1000.0, 0.5f, 0);
+
+            // Two blocks, so the all-pass state is in steady state for the second one.
+            // The buffer is refilled between the calls (the processor must not chain).
+            juce::MidiBuffer midi;
+            juce::AudioBuffer<float> input (buffer);
+            processor.processBlock (buffer, midi);
+            for (int ch = 0; ch < 2; ++ch)
+                for (int n = 0; n < blockSize; ++n)
+                    buffer.setSample (ch, n, input.getSample (ch, n));
+            processor.processBlock (buffer, midi);
+
+            for (int n = blockSize / 2; n < blockSize; ++n)   // the settled half of the block
+            {
+                assert (std::abs (buffer.getSample (0, n) - input.getSample (0, n)) < 1e-4f);
+                assert (std::abs (buffer.getSample (1, n) + input.getSample (1, n)) < 1e-3f);
+            }
+
+            // An all-pass preserves amplitude (steady state; the onset can overshoot).
+            float steadyPeak = 0.0f;
+            for (int n = blockSize / 2; n < blockSize; ++n)
+                steadyPeak = juce::jmax (steadyPeak, std::abs (buffer.getSample (1, n)));
+            assert (std::abs (steadyPeak - 0.5f) < 0.02f);
+        }
+        pass ("testPhaseRotation");
+    }
+
     void testVisualSnapshot()
     {
         // Idle at the defaults: the identity path still publishes the untouched input.
@@ -1067,6 +1304,11 @@ int main()
     testModulationReachesAudio();
     testSideCrossoverInertWhenFilterOff();
     testSyncedLfoFollowsTempo();
+    testMonoMakerFoldsLowSideToMono();
+    testMultibandWidthPerBand();
+    testMsToneSeparate();
+    testImageRotationQuarterCycle();
+    testPhaseRotation();
     testPageSwitchChangesNoParameter();
     testModPagePaints();
     testHeaderContract();

@@ -359,8 +359,11 @@ void MultibandSaturationEditor::DualBandVisualizer::paint (juce::Graphics& g)
                     juce::Justification::centred);
     }
 
-    // The crossover marker between the bars, on a log scale across the band axis.
-    const float crossoverHz = juce::jlimit (80.0f, 8000.0f, processor.apvts.getRawParameterValue (MultibandSaturationProcessor::crossoverId)->load (std::memory_order_relaxed));
+    // The crossover marker between the bars, on a log scale across the band axis. Plan 18:
+    // the marker follows the modulated value (the router's published offset for the
+    // Crossover target), not the raw parameter, so a routed LFO moves the marker live.
+    const float crossoverHz = juce::jlimit (80.0f, 8000.0f,
+        processor.getModulatedValue (MultibandSaturationProcessor::ModTarget::Crossover));
     const float crossoverX = bars.getX() + std::log (crossoverHz / 80.0f) / std::log (8000.0f / 80.0f) * bars.getWidth();
 
     g.setColour (SuiteUI::Colours::text);

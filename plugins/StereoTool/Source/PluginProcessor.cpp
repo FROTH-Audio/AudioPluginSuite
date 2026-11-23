@@ -24,6 +24,15 @@ namespace
         { StereoToolProcessor::sideCrossoverId,    "Side Crossover" },
         { StereoToolProcessor::inputLevelId,       "Input" },
         { StereoToolProcessor::outputLevelId,      "Output" },
+        { StereoToolProcessor::panId,              "Pan" },
+        { StereoToolProcessor::monoMakerCrossoverId, "Mono Maker Crossover" },
+        { StereoToolProcessor::multibandWidthLowId,  "Multiband Width Low" },
+        { StereoToolProcessor::multibandWidthMidId,  "Multiband Width Mid" },
+        { StereoToolProcessor::multibandWidthHighId, "Multiband Width High" },
+        { StereoToolProcessor::msToneMidId,          "MS Tone Mid" },
+        { StereoToolProcessor::msToneSideId,         "MS Tone Side" },
+        { StereoToolProcessor::imageRotationRateId,  "Image Rotation Rate" },
+        { StereoToolProcessor::imageRotationDepthId, "Image Rotation Depth" },
     };
 }
 
@@ -48,6 +57,17 @@ StereoToolProcessor::StereoToolProcessor()
     inputLevelParam       = apvts.getRawParameterValue (inputLevelId);
     outputLevelParam      = apvts.getRawParameterValue (outputLevelId);
     panParam              = apvts.getRawParameterValue (panId);
+
+    // Plan 17 Phase 8 + plan 18: the interest features and the master polarity.
+    monoMakerParam     = apvts.getRawParameterValue (monoMakerCrossoverId);
+    mbWidthLowParam    = apvts.getRawParameterValue (multibandWidthLowId);
+    mbWidthMidParam    = apvts.getRawParameterValue (multibandWidthMidId);
+    mbWidthHighParam   = apvts.getRawParameterValue (multibandWidthHighId);
+    msToneMidParam     = apvts.getRawParameterValue (msToneMidId);
+    msToneSideParam    = apvts.getRawParameterValue (msToneSideId);
+    rotationRateParam  = apvts.getRawParameterValue (imageRotationRateId);
+    rotationDepthParam = apvts.getRawParameterValue (imageRotationDepthId);
+    phaseParam         = apvts.getRawParameterValue (phaseId);
 }
 
 juce::AudioProcessorValueTreeState::ParameterLayout StereoToolProcessor::createParameterLayout()
@@ -135,10 +155,17 @@ juce::AudioProcessorValueTreeState::ParameterLayout StereoToolProcessor::createP
         juce::NormalisableRange<float> (-100.0f, 100.0f, 0.1f), 0.0f, "%"));
 
     //---- Plan 17 Phase 8: interest features, appended so no saved index moves.
-    // 1. Mono-maker: frequency below which the stereo image collapses to mono.
+    // 1. Mono-maker: frequency below which the stereo image collapses to mono. 0 is Off
+    //    (the suite's bit-transparent default), so the skew makes the low end reachable.
+    juce::AudioParameterFloatAttributes monoMakerAttrs
+        = juce::AudioParameterFloatAttributes().withLabel ("Hz")
+              .withStringFromValueFunction ([] (float v, int)
+              {
+                  return v < 0.5f ? juce::String ("Off") : juce::String (v, 1) + " Hz";
+              });
     params.push_back (std::make_unique<juce::AudioParameterFloat> (
         juce::ParameterID { monoMakerCrossoverId, 1 }, "Mono Maker Crossover",
-        juce::NormalisableRange<float> (20.0f, 800.0f, 0.1f), 200.0f, "Hz"));
+        juce::NormalisableRange<float> (0.0f, 800.0f, 0.1f, 0.35f), 0.0f, monoMakerAttrs));
 
     // 2. Multiband width: per-band width controls (low/mid/high).
     params.push_back (std::make_unique<juce::AudioParameterFloat> (
@@ -166,6 +193,12 @@ juce::AudioProcessorValueTreeState::ParameterLayout StereoToolProcessor::createP
     params.push_back (std::make_unique<juce::AudioParameterFloat> (
         juce::ParameterID { imageRotationDepthId, 1 }, "Image Rotation Depth",
         juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 0.0f, "%"));
+
+    //---- Plan 18 Phase 3: the master Phase knob, appended so no saved index moves.
+    // 0 degrees keeps the identity path bit-exact.
+    params.push_back (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { phaseId, 1 }, "Phase",
+        juce::NormalisableRange<float> (0.0f, 360.0f, 0.1f), 0.0f, "°"));
 
     //---- Plan 13: the LFOs and the six routing slots, appended last so no saved parameter
     // index moves. Every routing amount defaults to 0, so the sound is bit-identical.
@@ -225,7 +258,36 @@ void StereoToolProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
         sideFilter.prepare ({ sampleRate, 1, (juce::uint32) juce::jmax (1, samplesPerBlock) });
         sideFilter.reset();
         sideFilter.setResonance (1.0f / std::sqrt (2.0f));   // a standard 12 dB/octave filter
+
+        // Plan 17 Phase 8 DSP: the mono-maker low-pass and the multiband split. The types
+        // are fixed; only the cutoff moves (the mono-maker knob). The splits of the width
+        // bands are fixed at 200 Hz and 2 kHz (documented in the editor's help text).
+        monoMakerLP.prepare ({ sampleRate, 1, (juce::uint32) juce::jmax (1, samplesPerBlock) });
+        monoMakerLP.reset();
+        monoMakerLP.setType (juce::dsp::StateVariableTPTFilterType::highpass);
+        monoMakerLP.setResonance (1.0f / std::sqrt (2.0f));
+
+        mbLowSplitLP.prepare ({ sampleRate, 1, (juce::uint32) juce::jmax (1, samplesPerBlock) });
+        mbLowSplitLP.reset();
+        mbLowSplitLP.setType (juce::dsp::StateVariableTPTFilterType::lowpass);
+        mbLowSplitLP.setResonance (1.0f / std::sqrt (2.0f));
+        mbLowSplitLP.setCutoffFrequency (200.0f);
+
+        mbHighSplitHP.prepare ({ sampleRate, 1, (juce::uint32) juce::jmax (1, samplesPerBlock) });
+        mbHighSplitHP.reset();
+        mbHighSplitHP.setType (juce::dsp::StateVariableTPTFilterType::highpass);
+        mbHighSplitHP.setResonance (1.0f / std::sqrt (2.0f));
+        mbHighSplitHP.setCutoffFrequency (2000.0f);
     }
+
+    // The M/S tone shapers (plan 17 Phase 8) and the clock state (plan 18).
+    toneMid.prepare (preparedSampleRate);
+    toneSide.prepare (preparedSampleRate);
+    rotationPhase = 0.0;
+
+    // The master Phase knob's all-pass state (plan 18). The coefficient is set per block.
+    phaseApCoeff = 1.0f;
+    phaseX1 = phaseY1 = phaseX2 = phaseY2 = 0.0f;
 }
 
 bool StereoToolProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
@@ -272,6 +334,58 @@ void StereoToolProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     const float midFocus = juce::jlimit (-100.0f, 100.0f,
         modulation.modulate ((int) ModTarget::MidFocus, midFocusParam->load(), offsets)) / 100.0f;
     const int sideFilterIndex = juce::jlimit (0, 3, (int) (sideFilterParam->load() + 0.5f));
+
+    // Plan 17 Phase 8: the interest features. The mono-maker's 0 is Off, the widths and
+    // tones are neutral at 0, and the rotation is off at depth 0, so the identity path
+    // below stays bit-exact at the defaults.
+    const float monoMakerXover = juce::jlimit (0.0f, 800.0f,
+        modulation.modulate ((int) ModTarget::MonoMakerCrossover, monoMakerParam->load(), offsets));
+    const float mbWidthLow = juce::jlimit (-100.0f, 100.0f,
+        modulation.modulate ((int) ModTarget::MultibandWidthLow, mbWidthLowParam->load(), offsets));
+    const float mbWidthMid = juce::jlimit (-100.0f, 100.0f,
+        modulation.modulate ((int) ModTarget::MultibandWidthMid, mbWidthMidParam->load(), offsets));
+    const float mbWidthHigh = juce::jlimit (-100.0f, 100.0f,
+        modulation.modulate ((int) ModTarget::MultibandWidthHigh, mbWidthHighParam->load(), offsets));
+    const float msToneMid = juce::jlimit (-1.0f, 1.0f,
+        modulation.modulate ((int) ModTarget::MSToneMid, msToneMidParam->load(), offsets));
+    const float msToneSide = juce::jlimit (-1.0f, 1.0f,
+        modulation.modulate ((int) ModTarget::MSToneSide, msToneSideParam->load(), offsets));
+    const float rotationRate = juce::jlimit (0.02f, 2.0f,
+        modulation.modulate ((int) ModTarget::ImageRotationRate, rotationRateParam->load(), offsets));
+    const float rotationDepth = juce::jlimit (0.0f, 100.0f,
+        modulation.modulate ((int) ModTarget::ImageRotationDepth, rotationDepthParam->load(), offsets)) / 100.0f;
+
+    // The master Phase knob (plan 18): the degree of rotation at the 1 kHz pivot. Below
+    // half a degree the node is skipped, so the identity path stays bit-exact.
+    const float phaseDeg = juce::jlimit (0.0f, 360.0f, phaseParam->load());
+    const bool phaseActive = phaseDeg >= 0.5f;
+    if (phaseActive)
+    {
+        // Two cascaded 1st-order all-pass sections, each carrying phaseDeg/2 degrees at the
+        // 1 kHz pivot. The digital all-pass H(z) = (c + z^-1)/(1 + c z^-1) has the phase
+        // tan(phi/2) = k * tan(w/2) with k = (1-c)/(1+c), so the coefficient follows
+        // directly from the wanted phase. Clamped just short of 180 degrees per section,
+        // because the exact pole on the unit circle is marginal in float.
+        const double phi = juce::jmin ((double) phaseDeg * 0.5 * juce::MathConstants<double>::pi / 180.0,
+                                       juce::MathConstants<double>::pi - 1e-3);
+        const double k = std::tan (phi * 0.5)
+                       / std::tan (juce::MathConstants<double>::pi * 1000.0 / preparedSampleRate);
+        phaseApCoeff = (float) ((1.0 - k) / (1.0 + k));
+    }
+
+    // The multiband split runs while any band width is non-zero. The per-band side gains:
+    // negative width narrows (towards mono), positive widens.
+    const bool multibandActive = mbWidthLow != 0.0f || mbWidthMid != 0.0f || mbWidthHigh != 0.0f;
+    const float mbWidthLowGain  = multibandActive ? juce::jmax (0.0f, 1.0f + mbWidthLow / 100.0f) : 1.0f;
+    const float mbWidthMidGain  = multibandActive ? juce::jmax (0.0f, 1.0f + mbWidthMid / 100.0f) : 1.0f;
+    const float mbWidthHighGain = multibandActive ? juce::jmax (0.0f, 1.0f + mbWidthHigh / 100.0f) : 1.0f;
+
+    if (monoMakerXover > 0.0f)
+    {
+        // The filter's assert keeps the corner below Nyquist, so clamp for low-rate hosts.
+        const float highestCorner = juce::jmin (800.0f, 0.45f * (float) preparedSampleRate);
+        monoMakerLP.setCutoffFrequency (juce::jlimit (20.0f, highestCorner, monoMakerXover));
+    }
 
     // Mid focus is a static gain pair: midGain = 1 + f, sideGain = 1 - f.
     const float midGainFactor = 1.0f + midFocus;
@@ -330,6 +444,9 @@ void StereoToolProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     const bool identityPath = satAmount == 0.0f && cleanGain == 1.0f && sideGain == 1.0f
                            && characterIndex == 0 && transientAmount == 0.0f
                            && midFocus == 0.0f && sideFilterIndex == 0
+                           && monoMakerXover == 0.0f && ! multibandActive
+                           && msToneMid == 0.0f && msToneSide == 0.0f
+                           && rotationDepth == 0.0f && ! phaseActive
                            && panParam->load() == 0.0f
                            && inputLevelDb == 0.0f && outputLevelDb == 0.0f;
 
@@ -355,6 +472,10 @@ void StereoToolProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
         beatClock += (double) numSamples * SuiteModulation::hostTempoOrDefault (getPlayHead()) / 60.0 / preparedSampleRate;
         streamSample += numSamples;
         modulation.advanceBlock (numSamples);
+
+        // The image rotation's phase (plan 17 Phase 8): accumulates per block like a free
+        // LFO, so a rate change never jumps the swing, and it moves on the identity path too.
+        rotationPhase += (double) rotationRate * (double) numSamples / preparedSampleRate;
     };
 
     if (identityPath && mixValue == 100.0f)
@@ -379,6 +500,10 @@ void StereoToolProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     dryBuffer.copyFrom (1, 0, buffer, 1, 0, numSamples);
     auto* dryL = dryBuffer.getWritePointer (0);
     auto* dryR = dryBuffer.getWritePointer (1);
+
+    // The rotation phase at the block start (plan 17 Phase 8); the loop adds the per-sample
+    // fraction so the swing is continuous across block boundaries.
+    const double rotationPhaseStart = rotationPhase;
 
     for (int n = 0; n < numSamples; ++n)
     {
@@ -453,6 +578,31 @@ void StereoToolProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
         if (sideFilterIndex != 0)
             s = sideFilter.processSample (0, s);
 
+        // The mono-maker (plan 17 Phase 8): the side is high-passed at the crossover, so
+        // everything below it collapses to mono in the decode. A true high-pass (not a
+        // subtractive split: a 2nd-order LP's complement peaks near the corner). 0 skips
+        // the node.
+        if (monoMakerXover > 0.0f)
+            s = monoMakerLP.processSample (0, s);
+
+        // The M/S tone shapers (plan 17 Phase 8): separate tilts around 1 kHz for the mid
+        // and the side channel. ToneControl at tone 0 is not bit-exact, so 0 skips the node.
+        if (msToneMid != 0.0f)
+            m = toneMid.process (m, msToneMid);
+        if (msToneSide != 0.0f)
+            s = toneSide.process (s, msToneSide);
+
+        // The multiband width (plan 17 Phase 8): the side is split into three fixed bands
+        // (below 200 Hz, 200 Hz..2 kHz, above 2 kHz) and each band's side energy is
+        // narrowed or widened by its own knob. Inactive bands pass through at unity.
+        if (multibandActive)
+        {
+            const float mbLow  = mbLowSplitLP.processSample (0, s);
+            const float mbHigh = mbHighSplitHP.processSample (0, s);
+            const float mbMid  = s - mbLow - mbHigh;
+            s = mbLow * mbWidthLowGain + mbMid * mbWidthMidGain + mbHigh * mbWidthHighGain;
+        }
+
         // Mid focus (plan 6.1), then the width side gain, then decode.
         m *= midGainFactor;
         s *= sideFocusFactor;
@@ -477,6 +627,38 @@ void StereoToolProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
             left[n] *= panGain;
         else
             right[n] *= panGain;
+
+        // The image rotation (plan 17 Phase 8): an orthonormal rotation of the left/right
+        // plane, so the energy is preserved while the image swings. The angle follows a
+        // sine over the accumulated phase; depth scales the maximum swing (90 degrees).
+        if (rotationDepth > 0.0f)
+        {
+            const double phase = rotationPhaseStart
+                               + (double) n * (double) rotationRate / preparedSampleRate;
+            const float theta = (float) ((juce::MathConstants<double>::pi * 0.5) * (double) rotationDepth
+                                         * std::sin (juce::MathConstants<double>::twoPi * phase));
+            const float cosT = std::cos (theta);
+            const float sinT = std::sin (theta);
+            const float rotL = left[n] * cosT - right[n] * sinT;
+            const float rotR = left[n] * sinT + right[n] * cosT;
+            left[n] = rotL;
+            right[n] = rotR;
+        }
+
+        // The master Phase knob (plan 18): the right channel runs through two cascaded
+        // all-pass sections, rotating its phase by up to 360 degrees (at the 1 kHz pivot).
+        // The left channel is untouched, so the L/R phase relationship is the control.
+        if (phaseActive)
+        {
+            const float c = phaseApCoeff;
+            const float ap1 = c * right[n] + phaseX1 - c * phaseY1;
+            phaseX1 = right[n];
+            phaseY1 = ap1;
+            const float ap2 = c * ap1 + phaseX2 - c * phaseY2;
+            phaseX2 = ap1;
+            phaseY2 = ap2;
+            right[n] = ap2;
+        }
     }
 
     publishSnapshot();

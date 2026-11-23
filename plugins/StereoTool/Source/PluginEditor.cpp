@@ -16,9 +16,13 @@ namespace
     constexpr int groupHeight = groupTitleHeight + 4 + groupInnerHeight + 4;
     constexpr int previewMinimumHeight = 100;
     constexpr int editorWidth = 720;
+    // Plan 17 Phase 8: the IMAGE group carries four knob rows (the interest features), so
+    // its group is taller than the CHARACTER/MASTER groups.
+    constexpr int imageGroupHeight = groupTitleHeight + 4
+                                   + 4 * SuiteUI::knobRowHeight + 3 * groupGap + 4;
     // 16 top margin + header + gap + [preview + gap + group + gap + group] + footer + gap.
     constexpr int editorHeight = 16 + headerHeight + groupGap
-                               + previewMinimumHeight + groupGap + groupHeight + groupGap + groupHeight
+                               + previewMinimumHeight + groupGap + groupHeight + groupGap + imageGroupHeight
                                + footerHeight + groupGap;
 
     // The LEVEL group (two knobs) shares its row with IMAGE, so it only needs two cells.
@@ -97,6 +101,29 @@ StereoToolEditor::StereoToolEditor (StereoToolProcessor& p)
     panCtrl.slider.setTextValueSuffix (" %");
     panAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (apvts, StereoToolProcessor::panId, panCtrl.slider);
 
+    // The Phase-8 interest features (plan 17 Phase 8) and the master Phase toggle (plan 18).
+    monoMakerCtrl.slider.setNumDecimalPlacesToDisplay (1);
+    msToneMidCtrl.slider.setNumDecimalPlacesToDisplay (2);
+    msToneSideCtrl.slider.setNumDecimalPlacesToDisplay (2);
+    for (auto* ctrl : { &mbWidthLowCtrl, &mbWidthMidCtrl, &mbWidthHighCtrl })
+        ctrl->slider.setTextValueSuffix (" %");
+    rotRateCtrl.slider.setNumDecimalPlacesToDisplay (2);
+    rotRateCtrl.slider.setTextValueSuffix (" Hz");
+    rotDepthCtrl.slider.setNumDecimalPlacesToDisplay (1);
+    rotDepthCtrl.slider.setTextValueSuffix (" %");
+    phaseCtrl.slider.setNumDecimalPlacesToDisplay (1);
+    phaseCtrl.slider.setTextValueSuffix (juce::String::fromUTF8 (" \xc2\xb0"));   // " °" as explicit UTF-8
+
+    monoMakerAttachment  = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (apvts, StereoToolProcessor::monoMakerCrossoverId, monoMakerCtrl.slider);
+    msToneMidAttachment  = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (apvts, StereoToolProcessor::msToneMidId, msToneMidCtrl.slider);
+    msToneSideAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (apvts, StereoToolProcessor::msToneSideId, msToneSideCtrl.slider);
+    mbWidthLowAttachment  = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (apvts, StereoToolProcessor::multibandWidthLowId, mbWidthLowCtrl.slider);
+    mbWidthMidAttachment  = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (apvts, StereoToolProcessor::multibandWidthMidId, mbWidthMidCtrl.slider);
+    mbWidthHighAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (apvts, StereoToolProcessor::multibandWidthHighId, mbWidthHighCtrl.slider);
+    rotRateAttachment  = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (apvts, StereoToolProcessor::imageRotationRateId, rotRateCtrl.slider);
+    rotDepthAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (apvts, StereoToolProcessor::imageRotationDepthId, rotDepthCtrl.slider);
+    phaseAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (apvts, StereoToolProcessor::phaseId, phaseCtrl.slider);
+
     // Help text on every control (plan 12); the footer sentence is the help line's idle text.
     SuiteUI::describe (driveCtrl, "Gain before the character stage. 0 dB is transparent.");
     SuiteUI::describe (attackCtrl, "How fast the transient follower rises. Inert at Amount 0.");
@@ -112,6 +139,15 @@ StereoToolEditor::StereoToolEditor (StereoToolProcessor& p)
     SuiteUI::describe (inputCtrl, "Gain before the chain. 0 dB leaves the level unchanged.");
     SuiteUI::describe (outputCtrl, "The final gain stage. 0 dB leaves the level unchanged.");
     SuiteUI::describe (panCtrl, "The balance after the mix. Left and right shift the kept channel; the centre is untouched.");
+    SuiteUI::describe (phaseCtrl, "Rotates the right channel's phase by up to 360 degrees, calibrated at 1 kHz. 0 is transparent.");
+    SuiteUI::describe (monoMakerCtrl, "Folds everything below this crossover to mono. 0 turns the mono-maker off.");
+    SuiteUI::describe (msToneMidCtrl, "Tilts the mid channel around 1 kHz. 0 is transparent.");
+    SuiteUI::describe (msToneSideCtrl, "Tilts the side channel around 1 kHz. 0 is transparent.");
+    SuiteUI::describe (mbWidthLowCtrl, "Narrows or widens the side below 200 Hz. 0 leaves the band unchanged.");
+    SuiteUI::describe (mbWidthMidCtrl, "Narrows or widens the side between 200 Hz and 2 kHz. 0 leaves the band unchanged.");
+    SuiteUI::describe (mbWidthHighCtrl, "Narrows or widens the side above 2 kHz. 0 leaves the band unchanged.");
+    SuiteUI::describe (rotRateCtrl, "How fast the image rotation swings. Inert while Depth is 0.");
+    SuiteUI::describe (rotDepthCtrl, "How far the image rotation swings, up to 90 degrees. 0 is off.");
     SuiteUI::describe (visualizer, "Mid and side levels, and the transient follower's envelope.");
     visualizer.setComponentID ("stereotool-preview");
     SuiteUI::describe (pageSelector, "SOUND: the stereo controls. MOD: the two LFOs and the six routing slots.");
@@ -119,11 +155,25 @@ StereoToolEditor::StereoToolEditor (StereoToolProcessor& p)
     addAndMakeVisible (inputCtrl);
     addAndMakeVisible (outputCtrl);
     addAndMakeVisible (panCtrl);
+    addAndMakeVisible (phaseCtrl);
+    addAndMakeVisible (monoMakerCtrl);
+    addAndMakeVisible (msToneMidCtrl);
+    addAndMakeVisible (msToneSideCtrl);
+    addAndMakeVisible (mbWidthLowCtrl);
+    addAndMakeVisible (mbWidthMidCtrl);
+    addAndMakeVisible (mbWidthHighCtrl);
+    addAndMakeVisible (rotRateCtrl);
+    addAndMakeVisible (rotDepthCtrl);
 
     for (auto* component : { static_cast<juce::Component*> (&driveCtrl), static_cast<juce::Component*> (&attackCtrl),
                              static_cast<juce::Component*> (&releaseCtrl), static_cast<juce::Component*> (&amountCtrl),
                              static_cast<juce::Component*> (&widthCtrl), static_cast<juce::Component*> (&mixCtrl),
                              static_cast<juce::Component*> (&midFocusCtrl), static_cast<juce::Component*> (&crossoverCtrl),
+                             static_cast<juce::Component*> (&monoMakerCtrl), static_cast<juce::Component*> (&msToneMidCtrl),
+                             static_cast<juce::Component*> (&msToneSideCtrl), static_cast<juce::Component*> (&mbWidthLowCtrl),
+                             static_cast<juce::Component*> (&mbWidthMidCtrl), static_cast<juce::Component*> (&mbWidthHighCtrl),
+                             static_cast<juce::Component*> (&rotRateCtrl), static_cast<juce::Component*> (&rotDepthCtrl),
+                             static_cast<juce::Component*> (&phaseCtrl),
                              static_cast<juce::Component*> (&characterCell), static_cast<juce::Component*> (&targetCell),
                              static_cast<juce::Component*> (&filterCell), static_cast<juce::Component*> (&visualizer),
                              static_cast<juce::Component*> (&pageSelector), static_cast<juce::Component*> (&modulation) })
@@ -144,6 +194,14 @@ StereoToolEditor::StereoToolEditor (StereoToolProcessor& p)
             { inputCtrl.slider,       (int) Target::Input },
             { outputCtrl.slider,      (int) Target::Output },
             { panCtrl.slider,         (int) Target::Pan },
+            { monoMakerCtrl.slider,   (int) Target::MonoMakerCrossover },
+            { msToneMidCtrl.slider,   (int) Target::MSToneMid },
+            { msToneSideCtrl.slider,  (int) Target::MSToneSide },
+            { mbWidthLowCtrl.slider,  (int) Target::MultibandWidthLow },
+            { mbWidthMidCtrl.slider,  (int) Target::MultibandWidthMid },
+            { mbWidthHighCtrl.slider, (int) Target::MultibandWidthHigh },
+            { rotRateCtrl.slider,     (int) Target::ImageRotationRate },
+            { rotDepthCtrl.slider,    (int) Target::ImageRotationDepth },
         });
 
     addAndMakeVisible (headerMenu);
@@ -201,9 +259,14 @@ void StereoToolEditor::setPage (int newPage)
                              static_cast<juce::Component*> (&releaseCtrl), static_cast<juce::Component*> (&amountCtrl),
                              static_cast<juce::Component*> (&widthCtrl), static_cast<juce::Component*> (&mixCtrl),
                              static_cast<juce::Component*> (&midFocusCtrl), static_cast<juce::Component*> (&crossoverCtrl),
+                             static_cast<juce::Component*> (&monoMakerCtrl), static_cast<juce::Component*> (&msToneMidCtrl),
+                             static_cast<juce::Component*> (&msToneSideCtrl), static_cast<juce::Component*> (&mbWidthLowCtrl),
+                             static_cast<juce::Component*> (&mbWidthMidCtrl), static_cast<juce::Component*> (&mbWidthHighCtrl),
+                             static_cast<juce::Component*> (&rotRateCtrl), static_cast<juce::Component*> (&rotDepthCtrl),
+                             static_cast<juce::Component*> (&phaseCtrl),
                              static_cast<juce::Component*> (&characterCell), static_cast<juce::Component*> (&targetCell),
                              static_cast<juce::Component*> (&filterCell), static_cast<juce::Component*> (&inputCtrl),
-                             static_cast<juce::Component*> (&outputCtrl) })
+                             static_cast<juce::Component*> (&outputCtrl), static_cast<juce::Component*> (&panCtrl) })
         component->setVisible (currentPage == 0);
 
     // The preview carries the input/output meters, so it stays on both pages.
@@ -228,9 +291,10 @@ void StereoToolEditor::paint (juce::Graphics& g)
     if (currentPage == 0)
     {
         // The three group frames (R5: 15 pt bold titles in the accent; plan 12's shared frame).
+        // Plan 18: the level group is named MASTER (the owner's rename finding).
         SuiteUI::drawGroupFrame (g, characterGroupBounds, "CHARACTER", lookAndFeel.getAccent());
         SuiteUI::drawGroupFrame (g, imageGroupBounds, "IMAGE", lookAndFeel.getAccent());
-        SuiteUI::drawGroupFrame (g, levelGroupBounds, "LEVEL", lookAndFeel.getAccent());
+        SuiteUI::drawGroupFrame (g, levelGroupBounds, "MASTER", lookAndFeel.getAccent());
     }
     else
     {
@@ -278,7 +342,8 @@ void StereoToolEditor::layoutSoundPage (juce::Rectangle<int> area)
     characterGroupBounds = area.removeFromBottom (groupHeight);
     area.removeFromBottom (groupGap);
 
-    auto row = area.removeFromBottom (groupHeight);
+    // The IMAGE group is taller than the others (plan 17 Phase 8: four knob rows).
+    auto row = area.removeFromBottom (imageGroupHeight);
     levelGroupBounds = row.removeFromLeft (levelGroupWidth);
     row.removeFromLeft (groupGap);
     imageGroupBounds = row;
@@ -287,8 +352,7 @@ void StereoToolEditor::layoutSoundPage (juce::Rectangle<int> area)
     visualBounds = area;
     visualizer.setBounds (visualBounds);
 
-    // LEVEL: three knobs — INPUT/OUTPUT in the top row (owner finding, plan 13), PAN
-    // beneath them (plan 17 Phase 4). The captions sit at the top of the group.
+    // LEVEL is MASTER (plan 18): the level stage plus pan and the Phase toggle.
     {
         auto inner = levelGroupBounds.withTrimmedTop (groupTitleHeight + 4).reduced (10, 4);
         auto row1 = inner.removeFromTop (SuiteUI::knobRowHeight);
@@ -299,6 +363,7 @@ void StereoToolEditor::layoutSoundPage (juce::Rectangle<int> area)
         inner.removeFromTop (groupGap);
         auto row2 = inner.removeFromTop (SuiteUI::knobRowHeight);
         panCtrl.setBounds (row2.removeFromLeft (cellWidth).reduced (3));
+        phaseCtrl.setBounds (row2.reduced (3));
     }
 
     // CHARACTER: character, drive, attack, release / amount, target.
@@ -321,18 +386,31 @@ void StereoToolEditor::layoutSoundPage (juce::Rectangle<int> area)
         }
     }
 
-    // IMAGE: width, mix, mid focus, crossover / side filter.
+    // IMAGE: width, mix, mid focus, crossover / side filter; then the plan-17 interest
+    // features and the rotation (four rows, plan 18's taller group).
     {
         auto inner = imageGroupBounds.withTrimmedTop (groupTitleHeight + 4).reduced (10, 4);
         const int cellWidth = inner.getWidth() / 4;
         auto row1 = inner.removeFromTop (SuiteUI::knobRowHeight);
-        auto row2 = inner.removeFromBottom (SuiteUI::knobRowHeight);
+        auto row2 = inner.removeFromTop (SuiteUI::knobRowHeight);
+        inner.removeFromTop (groupGap);
+        auto row3 = inner.removeFromTop (SuiteUI::knobRowHeight);
+        inner.removeFromTop (groupGap);
+        auto row4 = inner.removeFromTop (SuiteUI::knobRowHeight);
 
         for (auto* cell : { static_cast<juce::Component*> (&widthCtrl), static_cast<juce::Component*> (&mixCtrl),
                             static_cast<juce::Component*> (&midFocusCtrl), static_cast<juce::Component*> (&crossoverCtrl) })
             cell->setBounds (row1.removeFromLeft (cellWidth).reduced (3));
 
-        filterCell.setBounds (row2.removeFromLeft (cellWidth).reduced (3));
+        for (auto* cell : { static_cast<juce::Component*> (&filterCell), static_cast<juce::Component*> (&monoMakerCtrl),
+                            static_cast<juce::Component*> (&msToneMidCtrl), static_cast<juce::Component*> (&msToneSideCtrl) })
+            cell->setBounds (row2.removeFromLeft (cellWidth).reduced (3));
+
+        for (auto* cell : { static_cast<juce::Component*> (&mbWidthLowCtrl), static_cast<juce::Component*> (&mbWidthMidCtrl),
+                            static_cast<juce::Component*> (&mbWidthHighCtrl), static_cast<juce::Component*> (&rotRateCtrl) })
+            cell->setBounds (row3.removeFromLeft (cellWidth).reduced (3));
+
+        rotDepthCtrl.setBounds (row4.removeFromLeft (cellWidth).reduced (3));
     }
 }
 
@@ -370,6 +448,10 @@ void StereoToolEditor::timerCallback()
     attackCtrl.setEnabled (transientAmount > 0.0f);
     releaseCtrl.setEnabled (transientAmount > 0.0f);
     targetCell.setEnabled (transientAmount > 0.0f);
+
+    // Plan 17 Phase 8 affinity: the rotation rate is inert while the depth is 0.
+    const float rotationDepth = processor.apvts.getRawParameterValue (StereoToolProcessor::imageRotationDepthId)->load();
+    rotRateCtrl.setEnabled (rotationDepth > 0.0f);
 }
 
 //==============================================================================

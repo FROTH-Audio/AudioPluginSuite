@@ -8,6 +8,15 @@ are implemented and verified (CTest 28/28 on 2026-11-23).
 Naming: MidiTool = `plugins/MidiEffect`, MultiSat = `plugins/MultibandSaturation`.
 
 Status: proposed 2026-11-23. Every claim in §0 was checked against the code on 2026-11-23.
+**Progress 2026-11-23:** Phase 2 done (the MultiSat crossover marker reads the modulated
+value; render written). Phase 3 done (the Phase control is a **0–360° rotation knob on the
+right channel** — an all-pass pair calibrated at 1 kHz, the owner's pick over the polarity
+toggle — plus the LEVEL→MASTER rename, and the plan-17 Phase 8 DSP: the eight interest
+parameters are now implemented in `processBlock` with audio regression tests; the
+Mono-Maker default changed 200 Hz → 0 = Off to keep the identity contract, the routing
+table gained the missing Pan + eight targets, the IMAGE group grew to four knob rows and
+the window to 720×858 — **R4 gate: owner approves the render** at
+`build/renders/plan18/stereotool-default.png`). CTest 28/28. Phases 1, 4–9 open.
 
 ---
 

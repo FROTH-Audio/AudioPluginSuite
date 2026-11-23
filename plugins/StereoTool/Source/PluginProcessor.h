@@ -72,6 +72,11 @@ public:
     static constexpr const char* imageRotationRateId    = "imageRotationRate";
     static constexpr const char* imageRotationDepthId = "imageRotationDepth";
 
+    // Plan 18 Phase 3: the master Phase knob, appended after the Phase-8 features so no
+    // saved index moves. A 0-360 degree all-pass rotation of the RIGHT channel, calibrated
+    // at 1 kHz; 0 keeps the identity path bit-exact.
+    static constexpr const char* phaseId = "phase";
+
     // LFO 1 and LFO 2 (plan 13). The IDs are fixed by suite_modulation, so every plugin
     // saves them the same way.
     static constexpr const char* lfo1RateId      = "lfo1Rate";
@@ -91,8 +96,8 @@ public:
     static constexpr const char* modAmountIds[6] = { "mod1Amount", "mod2Amount", "mod3Amount", "mod4Amount", "mod5Amount", "mod6Amount" };
     static constexpr const char* modDelayIds[6]  = { "mod1Delay",  "mod2Delay",  "mod3Delay",  "mod4Delay",  "mod5Delay",  "mod6Delay" };
 
-    /** The 13 sound parameters plus the pan (plan 17) plus the shared router's 34 (plan 13) plus Phase 8 interest features (8 params). */
-    static constexpr int numControls = 68;   // 56 + 12 plan-17 Phase 7 LFO transforms
+    /** The 13 sound parameters plus the pan (plan 17) plus the shared router's 34 (plan 13) plus Phase 8 interest features (8 params) plus the Phase toggle (plan 18). */
+    static constexpr int numControls = 69;   // 68 + 1 plan-18 Phase toggle
 
     /** The parameters an LFO can move (plan 13). The order is part of the saved session:
         append new targets at the end, never reorder or remove. Names come from
@@ -208,6 +213,25 @@ private:
     // The side filter (plan 6.1): a state-variable filter on the side component only.
     juce::dsp::StateVariableTPTFilter<float> sideFilter;
 
+    // Plan 17 Phase 8 DSP: the mono-maker's side low-pass, the multiband split (a low
+    // low-pass and a high high-pass on the side; the mid band is the remainder), and the
+    // M/S tone shapers. All prepared in prepareToPlay; idle at the defaults.
+    juce::dsp::StateVariableTPTFilter<float> monoMakerLP;
+    juce::dsp::StateVariableTPTFilter<float> mbLowSplitLP;
+    juce::dsp::StateVariableTPTFilter<float> mbHighSplitHP;
+    CoreDSP::Saturation::ToneControl toneMid;
+    CoreDSP::Saturation::ToneControl toneSide;
+
+    // The image rotation's phase, in cycles (the free-LFO pattern: accumulates per block,
+    // so a rate change never jumps the swing).
+    double rotationPhase = 0.0;
+
+    // The master Phase knob (plan 18): two cascaded 1st-order all-pass sections on the
+    // right channel. The coefficient is set per block from the knob; the section state
+    // runs per sample. Idle at 0 degrees.
+    float phaseApCoeff = 1.0f;
+    float phaseX1 = 0.0f, phaseY1 = 0.0f, phaseX2 = 0.0f, phaseY2 = 0.0f;
+
     std::atomic<float>* widthParam = nullptr;
     std::atomic<float>* driveParam = nullptr;
     std::atomic<float>* mixParam   = nullptr;
@@ -222,6 +246,17 @@ private:
     std::atomic<float>* inputLevelParam       = nullptr;
     std::atomic<float>* outputLevelParam      = nullptr;
     std::atomic<float>* panParam              = nullptr;
+
+    // Plan 17 Phase 8 + plan 18: the interest features and the master polarity.
+    std::atomic<float>* monoMakerParam        = nullptr;
+    std::atomic<float>* mbWidthLowParam       = nullptr;
+    std::atomic<float>* mbWidthMidParam       = nullptr;
+    std::atomic<float>* mbWidthHighParam      = nullptr;
+    std::atomic<float>* msToneMidParam        = nullptr;
+    std::atomic<float>* msToneSideParam       = nullptr;
+    std::atomic<float>* rotationRateParam     = nullptr;
+    std::atomic<float>* rotationDepthParam    = nullptr;
+    std::atomic<float>* phaseParam            = nullptr;
 
     // The level stage (plan 12), smoothed per sample so automation does not zip. Both
     // start at their target, so the first block is bit-exact at the 0 dB defaults.
