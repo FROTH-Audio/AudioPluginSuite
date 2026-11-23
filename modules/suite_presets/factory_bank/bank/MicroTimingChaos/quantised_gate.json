@@ -1,0 +1,13 @@
+{
+  "_name": "Quantised Gate",
+  "_category": "Glitch",
+  "_description": "The gate length snaps through six stepped values.",
+  "_plugin": "MicroTimingChaos",
+  "_pluginVersion": "1.0.0",
+  "rate": 3,
+  "gate": 50.0,
+  "lfo1Rate": 3.0,
+  "lfo1Quantise": 6,
+  "mod1Target": 9,
+  "mod1Amount": 60.0
+}

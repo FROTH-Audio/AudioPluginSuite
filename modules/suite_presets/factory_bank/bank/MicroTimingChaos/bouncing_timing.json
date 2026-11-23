@@ -1,0 +1,12 @@
+{
+  "_name": "Bouncing Timing",
+  "_category": "Rhythmic",
+  "_description": "The ball's bounces stagger the timing range.",
+  "_plugin": "MicroTimingChaos",
+  "_pluginVersion": "1.0.0",
+  "timingRange": 25.0,
+  "lfo1Rate": 0.8,
+  "lfo1Shape": 7,
+  "mod1Target": 2,
+  "mod1Amount": 70.0
+}

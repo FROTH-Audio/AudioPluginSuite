@@ -1,0 +1,16 @@
+{
+  "_name": "Skewed Tape",
+  "_category": "Glitch",
+  "_description": "The skew leans a tape-stop wobble off centre.",
+  "_plugin": "Sgraffito",
+  "_pluginVersion": "1.0.0",
+  "_samplePath": "embedded:skewed_tape_4k.wav",
+  "mode": 1,
+  "tapeStopTime": 200.0,
+  "sliceCount": 8,
+  "wow": 6.0,
+  "lfo1Rate": 0.9,
+  "lfo1Skew": 0.55,
+  "mod1Target": 24,
+  "mod1Amount": 45.0
+}

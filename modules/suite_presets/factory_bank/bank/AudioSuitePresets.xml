@@ -663,6 +663,121 @@
       <PARAM id="mod1Amount" value="80"/>
     </PARAMETERS>
   </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="DynamicSaturation" pluginVersion="1.0.0">
+    <Meta name="Bouncing Drive" category="Drums" author="FROTH Audio" description="Bouncing Ball LFO kicks the drive in diminishing hops."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="drive" value="10"/>
+      <PARAM id="attack" value="2"/>
+      <PARAM id="lfo1Rate" value="1.5"/>
+      <PARAM id="lfo1Shape" value="7"/>
+      <PARAM id="mod1Target" value="1"/>
+      <PARAM id="mod1Amount" value="70"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="DynamicSaturation" pluginVersion="1.0.0">
+    <Meta name="Rectified Fold" category="Lo-Fi" author="FROTH Audio" description="A rectified LFO lifts the wavefolder from the floor up."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="drive" value="11"/>
+      <PARAM id="fold" value="5"/>
+      <PARAM id="tone" value="-0.2"/>
+      <PARAM id="lfo1Rate" value="0.8"/>
+      <PARAM id="lfo1Rectify" value="1"/>
+      <PARAM id="mod1Target" value="10"/>
+      <PARAM id="mod1Amount" value="60"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="DynamicSaturation" pluginVersion="1.0.0">
+    <Meta name="Quantised Bias" category="Character" author="FROTH Audio" description="The tube bias snaps through five stepped levels."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="drive" value="9"/>
+      <PARAM id="bias" value="0.12"/>
+      <PARAM id="lfo1Rate" value="1.2"/>
+      <PARAM id="lfo1Quantise" value="5"/>
+      <PARAM id="mod1Target" value="9"/>
+      <PARAM id="mod1Amount" value="50"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="DynamicSaturation" pluginVersion="1.0.0">
+    <Meta name="Smoothed Tone" category="Bright" author="FROTH Audio" description="A heavily smoothed LFO tilts the tone without corners."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="drive" value="6"/>
+      <PARAM id="tone" value="0"/>
+      <PARAM id="lfo2Rate" value="0.9"/>
+      <PARAM id="lfo2Smooth" value="0.8"/>
+      <PARAM id="mod2Source" value="1"/>
+      <PARAM id="mod2Target" value="11"/>
+      <PARAM id="mod2Amount" value="70"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="DynamicSaturation" pluginVersion="1.0.0">
+    <Meta name="Pulse Curve" category="Character" author="FROTH Audio" description="A narrow pulse gate steps the envelope curve."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="drive" value="8"/>
+      <PARAM id="curve" value="1.5"/>
+      <PARAM id="lfo1Rate" value="1"/>
+      <PARAM id="lfo1PulseWidth" value="0.3"/>
+      <PARAM id="mod1Target" value="12"/>
+      <PARAM id="mod1Amount" value="60"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="DynamicSaturation" pluginVersion="1.0.0">
+    <Meta name="Skewed Sensitivity" category="Subtle" author="FROTH Audio" description="A skewed LFO leans the envelope sensitivity into its rise."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="drive" value="5"/>
+      <PARAM id="sensitivity" value="0.4"/>
+      <PARAM id="lfo2Rate" value="0.5"/>
+      <PARAM id="lfo2Skew" value="0.6"/>
+      <PARAM id="mod2Source" value="1"/>
+      <PARAM id="mod2Target" value="2"/>
+      <PARAM id="mod2Amount" value="60"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="DynamicSaturation" pluginVersion="1.0.0">
+    <Meta name="Inverted Attack" category="Drums" author="FROTH Audio" description="The inverted waveform digs the attack deeper on the fall."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="drive" value="10"/>
+      <PARAM id="attack" value="12"/>
+      <PARAM id="release" value="90"/>
+      <PARAM id="lfo1Rate" value="0.9"/>
+      <PARAM id="lfo1Invert" value="1"/>
+      <PARAM id="mod1Target" value="5"/>
+      <PARAM id="mod1Amount" value="60"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="DynamicSaturation" pluginVersion="1.0.0">
+    <Meta name="Bouncing Bias" category="Character" author="FROTH Audio" description="Bouncing Ball bounces the tube bias off the rails."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="drive" value="12"/>
+      <PARAM id="bias" value="0.15"/>
+      <PARAM id="tone" value="0.2"/>
+      <PARAM id="lfo1Rate" value="0.7"/>
+      <PARAM id="lfo1Shape" value="7"/>
+      <PARAM id="mod1Target" value="9"/>
+      <PARAM id="mod1Amount" value="45"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="DynamicSaturation" pluginVersion="1.0.0">
+    <Meta name="Stepped Drive" category="Glitch" author="FROTH Audio" description="A quantised LFO stairs the drive in six levels."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="drive" value="12"/>
+      <PARAM id="mode" value="1"/>
+      <PARAM id="lfo1Rate" value="2.5"/>
+      <PARAM id="lfo1Quantise" value="6"/>
+      <PARAM id="mod1Target" value="1"/>
+      <PARAM id="mod1Amount" value="55"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="DynamicSaturation" pluginVersion="1.0.0">
+    <Meta name="Rectified Release" category="Ambient" author="FROTH Audio" description="Rectification folds the release time upward."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="drive" value="7"/>
+      <PARAM id="release" value="600"/>
+      <PARAM id="lfo1Rate" value="0.25"/>
+      <PARAM id="lfo1Rectify" value="1"/>
+      <PARAM id="mod1Target" value="6"/>
+      <PARAM id="mod1Amount" value="60"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="MicroTimingChaos" pluginVersion="1.0.0">
     <Meta name="Slow Orbit" category="Ambient" author="FROTH Audio" description="Slow, sparse orbit."/>
     <PARAMETERS suiteStateVersion="1">
@@ -878,6 +993,114 @@
       <PARAM id="mod1Amount" value="30"/>
     </PARAMETERS>
   </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="MicroTimingChaos" pluginVersion="1.0.0">
+    <Meta name="Bouncing Chaos" category="Experimental" author="FROTH Audio" description="Bouncing Ball bounces the chaos amount."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="chaos" value="50"/>
+      <PARAM id="lfo1Rate" value="1.2"/>
+      <PARAM id="lfo1Shape" value="7"/>
+      <PARAM id="mod1Target" value="1"/>
+      <PARAM id="mod1Amount" value="60"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="MicroTimingChaos" pluginVersion="1.0.0">
+    <Meta name="Bouncing Timing" category="Rhythmic" author="FROTH Audio" description="The ball's bounces stagger the timing range."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="timingRange" value="25"/>
+      <PARAM id="lfo1Rate" value="0.8"/>
+      <PARAM id="lfo1Shape" value="7"/>
+      <PARAM id="mod1Target" value="2"/>
+      <PARAM id="mod1Amount" value="70"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="MicroTimingChaos" pluginVersion="1.0.0">
+    <Meta name="Rectified Density" category="Techno" author="FROTH Audio" description="A rectified LFO pumps the density upward only."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="density" value="45"/>
+      <PARAM id="lfo1Rate" value="2"/>
+      <PARAM id="lfo1Rectify" value="1"/>
+      <PARAM id="mod1Target" value="8"/>
+      <PARAM id="mod1Amount" value="50"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="MicroTimingChaos" pluginVersion="1.0.0">
+    <Meta name="Quantised Gate" category="Glitch" author="FROTH Audio" description="The gate length snaps through six stepped values."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="rate" value="3"/>
+      <PARAM id="gate" value="50"/>
+      <PARAM id="lfo1Rate" value="3"/>
+      <PARAM id="lfo1Quantise" value="6"/>
+      <PARAM id="mod1Target" value="9"/>
+      <PARAM id="mod1Amount" value="60"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="MicroTimingChaos" pluginVersion="1.0.0">
+    <Meta name="Smoothed Lerp" category="Ambient" author="FROTH Audio" description="A heavily smoothed LFO eases the drift amount."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="lerp" value="30"/>
+      <PARAM id="lfo2Rate" value="0.4"/>
+      <PARAM id="lfo2Smooth" value="0.9"/>
+      <PARAM id="mod1Source" value="1"/>
+      <PARAM id="mod1Target" value="4"/>
+      <PARAM id="mod1Amount" value="50"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="MicroTimingChaos" pluginVersion="1.0.0">
+    <Meta name="Pulse Swing" category="Rhythmic" author="FROTH Audio" description="A narrow pulse flips the swing hard on the beat."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="swing" value="0"/>
+      <PARAM id="lfo1Sync" value="1"/>
+      <PARAM id="lfo1Division" value="4"/>
+      <PARAM id="lfo1PulseWidth" value="0.25"/>
+      <PARAM id="mod1Target" value="10"/>
+      <PARAM id="mod1Amount" value="100"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="MicroTimingChaos" pluginVersion="1.0.0">
+    <Meta name="Skewed Velocity" category="Melodic" author="FROTH Audio" description="The skew leans the velocity shape into its rise."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="baseVelocity" value="80"/>
+      <PARAM id="lfo1Rate" value="0.5"/>
+      <PARAM id="lfo1Skew" value="0.6"/>
+      <PARAM id="mod1Target" value="11"/>
+      <PARAM id="mod1Amount" value="40"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="MicroTimingChaos" pluginVersion="1.0.0">
+    <Meta name="Inverted Speed" category="Sparse" author="FROTH Audio" description="The inverted waveform drags the attractor speed down."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="density" value="35"/>
+      <PARAM id="speed" value="0.7"/>
+      <PARAM id="lfo1Rate" value="0.3"/>
+      <PARAM id="lfo1Invert" value="1"/>
+      <PARAM id="mod1Target" value="12"/>
+      <PARAM id="mod1Amount" value="60"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="MicroTimingChaos" pluginVersion="1.0.0">
+    <Meta name="Bouncing Gate" category="Glitch" author="FROTH Audio" description="Diminishing bounces shorten the gate."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="rate" value="2"/>
+      <PARAM id="gate" value="70"/>
+      <PARAM id="lfo2Rate" value="2"/>
+      <PARAM id="lfo2Shape" value="7"/>
+      <PARAM id="mod1Source" value="1"/>
+      <PARAM id="mod1Target" value="9"/>
+      <PARAM id="mod1Amount" value="-50"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="MicroTimingChaos" pluginVersion="1.0.0">
+    <Meta name="Stepped Chaos" category="Experimental" author="FROTH Audio" description="A quantised LFO stairs the chaos in eight levels."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="chaos" value="40"/>
+      <PARAM id="lerp" value="40"/>
+      <PARAM id="lfo2Rate" value="1"/>
+      <PARAM id="lfo2Quantise" value="8"/>
+      <PARAM id="mod1Source" value="1"/>
+      <PARAM id="mod1Target" value="1"/>
+      <PARAM id="mod1Amount" value="70"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="Sgraffito" pluginVersion="1.0.0">
     <Meta name="Glass Dust" category="Ambient" author="FROTH Audio" description="Slow, sparse cloud with long decay."/>
     <PARAMETERS suiteStateVersion="1" samplePath="embedded:glass_dust_4k.wav">
@@ -1086,6 +1309,128 @@
       <PARAM id="sliceCount" value="12"/>
       <PARAM id="dust" value="5"/>
       <PARAM id="wow" value="8"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="Sgraffito" pluginVersion="1.0.0">
+    <Meta name="Bouncing Dust" category="Experimental" author="FROTH Audio" description="Bouncing Ball hops the pitch centre over a plucked loop."/>
+    <PARAMETERS suiteStateVersion="1" samplePath="embedded:bouncing_dust_4k.wav">
+      <PARAM id="release" value="400"/>
+      <PARAM id="dust" value="8"/>
+      <PARAM id="lfo1Rate" value="1.4"/>
+      <PARAM id="lfo1Shape" value="7"/>
+      <PARAM id="mod1Target" value="3"/>
+      <PARAM id="mod1Amount" value="30"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="Sgraffito" pluginVersion="1.0.0">
+    <Meta name="Rectified Cloud" category="Ambient" author="FROTH Audio" description="A rectified LFO lifts the memory trace from silence."/>
+    <PARAMETERS suiteStateVersion="1" samplePath="embedded:rectified_cloud_4k.wav">
+      <PARAM id="release" value="1200"/>
+      <PARAM id="memoryAmount" value="30"/>
+      <PARAM id="memoryDecay" value="12"/>
+      <PARAM id="lfo1Rate" value="0.3"/>
+      <PARAM id="lfo1Rectify" value="1"/>
+      <PARAM id="mod1Target" value="9"/>
+      <PARAM id="mod1Amount" value="60"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="Sgraffito" pluginVersion="1.0.0">
+    <Meta name="Quantised Ghosts" category="Sparse" author="FROTH Audio" description="Ghost notes step through five threshold levels."/>
+    <PARAMETERS suiteStateVersion="1" samplePath="embedded:quantised_ghosts_4k.wav">
+      <PARAM id="release" value="500"/>
+      <PARAM id="ghostOn" value="1"/>
+      <PARAM id="ghostThreshold" value="70"/>
+      <PARAM id="lfo1Rate" value="1"/>
+      <PARAM id="lfo1Quantise" value="5"/>
+      <PARAM id="mod1Target" value="16"/>
+      <PARAM id="mod1Amount" value="50"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="Sgraffito" pluginVersion="1.0.0">
+    <Meta name="Smoothed Swell" category="Pads" author="FROTH Audio" description="A heavily smoothed LFO breathes the swell time."/>
+    <PARAMETERS suiteStateVersion="1" samplePath="embedded:smoothed_swell_4k.wav">
+      <PARAM id="mode" value="3"/>
+      <PARAM id="release" value="2000"/>
+      <PARAM id="memoryAmount" value="25"/>
+      <PARAM id="lfo2Rate" value="0.3"/>
+      <PARAM id="lfo2Smooth" value="0.9"/>
+      <PARAM id="mod1Source" value="1"/>
+      <PARAM id="mod1Target" value="21"/>
+      <PARAM id="mod1Amount" value="60"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="Sgraffito" pluginVersion="1.0.0">
+    <Meta name="Pulse Dust" category="Textural" author="FROTH Audio" description="A gated pulse raises the dust on every other step."/>
+    <PARAMETERS suiteStateVersion="1" samplePath="embedded:pulse_dust_4k.wav">
+      <PARAM id="dust" value="6"/>
+      <PARAM id="crackle" value="4"/>
+      <PARAM id="lfo1Rate" value="2"/>
+      <PARAM id="lfo1PulseWidth" value="0.4"/>
+      <PARAM id="mod1Target" value="22"/>
+      <PARAM id="mod1Amount" value="60"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="Sgraffito" pluginVersion="1.0.0">
+    <Meta name="Skewed Tape" category="Glitch" author="FROTH Audio" description="The skew leans a tape-stop wobble off centre."/>
+    <PARAMETERS suiteStateVersion="1" samplePath="embedded:skewed_tape_4k.wav">
+      <PARAM id="mode" value="1"/>
+      <PARAM id="tapeStopTime" value="200"/>
+      <PARAM id="sliceCount" value="8"/>
+      <PARAM id="wow" value="6"/>
+      <PARAM id="lfo1Rate" value="0.9"/>
+      <PARAM id="lfo1Skew" value="0.55"/>
+      <PARAM id="mod1Target" value="24"/>
+      <PARAM id="mod1Amount" value="45"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="Sgraffito" pluginVersion="1.0.0">
+    <Meta name="Bouncing Memory" category="Rhythmic" author="FROTH Audio" description="The ball's hops lift the memory amount in diminishing leaps."/>
+    <PARAMETERS suiteStateVersion="1" samplePath="embedded:bouncing_memory_4k.wav">
+      <PARAM id="release" value="350"/>
+      <PARAM id="memoryAmount" value="25"/>
+      <PARAM id="memoryDecay" value="9"/>
+      <PARAM id="lfo1Rate" value="1.1"/>
+      <PARAM id="lfo1Shape" value="7"/>
+      <PARAM id="mod1Target" value="9"/>
+      <PARAM id="mod1Amount" value="55"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="Sgraffito" pluginVersion="1.0.0">
+    <Meta name="Inverted Swell" category="Evolution" author="FROTH Audio" description="The inverted waveform pulls the swell down to rebuild it."/>
+    <PARAMETERS suiteStateVersion="1" samplePath="embedded:inverted_swell_4k.wav">
+      <PARAM id="mode" value="3"/>
+      <PARAM id="attack" value="180"/>
+      <PARAM id="release" value="1800"/>
+      <PARAM id="dust" value="10"/>
+      <PARAM id="lfo1Rate" value="0.25"/>
+      <PARAM id="lfo1Invert" value="1"/>
+      <PARAM id="mod1Target" value="21"/>
+      <PARAM id="mod1Amount" value="50"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="Sgraffito" pluginVersion="1.0.0">
+    <Meta name="Stepped Drift" category="Experimental" author="FROTH Audio" description="A quantised LFO stairs the wow through eight flat steps."/>
+    <PARAMETERS suiteStateVersion="1" samplePath="embedded:stepped_drift_4k.wav">
+      <PARAM id="release" value="800"/>
+      <PARAM id="memoryAmount" value="20"/>
+      <PARAM id="wow" value="12"/>
+      <PARAM id="lfo1Rate" value="0.8"/>
+      <PARAM id="lfo1Quantise" value="8"/>
+      <PARAM id="mod1Target" value="24"/>
+      <PARAM id="mod1Amount" value="60"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="Sgraffito" pluginVersion="1.0.0">
+    <Meta name="Pulse Ghosts" category="Echo" author="FROTH Audio" description="A narrow pulse gates the ghost threshold in and out."/>
+    <PARAMETERS suiteStateVersion="1" samplePath="embedded:pulse_ghosts_4k.wav">
+      <PARAM id="ghostOn" value="1"/>
+      <PARAM id="ghostThreshold" value="60"/>
+      <PARAM id="ghostDelay" value="36"/>
+      <PARAM id="crackle" value="6"/>
+      <PARAM id="lfo1Rate" value="1.6"/>
+      <PARAM id="lfo1PulseWidth" value="0.3"/>
+      <PARAM id="mod1Target" value="16"/>
+      <PARAM id="mod1Amount" value="65"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="MidiEffect" pluginVersion="1.0.0">

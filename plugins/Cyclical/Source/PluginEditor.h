@@ -10,6 +10,8 @@
 #include "LoopWaveformView.h"
 #include "PluginProcessor.h"
 #include "SuiteHeaderMenu.h"
+#include "SuiteModulationControls.h"
+#include "SuiteModulationPanel.h"
 #include "SuiteWidgets.h"
 #include "SuiteHelp.h"
 #include "SuiteLookAndFeel.h"
@@ -25,7 +27,7 @@ public:
     void paint (juce::Graphics&) override;
     void resized() override;
 
-    /** The page switch: 0..3 = SLOT 1..4 (plan 18 Phase 4; tests use it too). */
+    /** The page switch: 0..3 = SLOT 1..4, 4 = MOD (plan 18 Phase 6; tests use it too). */
     void setPage (int page);
     int getPage() const noexcept { return page; }
 
@@ -141,6 +143,14 @@ private:
 
     // The one global: master Output, shown on every slot page (plan 18 Phase 4).
     SuiteUI::LabelledSlider masterCtrl { "OUTPUT", juce::Slider::RotaryVerticalDrag };
+
+    // Plan 18 Phase 6: the MOD page — the shared panel and the control display.
+    SuiteModulation::ModulationPanel modulation { processor.getRouter(), modulationStyle() };
+    std::unique_ptr<SuiteModulation::ControlDisplay> controls;
+    juce::Rectangle<int> modulationGroupBounds;
+
+    /** The LFO colours of the modulation panel (tangerine, the plugin's accent). */
+    SuiteModulation::ModulationPanel::Style modulationStyle();
 
     // Attachments, built in the constructor once the widgets exist.
     std::vector<std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>> sliderAttachments;

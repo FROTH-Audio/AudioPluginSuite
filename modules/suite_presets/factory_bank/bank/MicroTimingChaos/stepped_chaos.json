@@ -1,0 +1,14 @@
+{
+  "_name": "Stepped Chaos",
+  "_category": "Experimental",
+  "_description": "A quantised LFO stairs the chaos in eight levels.",
+  "_plugin": "MicroTimingChaos",
+  "_pluginVersion": "1.0.0",
+  "chaos": 40.0,
+  "lerp": 40.0,
+  "lfo2Rate": 1.0,
+  "lfo2Quantise": 8,
+  "mod1Source": 1,
+  "mod1Target": 1,
+  "mod1Amount": 70.0
+}

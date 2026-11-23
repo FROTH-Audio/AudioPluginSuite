@@ -1,0 +1,14 @@
+{
+  "_name": "Bouncing Bias",
+  "_category": "Character",
+  "_description": "Bouncing Ball bounces the tube bias off the rails.",
+  "_plugin": "DynamicSaturation",
+  "_pluginVersion": "1.0.0",
+  "drive": 12.0,
+  "bias": 0.15,
+  "tone": 0.2,
+  "lfo1Rate": 0.7,
+  "lfo1Shape": 7,
+  "mod1Target": 9,
+  "mod1Amount": 45.0
+}

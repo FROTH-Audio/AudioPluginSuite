@@ -1,0 +1,15 @@
+{
+  "_name": "Quantised Ghosts",
+  "_category": "Sparse",
+  "_description": "Ghost notes step through five threshold levels.",
+  "_plugin": "Sgraffito",
+  "_pluginVersion": "1.0.0",
+  "_samplePath": "embedded:quantised_ghosts_4k.wav",
+  "release": 500.0,
+  "ghostOn": 1,
+  "ghostThreshold": 70.0,
+  "lfo1Rate": 1.0,
+  "lfo1Quantise": 5,
+  "mod1Target": 16,
+  "mod1Amount": 50.0
+}

@@ -67,11 +67,37 @@ namespace
     }
 }
 
+namespace
+{
+    /** Plan 18 Phase 6: the per-slot modulation targets, in ModTarget order (append-only;
+        the choice index is the position + 1). Level, Cutoff, Speed and Pan, one entry per
+        slot — the families whose values act per block. */
+    const SuiteModulation::TargetInfo modulationTargets[] {
+        { CyclicalProcessor::slotLevelIds[0],     "Level 1" },
+        { CyclicalProcessor::slotLevelIds[1],     "Level 2" },
+        { CyclicalProcessor::slotLevelIds[2],     "Level 3" },
+        { CyclicalProcessor::slotLevelIds[3],     "Level 4" },
+        { CyclicalProcessor::slotCutoffIds[0],    "Cutoff 1" },
+        { CyclicalProcessor::slotCutoffIds[1],    "Cutoff 2" },
+        { CyclicalProcessor::slotCutoffIds[2],    "Cutoff 3" },
+        { CyclicalProcessor::slotCutoffIds[3],    "Cutoff 4" },
+        { CyclicalProcessor::slotSpeedIds[0],     "Speed 1" },
+        { CyclicalProcessor::slotSpeedIds[1],     "Speed 2" },
+        { CyclicalProcessor::slotSpeedIds[2],     "Speed 3" },
+        { CyclicalProcessor::slotSpeedIds[3],     "Speed 4" },
+        { CyclicalProcessor::slotPanIds[0],       "Pan 1" },
+        { CyclicalProcessor::slotPanIds[1],       "Pan 2" },
+        { CyclicalProcessor::slotPanIds[2],       "Pan 3" },
+        { CyclicalProcessor::slotPanIds[3],       "Pan 4" },
+    };
+}
+
 //==============================================================================
 CyclicalProcessor::CyclicalProcessor()
     : AudioProcessor (BusesProperties()
                           .withOutput ("Output", juce::AudioChannelSet::stereo(), true)),
-      apvts (*this, nullptr, "PARAMETERS", createParameterLayout())
+      apvts (*this, nullptr, "PARAMETERS", createParameterLayout()),
+      modulation (apvts, modulationTargets, (int) std::size (modulationTargets), nullptr)
 {
     masterVolumeParam = apvts.getRawParameterValue (masterVolumeId);
 
@@ -273,7 +299,21 @@ juce::AudioProcessorValueTreeState::ParameterLayout CyclicalProcessor::createPar
             juce::NormalisableRange<float> (-100.0f, 100.0f, 0.1f), 0.0f, "%"));
     }
 
+    //---- Plan 18 Phase 6: the shared LFO and routing parameters (34 + the 12 transforms),
+    // appended last so no saved index moves.
+    SuiteModulation::Router::addParameters (params, modTargetNames());
+
     return { params.begin(), params.end() };
+}
+
+juce::StringArray CyclicalProcessor::modTargetNames()
+{
+    // Must follow the ModTarget enum order exactly.
+    return { "None",
+             "Level 1", "Level 2", "Level 3", "Level 4",
+             "Cutoff 1", "Cutoff 2", "Cutoff 3", "Cutoff 4",
+             "Speed 1", "Speed 2", "Speed 3", "Speed 4",
+             "Pan 1", "Pan 2", "Pan 3", "Pan 4" };
 }
 
 void CyclicalProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
@@ -359,6 +399,13 @@ void CyclicalProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mi
     for (auto& state : slotStates)
         for (auto& voice : state.voices)
             voice.prepare (preparedSampleRate);
+
+    //---- Plan 18 Phase 6: the modulation offsets. The delay clock runs from the first
+    // block (computeOffsets' zero arguments make the LFO phase read from the router's own
+    // accumulated cycles; the shared tempo fallback covers the synced LFOs).
+    const auto offsets = modulation.computeOffsets (0.0, 0.0, 0.0);
+    modulation.publish (offsets, 0.0, 0.0);
+    blockOffsets = offsets;
 
     //---- The per-slot beat clocks (plan 18 Phase 4). Each slot runs its own clock: the
     // host's position and tempo while THAT slot's Host Sync is on, its own Tempo parameter
@@ -575,7 +622,8 @@ void CyclicalProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mi
         }
 
         // The per-slot filter (plan 17 Phase 2, wired in plan 18): Off/HP/LP/BP with the
-        // slot's cutoff and resonance. Off skips the node.
+        // slot's cutoff and resonance — the cutoff moves with its routing offset (plan 18
+        // Phase 6). Off skips the node.
         const int filterIndex = juce::jlimit (0, 3, (int) (filterParams[i]->load() + 0.5f));
         if (filterIndex != 0)
         {
@@ -585,7 +633,8 @@ void CyclicalProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mi
                                                        : Type::bandpass);
 
             const float highestCorner = juce::jmin (20000.0f, 0.45f * (float) preparedSampleRate);
-            const float cutoff = juce::jlimit (20.0f, highestCorner, cutoffParams[i]->load());
+            const float cutoff = juce::jlimit (20.0f, highestCorner,
+                modulation.modulate ((int) ModTarget::Cutoff1 + slot, cutoffParams[i]->load(), offsets));
             slotFilters[i].setCutoffFrequency (cutoff);
             slotFilters[i].setResonance (juce::jlimit (0.5f, 10.0f, resoParams[i]->load()));
 
@@ -594,13 +643,16 @@ void CyclicalProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mi
                     scratch.setSample (ch, n, slotFilters[i].processSample (ch, scratch.getSample (ch, n)));
         }
 
-        // The per-slot level (plan 17 Phase 2), smoothed 20 ms like the master stage.
-        levelSmoothers[i].setTargetValue (
-            juce::jlimit (0.0f, 2.0f, levelParams[i]->load() / 100.0f));
+        // The per-slot level (plan 17 Phase 2), smoothed 20 ms — the level moves with its
+        // routing offset (plan 18 Phase 6). The jlimit is the parameter's own 0..200 %
+        // range, before the /100.
+        levelSmoothers[i].setTargetValue (juce::jlimit (0.0f, 200.0f,
+            modulation.modulate ((int) ModTarget::Level1 + slot, levelParams[i]->load(), offsets)) / 100.0f);
 
-        // The per-slot pan (plan 18 Phase 4): a constant-power law, smoothed 20 ms.
-        panSmoothers[i].setTargetValue (
-            juce::jlimit (-100.0f, 100.0f, panParams[i]->load()) / 100.0f);
+        // The per-slot pan (plan 18 Phase 4): a constant-power law, smoothed 20 ms, moved
+        // by its routing offset.
+        panSmoothers[i].setTargetValue (juce::jlimit (-100.0f, 100.0f,
+            modulation.modulate ((int) ModTarget::Pan1 + slot, panParams[i]->load(), offsets)) / 100.0f);
 
         const float panNorm = panSmoothers[i].getNextValue();
         const double angle = (double) (panNorm + 1.0f) * juce::MathConstants<double>::pi * 0.25;
@@ -651,6 +703,9 @@ void CyclicalProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mi
             slotClockBeats[i] += (double) numSamples / slotSamplesPerBeat[i];
     }
     beatPositionUiValue.store (slotClockBeats[0], std::memory_order_relaxed);
+
+    // Plan 18 Phase 6: the free LFOs advance at the end of the block (the suite rule).
+    modulation.advanceBlock (numSamples);
 }
 
 //==============================================================================
@@ -680,7 +735,9 @@ CoreDSP::Loop::Region CyclicalProcessor::regionFor (int slot, const CoreDSP::Loo
     }
     else
     {
-        region.speed = juce::jlimit (0.25, 4.0, (double) speedParams[(size_t) slot]->load());
+        // The speed moves with its routing offset (plan 18 Phase 6).
+        region.speed = juce::jlimit (0.25f, 4.0f,
+            modulation.modulate ((int) ModTarget::Speed1 + slot, speedParams[(size_t) slot]->load(), blockOffsets));
     }
 
     // Plan 14 Phase 3: a chopped slot plays slice k of its region. The slice boundaries

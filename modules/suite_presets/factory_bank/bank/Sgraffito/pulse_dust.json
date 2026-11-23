@@ -1,0 +1,14 @@
+{
+  "_name": "Pulse Dust",
+  "_category": "Textural",
+  "_description": "A gated pulse raises the dust on every other step.",
+  "_plugin": "Sgraffito",
+  "_pluginVersion": "1.0.0",
+  "_samplePath": "embedded:pulse_dust_4k.wav",
+  "dust": 6.0,
+  "crackle": 4.0,
+  "lfo1Rate": 2.0,
+  "lfo1PulseWidth": 0.4,
+  "mod1Target": 22,
+  "mod1Amount": 60.0
+}

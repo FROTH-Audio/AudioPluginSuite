@@ -1,0 +1,12 @@
+{
+  "_name": "Bouncing Chaos",
+  "_category": "Experimental",
+  "_description": "Bouncing Ball bounces the chaos amount.",
+  "_plugin": "MicroTimingChaos",
+  "_pluginVersion": "1.0.0",
+  "chaos": 50.0,
+  "lfo1Rate": 1.2,
+  "lfo1Shape": 7,
+  "mod1Target": 1,
+  "mod1Amount": 60.0
+}

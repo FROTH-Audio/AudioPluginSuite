@@ -1,0 +1,13 @@
+{
+  "_name": "Bouncing Drive",
+  "_category": "Drums",
+  "_description": "Bouncing Ball LFO kicks the drive in diminishing hops.",
+  "_plugin": "DynamicSaturation",
+  "_pluginVersion": "1.0.0",
+  "drive": 10.0,
+  "attack": 2.0,
+  "lfo1Rate": 1.5,
+  "lfo1Shape": 7,
+  "mod1Target": 1,
+  "mod1Amount": 70.0
+}

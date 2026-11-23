@@ -1,0 +1,16 @@
+{
+  "_name": "Inverted Swell",
+  "_category": "Evolution",
+  "_description": "The inverted waveform pulls the swell down to rebuild it.",
+  "_plugin": "Sgraffito",
+  "_pluginVersion": "1.0.0",
+  "_samplePath": "embedded:inverted_swell_4k.wav",
+  "mode": 3,
+  "attack": 180.0,
+  "release": 1800.0,
+  "dust": 10.0,
+  "lfo1Rate": 0.25,
+  "lfo1Invert": 1,
+  "mod1Target": 21,
+  "mod1Amount": 50.0
+}

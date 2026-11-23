@@ -1,0 +1,14 @@
+{
+  "_name": "Rectified Fold",
+  "_category": "Lo-Fi",
+  "_description": "A rectified LFO lifts the wavefolder from the floor up.",
+  "_plugin": "DynamicSaturation",
+  "_pluginVersion": "1.0.0",
+  "drive": 11.0,
+  "fold": 5.0,
+  "tone": -0.2,
+  "lfo1Rate": 0.8,
+  "lfo1Rectify": 1,
+  "mod1Target": 10,
+  "mod1Amount": 60.0
+}

@@ -8,28 +8,24 @@ are implemented and verified (CTest 28/28 on 2026-11-23).
 Naming: MidiTool = `plugins/MidiEffect`, MultiSat = `plugins/MultibandSaturation`.
 
 Status: proposed 2026-11-23. Every claim in §0 was checked against the code on 2026-11-23.
-**Progress 2026-11-23:** Phase 2 done (the MultiSat crossover marker reads the modulated
-value; render written). Phase 3 done (the Phase control is a **0–360° rotation knob on the
-right channel** — an all-pass pair calibrated at 1 kHz, the owner's pick over the polarity
-toggle — plus the LEVEL→MASTER rename, and the plan-17 Phase 8 DSP: the eight interest
-parameters are now implemented in `processBlock` with audio regression tests; the
-Mono-Maker default changed 200 Hz → 0 = Off to keep the identity contract, the routing
-table gained the missing Pan + eight targets, the IMAGE group grew to four knob rows and
-the window to 720×858 — **R4 gate approved by the owner 2026-11-23**). **Phase 4 done**
-(the owner's three §1 answers are in: the filter is the type selector + cutoff + reso;
-the former GLOBAL controls are **per-slot parameters that work independently** — Quantize,
-Swing, Trigger, Pitch, Crossfade, Tempo, Host Sync, Pan ×4, master Output the one global;
-the editor is four SLOT tabs, the GLOBAL page removed; the per-slot Level knob was already
-a parameter and is now visible and wired; the Phase-9 filter/attack/release/level params
-are wired into a per-slot render stage — scratch → filter → level → pan → master; the
-Cyclical count is 105). **Phase 5 done** (the region knobs — Start, Length, Slices, Slice
-Length, Beats — apply live: a knob release that moved the value retriggers the slot's
-voice, the plan-16 retransform pattern; the per-slot Release default is 5 ms, matching the
-engine's old feel). The bank schema covers every live ID; `audit_bank.py` passes with 210
-presets (the Cyclical presets' former global values now apply to all four slots). CTest
-28/28. **R4 gate: the owner approves the new Cyclical window (1000×994) from
-`build/renders/plan18/cyclical-slots.png`.** Phases 1 (transform UI), 6 (Cyclical MOD
-page), 7–9 open.
+**Progress 2026-11-23:** Phases 2-5 done (see below). **Phase 1 done** (the shared LFO
+strips carry the transform row: INVERT/RECT pills + the Quantise/Smooth and Pulse/Skew
+mini sliders, with help texts; the scope draws the transformed output live; the panel's
+preferred height grew 140 → 200; SD's window is 750 so the MOD page fits, DS/MTS/
+Sgraffito/StereoTool/MultiSat already had the room; the panel render is checked in
+`build/renders/plan18/`). **Phase 6 done** (Cyclical joins the router with **16 per-slot
+targets** — Level, Cutoff, Speed and Pan, one entry per slot; `modulationTargets` +
+`modTargetNames` + a `ModTarget` enum; the MOD page is the fifth tab with the shared
+panel + ControlDisplay over the per-slot knobs; computeOffsets/publish/advanceBlock in
+`processBlock`; Level/Cutoff/Pan read through `modulate` per slot, Speed through
+`blockOffsets` in `regionFor`; numControls 105 → 151; the schema covers the router block,
+audit passes; the page selector widened for the five tabs). **Phase 7 done** (+10 presets
+each for DS, Sgraffito and MTC focused on Bouncing Ball and the transforms; ten new
+Sgraffito sample recipes generated and added to the CMake ASSETS; the bank is 240, audit
+passes; the audit's expected counts updated). CTest 28/28; Cyclical's render set grew a
+MOD page and a SLOT 2 page; one real bug found and fixed on the way: the per-slot Level's
+`jlimit` clamped the 0-200 % value at 2 before the /100 (the router wiring exposed it).
+Phases 8-9 (docs, housekeeping) remain.
 
 ---
 

@@ -7,7 +7,9 @@ namespace SuiteModulation
     namespace
     {
         // Layout constants. These match the Micro-Timing Chaos panel as it was tuned on screen.
-        constexpr int lfoBlockHeight = 140;
+        // Plan 18 Phase 1: the strip gains the transform rows (Invert/Rectify pills and the
+        // Quantise/Smooth/Pulse/Skew mini sliders), so the LFO block grows 140 -> 200.
+        constexpr int lfoBlockHeight = 200;
         constexpr int knobWidth = 110;
         constexpr int scopeHeight = 46;
         constexpr int controlHeight = 26;
@@ -40,6 +42,15 @@ namespace SuiteModulation
         const std::array<const char*, Router::lfoCount> lfoDivisionIds { "lfo1Division", "lfo2Division" };
         const std::array<const char*, Router::lfoCount> lfoOffsetIds { "lfo1Offset", "lfo2Offset" };
 
+        // Plan 17 Phase 7 + plan 18 Phase 1: the per-LFO waveform transforms. The defaults
+        // are neutral (off / zero), so an untouched strip leaves the waveform unchanged.
+        const std::array<const char*, Router::lfoCount> lfoInvertIds { "lfo1Invert", "lfo2Invert" };
+        const std::array<const char*, Router::lfoCount> lfoRectifyIds { "lfo1Rectify", "lfo2Rectify" };
+        const std::array<const char*, Router::lfoCount> lfoQuantiseIds { "lfo1Quantise", "lfo2Quantise" };
+        const std::array<const char*, Router::lfoCount> lfoSmoothIds { "lfo1Smooth", "lfo2Smooth" };
+        const std::array<const char*, Router::lfoCount> lfoPulseIds { "lfo1PulseWidth", "lfo2PulseWidth" };
+        const std::array<const char*, Router::lfoCount> lfoSkewIds { "lfo1Skew", "lfo2Skew" };
+
         constexpr int offsetLabelWidth = 64;
         constexpr int offsetTextWidth = 60;
 
@@ -67,7 +78,11 @@ namespace SuiteModulation
         LfoStrip (Router& router, int index, const ModulationPanel::Style& style)
             : rate ("RATE", juce::Slider::RotaryVerticalDrag),
               scope (router, index, style.lfoColours[index], style.panel, style.track),
-              offset (juce::Slider::LinearHorizontal, juce::Slider::TextBoxRight)
+              offset (juce::Slider::LinearHorizontal, juce::Slider::TextBoxRight),
+              quantise (juce::Slider::LinearHorizontal, juce::Slider::NoTextBox),
+              smooth (juce::Slider::LinearHorizontal, juce::Slider::NoTextBox),
+              pulse (juce::Slider::LinearHorizontal, juce::Slider::NoTextBox),
+              skew (juce::Slider::LinearHorizontal, juce::Slider::NoTextBox)
         {
             const auto i = (size_t) index;
             auto& state = router.getState();
@@ -85,11 +100,30 @@ namespace SuiteModulation
             offset.setTextValueSuffix (" %");
             offset.setNumDecimalPlacesToDisplay (0);
 
+            // The transform pills and mini sliders (plan 18 Phase 1). The sliders have no
+            // text boxes: the scope above shows the transformed waveform live.
+            invertToggle.setClickingTogglesState (true);
+            rectifyToggle.setClickingTogglesState (true);
+            for (auto* toggle : { &invertToggle, &rectifyToggle })
+                toggle->setColour (juce::ToggleButton::textColourId, style.textDim);
+            for (auto* slider : { &quantise, &smooth, &pulse, &skew })
+            {
+                slider->setColour (juce::Slider::trackColourId, style.track);
+                slider->setColour (juce::Slider::thumbColourId, style.lfoColours[index]);
+                slider->setWantsKeyboardFocus (true);
+            }
+
             rateAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (state, lfoRateIds[i], rate.slider);
             shapeAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (state, lfoShapeIds[i], shape);
             syncAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (state, lfoSyncIds[i], sync);
             divisionAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (state, lfoDivisionIds[i], division);
             offsetAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (state, lfoOffsetIds[i], offset);
+            invertAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (state, lfoInvertIds[i], invertToggle);
+            rectifyAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (state, lfoRectifyIds[i], rectifyToggle);
+            quantiseAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (state, lfoQuantiseIds[i], quantise);
+            smoothAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (state, lfoSmoothIds[i], smooth);
+            pulseAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (state, lfoPulseIds[i], pulse);
+            skewAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (state, lfoSkewIds[i], skew);
 
             rate.setHelpText (name + " rate in Hz. Disabled while Sync is on.");
             rate.slider.setHelpText (name + " rate in Hz. Disabled while Sync is on.");
@@ -97,7 +131,13 @@ namespace SuiteModulation
             offset.setHelpText (name + " offset, from -100 % to +100 %. It moves the waveform up or down before routing, and the output stops at -1 and +1.");
             sync.setHelpText (name + " follows the host tempo. The division then sets the cycle length.");
             division.setHelpText (name + " cycle length in bars or beats. Used only while Sync is on.");
-            scope.setHelpText (name + " shape. The dot shows where the LFO is now.");
+            scope.setHelpText (name + " shape after the transforms. The dot shows where the LFO is now.");
+            invertToggle.setHelpText (name + " invert: the waveform is negated before routing.");
+            rectifyToggle.setHelpText (name + " rectify: the waveform folds into the upper half (with Invert, the lower half).");
+            quantise.setHelpText (name + " quantise: the waveform snaps to this many steps per cycle. 0 is off.");
+            smooth.setHelpText (name + " smooth: rounds the waveform's sharp corners. 0 is off.");
+            pulse.setHelpText (name + " pulse width: the shape reads as a pulse, high while the phase is inside the width. 0 is off.");
+            skew.setHelpText (name + " skew: leans the waveform left or right in the cycle. 0 is off.");
 
             addAndMakeVisible (rate);
             addAndMakeVisible (shape);
@@ -106,13 +146,20 @@ namespace SuiteModulation
             addAndMakeVisible (sync);
             addAndMakeVisible (division);
             addAndMakeVisible (scope);
+            addAndMakeVisible (invertToggle);
+            addAndMakeVisible (rectifyToggle);
+            addAndMakeVisible (quantise);
+            addAndMakeVisible (smooth);
+            addAndMakeVisible (pulse);
+            addAndMakeVisible (skew);
         }
 
         void resized() override
         {
             auto area = getLocalBounds();
 
-            // Rate knob on the left, the scope, then shape with offset, sync and division on the right
+            // Rate knob on the left, the scope, then shape with offset, sync, division and
+            // the two transform rows (plan 18 Phase 1) on the right.
             rate.setBounds (area.removeFromLeft (knobWidth));
             area.removeFromLeft (gap);
 
@@ -132,6 +179,26 @@ namespace SuiteModulation
             sync.setBounds (row.removeFromLeft (row.getWidth() / 2));
             row.removeFromLeft (4);
             division.setBounds (row);
+            area.removeFromTop (4);
+
+            // Transform row A: the two polarity pills and the quantise/smooth pair.
+            auto transformA = area.removeFromTop (controlHeight);
+            invertToggle.setBounds (transformA.removeFromLeft (52));
+            transformA.removeFromLeft (4);
+            rectifyToggle.setBounds (transformA.removeFromLeft (52));
+            transformA.removeFromLeft (4);
+            const int halfA = transformA.getWidth() / 2;
+            quantise.setBounds (transformA.removeFromLeft (halfA));
+            transformA.removeFromLeft (4);
+            smooth.setBounds (transformA);
+            area.removeFromTop (4);
+
+            // Transform row B: pulse width and skew, full width each.
+            auto transformB = area.removeFromTop (controlHeight);
+            const int halfB = transformB.getWidth() / 2;
+            pulse.setBounds (transformB.removeFromLeft (halfB));
+            transformB.removeFromLeft (4);
+            skew.setBounds (transformB);
         }
 
         SuiteModulation::LfoScope& getScope() noexcept { return scope; }
@@ -144,11 +211,22 @@ namespace SuiteModulation
         juce::Label offsetLabel;
         juce::Slider offset;
 
+        // Plan 18 Phase 1: the transform strip (the scope draws the transformed output).
+        juce::ToggleButton invertToggle { "INVERT" };
+        juce::ToggleButton rectifyToggle { "RECT" };
+        juce::Slider quantise, smooth, pulse, skew;
+
         std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> rateAttachment;
         std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> shapeAttachment;
         std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> syncAttachment;
         std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> divisionAttachment;
         std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> offsetAttachment;
+        std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> invertAttachment;
+        std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> rectifyAttachment;
+        std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> quantiseAttachment;
+        std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> smoothAttachment;
+        std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> pulseAttachment;
+        std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> skewAttachment;
     };
 
     //==============================================================================

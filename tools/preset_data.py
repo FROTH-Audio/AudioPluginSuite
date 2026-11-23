@@ -248,6 +248,8 @@ SCHEMA = {
                "Sync": {"min": 0, "max": 1, "default": 0, "type": "choice"},
                "Pan": {"min": -100.0, "max": 100.0, "default": 0.0, "type": "float"},
            }.items()},
+        # Plan 18 Phase 6: the shared LFO/routing parameters (16 per-slot targets + None).
+        **_routing(16),
     },
 }
 
@@ -382,6 +384,28 @@ PRESETS = {
                 lfo1Rate=0.3, lfo1Shape=2, mod1Target=12, mod1Amount=80.0, curve=1.0, drive=9.0),
         _preset("Drive Sweeper", "Mix bus", "Synced triangle LFO sweeps the drive.",
                 lfo1Rate=2.0, lfo1Shape=1, lfo1Sync=1, lfo1Division=5, mod1Target=1, mod1Amount=80.0, drive=6.0),
+        # Plan 18 Phase 7: 10 more, focused on the new LFO waveforms and the transforms
+        # (Bouncing Ball = shape 7; Invert/Rectify/Quantise/Smooth/Pulse/Skew per LFO).
+        _preset("Bouncing Drive", "Drums", "Bouncing Ball LFO kicks the drive in diminishing hops.",
+                lfo1Rate=1.5, lfo1Shape=7, mod1Target=1, mod1Amount=70.0, drive=10.0, attack=2.0),
+        _preset("Rectified Fold", "Lo-Fi", "A rectified LFO lifts the wavefolder from the floor up.",
+                lfo1Rectify=1, lfo1Rate=0.8, mod1Target=10, mod1Amount=60.0, fold=5.0, drive=11.0, tone=-0.2),
+        _preset("Quantised Bias", "Character", "The tube bias snaps through five stepped levels.",
+                lfo1Quantise=5, lfo1Rate=1.2, mod1Target=9, mod1Amount=50.0, bias=0.12, drive=9.0),
+        _preset("Smoothed Tone", "Bright", "A heavily smoothed LFO tilts the tone without corners.",
+                lfo2Smooth=0.8, lfo2Rate=0.9, mod2Source=1, mod2Target=11, mod2Amount=70.0, tone=0.0, drive=6.0),
+        _preset("Pulse Curve", "Character", "A narrow pulse gate steps the envelope curve.",
+                lfo1PulseWidth=0.3, lfo1Rate=1.0, mod1Target=12, mod1Amount=60.0, curve=1.5, drive=8.0),
+        _preset("Skewed Sensitivity", "Subtle", "A skewed LFO leans the envelope sensitivity into its rise.",
+                lfo2Skew=0.6, lfo2Rate=0.5, mod2Source=1, mod2Target=2, mod2Amount=60.0, sensitivity=0.4, drive=5.0),
+        _preset("Inverted Attack", "Drums", "The inverted waveform digs the attack deeper on the fall.",
+                lfo1Invert=1, lfo1Rate=0.9, mod1Target=5, mod1Amount=60.0, attack=12.0, drive=10.0, release=90.0),
+        _preset("Bouncing Bias", "Character", "Bouncing Ball bounces the tube bias off the rails.",
+                lfo1Shape=7, lfo1Rate=0.7, mod1Target=9, mod1Amount=45.0, bias=0.15, drive=12.0, tone=0.2),
+        _preset("Stepped Drive", "Glitch", "A quantised LFO stairs the drive in six levels.",
+                lfo1Quantise=6, lfo1Rate=2.5, mod1Target=1, mod1Amount=55.0, drive=12.0, mode=1),
+        _preset("Rectified Release", "Ambient", "Rectification folds the release time upward.",
+                lfo1Rectify=1, lfo1Rate=0.25, mod1Target=6, mod1Amount=60.0, release=600.0, drive=7.0),
     ],
     "MicroTimingChaos": [
         _preset("Slow Orbit", "Ambient", "Slow, sparse orbit.", speed=0.5, lerp=40.0, density=50.0),
@@ -414,6 +438,27 @@ PRESETS = {
         _preset("Frozen Pattern", "Utility", "The pattern without any drift.", lerp=0.0),
         _preset("Seed 42 Dense", "Utility", "The default seed, much denser.", density=90.0),
         _preset("Tempo Rider", "Utility", "Triangle LFO moves the tempo.", lfo2Shape=1, mod1Source=1, mod1Target=13, mod1Amount=30.0),
+        # Plan 18 Phase 7: 10 more, focused on the new LFO waveforms and the transforms.
+        _preset("Bouncing Chaos", "Experimental", "Bouncing Ball bounces the chaos amount.",
+                lfo1Shape=7, lfo1Rate=1.2, mod1Target=1, mod1Amount=60.0, chaos=50.0),
+        _preset("Bouncing Timing", "Rhythmic", "The ball's bounces stagger the timing range.",
+                lfo1Shape=7, lfo1Rate=0.8, mod1Target=2, mod1Amount=70.0, timingRange=25.0),
+        _preset("Rectified Density", "Techno", "A rectified LFO pumps the density upward only.",
+                lfo1Rectify=1, lfo1Rate=2.0, mod1Target=8, mod1Amount=50.0, density=45.0),
+        _preset("Quantised Gate", "Glitch", "The gate length snaps through six stepped values.",
+                lfo1Quantise=6, lfo1Rate=3.0, mod1Target=9, mod1Amount=60.0, gate=50.0, rate=3),
+        _preset("Smoothed Lerp", "Ambient", "A heavily smoothed LFO eases the drift amount.",
+                lfo2Smooth=0.9, lfo2Rate=0.4, mod1Source=1, mod1Target=4, mod1Amount=50.0, lerp=30.0),
+        _preset("Pulse Swing", "Rhythmic", "A narrow pulse flips the swing hard on the beat.",
+                lfo1PulseWidth=0.25, lfo1Sync=1, lfo1Division=4, mod1Target=10, mod1Amount=100.0, swing=0.0),
+        _preset("Skewed Velocity", "Melodic", "The skew leans the velocity shape into its rise.",
+                lfo1Skew=0.6, lfo1Rate=0.5, mod1Target=11, mod1Amount=40.0, baseVelocity=80),
+        _preset("Inverted Speed", "Sparse", "The inverted waveform drags the attractor speed down.",
+                lfo1Invert=1, lfo1Rate=0.3, mod1Target=12, mod1Amount=60.0, speed=0.7, density=35.0),
+        _preset("Bouncing Gate", "Glitch", "Diminishing bounces shorten the gate.",
+                lfo2Shape=7, lfo2Rate=2.0, mod1Source=1, mod1Target=9, mod1Amount=-50.0, gate=70.0, rate=2),
+        _preset("Stepped Chaos", "Experimental", "A quantised LFO stairs the chaos in eight levels.",
+                lfo2Quantise=8, lfo2Rate=1.0, mod1Source=1, mod1Target=1, mod1Amount=70.0, chaos=40.0, lerp=40.0),
     ],
     "Sgraffito": [
         _preset("Glass Dust", "Ambient", "Slow, sparse cloud with long decay.", sample_path="embedded:glass_dust_4k.wav", grainSize=90.0, grainDensity=8.0, grainSpread=55.0, memoryDecay=8.0, release=800.0),
@@ -436,6 +481,19 @@ PRESETS = {
         _preset("Held Breath", "Pads", "Latched voices holding through the memory decay.", sample_path="embedded:held_breath_4k.wav", sustainHold=1, memoryAmount=40.0, memoryDecay=30.0, attack=150.0, release=2500.0),
         _preset("Fine Grained Drift", "Experimental", "Fine pitch and velocity shaping over a drifting memory.", sample_path="embedded:fine_grained_drift_4k.wav", pitchFine=40.0, velocityCurve=1.5, memoryAmount=35.0, memoryDecay=15.0, attack=60.0, release=600.0, flutter=5.0),
         _preset("Slow Attack Tape", "Glitch", "Tape stop that eases in with a long attack and release.", sample_path="embedded:slow_attack_tape_4k.wav", mode=1, sliceCount=12, tapeStopTime=250.0, tapeStopCurve=1, attack=200.0, release=1200.0, dust=5.0, wow=8.0),
+        # Plan 18 Phase 7: 10 more, one generated sample each, focused on the new LFO
+        # waveforms and the transforms (mod targets: 3 Root Key, 9 Memory, 16 Ghost
+        # Threshold, 18 Grain Size, 21 Swell Time, 22 Dust, 24 Wow).
+        _preset("Bouncing Dust", "Experimental", "Bouncing Ball hops the pitch centre over a plucked loop.", sample_path="embedded:bouncing_dust_4k.wav", lfo1Shape=7, lfo1Rate=1.4, mod1Target=3, mod1Amount=30.0, dust=8.0, release=400.0),
+        _preset("Rectified Cloud", "Ambient", "A rectified LFO lifts the memory trace from silence.", sample_path="embedded:rectified_cloud_4k.wav", lfo1Rectify=1, lfo1Rate=0.3, mod1Target=9, mod1Amount=60.0, memoryAmount=30.0, memoryDecay=12.0, release=1200.0),
+        _preset("Quantised Ghosts", "Sparse", "Ghost notes step through five threshold levels.", sample_path="embedded:quantised_ghosts_4k.wav", lfo1Quantise=5, lfo1Rate=1.0, mod1Target=16, mod1Amount=50.0, ghostOn=1, ghostThreshold=70.0, release=500.0),
+        _preset("Smoothed Swell", "Pads", "A heavily smoothed LFO breathes the swell time.", sample_path="embedded:smoothed_swell_4k.wav", lfo2Smooth=0.9, lfo2Rate=0.3, mod1Source=1, mod1Target=21, mod1Amount=60.0, mode=3, release=2000.0, memoryAmount=25.0),
+        _preset("Pulse Dust", "Textural", "A gated pulse raises the dust on every other step.", sample_path="embedded:pulse_dust_4k.wav", lfo1PulseWidth=0.4, lfo1Rate=2.0, mod1Target=22, mod1Amount=60.0, dust=6.0, crackle=4.0),
+        _preset("Skewed Tape", "Glitch", "The skew leans a tape-stop wobble off centre.", sample_path="embedded:skewed_tape_4k.wav", lfo1Skew=0.55, lfo1Rate=0.9, mod1Target=24, mod1Amount=45.0, mode=1, sliceCount=8, tapeStopTime=200.0, wow=6.0),
+        _preset("Bouncing Memory", "Rhythmic", "The ball's hops lift the memory amount in diminishing leaps.", sample_path="embedded:bouncing_memory_4k.wav", lfo1Shape=7, lfo1Rate=1.1, mod1Target=9, mod1Amount=55.0, memoryAmount=25.0, memoryDecay=9.0, release=350.0),
+        _preset("Inverted Swell", "Evolution", "The inverted waveform pulls the swell down to rebuild it.", sample_path="embedded:inverted_swell_4k.wav", lfo1Invert=1, lfo1Rate=0.25, mod1Target=21, mod1Amount=50.0, mode=3, attack=180.0, release=1800.0, dust=10.0),
+        _preset("Stepped Drift", "Experimental", "A quantised LFO stairs the wow through eight flat steps.", sample_path="embedded:stepped_drift_4k.wav", lfo1Quantise=8, lfo1Rate=0.8, mod1Target=24, mod1Amount=60.0, wow=12.0, memoryAmount=20.0, release=800.0),
+        _preset("Pulse Ghosts", "Echo", "A narrow pulse gates the ghost threshold in and out.", sample_path="embedded:pulse_ghosts_4k.wav", lfo1PulseWidth=0.3, lfo1Rate=1.6, mod1Target=16, mod1Amount=65.0, ghostOn=1, ghostThreshold=60.0, ghostDelay=36.0, crackle=6.0),
     ],
     # Plan 6.1: the chord/arp engine. Every preset runs arpMode=Arp (1), so none equals
     # the default (Chord) state. Bank order is append-only.

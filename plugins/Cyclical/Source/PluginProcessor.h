@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "LoopSlot.h"
+#include "SuiteModulationRouter.h"
 #include "SuitePresets.h"
 #include "SuiteState.h"
 
@@ -32,7 +33,50 @@ class CyclicalProcessor : public juce::AudioProcessor,
 {
 public:
     static constexpr int numSlots = 4;
-    static constexpr int numControls = 105;   // 73 - 8 globals + 32 per-slot + 8 cutoff/reso (plan 18 Phase 4)
+    static constexpr int numControls = 151;   // 105 + 46 plan-18 Phase 6 (the router's 34 + 12 transforms)
+
+    /** The 16 per-slot modulation targets (plan 18 Phase 6, append-only): Level, Cutoff,
+        Speed and Pan, one entry per slot — the families whose values act per block. */
+    enum class ModTarget
+    {
+        None = 0,
+        Level1, Level2, Level3, Level4,
+        Cutoff1, Cutoff2, Cutoff3, Cutoff4,
+        Speed1, Speed2, Speed3, Speed4,
+        Pan1, Pan2, Pan3, Pan4,
+        count
+    };
+
+    static juce::StringArray modTargetNames();
+
+    // The shared router's parameter IDs (the SD/MTC alias pattern): the LFOs, the six
+    // routing slots and the plan-17 transforms. Tests and presets reference them by name.
+    static constexpr const char* lfo1RateId = "lfo1Rate";
+    static constexpr const char* lfo1ShapeId = "lfo1Shape";
+    static constexpr const char* lfo1SyncId = "lfo1Sync";
+    static constexpr const char* lfo1DivisionId = "lfo1Division";
+    static constexpr const char* lfo1OffsetId = "lfo1Offset";
+    static constexpr const char* lfo1InvertId = "lfo1Invert";
+    static constexpr const char* lfo1RectifyId = "lfo1Rectify";
+    static constexpr const char* lfo1QuantiseId = "lfo1Quantise";
+    static constexpr const char* lfo1SmoothId = "lfo1Smooth";
+    static constexpr const char* lfo1PulseWidthId = "lfo1PulseWidth";
+    static constexpr const char* lfo1SkewId = "lfo1Skew";
+    static constexpr const char* lfo2RateId = "lfo2Rate";
+    static constexpr const char* lfo2ShapeId = "lfo2Shape";
+    static constexpr const char* lfo2SyncId = "lfo2Sync";
+    static constexpr const char* lfo2DivisionId = "lfo2Division";
+    static constexpr const char* lfo2OffsetId = "lfo2Offset";
+    static constexpr const char* lfo2InvertId = "lfo2Invert";
+    static constexpr const char* lfo2RectifyId = "lfo2Rectify";
+    static constexpr const char* lfo2QuantiseId = "lfo2Quantise";
+    static constexpr const char* lfo2SmoothId = "lfo2Smooth";
+    static constexpr const char* lfo2PulseWidthId = "lfo2PulseWidth";
+    static constexpr const char* lfo2SkewId = "lfo2Skew";
+    static constexpr const char* modSourceIds[6] = { "mod1Source", "mod2Source", "mod3Source", "mod4Source", "mod5Source", "mod6Source" };
+    static constexpr const char* modTargetIds[6] = { "mod1Target", "mod2Target", "mod3Target", "mod4Target", "mod5Target", "mod6Target" };
+    static constexpr const char* modAmountIds[6] = { "mod1Amount", "mod2Amount", "mod3Amount", "mod4Amount", "mod5Amount", "mod6Amount" };
+    static constexpr const char* modDelayIds[6] = { "mod1Delay", "mod2Delay", "mod3Delay", "mod4Delay", "mod5Delay", "mod6Delay" };
     static constexpr int maxSlices = 16;
     static constexpr int firstSlotNote = 60;      // the default base: C4..D#4 = slots 1..4
 
@@ -241,6 +285,15 @@ public:
         key slotNote + k triggers slice k. */
     int slotNote (int slot) const;
 
+    /** The shared LFO and routing module (plan 18 Phase 6). */
+    SuiteModulation::Router& getRouter() noexcept { return modulation; }
+
+    /** The value a control shows right now: its base value moved by the routing offset. */
+    float getModulatedValue (ModTarget target) const
+    {
+        return modulation.getModulatedValue ((int) target);
+    }
+
     /** The musical length of the slot's whole loaded loop, in beats (plan 14). */
     int slotBeats (int slot) const;
 
@@ -422,6 +475,14 @@ private:
     // is synced and the host reports one, the slot's Tempo parameter otherwise. regionFor
     // reads it for the synced loop rate. Audio thread only.
     std::array<double, numSlots> slotBpmNow { 120.0, 120.0, 120.0, 120.0 };
+
+    // Plan 18 Phase 6: the shared LFO and routing module. Declared after apvts, so the
+    // router can read the parameters it belongs to.
+    SuiteModulation::Router modulation;
+
+    // The offsets of the current block (plan 18 Phase 6): regionFor reads them when a
+    // voice starts, so a routed Speed is heard from the trigger. Audio thread only.
+    SuiteModulation::Router::Offsets blockOffsets {};
 
     // The background loop loader. Declared last, so it is destroyed first and waits for
     // its jobs before the members it touches go away.

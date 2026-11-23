@@ -17,7 +17,7 @@ namespace
 namespace
 {
     constexpr int editorWidth = 720;
-    constexpr int editorHeight = 660;
+    constexpr int editorHeight = 750;   // plan 18 Phase 1: the MOD panel gained the transform rows (378 + frame = 414)
     constexpr double fallbackSampleRate = 48000.0;
     constexpr float signalThreshold = 1.0e-4f;
 
@@ -50,7 +50,7 @@ SpectralDriftEditor::SpectralDriftEditor (SpectralDriftProcessor& p)
 
     setSize (editorWidth, editorHeight);
     setResizable (true, true);
-    setResizeLimits (620, 660, 1200, 1200);
+    setResizeLimits (620, 750, 1200, 1200);
 
     // The shared help line (plan 12): the footer sentence is the idle text, and hovering
     // a control without help text returns to it.

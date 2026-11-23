@@ -13,6 +13,9 @@ suite_add_plugin(
     TEST_SOURCES    tests/PluginTests.cpp
     # R13: the hamburger menu's Settings... entry needs the shared settings store.
     SETTINGS
+    # Plan 18 Phase 6: the modulation page — two LFOs (with the transforms) and six
+    # routing slots over the per-slot controls.
+    MODULATION
     IS_SYNTH        NEEDS_MIDI_INPUT
     LOCKUP          ${CMAKE_SOURCE_DIR}/modules/suite_ui/brand/lockup_cyclical.png
     ASSETS          Resources/samples/kick_4k.wav

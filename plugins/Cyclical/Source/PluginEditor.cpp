@@ -397,12 +397,36 @@ CyclicalEditor::CyclicalEditor (CyclicalProcessor& p)
     bind (Processor::masterVolumeId, masterCtrl.slider);
     SuiteUI::describe (masterCtrl, "Output level of the whole instrument.");
 
+    // Plan 18 Phase 6: the MOD page (the panel is built as a member; the display wires
+    // the per-slot knobs to their routing targets).
+    addAndMakeVisible (modulation);
+    controls = std::make_unique<SuiteModulation::ControlDisplay> (processor.getRouter(),
+        std::vector<SuiteModulation::ControlDisplay::Entry> {
+            { cards[0]->level.slider,  (int) CyclicalProcessor::ModTarget::Level1 },
+            { cards[1]->level.slider,  (int) CyclicalProcessor::ModTarget::Level2 },
+            { cards[2]->level.slider,  (int) CyclicalProcessor::ModTarget::Level3 },
+            { cards[3]->level.slider,  (int) CyclicalProcessor::ModTarget::Level4 },
+            { cards[0]->cutoff.slider, (int) CyclicalProcessor::ModTarget::Cutoff1 },
+            { cards[1]->cutoff.slider, (int) CyclicalProcessor::ModTarget::Cutoff2 },
+            { cards[2]->cutoff.slider, (int) CyclicalProcessor::ModTarget::Cutoff3 },
+            { cards[3]->cutoff.slider, (int) CyclicalProcessor::ModTarget::Cutoff4 },
+            { cards[0]->speed.slider,  (int) CyclicalProcessor::ModTarget::Speed1 },
+            { cards[1]->speed.slider,  (int) CyclicalProcessor::ModTarget::Speed2 },
+            { cards[2]->speed.slider,  (int) CyclicalProcessor::ModTarget::Speed3 },
+            { cards[3]->speed.slider,  (int) CyclicalProcessor::ModTarget::Speed4 },
+            { cards[0]->panCtrl.slider, (int) CyclicalProcessor::ModTarget::Pan1 },
+            { cards[1]->panCtrl.slider, (int) CyclicalProcessor::ModTarget::Pan2 },
+            { cards[2]->panCtrl.slider, (int) CyclicalProcessor::ModTarget::Pan3 },
+            { cards[3]->panCtrl.slider, (int) CyclicalProcessor::ModTarget::Pan4 },
+        });
+    SuiteUI::describe (modulation, "Two LFOs (with the waveform transforms) and six routing slots over the per-slot Level, Cutoff, Speed and Pan controls.");
+
     // The header contract: preset bar (R12), page selector (R8), menu (R13).
     if (presetBar->getPreferredHeight() > 0)
         addAndMakeVisible (*presetBar);
     presetBar->onPresetLoaded = [this] { repaint(); };
 
-    pageSelector.setOptions ({ "SLOT 1", "SLOT 2", "SLOT 3", "SLOT 4" });
+    pageSelector.setOptions ({ "SLOT 1", "SLOT 2", "SLOT 3", "SLOT 4", "MOD" });
     pageSelector.onChange = [this] (int index) { setPage (index); };
     addAndMakeVisible (pageSelector);
 
@@ -431,14 +455,16 @@ CyclicalEditor::~CyclicalEditor()
 
 void CyclicalEditor::setPage (int newPage)
 {
-    page = juce::jlimit (0, Processor::numSlots - 1, newPage);
+    page = juce::jlimit (0, Processor::numSlots, newPage);   // numSlots = the MOD page
     pageSelector.setSelectedIndex (page);
 
+    const bool modPage = page == Processor::numSlots;
     for (int slot = 0; slot < Processor::numSlots; ++slot)
-        cards[(size_t) slot]->setVisible (slot == page);
+        cards[(size_t) slot]->setVisible (! modPage && slot == page);
 
-    // The one global sits on every slot page (plan 18 Phase 4).
-    masterCtrl.setVisible (true);
+    // The one global sits on every slot page; the MOD page is the panel alone.
+    masterCtrl.setVisible (! modPage);
+    modulation.setVisible (modPage);
 
     resized();
     repaint();
@@ -494,6 +520,8 @@ void CyclicalEditor::updateAffinity()
 void CyclicalEditor::timerCallback()
 {
     updateAffinity();
+    modulation.refresh();
+    controls->update();
 
     for (int slot = 0; slot < Processor::numSlots; ++slot)
     {
@@ -539,8 +567,23 @@ void CyclicalEditor::paint (juce::Graphics& g)
 
     SuiteUI::drawBrandLockup (g, getLocalBounds().removeFromTop (headerHeight).reduced (16, 0), brandLockup());
 
-    // Each slot's card is its own frame; only the visible page draws (plan 18 Phase 4:
-    // one tab per slot, no GLOBAL group).
+    // The MOD page draws one group frame (plan 18 Phase 6); each slot's card is its own
+    // frame and only the visible page draws.
+    if (page == Processor::numSlots)
+    {
+        const auto frame = modulationGroupBounds.toFloat();
+
+        g.setColour (SuiteUI::Colours::panel.withAlpha (0.55f));
+        g.fillRoundedRectangle (frame, 8.0f);
+        g.setColour (SuiteUI::Colours::track);
+        g.drawRoundedRectangle (frame, 8.0f, 1.0f);
+
+        g.setColour (lookAndFeel.getAccent());
+        g.setFont (juce::Font (juce::FontOptions (15.0f, juce::Font::bold)));
+        g.drawText ("MODULATION", modulationGroupBounds.withHeight (groupTitleHeight).translated (0, 4).reduced (12, 0),
+                    juce::Justification::centredLeft);
+    }
+
     for (int slot = 0; slot < Processor::numSlots; ++slot)
     {
         if (! cards[(size_t) slot]->isVisible())
@@ -568,19 +611,38 @@ void CyclicalEditor::resized()
         presetBar->setBounds (header.removeFromRight (300).withHeight (30)
                                 .withY (header.getCentreY() - 15));
 
-    // The page switch at the top right of the header (R8), left of the bar.
-    pageSelector.setBounds (header.removeFromRight (170).withHeight (26)
+    // The page switch at the top right of the header (R8), left of the bar. Plan 18:
+    // five options (SLOT 1-4 + MOD), so it is wider than the old two-option switch.
+    pageSelector.setBounds (header.removeFromRight (300).withHeight (26)
                               .withY (header.getCentreY() - 13));
 
     area.removeFromTop (groupGap);
 
-    // One slot per page (plan 18 Phase 4): the card takes the full width, and the one
-    // global (master Output) sits in its own row beneath it.
-    cards[(size_t) page]->setBounds (area.removeFromTop (cardContentHeight));
-    area.removeFromTop (groupGap);
-    masterCtrl.setBounds (area.removeFromTop (masterRowHeight)
-                              .removeFromRight (area.getWidth() / 4).reduced (3));
+    if (page == Processor::numSlots)
+    {
+        // Plan 18 Phase 6: the MOD page — the shared panel fills the page.
+        modulationGroupBounds = area;
+        modulation.setBounds (area.withTrimmedTop (groupTitleHeight + 4).reduced (12, 6));
+    }
+    else
+    {
+        // One slot per page (plan 18 Phase 4): the card takes the full width, and the one
+        // global (master Output) sits in its own row beneath it.
+        modulationGroupBounds = {};
+        modulation.setBounds ({});
+        cards[(size_t) page]->setBounds (area.removeFromTop (cardContentHeight));
+        area.removeFromTop (groupGap);
+        masterCtrl.setBounds (area.removeFromTop (masterRowHeight)
+                                  .removeFromRight (area.getWidth() / 4).reduced (3));
+    }
 
     // The help line lives in the band the paint used to draw its footer sentence in.
     helpLine.setBounds (getLocalBounds().removeFromBottom (footerHeight));
+}
+
+SuiteModulation::ModulationPanel::Style CyclicalEditor::modulationStyle()
+{
+    return { { juce::Colour (0xffFF7A45), juce::Colour (0xffFF7A45) },
+             SuiteUI::Colours::text, SuiteUI::Colours::textDim,
+             SuiteUI::Colours::panel, SuiteUI::Colours::track };
 }

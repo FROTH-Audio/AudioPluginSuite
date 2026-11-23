@@ -122,6 +122,38 @@ namespace
             ids.push_back (Processor::slotSyncIds[(size_t) slot]);
             ids.push_back (Processor::slotPanIds[(size_t) slot]);
         }
+
+        // Plan 18 Phase 6: the shared LFO and routing parameters.
+        ids.push_back (Processor::lfo1RateId);
+        ids.push_back (Processor::lfo1ShapeId);
+        ids.push_back (Processor::lfo1SyncId);
+        ids.push_back (Processor::lfo1DivisionId);
+        ids.push_back (Processor::lfo1OffsetId);
+        ids.push_back (Processor::lfo1InvertId);
+        ids.push_back (Processor::lfo1RectifyId);
+        ids.push_back (Processor::lfo1QuantiseId);
+        ids.push_back (Processor::lfo1SmoothId);
+        ids.push_back (Processor::lfo1PulseWidthId);
+        ids.push_back (Processor::lfo1SkewId);
+        ids.push_back (Processor::lfo2RateId);
+        ids.push_back (Processor::lfo2ShapeId);
+        ids.push_back (Processor::lfo2SyncId);
+        ids.push_back (Processor::lfo2DivisionId);
+        ids.push_back (Processor::lfo2OffsetId);
+        ids.push_back (Processor::lfo2InvertId);
+        ids.push_back (Processor::lfo2RectifyId);
+        ids.push_back (Processor::lfo2QuantiseId);
+        ids.push_back (Processor::lfo2SmoothId);
+        ids.push_back (Processor::lfo2PulseWidthId);
+        ids.push_back (Processor::lfo2SkewId);
+
+        for (int slot = 0; slot < 6; ++slot)
+        {
+            ids.push_back (Processor::modSourceIds[(size_t) slot]);
+            ids.push_back (Processor::modTargetIds[(size_t) slot]);
+            ids.push_back (Processor::modAmountIds[(size_t) slot]);
+            ids.push_back (Processor::modDelayIds[(size_t) slot]);
+        }
     }
 
     void testParameters()
@@ -170,6 +202,14 @@ namespace
             checkRange (processor.apvts, Processor::slotSyncIds[(size_t) slot], 0.0f, 1.0f, 0.0f);
             checkRange (processor.apvts, Processor::slotPanIds[(size_t) slot], -100.0f, 100.0f, 0.0f);
         }
+
+        // Plan 18 Phase 6: the shared LFO/routing parameters and the 16 per-slot targets.
+        checkRange (processor.apvts, Processor::lfo1RateId, 0.02f, 20.0f, 0.25f);
+        checkRange (processor.apvts, Processor::lfo1OffsetId, -100.0f, 100.0f, 0.0f);
+        checkRange (processor.apvts, Processor::lfo1QuantiseId, 0.0f, 16.0f, 0.0f);
+        checkRange (processor.apvts, Processor::modTargetIds[0], 0.0f, 16.0f, 0.0f);
+        checkRange (processor.apvts, Processor::modAmountIds[0], -100.0f, 100.0f, 0.0f);
+        assert (processor.getRouter().getNumTargets() == 16);
 
         // The final gain stage is named "Output" everywhere in the suite (plan 12).
         assert (processor.apvts.getParameter (Processor::masterVolumeId)->getName (100) == "Output");
@@ -2006,7 +2046,12 @@ namespace
             {
                 cyclicalEditor->setPage (1);
                 assert (PluginTest::writeDeterministicPng (*editor,
-                            juce::File (folder).getChildFile ("cyclical-global.png")));
+                            juce::File (folder).getChildFile ("cyclical-slot2.png")));
+
+                // Plan 18 Phase 6: the MOD page render (the shared panel in the plugin).
+                cyclicalEditor->setPage (CyclicalProcessor::numSlots);
+                assert (PluginTest::writeDeterministicPng (*editor,
+                            juce::File (folder).getChildFile ("cyclical-mod.png")));
                 cyclicalEditor->setPage (0);
             }
 

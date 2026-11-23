@@ -1,0 +1,14 @@
+{
+  "_name": "Bouncing Gate",
+  "_category": "Glitch",
+  "_description": "Diminishing bounces shorten the gate.",
+  "_plugin": "MicroTimingChaos",
+  "_pluginVersion": "1.0.0",
+  "rate": 2,
+  "gate": 70.0,
+  "lfo2Rate": 2.0,
+  "lfo2Shape": 7,
+  "mod1Source": 1,
+  "mod1Target": 9,
+  "mod1Amount": -50.0
+}

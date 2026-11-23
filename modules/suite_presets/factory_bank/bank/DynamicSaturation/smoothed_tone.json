@@ -1,0 +1,14 @@
+{
+  "_name": "Smoothed Tone",
+  "_category": "Bright",
+  "_description": "A heavily smoothed LFO tilts the tone without corners.",
+  "_plugin": "DynamicSaturation",
+  "_pluginVersion": "1.0.0",
+  "drive": 6.0,
+  "tone": 0.0,
+  "lfo2Rate": 0.9,
+  "lfo2Smooth": 0.8,
+  "mod2Source": 1,
+  "mod2Target": 11,
+  "mod2Amount": 70.0
+}
