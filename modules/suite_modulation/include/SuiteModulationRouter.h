@@ -103,6 +103,11 @@ namespace SuiteModulation
         /** UI thread: the LFO's offset as a fraction, -1 to 1 (the Offset control in percent, divided by 100). */
         float getLfoOffset(int lfo) const noexcept;
 
+        /** The LFO's waveform at a cycle position, with its transforms (invert/rectify/quantise/
+            smooth/pulse/skew) and its Offset applied — the one path shared by the routing and by
+            the scope's curve. UI thread. */
+        float transformedLfoValue(int lfo, double cycles) const noexcept;
+
         /** The waveform value moved by an offset and limited to -1 to 1. Used for the output and for the scope's curve. */
         static float withOffset(float value, float offset) noexcept;
 

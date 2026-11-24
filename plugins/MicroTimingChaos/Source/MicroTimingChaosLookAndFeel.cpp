@@ -107,6 +107,15 @@ namespace MicroTimingChaos
     void LookAndFeel::drawToggleButton (juce::Graphics& g, juce::ToggleButton& button,
                                         bool shouldDrawButtonAsHighlighted, bool shouldDrawButtonAsDown)
     {
+        // Plan 20: the icon, texture and ON/OFF state belong to the BPM Sync button alone.
+        // The shared modulation panel's toggles (INVERT, RECT) are plain text pills, so they
+        // use the suite's drawing.
+        if (button.getButtonText() != "BPM SYNC")
+        {
+            SuiteLookAndFeel::drawToggleButton (g, button, shouldDrawButtonAsHighlighted, shouldDrawButtonAsDown);
+            return;
+        }
+
         auto bounds = button.getLocalBounds().toFloat().reduced (1.0f);
         const bool active = button.getToggleState();
         const auto colour = active ? accent : SuiteUI::Colours::textDim;

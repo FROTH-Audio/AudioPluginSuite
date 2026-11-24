@@ -9,7 +9,7 @@ namespace
     // Plan 12: the owner asked for a narrower window. 760 keeps the SHAPER group's
     // five-knob row comfortable (~140 px cells) and still leaves the header free.
     constexpr int editorWidth = 760;
-    constexpr int editorHeight = 700;
+    constexpr int editorHeight = 760;   // plan 20: the MOD panel grew to 428 (the transform-knob row + the selector under the rate); 0.7p - 44 = 428 needs page 675 + the visualiser share
 
     // Same law as SuiteUI::LevelMeter / StereoLevelMeter (plan 13).
     constexpr float meterFloorDb = -60.0f;

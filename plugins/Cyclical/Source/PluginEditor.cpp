@@ -2,6 +2,7 @@
 
 #include "BinaryData.h"
 #include "SuiteBrand.h"
+#include "SuiteSelectorAttachment.h"
 #include "SuiteSettings.h"
 
 namespace
@@ -15,18 +16,31 @@ namespace
     constexpr int footerHeight = 26;
     constexpr int groupGap = 8;   // the suite's one-gap rule (plan 05 R7)
     constexpr int groupTitleHeight = SuiteUI::groupTitleHeight;
-    constexpr int waveHeight = 110;
-    constexpr int pillRowHeight = SuiteUI::pillHeight + 8;
-    constexpr int knobRows = 6;
-    constexpr int cardContentHeight = 20 + 2 + waveHeight + groupGap
-                                    + knobRows * SuiteUI::knobRowHeight
-                                    + (knobRows - 1) * groupGap
-                                    + pillRowHeight;
-    constexpr int masterRowHeight = SuiteUI::knobRowHeight;
+    constexpr int waveHeight = 170;   // plan 20 Phase 2: at least 50 % higher than the old 110
+    // Plan 20 Phase 2 + owner refinement (2026-11-24): grouped layout. PLAYBACK and
+    // KEY & SLICES span the full width; below them a two-column section — ENVELOPE on the
+    // left spanning its height, FILTER (one compact row) and CLOCK & MIX (two rows) on the
+    // right. cardContentHeight must match what resized() lays out.
+    constexpr int groupFrame = groupTitleHeight + 16;          // title + 2×8 padding
+    constexpr int knobRow = SuiteUI::knobRowHeight;           // 92 px per knob row
+    constexpr int splitSectionH = groupFrame + knobRow        // FILTER: dropdown + Cutoff + Reso, one row
+                                + groupGap
+                                + groupFrame + knobRow;       // CLOCK & MIX: Swing/Tempo/Pitch/Crossfade only
+    constexpr int playModeH = groupFrame + SuiteUI::captionHeight
+                            + SuiteUI::pillHeight;            // PLAY MODE: pills + the TRIGGER caption row
+    constexpr int cardContentHeight = 20 + 2                  // title band + small gap
+                                    + waveHeight + groupGap   // waveform + gap
+                                    + playModeH + groupGap                  // PLAY MODE (moved, plan 20)
+                                    + groupFrame + knobRow + groupGap       // PLAYBACK
+                                    + groupFrame + knobRow + groupGap       // KEY & SLICES (+ QUANTIZE)
+                                    + splitSectionH;                        // ENVELOPE | FILTER + CLOCK & MIX
+    // Plan 20 (owner ask): the mix row — one MASTER group holding the four slots' Level,
+    // meter and Pan plus the Output. It sits INSIDE the card frame, below the card's groups.
+    constexpr int mixRowHeight = groupFrame + knobRow;
+    constexpr int cardFullHeight = cardContentHeight + groupGap + mixRowHeight;
     constexpr int editorWidth = 1000;
     constexpr int editorHeight = 16 + headerHeight + groupGap
-                               + cardContentHeight + groupGap
-                               + masterRowHeight
+                               + cardFullHeight
                                + footerHeight + groupGap;
 
     const juce::Image& brandLockup()
@@ -65,11 +79,8 @@ CyclicalEditor::SlotCard::SlotCard (int slotIndex, juce::Colour accentColour)
     addAndMakeVisible (sliceLength);
 
     // Plan 17 Phase 2 + plan 18 §1.1: per-slot creative controls with cutoff and resonance.
-    filter.addItem ("Off", 1);
-    filter.addItem ("High Pass", 2);
-    filter.addItem ("Low Pass", 3);
-    filter.addItem ("Band Pass", 4);
-    filter.setSelectedItemIndex (0, juce::dontSendNotification);
+    filter.setOptions ({ "Off", "High Pass", "Low Pass", "Band Pass" });
+    filter.setSelectedIndex (0);
     addAndMakeVisible (filter);
 
     cutoff.slider.setTextValueSuffix (" Hz");
@@ -79,17 +90,13 @@ CyclicalEditor::SlotCard::SlotCard (int slotIndex, juce::Colour accentColour)
     attack.slider.setNumDecimalPlacesToDisplay (1);
     release.slider.setTextValueSuffix (" ms");
     release.slider.setNumDecimalPlacesToDisplay (1);
-    level.slider.setTextValueSuffix (" %");
-    level.slider.setNumDecimalPlacesToDisplay (1);
     addAndMakeVisible (cutoff);
     addAndMakeVisible (reso);
     addAndMakeVisible (attack);
     addAndMakeVisible (release);
-    addAndMakeVisible (level);
 
     // Plan 18 Phase 4: the slot's own transport and mix controls (the former GLOBALs).
-    panCtrl.slider.setTextValueSuffix (" %");
-    panCtrl.slider.setNumDecimalPlacesToDisplay (1);
+    // Plan 20: the slot's Level and Pan moved to the editor-level mix row.
     pitchCtrl.slider.setNumDecimalPlacesToDisplay (0);
     swingCtrl.slider.setTextValueSuffix (" %");
     swingCtrl.slider.setNumDecimalPlacesToDisplay (1);
@@ -97,7 +104,6 @@ CyclicalEditor::SlotCard::SlotCard (int slotIndex, juce::Colour accentColour)
     tempoCtrl.slider.setNumDecimalPlacesToDisplay (1);
     crossfadeCtrl.slider.setTextValueSuffix (" ms");
     crossfadeCtrl.slider.setNumDecimalPlacesToDisplay (0);
-    addAndMakeVisible (panCtrl);
     addAndMakeVisible (pitchCtrl);
     addAndMakeVisible (swingCtrl);
     addAndMakeVisible (tempoCtrl);
@@ -155,6 +161,13 @@ void CyclicalEditor::SlotCard::setTriggerNote (int note)
                    juce::dontSendNotification);
 }
 
+void CyclicalEditor::SlotCard::paint (juce::Graphics& g)
+{
+    // Plan 20 Phase 2: framed groups, one frame per logical group (plan 12).
+    for (const auto& group : groups)
+        SuiteUI::drawGroupFrame (g, group.bounds, group.title, accentColour);
+}
+
 void CyclicalEditor::SlotCard::resized()
 {
     auto area = getLocalBounds();
@@ -164,71 +177,118 @@ void CyclicalEditor::SlotCard::resized()
     waveform.setBounds (area.removeFromTop (waveHeight));
     area.removeFromTop (groupGap);
 
-    // Six knob rows at the suite size (R1/R2), four cells each: playback, then the
-    // creative controls, then the slot's own transport and mix (plan 18 Phase 4).
-    const int knobWidth = area.getWidth() / 4;
-    auto row = [&area, knobWidth] (int index)
+    // ---- Plan 20 Phase 2: framed groups. Each group's bounds are recorded so paint()
+    // can draw the frame. innerOf() gives the area inside the frame, below the title band.
+
+    auto addGroup = [&] (const char* title, std::function<void(juce::Rectangle<int>)> layOut, int contentHeight)
     {
-        if (index > 0)
-            area.removeFromTop (groupGap);
-        return area.removeFromTop (SuiteUI::knobRowHeight);
+        groups.push_back ({ title, area.removeFromTop (SuiteUI::groupTitleHeight + 8 + contentHeight + 8), 0 });
+        layOut (innerOf (groups.back().bounds));
+        area.removeFromTop (groupGap);
     };
 
-    auto row1 = row (0);
-    start.setBounds (row1.removeFromLeft (knobWidth).reduced (3));
-    length.setBounds (row1.removeFromLeft (knobWidth).reduced (3));
-    speed.setBounds (row1.removeFromLeft (knobWidth).reduced (3));
-    velocity.setBounds (row1.removeFromLeft (knobWidth).reduced (3));
+    const int knobRow = SuiteUI::knobRowHeight;
 
-    auto row2 = row (1);
-    note.setBounds (row2.removeFromLeft (knobWidth).reduced (3));
-    beats.setBounds (row2.removeFromLeft (knobWidth).reduced (3));
-    slices.setBounds (row2.removeFromLeft (knobWidth).reduced (3));
-    sliceLength.setBounds (row2.removeFromLeft (knobWidth).reduced (3));
+    // PLAY MODE: the direction selector + Ping Rand, Granular and Chop — directly below the
+    // sample preview — plus the TRIGGER selector and HOST SYNC (plan 20, owner ask). The
+    // TRIGGER column carries the caption row; the pills share the pill band.
+    addGroup ("PLAY MODE", [&] (juce::Rectangle<int> inner)
+    {
+        auto pillBand = inner.removeFromBottom (SuiteUI::pillHeight);
+        direction.setBounds (pillBand.removeFromLeft (132).reduced (6, 2));
+        pillBand.removeFromLeft (6);
+        pingRand.setBounds (pillBand.removeFromLeft (148).reduced (4, 2)
+                                .withSizeKeepingCentre (140, SuiteUI::pillHeight));
 
-    auto row3 = row (2);   // creative: filter type, cutoff, resonance, level
-    filter.setBounds (row3.removeFromLeft (knobWidth).reduced (3));
-    cutoff.setBounds (row3.removeFromLeft (knobWidth).reduced (3));
-    reso.setBounds (row3.removeFromLeft (knobWidth).reduced (3));
-    level.setBounds (row3.removeFromLeft (knobWidth).reduced (3));
-
-    auto row4 = row (3);   // envelope tail and the slot's image: attack, release, pan, pitch
-    attack.setBounds (row4.removeFromLeft (knobWidth).reduced (3));
-    release.setBounds (row4.removeFromLeft (knobWidth).reduced (3));
-    panCtrl.setBounds (row4.removeFromLeft (knobWidth).reduced (3));
-    pitchCtrl.setBounds (row4.removeFromLeft (knobWidth).reduced (3));
-
-    auto row5 = row (4);   // the slot's clock: swing, tempo, crossfade, quantise
-    swingCtrl.setBounds (row5.removeFromLeft (knobWidth).reduced (3));
-    tempoCtrl.setBounds (row5.removeFromLeft (knobWidth).reduced (3));
-    crossfadeCtrl.setBounds (row5.removeFromLeft (knobWidth).reduced (3));
-
-    auto quantizeCell = row5.removeFromLeft (knobWidth).reduced (6, 4);
-    quantizeCaption.setBounds (quantizeCell.removeFromTop (18));
-    quantizeSelector.setBounds (quantizeCell.withHeight (SuiteUI::pillHeight).withY (quantizeCell.getY()));
-
-    auto row6 = row (5);   // trigger selector, host sync and the two spare cells
-    auto triggerCell = row6.removeFromLeft (knobWidth).reduced (6, 4);
-    triggerCaption.setBounds (triggerCell.removeFromTop (18));
-    triggerSelector.setBounds (triggerCell.withHeight (SuiteUI::pillHeight).withY (triggerCell.getY()));
-
-    auto syncCell = row6.removeFromLeft (knobWidth).reduced (6, 4);
-    syncToggle.setBounds (syncCell.withSizeKeepingCentre (syncCell.getWidth() - 12, SuiteUI::pillHeight));
-
-    // Direction selector and the four switches (pills at 36 px, R3). The widths sum to
-    // the card's inner width; Ping Rand keeps the wider pill for its caption.
-    auto pillRow = area.removeFromTop (pillRowHeight);
-    direction.setBounds (pillRow.removeFromLeft (132).reduced (6, 2)
-                             .withHeight (SuiteUI::pillHeight)
-                             .withY (pillRow.getY() + (pillRow.getHeight() - SuiteUI::pillHeight) / 2));
-    pingRand.setBounds (pillRow.removeFromLeft (148).reduced (4, 2)
-                            .withSizeKeepingCentre (140, SuiteUI::pillHeight));
-
-    auto rest = pillRow;
-    granular.setBounds (rest.removeFromLeft (96).reduced (4, 2)
+        auto rest = pillBand;
+        granular.setBounds (rest.removeFromLeft (96).reduced (4, 2)
+                                .withSizeKeepingCentre (88, SuiteUI::pillHeight));
+        chop.setBounds (rest.removeFromLeft (96).reduced (4, 2)
                             .withSizeKeepingCentre (88, SuiteUI::pillHeight));
-    chop.setBounds (rest.reduced (4, 2)
-                        .withSizeKeepingCentre (juce::jmin (88, rest.getWidth() - 6), SuiteUI::pillHeight));
+        rest.removeFromLeft (6);
+
+        auto triggerColumn = rest.removeFromLeft (180);
+        triggerCaption.setBounds (inner.removeFromLeft (180).reduced (6, 0).removeFromTop (18));
+        triggerSelector.setBounds (triggerColumn.reduced (6, 0));
+        rest.removeFromLeft (6);
+        syncToggle.setBounds (rest.removeFromLeft (160).reduced (6, 0));
+    }, SuiteUI::captionHeight + SuiteUI::pillHeight);
+
+    // PLAYBACK: Start, Length, Speed, Velocity — one row of four knobs.
+    addGroup ("PLAYBACK", [&] (juce::Rectangle<int> inner)
+    {
+        const int knobW = inner.getWidth() / 4;
+        start.setBounds (inner.removeFromLeft (knobW).reduced (3));
+        length.setBounds (inner.removeFromLeft (knobW).reduced (3));
+        speed.setBounds (inner.removeFromLeft (knobW).reduced (3));
+        velocity.setBounds (inner.removeFromLeft (knobW).reduced (3));
+    }, knobRow);
+
+    // KEY & SLICES: Note, Beats, Slices, Slice Length — one row of four knobs — plus the
+    // QUANTIZE selector (plan 20, owner ask: quantising belongs with the slice grid).
+    addGroup ("KEY & SLICES", [&] (juce::Rectangle<int> inner)
+    {
+        const int selectorW = 220;
+        const int knobW = (inner.getWidth() - selectorW - groupGap) / 4;
+        note.setBounds (inner.removeFromLeft (knobW).reduced (3));
+        beats.setBounds (inner.removeFromLeft (knobW).reduced (3));
+        slices.setBounds (inner.removeFromLeft (knobW).reduced (3));
+        sliceLength.setBounds (inner.removeFromLeft (knobW).reduced (3));
+        inner.removeFromLeft (groupGap);
+
+        auto quantizeCell = inner.reduced (6, 0);
+        quantizeCaption.setBounds (quantizeCell.removeFromTop (18));
+        quantizeSelector.setBounds (quantizeCell.withHeight (SuiteUI::pillHeight)
+                                        .withY (quantizeCell.getY()
+                                            + (quantizeCell.getHeight() - SuiteUI::pillHeight) / 2));
+    }, knobRow);
+
+    // ENVELOPE on the left spanning the section; FILTER and CLOCK & MIX on the right
+    // (owner refinement, plan 20 Phase 2: the two right groups sit in the narrower column).
+    {
+        const int sectionStart = area.getY();
+        const int leftW = juce::roundToInt (area.getWidth() * 0.38f);
+        const int rightX = area.getX() + leftW + groupGap;
+        const int rightW = area.getWidth() - leftW - groupGap;
+
+        const int filterH = groupFrame + knobRow;                        // FILTER: one compact row
+        const int clockH = groupFrame + knobRow;                         // CLOCK & MIX: one knob row
+        const int sectionH = filterH + groupGap + clockH;
+
+        // ENVELOPE: Attack and Release stacked, spanning the section height (the slot's
+        // Level moved to the mix row, plan 20).
+        groups.push_back ({ "ENVELOPE", { area.getX(), sectionStart, leftW, sectionH }, 0 });
+        auto envInner = innerOf (groups.back().bounds);
+        const int envCell = (envInner.getHeight() - groupGap) / 2;
+        attack.setBounds (envInner.removeFromTop (envCell).reduced (3));
+        envInner.removeFromTop (groupGap);
+        release.setBounds (envInner.reduced (3));
+
+        // FILTER: Filter Type dropdown, Cutoff and Reso in one compact row.
+        groups.push_back ({ "FILTER", { rightX, sectionStart, rightW, filterH }, 0 });
+        auto filterInner = innerOf (groups.back().bounds);
+        const int filterCell = filterInner.getWidth() / 3;
+        filter.setBounds (filterInner.removeFromLeft (filterCell).reduced (3));
+        cutoff.setBounds (filterInner.removeFromLeft (filterCell).reduced (3));
+        reso.setBounds (filterInner.reduced (3));
+
+        // CLOCK & MIX (plan 20, after the owner's moves): the four clock knobs only —
+        // Swing, Tempo, Pitch, Crossfade. QUANTIZE lives in KEY & SLICES, TRIGGER and
+        // HOST SYNC in PLAY MODE.
+        groups.push_back ({ "CLOCK & MIX", { rightX, sectionStart + filterH + groupGap, rightW, clockH }, 0 });
+        auto clockInner = innerOf (groups.back().bounds);
+        const int clockCell = clockInner.getWidth() / 4;
+        swingCtrl.setBounds (clockInner.removeFromLeft (clockCell).reduced (3));
+        tempoCtrl.setBounds (clockInner.removeFromLeft (clockCell).reduced (3));
+        pitchCtrl.setBounds (clockInner.removeFromLeft (clockCell).reduced (3));
+        crossfadeCtrl.setBounds (clockInner.reduced (3));
+
+        area = area.withTrimmedTop (sectionH);
+    }
+
+    area.removeFromTop (groupGap);
+
+    groups.shrink_to_fit();
 }
 
 //==============================================================================
@@ -263,19 +323,22 @@ CyclicalEditor::CyclicalEditor (CyclicalProcessor& p)
         bind (Processor::slotBeatsIds[(size_t) slot], card.beats.slider);
         bind (Processor::slotSlicesIds[(size_t) slot], card.slices.slider);
         bind (Processor::slotSliceLengthIds[(size_t) slot], card.sliceLength.slider);
-        /// Plan 17 Phase 2: filter is a ComboBox, not a Slider — use ParameterAttachment directly.
-        choiceAttachments.push_back (std::make_unique<juce::ParameterAttachment> (
-            *apvts.getParameter (Processor::slotFilterIds[(size_t) slot]),
-            [&card] (float value) { card.filter.setSelectedItemIndex (juce::roundToInt (value), juce::dontSendNotification); }));
+        /// Plan 20 Phase 2: filter is a LabelledDropdown — attach via SuiteUI::attachDropdown.
+        std::unique_ptr<juce::ParameterAttachment> filterAttach;
+        SuiteUI::attachDropdown (card.filter, *apvts.getParameter (Processor::slotFilterIds[(size_t) slot]),
+                                 filterAttach);
+        choiceAttachments.push_back (std::move (filterAttach));
 
         bind (Processor::slotAttackIds[(size_t) slot], card.attack.slider);
         bind (Processor::slotReleaseIds[(size_t) slot], card.release.slider);
-        bind (Processor::slotLevelIds[(size_t) slot], card.level.slider);
         bind (Processor::slotCutoffIds[(size_t) slot], card.cutoff.slider);
         bind (Processor::slotResoIds[(size_t) slot], card.reso.slider);
 
+        // Plan 20: the slot's Level and Pan live in the editor-level mix row.
+        bind (Processor::slotLevelIds[(size_t) slot], slotLevels[(size_t) slot].slider);
+        bind (Processor::slotPanIds[(size_t) slot], slotPans[(size_t) slot].slider);
+
         // Plan 18 Phase 4: the slot's own transport and mix controls (the former globals).
-        bind (Processor::slotPanIds[(size_t) slot], card.panCtrl.slider);
         bind (Processor::slotPitchIds[(size_t) slot], card.pitchCtrl.slider);
         bind (Processor::slotSwingIds[(size_t) slot], card.swingCtrl.slider);
         bind (Processor::slotTempoIds[(size_t) slot], card.tempoCtrl.slider);
@@ -362,8 +425,6 @@ CyclicalEditor::CyclicalEditor (CyclicalProcessor& p)
         SuiteUI::describe (card.reso, "The slot filter's resonance.");
         SuiteUI::describe (card.attack, "How fast the slot's level rises on a trigger.");
         SuiteUI::describe (card.release, "How fast the slot's level falls on stop or retrigger.");
-        SuiteUI::describe (card.level, "The slot's output level before the master stage.");
-        SuiteUI::describe (card.panCtrl, "The slot's own constant-power pan before the master sum.");
         SuiteUI::describe (card.pitchCtrl, "Detunes this slot (speed and pitch move, like tape).");
         SuiteUI::describe (card.swingCtrl, "Shifts this slot's odd grid points. Positive is late.");
         SuiteUI::describe (card.tempoCtrl, "This slot's clock tempo while its Host Sync is off.");
@@ -397,15 +458,34 @@ CyclicalEditor::CyclicalEditor (CyclicalProcessor& p)
     bind (Processor::masterVolumeId, masterCtrl.slider);
     SuiteUI::describe (masterCtrl, "Output level of the whole instrument.");
 
+    // Plan 20 (owner ask): the mix row — each slot's Level beside its own little level
+    // meter and its Pan, with the master Output in the last small group.
+    for (int slot = 0; slot < Processor::numSlots; ++slot)
+    {
+        addAndMakeVisible (slotLevels[(size_t) slot]);
+        addAndMakeVisible (slotMeters[(size_t) slot]);
+        addAndMakeVisible (slotPans[(size_t) slot]);
+        slotLevels[(size_t) slot].slider.setTextValueSuffix (" %");
+        slotLevels[(size_t) slot].slider.setNumDecimalPlacesToDisplay (1);
+        slotPans[(size_t) slot].slider.setTextValueSuffix (" %");
+        slotPans[(size_t) slot].slider.setNumDecimalPlacesToDisplay (1);
+        SuiteUI::describe (slotLevels[(size_t) slot],
+                           "The output level of slot " + juce::String (slot + 1) + " before the master stage.");
+        SuiteUI::describe (slotMeters[(size_t) slot],
+                           "The level of slot " + juce::String (slot + 1) + "'s output.");
+        SuiteUI::describe (slotPans[(size_t) slot],
+                           "The constant-power pan of slot " + juce::String (slot + 1) + ".");
+    }
+
     // Plan 18 Phase 6: the MOD page (the panel is built as a member; the display wires
     // the per-slot knobs to their routing targets).
     addAndMakeVisible (modulation);
     controls = std::make_unique<SuiteModulation::ControlDisplay> (processor.getRouter(),
         std::vector<SuiteModulation::ControlDisplay::Entry> {
-            { cards[0]->level.slider,  (int) CyclicalProcessor::ModTarget::Level1 },
-            { cards[1]->level.slider,  (int) CyclicalProcessor::ModTarget::Level2 },
-            { cards[2]->level.slider,  (int) CyclicalProcessor::ModTarget::Level3 },
-            { cards[3]->level.slider,  (int) CyclicalProcessor::ModTarget::Level4 },
+            { slotLevels[0].slider, (int) CyclicalProcessor::ModTarget::Level1 },
+            { slotLevels[1].slider, (int) CyclicalProcessor::ModTarget::Level2 },
+            { slotLevels[2].slider, (int) CyclicalProcessor::ModTarget::Level3 },
+            { slotLevels[3].slider, (int) CyclicalProcessor::ModTarget::Level4 },
             { cards[0]->cutoff.slider, (int) CyclicalProcessor::ModTarget::Cutoff1 },
             { cards[1]->cutoff.slider, (int) CyclicalProcessor::ModTarget::Cutoff2 },
             { cards[2]->cutoff.slider, (int) CyclicalProcessor::ModTarget::Cutoff3 },
@@ -414,10 +494,10 @@ CyclicalEditor::CyclicalEditor (CyclicalProcessor& p)
             { cards[1]->speed.slider,  (int) CyclicalProcessor::ModTarget::Speed2 },
             { cards[2]->speed.slider,  (int) CyclicalProcessor::ModTarget::Speed3 },
             { cards[3]->speed.slider,  (int) CyclicalProcessor::ModTarget::Speed4 },
-            { cards[0]->panCtrl.slider, (int) CyclicalProcessor::ModTarget::Pan1 },
-            { cards[1]->panCtrl.slider, (int) CyclicalProcessor::ModTarget::Pan2 },
-            { cards[2]->panCtrl.slider, (int) CyclicalProcessor::ModTarget::Pan3 },
-            { cards[3]->panCtrl.slider, (int) CyclicalProcessor::ModTarget::Pan4 },
+            { slotPans[0].slider, (int) CyclicalProcessor::ModTarget::Pan1 },
+            { slotPans[1].slider, (int) CyclicalProcessor::ModTarget::Pan2 },
+            { slotPans[2].slider, (int) CyclicalProcessor::ModTarget::Pan3 },
+            { slotPans[3].slider, (int) CyclicalProcessor::ModTarget::Pan4 },
         });
     SuiteUI::describe (modulation, "Two LFOs (with the waveform transforms) and six routing slots over the per-slot Level, Cutoff, Speed and Pan controls.");
 
@@ -463,7 +543,15 @@ void CyclicalEditor::setPage (int newPage)
         cards[(size_t) slot]->setVisible (! modPage && slot == page);
 
     // The one global sits on every slot page; the MOD page is the panel alone.
-    masterCtrl.setVisible (! modPage);
+    // Plan 20: the mix row (slot Levels, meters, Pans and the master Output) likewise.
+    const bool showMix = ! modPage;
+    masterCtrl.setVisible (showMix);
+    for (int slot = 0; slot < Processor::numSlots; ++slot)
+    {
+        slotLevels[(size_t) slot].setVisible (showMix);
+        slotMeters[(size_t) slot].setVisible (showMix);
+        slotPans[(size_t) slot].setVisible (showMix);
+    }
     modulation.setVisible (modPage);
 
     resized();
@@ -522,6 +610,16 @@ void CyclicalEditor::timerCallback()
     updateAffinity();
     modulation.refresh();
     controls->update();
+
+    // Plan 20 (owner ask): the mix row's little meters. The processor publishes each
+    // slot's post-level peak per block; the display decays it, so the bar falls smoothly.
+    for (int slot = 0; slot < Processor::numSlots; ++slot)
+    {
+        const float peak = processor.slotLevelPeak (slot);
+        auto& shown = meterLevels[(size_t) slot];
+        shown = juce::jmax (peak, shown * 0.85f);
+        slotMeters[(size_t) slot].setLevel (shown);
+    }
 
     for (int slot = 0; slot < Processor::numSlots; ++slot)
     {
@@ -596,6 +694,10 @@ void CyclicalEditor::paint (juce::Graphics& g)
         g.setColour (SuiteUI::Colours::track);
         g.drawRoundedRectangle (frame, 8.0f, 1.0f);
     }
+
+    // Plan 20 (owner ask): the mix row is one group, named MASTER.
+    if (! mixGroupBounds.isEmpty())
+        SuiteUI::drawGroupFrame (g, mixGroupBounds, "MASTER", lookAndFeel.getAccent());
 }
 
 void CyclicalEditor::resized()
@@ -626,14 +728,35 @@ void CyclicalEditor::resized()
     }
     else
     {
-        // One slot per page (plan 18 Phase 4): the card takes the full width, and the one
-        // global (master Output) sits in its own row beneath it.
+        // One slot per page (plan 18 Phase 4): the card takes the full width. Plan 20: the
+        // mix row (the four slots' Level, meter and Pan + the master Output) sits INSIDE
+        // the card frame, below the card's groups — one frame, no doubled lower edge.
         modulationGroupBounds = {};
         modulation.setBounds ({});
-        cards[(size_t) page]->setBounds (area.removeFromTop (cardContentHeight));
-        area.removeFromTop (groupGap);
-        masterCtrl.setBounds (area.removeFromTop (masterRowHeight)
-                                  .removeFromRight (area.getWidth() / 4).reduced (3));
+        mixGroupBounds = {};
+        auto cardArea = area.removeFromTop (cardFullHeight);
+        cards[(size_t) page]->setBounds (cardArea);
+
+        // Plan 20 (owner ask): the mix row — ONE group named MASTER, holding the four
+        // slots' Level (each beside its little meter) and Pan, with the Output at the end.
+        auto mixArea = cardArea.removeFromBottom (mixRowHeight);
+        mixGroupBounds = mixArea;
+        auto mixInner = mixGroupBounds.withTrimmedTop (groupTitleHeight + 4).reduced (10, 4);
+        const int masterW = 120;
+        const int mixCellW = (mixInner.getWidth() - masterW - 4 * groupGap) / 4;
+
+        for (int group = 0; group < 4; ++group)
+        {
+            auto cell = mixInner.removeFromLeft (mixCellW);
+            slotLevels[(size_t) group].setBounds (cell.removeFromLeft (cell.getWidth() / 2 - 8).reduced (3));
+            cell.removeFromLeft (4);
+            slotMeters[(size_t) group].setBounds (cell.removeFromLeft (12));
+            cell.removeFromLeft (4);
+            slotPans[(size_t) group].setBounds (cell.reduced (3));
+            mixInner.removeFromLeft (groupGap);
+        }
+
+        masterCtrl.setBounds (mixInner.withSizeKeepingCentre (knobRow - 6, knobRow - 6).reduced (3));
     }
 
     // The help line lives in the band the paint used to draw its footer sentence in.

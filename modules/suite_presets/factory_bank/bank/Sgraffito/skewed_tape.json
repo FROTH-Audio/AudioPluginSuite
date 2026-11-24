@@ -10,7 +10,7 @@
   "sliceCount": 8,
   "wow": 6.0,
   "lfo1Rate": 0.9,
-  "lfo1Skew": 0.55,
+  "lfo1Skew": 0.6,
   "mod1Target": 24,
   "mod1Amount": 45.0
 }

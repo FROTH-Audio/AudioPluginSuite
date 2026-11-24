@@ -307,6 +307,36 @@ namespace
         pass ("testLfoTransformsAreApplied");
     }
 
+    // Phase 1 regression: transformedLfoValue is the single path shared by the routing and
+    // the scope's curve, so a transform must change the value the scope draws.
+    void testTransformedLfoValueFollowsTransforms()
+    {
+        StubProcessor stub;
+        juce::AudioProcessorValueTreeState apvts (stub, nullptr, "PARAMETERS", makeLayout());
+        SuiteModulation::Router router (apvts, targets, numTargets, "sync");
+        router.prepare (sampleRate);
+
+        setLfo (apvts, 0, 1.0f, 0.0f, false, 4.0f);   // sine
+
+        // Sine at a quarter cycle: +1.
+        assert (std::abs (router.transformedLfoValue (0, 0.25) - 1.0f) < 1e-4);
+
+        // Invert negates it.
+        set (apvts, "lfo1Invert", 1.0f);
+        assert (std::abs (router.transformedLfoValue (0, 0.25) + 1.0f) < 1e-4);
+
+        // Rectify folds into the upper half.
+        set (apvts, "lfo1Invert", 0.0f);
+        set (apvts, "lfo1Rectify", 1.0f);
+        assert (std::abs (router.transformedLfoValue (0, 0.25) - 1.0f) < 1e-4);
+
+        // Neutral again: back to the plain shape.
+        set (apvts, "lfo1Rectify", 0.0f);
+        assert (std::abs (router.transformedLfoValue (0, 0.25) - 1.0f) < 1e-4);
+
+        pass ("testTransformedLfoValueFollowsTransforms");
+    }
+
     void testControlDisplayShowsValueWithoutNotifying()
     {
         StubProcessor stub;
@@ -376,6 +406,7 @@ int main()
     testSampleAndHoldHoldsOneValuePerCycle();
     testOutOfRangeIndicesDoNothing();
     testLfoTransformsAreApplied();
+    testTransformedLfoValueFollowsTransforms();
     testControlDisplayShowsValueWithoutNotifying();
     testPanelPreferredHeightFitsItsRows();
 

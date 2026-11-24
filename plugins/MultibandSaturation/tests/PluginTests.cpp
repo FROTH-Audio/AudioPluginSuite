@@ -221,7 +221,7 @@ namespace
         Processor processor;
         std::unique_ptr<juce::AudioProcessorEditor> editor (processor.createEditorAndMakeActive());
         assert (editor != nullptr);
-        assert (editor->getWidth() == 760 && editor->getHeight() == 700);
+        assert (editor->getWidth() == 760 && editor->getHeight() == 760);   // plan 20: the MOD panel grew to 428
 
         // The layout exposes its bands for the tests: the visualiser is at least 50 %
         // higher than the old 130 and the window is narrower than before.

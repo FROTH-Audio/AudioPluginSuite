@@ -2082,6 +2082,149 @@ namespace
     }
 }
 
+/** Phase 0 probe: slot 0 low-pass at 300 Hz must strongly attenuate a bright loop vs identity. */
+void testProbeFilterDsp()
+{
+    // A bright loop: 10 kHz sine at 0.5 — far above a 300 Hz low-pass cutoff.
+    const juce::File loopFile = scratchFolder().getChildFile ("probe_filter_bright.wav");
+    {
+        juce::WavAudioFormat wav;
+        std::unique_ptr<juce::OutputStream> stream (loopFile.createOutputStream());
+        juce::AudioFormatWriterOptions options;
+        options = options.withSampleRate (sampleRate).withNumChannels (1).withBitsPerSample (32);
+        std::unique_ptr<juce::AudioFormatWriter> writer (wav.createWriterFor (stream, options));
+        assert (writer != nullptr);
+        const int frames = (int) sampleRate;   // 1 second
+        juce::AudioBuffer<float> buffer (1, frames);
+        const float twoPi = 2.0f * (float) juce::MathConstants<double>::pi;
+        for (int i = 0; i < frames; ++i)
+            buffer.setSample (0, i, 0.5f * std::sin (twoPi * 10000.0f * (float) i / (float) sampleRate));
+        writer->writeFromAudioSampleBuffer (buffer, 0, frames);
+        writer.reset();
+    }
+
+    auto loadAndTrigger = [&] (Processor& p)
+    {
+        p.prepareToPlay (sampleRate, blockSize);
+        p.loadLoopFromFileAsync (0, loopFile, loopFile.getFullPathName());
+        for (int i = 0; i < 40 && p.hasPendingLoopLoad(); ++i)
+            juce::MessageManager::getInstance()->runDispatchLoopUntil (50);
+        assert (! p.hasPendingLoopLoad());
+        setParameter (p.apvts, Processor::slotLevelIds[0], 100.0f);
+        juce::MidiBuffer midi;
+        midi.addEvent (juce::MidiMessage::noteOn (1, 60, 1.0f), 0);
+        processOne (p, midi);
+        midi.clear();
+    };
+
+    // Identity: filter Off.
+    {
+        Processor processor;
+        loadAndTrigger (processor);
+        setParameter (processor.apvts, Processor::slotFilterIds[0], 0.0f);
+        float acc = 0.0f;
+        juce::MidiBuffer idle;
+        for (int b = 0; b < 20; ++b)   // ~1 second of audio
+        {
+            juce::AudioBuffer<float> buf (2, blockSize);
+            buf.clear();
+            processor.processBlock (buf, idle);
+            for (int n = 0; n < blockSize; ++n)
+                acc += buf.getSample (0, n) * buf.getSample (0, n);
+        }
+        const float identityRms = std::sqrt (acc / (20.0f * (float) blockSize));
+        std::printf ("   filter probe: identity RMS = %f\n", (double) identityRms);
+        assert (std::abs (identityRms) < 1.0f && identityRms > 0.0f);
+
+        // Filter: Low-pass (type 2) at 300 Hz.
+        Processor filtered;
+        loadAndTrigger (filtered);
+        setParameter (filtered.apvts, Processor::slotFilterIds[0], 2.0f);
+        setParameter (filtered.apvts, Processor::slotCutoffIds[0], 300.0f);
+        acc = 0.0f;
+        juce::MidiBuffer idleFiltered;
+        for (int b = 0; b < 20; ++b)
+        {
+            juce::AudioBuffer<float> buf (2, blockSize);
+            buf.clear();
+            filtered.processBlock (buf, idleFiltered);
+            for (int n = 0; n < blockSize; ++n)
+                acc += buf.getSample (0, n) * buf.getSample (0, n);
+        }
+        const float filteredRms = std::sqrt (acc / (20.0f * (float) blockSize));
+        std::printf ("   filter probe: filtered RMS = %f\n", (double) filteredRms);
+        assert (filteredRms > 0.0f);                  // still bounded, some signal
+        assert (filteredRms < identityRms * 0.1f);    // at least 20 dB down: the filter works
+    }
+
+    pass ("testProbeFilterDsp");
+}
+
+/** Phase 0 probe: slow attack (800 ms) must rise far slower than the 1 ms default. */
+void testProbeAttackReleaseDsp()
+{
+    // A sustained loop: 200 Hz sine at 0.5 amplitude.
+    const juce::File loopFile = scratchFolder().getChildFile ("probe_ar_sustain.wav");
+    {
+        juce::WavAudioFormat wav;
+        std::unique_ptr<juce::OutputStream> stream (loopFile.createOutputStream());
+        juce::AudioFormatWriterOptions options;
+        options = options.withSampleRate (sampleRate).withNumChannels (1).withBitsPerSample (32);
+        std::unique_ptr<juce::AudioFormatWriter> writer (wav.createWriterFor (stream, options));
+        assert (writer != nullptr);
+        const int frames = (int) sampleRate;
+        juce::AudioBuffer<float> buffer (1, frames);
+        const float twoPi = 2.0f * (float) juce::MathConstants<double>::pi;
+        for (int i = 0; i < frames; ++i)
+            buffer.setSample (0, i, 0.5f * std::sin (twoPi * 200.0f * (float) i / (float) sampleRate));
+        writer->writeFromAudioSampleBuffer (buffer, 0, frames);
+        writer.reset();
+    }
+
+    auto measureAttackRms = [&] (float attackMs, float releaseMs)
+    {
+        Processor processor;
+        processor.prepareToPlay (sampleRate, blockSize);
+        processor.loadLoopFromFileAsync (0, loopFile, loopFile.getFullPathName());
+        for (int i = 0; i < 40 && processor.hasPendingLoopLoad(); ++i)
+            juce::MessageManager::getInstance()->runDispatchLoopUntil (50);
+        assert (! processor.hasPendingLoopLoad());
+        setParameter (processor.apvts, Processor::slotAttackIds[0], attackMs);
+        setParameter (processor.apvts, Processor::slotReleaseIds[0], releaseMs);
+        setParameter (processor.apvts, Processor::slotLevelIds[0], 100.0f);
+        juce::MidiBuffer midi;
+        midi.addEvent (juce::MidiMessage::noteOn (1, 60, 1.0f), 0);
+        processOne (processor, midi);
+        midi.clear();
+
+        // RMS over the first 100 ms after the trigger.
+        const int measureSamples = (int) (0.1 * sampleRate);   // 4800
+        int done = 0;
+        float acc = 0.0f;
+        juce::MidiBuffer idle;
+        while (done < measureSamples)
+        {
+            const int thisBlock = juce::jmin (blockSize, measureSamples - done);
+            juce::AudioBuffer<float> buf (2, thisBlock);
+            buf.clear();
+            processor.processBlock (buf, idle);
+            for (int n = 0; n < thisBlock; ++n)
+                acc += buf.getSample (0, n) * buf.getSample (0, n);
+            done += thisBlock;
+        }
+        return std::sqrt (acc / (float) measureSamples);
+    };
+
+    const float defaultRms = measureAttackRms (1.0f, 5.0f);
+    const float slowRms    = measureAttackRms (800.0f, 2000.0f);
+    std::printf ("   A/R probe: default(1ms) RMS = %f, slow(800ms) RMS = %f\n",
+                 (double) defaultRms, (double) slowRms);
+    assert (defaultRms > 0.0f);
+    assert (slowRms < defaultRms * 0.5f);   // the slow attack clearly delays the rise
+
+    pass ("testProbeAttackReleaseDsp");
+}
+
 int main()
 {
     juce::ScopedJuceInitialiser_GUI gui;
@@ -2114,6 +2257,8 @@ int main()
     testLoopTools();
     testRetriggerRestarts();
     testRegionKnobsApplyLive();
+    testProbeFilterDsp();
+    testProbeAttackReleaseDsp();
     testMonoBuffer();
     testLatencyAndTail();
     testQuantisedStarts();

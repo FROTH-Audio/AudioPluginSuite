@@ -279,6 +279,8 @@ public:
     // ---- UI snapshots ------------------------------------------------------------------
     float slotPlayhead (int slot) const noexcept { return playheads[(size_t) slot].load (std::memory_order_relaxed); }
     bool slotIsActive (int slot) const noexcept { return activeFlags[(size_t) slot].load (std::memory_order_relaxed); }
+    /** Plan 20: the slot's post-level peak (linear 0..1), for the mix row's meter. */
+    float slotLevelPeak (int slot) const noexcept { return slotLevelPeaks[(size_t) slot].load (std::memory_order_relaxed); }
     double beatPositionUi() const noexcept { return beatPositionUiValue.load (std::memory_order_relaxed); }
 
     /** The note a slot triggers on. Chop mode extends the claimed range upward (Phase 3):
@@ -419,6 +421,8 @@ private:
     std::array<std::atomic<float>, numSlots> playheads {};
     std::array<std::atomic<bool>, numSlots> activeFlags {};
     std::array<std::atomic<bool>, numSlots> loopMissing {};
+    // Plan 20 (owner ask): each slot's post-level peak, for the mix row's meter.
+    std::array<std::atomic<float>, numSlots> slotLevelPeaks {};
     std::array<juce::String, numSlots> missingPaths;
     std::atomic<double> beatPositionUiValue { 0.0 };
 

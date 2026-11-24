@@ -76,7 +76,7 @@ steps:
 The MOD page holds the two LFOs and the six routing slots; 14 targets are available, from
 Chaos and Timing Range to Seed (which re-rolls the pattern). Each LFO strip carries the
 **transform row** (plan 18): Invert and Rectify pills, plus Quantise, Smooth, Pulse width and
-Skew sliders — the scope above draws the transformed waveform live. The defaults are all
+Skew knobs — the scope above draws the transformed waveform live. The defaults are all
 neutral, so an untouched transform row changes nothing. The shared LFOs and routing are
 described in the [suite README](../README.md#modulation). A fast LFO is sampled at step
 times, so it can alias against the grid.

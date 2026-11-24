@@ -109,13 +109,13 @@ namespace SuiteModulation
                 juce::NormalisableRange<float>(0.0f, 16.0f, 0.5f), 0.0f, ""));
             params.push_back(std::make_unique<juce::AudioParameterFloat>(
                 juce::ParameterID { lfoSmoothIds[(size_t) lfo], 1 }, "LFO " + number + " Smooth",
-                juce::NormalisableRange<float>(0.0f, 1.0f), 0.0f, ""));
+                juce::NormalisableRange<float>(0.0f, 1.0f, 0.1f), 0.0f, ""));
             params.push_back(std::make_unique<juce::AudioParameterFloat>(
                 juce::ParameterID { lfoPulseIds[(size_t) lfo], 1 }, "LFO " + number + " Pulse Width",
-                juce::NormalisableRange<float>(0.0f, 1.0f), 0.0f, "%"));
+                juce::NormalisableRange<float>(0.0f, 1.0f, 0.1f), 0.0f, "%"));
             params.push_back(std::make_unique<juce::AudioParameterFloat>(
                 juce::ParameterID { lfoSkewIds[(size_t) lfo], 1 }, "LFO " + number + " Skew",
-                juce::NormalisableRange<float>(-1.0f, 1.0f), 0.0f, ""));
+                juce::NormalisableRange<float>(-1.0f, 1.0f, 0.1f), 0.0f, ""));
         }
     }
 
@@ -337,12 +337,14 @@ namespace SuiteModulation
         return juce::jlimit(-1.0f, 1.0f, value + offset);
     }
 
-    float Router::lfoOutputAt(int lfo, double cycles) const
+    float Router::transformedLfoValue(int lfo, double cycles) const noexcept
     {
+        if (lfo < 0 || lfo >= lfoCount)
+            return 0.0f;
+
         const auto shape = static_cast<CoreDSP::Modulation::LfoShape>(getLfoShape(lfo));
         const auto index = (size_t) lfo;
 
-        // Plan 17 Phase 7: the per-LFO waveform transforms, then the routing offset.
         CoreDSP::Modulation::LfoTransforms transforms;
         transforms.invert = lfoInvert[index]->load() > 0.5f;
         transforms.rectify = lfoRectify[index]->load() > 0.5f;
@@ -351,9 +353,14 @@ namespace SuiteModulation
         transforms.pulseWidth = lfoPulseWidth[index]->load();
         transforms.skew = lfoSkew[index]->load();
 
-        const float wave = CoreDSP::Modulation::lfoValue (shape, cycles, lfoSeeds[index], transforms);
+        const float wave = CoreDSP::Modulation::lfoValue(shape, cycles, lfoSeeds[index], transforms);
 
-        return withOffset (wave, getLfoOffset (lfo));
+        return withOffset(wave, getLfoOffset(lfo));
+    }
+
+    float Router::lfoOutputAt(int lfo, double cycles) const
+    {
+        return transformedLfoValue(lfo, cycles);
     }
 
     float Router::getLfoPhase(int lfo) const noexcept

@@ -12,6 +12,7 @@
 #include "SuiteHeaderMenu.h"
 #include "SuiteModulationControls.h"
 #include "SuiteModulationPanel.h"
+#include "SuiteSelectorAttachment.h"
 #include "SuiteWidgets.h"
 #include "SuiteHelp.h"
 #include "SuiteLookAndFeel.h"
@@ -92,14 +93,16 @@ private:
         SuiteUI::LabelledSlider slices { "SLICES", juce::Slider::RotaryVerticalDrag };
         SuiteUI::LabelledSlider sliceLength { "SLICE LENGTH", juce::Slider::RotaryVerticalDrag };
         // Plan 17 Phase 2 + plan 18 §1.1: the creative controls with cutoff and resonance.
-        juce::ComboBox filter;
+        // Plan 20 Phase 2: the filter type is a LabelledDropdown (caption above, pill below)
+        // instead of a full-cell ComboBox.
+        SuiteUI::LabelledDropdown filter { "FILTER TYPE" };
         SuiteUI::LabelledSlider cutoff { "CUTOFF", juce::Slider::RotaryVerticalDrag };
         SuiteUI::LabelledSlider reso { "RESO", juce::Slider::RotaryVerticalDrag };
         SuiteUI::LabelledSlider attack { "ATTACK", juce::Slider::RotaryVerticalDrag };
         SuiteUI::LabelledSlider release { "RELEASE", juce::Slider::RotaryVerticalDrag };
-        SuiteUI::LabelledSlider level { "LEVEL", juce::Slider::RotaryVerticalDrag };
+        // Plan 20 (owner ask): the slot's Level and Pan moved to the editor-level mix row,
+        // so they sit beside their meters on every slot page.
         // Plan 18 Phase 4: the slot's own transport and mix controls (the former GLOBALs).
-        SuiteUI::LabelledSlider panCtrl { "PAN", juce::Slider::RotaryVerticalDrag };
         SuiteUI::LabelledSlider pitchCtrl { "PITCH", juce::Slider::RotaryVerticalDrag };
         SuiteUI::LabelledSlider swingCtrl { "SWING", juce::Slider::RotaryVerticalDrag };
         SuiteUI::LabelledSlider tempoCtrl { "TEMPO", juce::Slider::RotaryVerticalDrag };
@@ -113,7 +116,20 @@ private:
         juce::ToggleButton granular { "GRAIN" };
         juce::ToggleButton chop { "CHOP" };
 
+        // Plan 20 Phase 2: framed groups drawn by drawGroupFrame, laid out below.
+        struct Group { const char* title; juce::Rectangle<int> bounds; int page; };
+        std::vector<Group> groups;
+
+        /** The area inside a group frame, below its title band. */
+        juce::Rectangle<int> innerOf (juce::Rectangle<int> group)
+        {
+            return group.withTrimmedTop (SuiteUI::groupTitleHeight + 4).reduced (10, 4);
+        }
+
         void resized() override;
+        void paint (juce::Graphics&) override;
+
+        std::unique_ptr<juce::ParameterAttachment> filterAttachment;
     };
 
     void timerCallback() override;
@@ -141,8 +157,37 @@ private:
 
     std::array<std::unique_ptr<SlotCard>, CyclicalProcessor::numSlots> cards;
 
+    // Plan 20 (owner ask): the mix row under every slot page — each slot's Level and Pan
+    // beside its own little level meter, and the master Output. The four slots' Level and
+    // Pan live here (they left the slot cards), so the MOD-page display and the bindings
+    // point at these widgets.
+    std::array<SuiteUI::LabelledSlider, CyclicalProcessor::numSlots> slotLevels {
+        SuiteUI::LabelledSlider { "LEVEL 1", juce::Slider::RotaryVerticalDrag },
+        SuiteUI::LabelledSlider { "LEVEL 2", juce::Slider::RotaryVerticalDrag },
+        SuiteUI::LabelledSlider { "LEVEL 3", juce::Slider::RotaryVerticalDrag },
+        SuiteUI::LabelledSlider { "LEVEL 4", juce::Slider::RotaryVerticalDrag },
+    };
+    std::array<SuiteUI::LabelledSlider, CyclicalProcessor::numSlots> slotPans {
+        SuiteUI::LabelledSlider { "PAN 1", juce::Slider::RotaryVerticalDrag },
+        SuiteUI::LabelledSlider { "PAN 2", juce::Slider::RotaryVerticalDrag },
+        SuiteUI::LabelledSlider { "PAN 3", juce::Slider::RotaryVerticalDrag },
+        SuiteUI::LabelledSlider { "PAN 4", juce::Slider::RotaryVerticalDrag },
+    };
+    std::array<SuiteUI::LevelMeter, CyclicalProcessor::numSlots> slotMeters {
+        SuiteUI::LevelMeter { juce::Colour (0xffFF7A45) },
+        SuiteUI::LevelMeter { juce::Colour (0xffFF7A45) },
+        SuiteUI::LevelMeter { juce::Colour (0xffFF7A45) },
+        SuiteUI::LevelMeter { juce::Colour (0xffFF7A45) },
+    };
+    // Smoothed meter display: the per-block peak decays between timer ticks.
+    std::array<float, CyclicalProcessor::numSlots> meterLevels { 0.0f, 0.0f, 0.0f, 0.0f };
+
     // The one global: master Output, shown on every slot page (plan 18 Phase 4).
     SuiteUI::LabelledSlider masterCtrl { "OUTPUT", juce::Slider::RotaryVerticalDrag };
+
+    // The mix row's one group frame (MASTER), drawn in paint(). The four slots' Level,
+    // meter and Pan share it with the Output.
+    juce::Rectangle<int> mixGroupBounds;
 
     // Plan 18 Phase 6: the MOD page — the shared panel and the control display.
     SuiteModulation::ModulationPanel modulation { processor.getRouter(), modulationStyle() };

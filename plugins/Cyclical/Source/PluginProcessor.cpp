@@ -208,10 +208,14 @@ juce::AudioProcessorValueTreeState::ParameterLayout CyclicalProcessor::createPar
             juce::NormalisableRange<float> (30.0f, 150.0f, 0.1f), 100.0f, "%"));
 
         // Plan 14: the slot's trigger note. The defaults are the old fixed map 60-63, so a
-        // session without these IDs (resetMissing) reads the same keys.
+        // session without these IDs (resetMissing) reads the same keys. The value box shows
+        // the note name and number, the MTC/Sgraffito pattern (plan 20, owner ask).
         params.push_back (std::make_unique<juce::AudioParameterInt> (
             juce::ParameterID { slotNoteIds[(size_t) slot], 1 }, "Note " + juce::String (slot + 1),
-            24, 96, firstSlotNote + slot));
+            24, 96, firstSlotNote + slot,
+            juce::AudioParameterIntAttributes().withStringFromValueFunction (
+                [] (int value, int) { return juce::MidiMessage::getMidiNoteName (value, true, true, 3)
+                                          + " (" + juce::String (value) + ")"; })));
 
         // Plan 14: the musical length of the whole loaded loop, for Host Sync.
         params.push_back (std::make_unique<juce::AudioParameterInt> (
@@ -659,14 +663,19 @@ void CyclicalProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mi
         const float panGainL = (float) std::cos (angle);
         const float panGainR = (float) std::sin (angle);
 
-        // Fold the panned scratch into the master buffer (mono: the two gains summed).
+        // Fold the panned scratch into the master buffer (mono: the two gains summed), and
+        // track the slot's post-level peak for the mix row's meter (plan 20, owner ask).
+        float slotPeak = 0.0f;
         if (outChannels >= 2)
         {
             for (int n = 0; n < numSamples; ++n)
             {
                 const float levelGain = levelSmoothers[i].getNextValue();
-                buffer.addSample (0, n, scratch.getSample (0, n) * levelGain * panGainL);
-                buffer.addSample (1, n, scratch.getSample (1, n) * levelGain * panGainR);
+                const float l = scratch.getSample (0, n) * levelGain;
+                const float r = scratch.getSample (1, n) * levelGain;
+                buffer.addSample (0, n, l * panGainL);
+                buffer.addSample (1, n, r * panGainR);
+                slotPeak = juce::jmax (slotPeak, std::abs (l), std::abs (r));
             }
         }
         else if (outChannels == 1)
@@ -674,10 +683,14 @@ void CyclicalProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mi
             for (int n = 0; n < numSamples; ++n)
             {
                 const float levelGain = levelSmoothers[i].getNextValue();
-                buffer.addSample (0, n, (scratch.getSample (0, n) * panGainL
-                                         + scratch.getSample (1, n) * panGainR) * levelGain);
+                const float mixed = (scratch.getSample (0, n) * panGainL
+                                     + scratch.getSample (1, n) * panGainR) * levelGain;
+                buffer.addSample (0, n, mixed);
+                slotPeak = juce::jmax (slotPeak, std::abs (mixed));
             }
         }
+
+        slotLevelPeaks[(size_t) slot].store (slotPeak, std::memory_order_relaxed);
     }
 
     //---- Master stage (plan 18): the one global Output, smoothed 20 ms.

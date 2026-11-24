@@ -1051,7 +1051,7 @@
       <PARAM id="swing" value="0"/>
       <PARAM id="lfo1Sync" value="1"/>
       <PARAM id="lfo1Division" value="4"/>
-      <PARAM id="lfo1PulseWidth" value="0.25"/>
+      <PARAM id="lfo1PulseWidth" value="0.3"/>
       <PARAM id="mod1Target" value="10"/>
       <PARAM id="mod1Amount" value="100"/>
     </PARAMETERS>
@@ -1378,7 +1378,7 @@
       <PARAM id="sliceCount" value="8"/>
       <PARAM id="wow" value="6"/>
       <PARAM id="lfo1Rate" value="0.9"/>
-      <PARAM id="lfo1Skew" value="0.55"/>
+      <PARAM id="lfo1Skew" value="0.6"/>
       <PARAM id="mod1Target" value="24"/>
       <PARAM id="mod1Amount" value="45"/>
     </PARAMETERS>

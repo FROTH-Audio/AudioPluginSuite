@@ -7,7 +7,7 @@
   "swing": 0.0,
   "lfo1Sync": 1,
   "lfo1Division": 4,
-  "lfo1PulseWidth": 0.25,
+  "lfo1PulseWidth": 0.3,
   "mod1Target": 10,
   "mod1Amount": 100.0
 }

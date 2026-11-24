@@ -21,8 +21,16 @@ work **independently per slot**. The accent is tangerine.
 <img src="../../docs/manuals/cyclical-slots.png" alt="SLOT page" width="653">
 
 One full-width card per page, carrying that slot's complete control set. The card shows the
-slot's base key in its title (it follows the Note knob). Every parameter below belongs to this
-slot alone — each slot runs its own grid, swing, trigger mode and beat clock:
+slot's base key in its title (it follows the Note knob), and its controls live in framed
+groups: **PLAY MODE** (direction, Ping Rand, Grain, Chop, **Trigger**, **Host Sync**) sits
+directly below the sample preview; **PLAYBACK** (Start/Length/Speed/Velocity) and
+**KEY & SLICES** (Note/Beats/Slices/Slice Length plus **Quantize**) span the full width;
+below them **ENVELOPE** sits on the left (Attack and Release stacked) with **FILTER** (one
+compact row) and **CLOCK & MIX** (the four clock knobs) on the right. Inside the card frame,
+the **MASTER** group holds the mix on every slot page: the four slots' **Level** (each beside
+its own little level meter) and **Pan**, with the **Output** at the end.
+Every parameter below belongs to this slot alone — each slot runs its own grid, swing,
+trigger mode and beat clock:
 
 | Control | Range | What it does |
 |---|---|---|
@@ -34,29 +42,43 @@ slot alone — each slot runs its own grid, swing, trigger mode and beat clock:
 | **Filter** | Off / HP / LP / BP | The slot's own filter, with **Cutoff** (20 Hz – 20 kHz) and **Reso** (0.5 – 10). Off is a true bypass. |
 | **Cutoff / Reso** | see Filter | The filter's corner and resonance. Cutoff is a modulation target. |
 | **Attack / Release** | 1 ms – 1 s / 1 ms – 10 s | The slot's own envelope over the loop's gain: attack rises on a trigger, release fades on stop or retrigger. Defaults 1 ms / 5 ms (the engine's old feel). |
-| **Level** | 0 – 200 % | The slot's output level before the master stage. A modulation target. |
-| **Note** | 24 – 96 | The MIDI key that triggers the slot. Defaults 60–63 (the old fixed map). Two slots sharing a note: the lowest slot wins. |
+| **Note** | 24 – 96 | The MIDI key that triggers the slot (shown as `C3 (60)`). Defaults 60–63 (the old fixed map). Two slots sharing a note: the lowest slot wins. |
 | **Beats** | 1 – 16 | The musical length of the whole loaded loop, in beats. Used while this slot's Host Sync is on; **dimmed in Chop mode** (sync is disabled there). Applies live, like Start. |
 | **Slices** | 2 – 16 | How many slices Chop divides the region into. Only live in Chop mode. Applies live. |
 | **Slice Length** | −100 – +100 % | Skews the slice boundaries: positive lengthens the late slices, negative the early ones. 0 % is the equal split. **This is not Length**: Length trims the loop region that all slices live in; Slice Length only redistributes the boundaries inside it. Applies live. |
-| **FWD / REV / PP** | — | Direction. Ping-pong turns at both bounds; **Ping Rand** (below) randomises the turn points per trigger. |
-| **PING RAND** | on / off | Random turn points on each trigger. The rate is untouched, so the pitch never drifts. Only live in Ping-Pong — dimmed otherwise, never hidden. |
-| **GRAIN** | on / off | Granular playback: one 80 ms grain at a time (a stutter, not a cloud). Speed is dimmed while it is on. Allowed inside a chopped slice — very short slices sound grainy. |
-| **CHOP** | on / off | Chop mode: the slot's region splits into **Slices** parts, and key Note + k plays slice k (Dr. Rex style). **Host Sync is disabled for a chopped slot** — its Speed knob stays live. |
+| **Quantize** | Off / 1/16 / 1/8 / 1/4 / 1/2 / Bar | This slot's triggers start on the next grid point. Off starts immediately. |
 
-### The slot's own clock and mix (the former GLOBAL controls, per slot)
+The PLAY MODE, MASTER-group and clock tables below walk through the rest by group.
+
+### The MASTER group (every slot page)
+
+Inside the card frame, shared by all four slot pages:
 
 | Control | Range | What it does |
 |---|---|---|
-| **Pan** | −100 – +100 % | The slot's constant-power pan before the master sum. A modulation target. |
+| **Level 1..4** | 0 – 200 % | Each slot's output level before the master stage, beside its own little level meter. A modulation target. |
+| **Pan 1..4** | −100 – +100 % | Each slot's constant-power pan. A modulation target. |
+| **Output** | −24 – +12 dB | Output level of the whole instrument. |
+
+### PLAY MODE (below the sample preview)
+
+| Control | What it does |
+|---|---|
+| **FWD / REV / PP** | Direction. Ping-pong turns at both bounds. |
+| **PING RAND** | Random turn points on each trigger. The rate is untouched, so the pitch never drifts. Only live in Ping-Pong — dimmed otherwise, never hidden. |
+| **GRAIN** | Granular playback: one 80 ms grain at a time (a stutter, not a cloud). Speed is dimmed while it is on. |
+| **CHOP** | Chop mode: the slot's region splits into **Slices** parts, and key Note + k plays slice k (Dr. Rex style). **Host Sync is disabled for a chopped slot** — its Speed knob stays live. |
+| **Trigger** | Latch / Gate / Toggle. Latch: a note runs until retriggered. Gate: the loop plays only while the key is held. **Toggle**: the first press starts the slot looping, the second stops it immediately — a note-off never stops it, and a stopped transport stops this slot when its mode is Toggle. |
+| **Host Sync** | On: this slot's clock and its synced loops follow the host's position and tempo. Chopped slots ignore it. |
+
+### The slot's own clock (CLOCK & MIX, per slot)
+
+| Control | Range | What it does |
+|---|---|---|
 | **Pitch** | −12 – +12 | Detunes this slot (speed and pitch move, like tape). |
 | **Swing** | −20 – +20 % | Shifts this slot's odd grid points. Positive is late. |
-| **Quantize** | Off / 1/16 / 1/8 / 1/4 / 1/2 / Bar | This slot's triggers start on the next grid point. Off starts immediately. |
-| **Trigger** | Latch / Gate / Toggle | Latch: a note runs until retriggered. Gate: the loop plays only while the key is held. **Toggle**: the first press starts the slot looping (scheduled on the grid when Quantize is on), the second press stops it immediately — a note-off never stops it, a trigger-mode change stops the voices, and a stopped transport stops this slot when its mode is Toggle. |
 | **Tempo** | 40 – 240 BPM | This slot's clock tempo while its Host Sync is off. Each slot can run at its own tempo. |
-| **Host Sync** | on / off | On: this slot's clock and its synced loops follow the host's position and tempo. Chopped slots ignore it. |
 | **Crossfade** | 0 – 500 ms | This slot's loop-seam blend. |
-| **Output** | −24 – +12 dB | Output level of the whole instrument — the one global, shown beneath every slot page. |
 
 ### The arrangement strip and the tools
 
