@@ -19,14 +19,15 @@ render rounds) and **20** (the transform-scope fix, the transform knobs and pane
 the Cyclical slot-page groups with the MASTER mix row). **Dropped on 2026-11-24 by the owner
 decision (not executed, no outcome to record): 01** (the macOS/CI check — the owner takes it
 offline), **05.2 and 05.3** (the parameter audit — dropped) **and 05.4** (Sgraffito's silent
-controls — dropped). Any valuable observations in them stay recoverable from git history.
+controls — dropped). **Closed on 2026-11-24 by the owner decision: 06** (the JUCE 9 plugin
+ideas — 2.1, 2.4, 2.5, 2.9, 2.10 and 2.11 shipped; 2.3 is not pursued). Any valuable
+observations in them stay recoverable from git history.
 
 ## Order
 
 | # | File | Status | Why here | Gate before the next step |
 |---|---|---|---|---|
 | 19 | [19_groove-mutator.md](19_groove-mutator.md) | Approved concept; detailed implementation plan written 2026-11-23, refined 2026-11-24 ([19_groove-mutator-concept.md](19_groove-mutator-concept.md) holds the idea record) | New plugin: Groove Mutator, a generative rhythm-MIDI instrument (8 percussion lanes, euclidean + hashed patterns, Lorenz-driven mutation, fills, polyrhythm) | Build starts when the owner says go |
-| 06 | [06_juce9-plugin-ideas.md](06_juce9-plugin-ideas.md) | Owner picked the order 2026-11-18; first passes of 2.1, 2.4, 2.5, 2.9 and 2.11 done | Options for the rest. | Owner picks the next idea (2.10 is done as Cyclical; 2.3 remains) |
 | 6.1_review | [6.1_review.md](6.1_review.md) | Reference, created 2026-11-19 | Review of the Cyclical creative-enhancement work: loop loading sources, playback modes, test coverage and known issues. | None |
 
 ## Rules for executing a plan
