@@ -23,9 +23,9 @@ Status: proposed 2026-11-24. Every claim in §0 was checked against the code the
 
 ## 1. Open questions (owner)
 
-None blocking — the round-6 findings are all concrete. The transform rearrangement proposal
-in Phase 1 (a labelled TRANSFORM group per LFO, wider strips) is the default; the owner
-approves it from the render.
+None blocking — the round-6 findings are all concrete. The Phase 1 design (small 40 px knobs with
+captions, INVERT/RECT beside them) is the owner's addition; the owner approves the final
+arrangement from the render.
 
 ## 2. Phases
 
@@ -77,7 +77,9 @@ Files: `plugins/Cyclical/Source/PluginEditor.*`, tests, renders.
    Velocity), **KEY & SLICES** (Note/Beats/Slices/Slice Length), **FILTER** (type/cutoff/
    reso), **ENVELOPE** (Attack/Release/Level), **CLOCK & MIX** (Swing/Tempo/Quantize/
    Trigger/Crossfade/Pan/Pitch/Host Sync) — the exact arrangement from the render the
-   owner approves (R4). The waveform keeps the tools row.
+   owner approves (R4). **Master Output** stays at the top of the card beside the title,
+   shared by every slot page (the one global, `PluginEditor.h` L144). The waveform keeps
+   the tools row.
 2. **The filter dropdown**: restyle to the suite's `LabelledDropdown` idiom (caption
    above, a styled ComboBox at pill height below) instead of the full-cell raw combo.
 3. **Waveform ≥ 50 % higher**: `waveHeight` 110 → 170; the card content height and the
@@ -92,8 +94,9 @@ Files: `plugins/Cyclical/Source/PluginProcessor.cpp`, tests.
    Phase 2 dropdown fix plus the new audio regression test (a filtered probe vs the
    identity, both bounded). If it is broken, fix and re-probe.
 2. **Attack/Release**: same — the probe becomes the regression test (an 800 ms attack
-   visibly slows the level rise; a 2 s release is still fading three blocks after the
-   note-off in Latch… the tail semantics documented per plan 17).
+   visibly slows the level rise on a Gate slot; a 2 s release is still fading three
+   blocks after the note-off in Gate mode; Latch keeps looping until the next press —
+   the tail semantics documented per plan 17).
 3. **The lockup accent**: owner task — the root cause is confirmed in the owner's local
    `tools/brand/lockups.py`: the Cyclical row still carries the pre-plan-14 steel
    `(143, 163, 184)` (`#8FA3B8`); change it to the tangerine `(255, 122, 69)`

@@ -5,9 +5,9 @@ Concept approved by the owner 2026-11-23. Source: `19_groove-mutator-concept.md`
 there define the idea; this file is the build order). Naming: MidiTool =
 `plugins/MidiEffect`.
 
-Status: approved concept; nothing implemented. Execution starts after plan 18's Cyclical
-phases (4–6), so the shared pattern maths and the modulation panel's transform row are
-already landed.
+Status: approved concept; nothing implemented. Execution starts after plan 20 closes (the plan-18
+Cyclical phases 4–6 landed, and the modulation panel's transform row is fixed in plan 20 Phase 1),
+so the shared pattern maths and the modulation panel's transforms are landed.
 
 ---
 
@@ -22,7 +22,7 @@ already landed.
 | Trigger | One trigger key (default 36/C2), Latch or Gate mode (the Cyclical `triggerMode` pattern) |
 | Clock | Host Sync on = host PPQ + tempo (the MTC law, `SuiteModulation::hostTempoOrDefault` fallback); off = the Tempo parameter |
 | Latency | Fixed reported latency for the timing-drift budget (the MTC 50 ms pattern, `maxTimingRangeMs`), never changing with a knob |
-| Parameters | ≈ 100; per-track array IDs (`track1Steps` …, the Cyclical/audit form), **append-only from day one**; state version 1 |
+| Parameters | 159 (master 17 + 8 tracks × 12 + the shared modulation router’s 46); per-track array IDs (`track1Steps` …, the Cyclical/audit form), **append-only from day one**; state version 1 |
 
 ## 1. Parameter layout (createParameterLayout order — never reorder after first commit)
 
@@ -194,7 +194,7 @@ table, AGENTS §1/§4/§7/§13, CHANGELOG, `git status --short` sweep. CTest exp
 
 | Item | Note |
 |---|---|
-| Parameter count (~163) | Per-track array IDs keep the bank/test maintenance sane; append-only from the first commit; Ableton rescan after every count change |
+| Parameter count (159) | Per-track array IDs keep the bank/test maintenance sane; append-only from the first commit; Ableton rescan after every count change |
 | Polyrhythm phase maths | Each lane runs its own beat-clock phase (the MTC synced-LFO generalisation) — its own test first |
 | Mutation determinism | The live mutated mask must survive state round trips identically (seed + tick rebuild) |
 | ~100 parameters on the GRID page | The lane strip must stay readable — the R1 40 px rule holds; if the page cannot fit, a second page is the R4 answer, not smaller knobs |
