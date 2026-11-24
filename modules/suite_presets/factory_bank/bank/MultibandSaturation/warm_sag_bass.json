@@ -1,0 +1,11 @@
+{
+  "_name": "Warm Sag Bass",
+  "_category": "Bass",
+  "_description": "The thermal sag warms folded bass notes.",
+  "_plugin": "MultibandSaturation",
+  "_pluginVersion": "1.0.0",
+  "crossover": 200.0,
+  "driveLow": 9.0,
+  "thermalDrift": 60.0,
+  "foldLow": 15.0
+}

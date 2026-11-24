@@ -407,11 +407,14 @@ void MidiEffectEditor::timerCallback()
     // Plan 15 (owner): the arp-only controls are inert in Chord mode (Chord fires the whole
     // chord event for event: no clock, no gate, no per-step shape). Dimmed, never hidden
     // (the plan 10 G1 rule). The chord parameters and the Arp pattern's ordering stay live.
+    // Plan 17 Phase 6: the Tempo is also inert while Host Sync is on — the host's tempo is
+    // authoritative then, so the knob dims.
     const bool arpMode = processor.apvts.getRawParameterValue (MidiEffectProcessor::arpModeId)->load() > 0.5f;
+    const bool syncOn = processor.apvts.getRawParameterValue (MidiEffectProcessor::hostSyncId)->load() > 0.5f;
 
     rateCell.setEnabled (arpMode);      // Step Rate
     syncCell.setEnabled (arpMode);      // Host Sync
-    tempoCtrl.setEnabled (arpMode);
+    tempoCtrl.setEnabled (arpMode && ! syncOn);
     gateCtrl.setEnabled (arpMode);      // Gate Length
     curveCell.setEnabled (arpMode);     // Velocity Curve
     dirCell.setEnabled (arpMode);       // Velocity Direction

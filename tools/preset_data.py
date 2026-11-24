@@ -192,8 +192,9 @@ SCHEMA = {
         "imageRotationRate": {"min": 0.02, "max": 2.0, "default": 0.25, "type": "float"},
         "imageRotationDepth": {"min": 0.0, "max": 100.0, "default": 0.0, "type": "float"},
         "phase": {"min": 0.0, "max": 360.0, "default": 0.0, "type": "float"},
-        # Plan 13: the shared LFO/routing parameters (10 targets + None).
-        **_routing(10),
+        # Plan 13: the shared LFO/routing parameters. Plan 18 grew the table to 19 targets
+        # (Pan, Mono Maker, the three widths, the M/S tones and the rotation).
+        **_routing(19),
     },
     # Plan 13: Multiband Saturation, the two-band split with LFOs and routing
     # (11 sound parameters + 34 router parameters).
@@ -209,6 +210,13 @@ SCHEMA = {
         "toneHigh": {"min": -1.0, "max": 1.0, "default": 0.0, "type": "float"},
         "mix": {"min": 0.0, "max": 100.0, "default": 100.0, "type": "float"},
         "outputLevel": {"min": -12.0, "max": 6.0, "default": 0.0, "type": "float"},
+        # Plan 17 Phase 9: the interest features (the per-band mix, the thermal drift
+        # and the per-band folds). Appended after the router's parameters.
+        "mixLow": {"min": 0.0, "max": 100.0, "default": 100.0, "type": "float"},
+        "mixHigh": {"min": 0.0, "max": 100.0, "default": 100.0, "type": "float"},
+        "thermalDrift": {"min": 0.0, "max": 100.0, "default": 0.0, "type": "float"},
+        "foldLow": {"min": 0.0, "max": 50.0, "default": 0.0, "type": "float"},
+        "foldHigh": {"min": 0.0, "max": 50.0, "default": 0.0, "type": "float"},
         **_routing(10),
     },
     # Plan 6.1: Cyclical, the four-slot loop instrument. Plan 18 Phase 4 (owner decision
@@ -335,6 +343,31 @@ PRESETS = {
                 depth=50.0, stereoPhase=90.0),
         _preset("Pendulum Drift", "Rhythmic", "Pendulum LFO gives a swinging drift motion.",
                 lfo1Rate=0.5, lfo1Shape=7, mod1Target=12, mod1Amount=100.0, depth=60.0, spread=0.4),
+        # Plan 17 Phase 11: +10 presets focused on the modulation routing — the targets the
+        # plan-13 set did not cover (Drift Depth, Feedback Damping, Mix) and the plan-17
+        # transforms (invert, rectify, quantise, pulse width, skew) on the routed shapes.
+        # Appended, so the bank order stays stable for host programs.
+        _preset("Depth Breather", "Ambient", "The LFO breathes the drift depth itself.",
+                lfo1Rate=0.3, mod1Target=1, mod1Amount=80.0, depth=50.0, spread=0.3),
+        _preset("Damping Wander", "Character", "The feedback damping drifts slowly with the tail.",
+                lfo1Rate=0.15, mod1Target=8, mod1Amount=70.0, feedback=10.0, feedbackDamping=40.0),
+        _preset("Mix Tide", "Ambient", "The wet share rises and falls like a tide.",
+                lfo1Rate=0.08, mod1Target=11, mod1Amount=60.0, mix=70.0),
+        _preset("Inverted Drift", "Character", "The routed drift waveform is inverted.",
+                lfo1Rate=0.4, mod1Target=12, mod1Amount=100.0, lfo1Invert=1, depth=45.0),
+        _preset("Rectified Spread", "Wide", "The rectified LFO pumps the bin spread upward.",
+                lfo1Rate=0.6, mod1Target=2, mod1Amount=90.0, lfo1Rectify=1, spread=0.5),
+        _preset("Stepped Phase", "Experimental", "A quantised LFO steps the stereo phase.",
+                lfo1Rate=0.7, mod1Target=3, mod1Amount=100.0, lfo1Quantise=4, stereoPhase=120.0),
+        _preset("Pulsed Tilt", "Bright", "A narrow pulse flips the spectral tilt per step.",
+                lfo1Rate=1.2, mod1Target=5, mod1Amount=80.0, lfo1PulseWidth=0.3, tilt=0.8),
+        _preset("Skewed Shift", "Experimental", "A skewed LFO leans the spectral shift early.",
+                lfo1Rate=0.5, mod1Target=4, mod1Amount=70.0, lfo1Skew=0.4, shift=10.0),
+        _preset("Smoothed Gate", "Subtle", "A heavily smoothed LFO opens the spectral gate gently.",
+                lfo1Rate=0.2, mod1Target=6, mod1Amount=100.0, lfo1Smooth=0.9, gate=-40.0),
+        _preset("Two LFO Drift Mix", "Wide", "One LFO drifts the depth while the other sways the mix.",
+                lfo1Rate=0.2, mod1Target=1, mod1Amount=70.0,
+                lfo2Rate=0.35, mod2Source=1, mod2Target=11, mod2Amount=45.0, depth=40.0),
     ],
     "DynamicSaturation": [
         _preset("Tube Glue", "Mix bus", "Gentle tube glue for a mix bus.", drive=4.0, sensitivity=0.4),
@@ -553,6 +586,29 @@ PRESETS = {
                 lfo1Rate=0.1, lfo1Shape=0, mod1Target=9, mod1Amount=10.0, drive=4.0),
         _preset("Output Pump", "Mix bus", "Synced square pumps the output level.",
                 lfo1Rate=2.0, lfo1Shape=3, lfo1Sync=1, lfo1Division=4, mod1Target=10, mod1Amount=15.0, drive=3.0),
+        # Plan 17 Phase 11: +10 presets focused on the plan-18 interest routing targets —
+        # Pan, Mono Maker, the three multiband widths, the M/S tones and the rotation.
+        # Appended, so the bank order stays stable for host programs.
+        _preset("Pan Sway", "Groove", "The LFO sways the balance law side to side.",
+                lfo1Rate=0.4, mod1Target=11, mod1Amount=60.0, pan=0.0),
+        _preset("Mono Maker Sweep", "Focus", "The LFO sweeps the mono-maker crossover.",
+                lfo1Rate=0.15, mod1Target=12, mod1Amount=70.0, monoMakerCrossover=200.0),
+        _preset("Low Width Bloom", "Air", "The LFO breathes the low band's width.",
+                lfo1Rate=0.25, mod1Target=13, mod1Amount=80.0, multibandWidthLow=0.0),
+        _preset("Mid Width Pulse", "Electronic", "A quantised LFO steps the mid-band width.",
+                lfo1Rate=0.6, mod1Target=14, mod1Amount=90.0, lfo1Quantise=4, multibandWidthMid=0.0),
+        _preset("High Width Shimmer", "Air", "The LFO sways the high band's width.",
+                lfo1Rate=0.5, mod1Target=15, mod1Amount=70.0, multibandWidthHigh=0.0),
+        _preset("Tone Mid Drift", "Vocals", "The LFO drifts the mid channel's tilt.",
+                lfo1Rate=0.2, mod1Target=16, mod1Amount=60.0, msToneMid=0.2),
+        _preset("Side Tone Sway", "Wide", "The LFO sways the side channel's tilt.",
+                lfo1Rate=0.3, mod1Target=17, mod1Amount=65.0, msToneSide=0.0),
+        _preset("Rotation Pulse", "Experimental", "A square LFO pulses the image rotation depth.",
+                lfo1Rate=0.8, mod1Target=19, mod1Amount=90.0, imageRotationRate=0.5, imageRotationDepth=40.0),
+        _preset("Rotating Rate", "Experimental", "The LFO sways the image rotation's own rate.",
+                lfo1Rate=0.3, mod1Target=18, mod1Amount=80.0, imageRotationDepth=30.0, imageRotationRate=0.4),
+        _preset("Inverted Pan Slide", "Experimental", "An inverted, skewed LFO leans the pan.",
+                lfo1Rate=0.45, mod1Target=11, mod1Amount=50.0, lfo1Invert=1, lfo1Skew=0.4, pan=0.0),
     ],
     # Plan 11: Multiband Saturation, the two-band split. Every preset changes at least one
     # parameter from the default. Bank order is append-only.
@@ -593,6 +649,28 @@ PRESETS = {
                 lfo1Rate=2.0, lfo1Shape=3, lfo1Sync=1, lfo1Division=4, mod1Target=9, mod1Amount=-60.0, mix=80.0),
         _preset("Output Pump", "Utility", "Sine LFO pumps the output level.",
                 lfo1Rate=0.35, lfo1Shape=0, mod1Target=10, mod1Amount=50.0, outputLevel=0.0),
+        # Plan 17 Phase 9: the interest features — the per-band mix, the folds and the
+        # thermal drift. Appended, so the bank order stays stable for host programs.
+        _preset("Clean Low End", "Bass", "The lows stay untouched while the highs bite.",
+                mixLow=0.0, mixHigh=100.0, crossover=300.0, driveHigh=15.0, driveLow=0.0),
+        _preset("Folded Air", "Bright", "The high band's wavefolder adds airy harmonics.",
+                foldHigh=50.0, driveHigh=9.0, crossover=2000.0),
+        _preset("Folded Bass", "Lo-Fi", "Folded low harmonics crunch the bottom.",
+                foldLow=35.0, driveLow=12.0, crossover=250.0),
+        _preset("Thermal Sag", "Character", "The drive eases as the signal sustains.",
+                thermalDrift=100.0, driveLow=6.0, driveHigh=6.0),
+        _preset("Gentle Thermal", "Subtle", "A subtle breath in the drive and crossover.",
+                thermalDrift=35.0, driveLow=9.0, driveHigh=6.0),
+        _preset("Parallel Low", "Wide", "The low band runs parallel saturation.",
+                mixLow=40.0, driveLow=18.0, crossover=400.0),
+        _preset("Parallel High", "Wide", "The high band runs parallel saturation.",
+                mixHigh=35.0, driveHigh=15.0, crossover=1200.0),
+        _preset("Split Fold", "Drums", "Both bands fold for snappy transients.",
+                foldLow=25.0, foldHigh=25.0, driveLow=9.0, driveHigh=9.0, crossover=900.0),
+        _preset("Warm Sag Bass", "Bass", "The thermal sag warms folded bass notes.",
+                thermalDrift=60.0, foldLow=15.0, driveLow=9.0, crossover=200.0),
+        _preset("Half Processed", "Lo-Fi", "Both bands blend halfway to clean.",
+                mixLow=50.0, mixHigh=50.0, driveLow=15.0, driveHigh=15.0),
     ],
     # Plan 6.1: the four-slot loop instrument. Every preset carries four embedded: loop
     # paths (the slot loading rides as state properties) and changes at least one

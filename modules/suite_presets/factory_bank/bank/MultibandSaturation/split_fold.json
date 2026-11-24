@@ -1,0 +1,12 @@
+{
+  "_name": "Split Fold",
+  "_category": "Drums",
+  "_description": "Both bands fold for snappy transients.",
+  "_plugin": "MultibandSaturation",
+  "_pluginVersion": "1.0.0",
+  "crossover": 900.0,
+  "driveLow": 9.0,
+  "driveHigh": 9.0,
+  "foldLow": 25.0,
+  "foldHigh": 25.0
+}

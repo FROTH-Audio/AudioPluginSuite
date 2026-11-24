@@ -1,0 +1,10 @@
+{
+  "_name": "Gentle Thermal",
+  "_category": "Subtle",
+  "_description": "A subtle breath in the drive and crossover.",
+  "_plugin": "MultibandSaturation",
+  "_pluginVersion": "1.0.0",
+  "driveLow": 9.0,
+  "driveHigh": 6.0,
+  "thermalDrift": 35.0
+}

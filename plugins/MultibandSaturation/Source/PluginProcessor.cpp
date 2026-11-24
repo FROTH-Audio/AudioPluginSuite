@@ -43,6 +43,11 @@ MultibandSaturationProcessor::MultibandSaturationProcessor()
     toneHigh     = apvts.getRawParameterValue (toneHighId);
     mix          = apvts.getRawParameterValue (mixId);
     outputLevel  = apvts.getRawParameterValue (outputLevelId);
+    mixLow       = apvts.getRawParameterValue (mixLowId);
+    mixHigh      = apvts.getRawParameterValue (mixHighId);
+    thermalDrift = apvts.getRawParameterValue (thermalDriftId);
+    foldLow      = apvts.getRawParameterValue (foldLowId);
+    foldHigh     = apvts.getRawParameterValue (foldHighId);
 }
 
 juce::AudioProcessorValueTreeState::ParameterLayout MultibandSaturationProcessor::createParameterLayout()
@@ -94,6 +99,25 @@ juce::AudioProcessorValueTreeState::ParameterLayout MultibandSaturationProcessor
     // LFOs and modulation routing, appended last so the existing parameter order never moves.
     SuiteModulation::Router::addParameters (params, modTargetNames());
 
+    // Plan 17 Phase 9: the interest features, appended AFTER the router's parameters so no
+    // saved index moves. The per-band mix defaults to 100 % (the committed sound); the
+    // thermal drift and the folds default to their inert values.
+    params.push_back (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { mixLowId, 1 }, "Mix Low",
+        juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 100.0f, "%"));
+    params.push_back (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { mixHighId, 1 }, "Mix High",
+        juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 100.0f, "%"));
+    params.push_back (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { thermalDriftId, 1 }, "Thermal Drift",
+        juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 0.0f, "%"));
+    params.push_back (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { foldLowId, 1 }, "Fold Low",
+        juce::NormalisableRange<float> (0.0f, 50.0f, 0.1f), 0.0f, "%"));
+    params.push_back (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { foldHighId, 1 }, "Fold High",
+        juce::NormalisableRange<float> (0.0f, 50.0f, 0.1f), 0.0f, "%"));
+
     return { params.begin(), params.end() };
 }
 
@@ -131,6 +155,16 @@ void MultibandSaturationProcessor::prepareToPlay (double sampleRate, int)
     outputGainSmoother.reset (preparedSampleRate, 0.05);
     crossoverSmoother.reset (preparedSampleRate, 0.02);
 
+    // Plan 17 Phase 9: the interest parameters smooth like the rest; the thermal
+    // follower is very slow (2 s attack, 4 s release) — the sag takes seconds.
+    mixLowSmoother.reset (preparedSampleRate, 0.05);
+    mixHighSmoother.reset (preparedSampleRate, 0.05);
+    foldLowSmoother.reset (preparedSampleRate, 0.05);
+    foldHighSmoother.reset (preparedSampleRate, 0.05);
+    thermalSmoother.reset (preparedSampleRate, 0.05);
+    for (auto& follower : thermalEnvs)
+        follower.prepare (preparedSampleRate, 2000.0f, 4000.0f);
+
     driveLowSmoother.setCurrentAndTargetValue (juce::Decibels::decibelsToGain (driveLow->load()));
     driveHighSmoother.setCurrentAndTargetValue (juce::Decibels::decibelsToGain (driveHigh->load()));
     toneLowSmoother.setCurrentAndTargetValue (toneLow->load());
@@ -138,6 +172,11 @@ void MultibandSaturationProcessor::prepareToPlay (double sampleRate, int)
     mixSmoother.setCurrentAndTargetValue (mix->load() / 100.0f);
     outputGainSmoother.setCurrentAndTargetValue (juce::Decibels::decibelsToGain (outputLevel->load()));
     crossoverSmoother.setCurrentAndTargetValue (crossover->load());
+    mixLowSmoother.setCurrentAndTargetValue (mixLow->load() / 100.0f);
+    mixHighSmoother.setCurrentAndTargetValue (mixHigh->load() / 100.0f);
+    foldLowSmoother.setCurrentAndTargetValue (foldLow->load() / 50.0f);
+    foldHighSmoother.setCurrentAndTargetValue (foldHigh->load() / 50.0f);
+    thermalSmoother.setCurrentAndTargetValue (thermalDrift->load() / 100.0f);
 }
 
 bool MultibandSaturationProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
@@ -184,6 +223,14 @@ void MultibandSaturationProcessor::processBlock (juce::AudioBuffer<float>& buffe
     // Crossover is smoothed in Hz before the LR4 coefficients are computed (plan 13).
     crossoverSmoother.setTargetValue (modulation.modulate ((int) ModTarget::Crossover, crossover->load(), offsets));
 
+    // Plan 17 Phase 9: the interest parameters are not routing targets (the plan keeps the
+    // table as it is); they read and smooth like the rest. The fold normalises to 0..1.
+    mixLowSmoother.setTargetValue (juce::jlimit (0.0f, 100.0f, mixLow->load()) / 100.0f);
+    mixHighSmoother.setTargetValue (juce::jlimit (0.0f, 100.0f, mixHigh->load()) / 100.0f);
+    foldLowSmoother.setTargetValue (juce::jlimit (0.0f, 50.0f, foldLow->load()) / 50.0f);
+    foldHighSmoother.setTargetValue (juce::jlimit (0.0f, 50.0f, foldHigh->load()) / 50.0f);
+    thermalSmoother.setTargetValue (juce::jlimit (0.0f, 100.0f, thermalDrift->load()) / 100.0f);
+
     const float attackMs = juce::jlimit (1.0f, 100.0f,
                                          modulation.modulate ((int) ModTarget::Attack, attack->load(), offsets));
     const float releaseMs = juce::jlimit (50.0f, 2000.0f,
@@ -205,28 +252,51 @@ void MultibandSaturationProcessor::processBlock (juce::AudioBuffer<float>& buffe
         const float outputGain = outputGainSmoother.getNextValue();
         const float crossoverHz = crossoverSmoother.getNextValue();
 
-        for (auto& split : splits)
-            split.setCrossoverHz (crossoverHz);
+        // Plan 17 Phase 9: the per-band mix, the folds and the thermal drift.
+        const float mixLowAmount = mixLowSmoother.getNextValue();
+        const float mixHighAmount = mixHighSmoother.getNextValue();
+        const float foldLowAmount = foldLowSmoother.getNextValue();
+        const float foldHighAmount = foldHighSmoother.getNextValue();
+        const float thermalAmount = thermalSmoother.getNextValue();
 
         for (int channel = 0; channel < numChannels; ++channel)
         {
             auto* data = buffer.getWritePointer (channel);
             const float in = data[n];
 
+            // The thermal drift: one very slow follower per channel sags the drive and
+            // wows the crossover. At 0 both factors are exactly 1, so the default path is
+            // bit-identical.
+            const float thermalEnv = thermalEnvs[(size_t) channel].process (std::abs (in));
+            const float thermalSag = 1.0f - thermalAmount * 0.35f * thermalEnv;
+            const float thermalWow = 1.0f + thermalAmount * 0.05f * thermalEnv;
+
             float low = 0.0f, high = 0.0f;
+            splits[(size_t) channel].setCrossoverHz (crossoverHz * thermalWow);
             splits[(size_t) channel].process (channel, in, low, high);
 
             // Each band gets the Dynamic Drive rule: Drive x (1 + Sensitivity x Envelope).
             const float envLow = envelopes[(size_t) channel].process (low);
             const float envHigh = envelopes[2 + (size_t) channel].process (high);
-            const float preLow = CoreDSP::Saturation::dynamicDrive (driveLowGain, sensitivityAmount, envLow);
-            const float preHigh = CoreDSP::Saturation::dynamicDrive (driveHighGain, sensitivityAmount, envHigh);
+            const float preLow = CoreDSP::Saturation::dynamicDrive (driveLowGain * thermalSag, sensitivityAmount, envLow);
+            const float preHigh = CoreDSP::Saturation::dynamicDrive (driveHighGain * thermalSag, sensitivityAmount, envHigh);
 
             float wetLow = CoreDSP::Saturation::shape (preLow * low, mode);
             float wetHigh = CoreDSP::Saturation::shape (preHigh * high, mode);
 
+            // The per-band fold (the Dynamic Saturation wavefolder). fold(x, 0) is a bypass.
+            wetLow = CoreDSP::Saturation::fold (wetLow, foldLowAmount);
+            wetHigh = CoreDSP::Saturation::fold (wetHigh, foldHighAmount);
+
             wetLow = tones[(size_t) channel].process (wetLow, toneLowValue);
             wetHigh = tones[2 + (size_t) channel].process (wetHigh, toneHighValue);
+
+            // The per-band mix: each band's processed signal blends against its clean band.
+            // 100 % branches to the shaped signal, so the default path stays bit-identical.
+            if (mixLowAmount < 1.0f)
+                wetLow = low + mixLowAmount * (wetLow - low);
+            if (mixHighAmount < 1.0f)
+                wetHigh = high + mixHighAmount * (wetHigh - high);
 
             // The sum is clamped to the rails (the Dynamic Saturation ceiling rule), then the
             // dry/wet mix and the output level. No added latency, so the dry path needs no delay.

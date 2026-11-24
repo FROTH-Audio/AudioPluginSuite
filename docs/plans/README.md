@@ -9,23 +9,23 @@ Deleted on 2026-11-19 (all implemented and verified): 00 (framework readiness, R
 Status below is as of 2026-11-24.
 
 Deleted on 2026-11-24 (all implemented and verified; the owner gates were satisfied by the
-subsequent DAW-testing or the render review): 12, 13, 14, 15 and 16 (plan 17 Phase 12's
-deletions, executed by plan 18 Phase 9) and **20** (the transform-scope fix, the transform
-knobs and panel re-layout, the Cyclical slot-page groups with the MASTER mix row — the owner
-approved the render set). Their outcome lives in `AGENTS.md`, `CHANGELOG.md` and the code.
+subsequent DAW-testing or the render review, and the owner approved the remaining gates in
+one pass on 2026-11-24): 02 (the one owner decision on the MTC PREVIEW first render closed),
+**17** (Phases 6, 9 and 11 executed — the affinity audit round 2, MultiSat's interest
+features and the +20 SD/StereoTool routing presets, the bank at 270; Phases 10's docs and
+12's housekeeping folded in), 12, 13, 14, 15, 16 (plan 17 Phase 12's deletions, executed by
+plan 18 Phase 9), **18** (all nine phases done; the closing review satisfied by the plan-20
+render rounds) and **20** (the transform-scope fix, the transform knobs and panel re-layout,
+the Cyclical slot-page groups with the MASTER mix row). **Dropped on 2026-11-24 by the owner
+decision (not executed, no outcome to record): 01** (the macOS/CI check — the owner takes it
+offline), **05.2 and 05.3** (the parameter audit — dropped) **and 05.4** (Sgraffito's silent
+controls — dropped). Any valuable observations in them stay recoverable from git history.
 
 ## Order
 
 | # | File | Status | Why here | Gate before the next step |
 |---|---|---|---|---|
-| 18 | [18_daw-test-findings-5.md](18_daw-test-findings-5.md) | Phases 1-9 executed 2026-11-23/24 (CTest 28/28, the bank at 240, the audit passing). **The closing review gate is satisfied** (the owner approved the render set during the plan-20 rounds) — closable on the owner's word | Fifth DAW-test round: the transform UI, Cyclical tab-per-slot rework with per-slot controls and the MOD page, live region knobs, MultiSat's modulated crossover marker, StereoTool IMAGE + Phase + MASTER, +10 presets for DS/Sgraffito/MTC, docs, housekeeping | Owner: say the word and the file deletes |
-| 17 | [17_daw-test-findings-4.md](17_daw-test-findings-4.md) | Phases 1-5, 7 and 8 implemented and verified (the rest superseded by plan 18). **Open: Phase 6** (the affinity audit round 2 — MidiTool's Tempo dimming while synced, and the Cyclical affinity matrix against the new per-slot knob layout) **and Phase 9** (MultiSat's interest features: per-band mix, thermal drift, per-band fold — never implemented) | Fourth DAW-test round: the key-map fix, Bouncing Ball, audible transforms, StereoTool pan, the per-slot filter/A-R params, the LFO transforms, the StereoTool interest features | Unblocked — plan 20 closed; Phases 6 and 9 execute next |
-| 19 | [19_groove-mutator.md](19_groove-mutator.md) | Approved concept; detailed implementation plan written 2026-11-23 ([19_groove-mutator-concept.md](19_groove-mutator-concept.md) holds the idea record) | New plugin: Groove Mutator, a generative rhythm-MIDI instrument (8 percussion lanes, euclidean + hashed patterns, Lorenz-driven mutation, fills, polyrhythm) | Build starts when the owner says go |
-| 01 | [01_juce9-upgrade-opportunities.md](01_juce9-upgrade-opportunities.md) | Open: R0 (macOS and CI check) | Checks the R2 recipe and the AU build on macOS, which no earlier step has checked. | The owner runs the macOS build and the CI on a Mac |
-| 02 | [02_framework-refactor-3-editor-ui.md](02_framework-refactor-3-editor-ui.md) | Implemented 2026-11-08. One owner decision open on the MicroTimingChaos PREVIEW first render | The editor base every plugin now shares. Kept for the measurement of the one noisy render view. | The owner wants one look and feel. Byte-identical renders before and after |
-| 05.2 | [05.2_preset_parameter_audit.md](05.2_preset_parameter_audit.md) | Phase 0 quick wins done 2026-11-12; phases 1-5 open | Cross-cutting audit: parameters vs presets, cleanup, documentation, tests, refactorings. Findings go to 05.3. | Open: the refactor candidates (owner-gated) |
-| 05.3 | [05.3_preset_parameter_audit_results.md](05.3_preset_parameter_audit_results.md) | Findings 2026-11-12; F1.3 resolved 2026-11-12 (five Sgraffito presets added) | Detailed results of plan 05.2's checks. | Open: the refactor candidates (single source of truth for the schema) |
-| 05.4 | [05.4_sgraffito-silent-controls.md](05.4_sgraffito-silent-controls.md) | Proposed 2026-11-12. Phase 0 (owner gate on control semantics) next | Sgraffito's silent controls become real: swing + humanise, ghost notes, sustain hold + swell shaping, and the vinyl surface. Each lands with a regression test. | The owner approves the semantics table (Phase 0) before code changes |
+| 19 | [19_groove-mutator.md](19_groove-mutator.md) | Approved concept; detailed implementation plan written 2026-11-23, refined 2026-11-24 ([19_groove-mutator-concept.md](19_groove-mutator-concept.md) holds the idea record) | New plugin: Groove Mutator, a generative rhythm-MIDI instrument (8 percussion lanes, euclidean + hashed patterns, Lorenz-driven mutation, fills, polyrhythm) | Build starts when the owner says go |
 | 06 | [06_juce9-plugin-ideas.md](06_juce9-plugin-ideas.md) | Owner picked the order 2026-11-18; first passes of 2.1, 2.4, 2.5, 2.9 and 2.11 done | Options for the rest. | Owner picks the next idea (2.10 is done as Cyclical; 2.3 remains) |
 | 6.1_review | [6.1_review.md](6.1_review.md) | Reference, created 2026-11-19 | Review of the Cyclical creative-enhancement work: loop loading sources, playback modes, test coverage and known issues. | None |
 

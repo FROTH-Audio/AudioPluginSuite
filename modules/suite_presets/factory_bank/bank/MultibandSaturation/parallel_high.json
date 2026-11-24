@@ -1,0 +1,10 @@
+{
+  "_name": "Parallel High",
+  "_category": "Wide",
+  "_description": "The high band runs parallel saturation.",
+  "_plugin": "MultibandSaturation",
+  "_pluginVersion": "1.0.0",
+  "crossover": 1200.0,
+  "driveHigh": 15.0,
+  "mixHigh": 35.0
+}

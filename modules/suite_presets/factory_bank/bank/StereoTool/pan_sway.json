@@ -1,0 +1,11 @@
+{
+  "_name": "Pan Sway",
+  "_category": "Groove",
+  "_description": "The LFO sways the balance law side to side.",
+  "_plugin": "StereoTool",
+  "_pluginVersion": "1.0.0",
+  "pan": 0.0,
+  "lfo1Rate": 0.4,
+  "mod1Target": 11,
+  "mod1Amount": 60.0
+}

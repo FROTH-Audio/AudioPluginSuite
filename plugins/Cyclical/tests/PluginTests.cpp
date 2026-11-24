@@ -1549,6 +1549,7 @@ namespace
         assert (cyclicalEditor->isSpeedEnabled (0));
         assert (cyclicalEditor->isBeatsEnabled (0));
         assert (! cyclicalEditor->isSlicesEnabled (0));
+        assert (cyclicalEditor->isTempoEnabled (0));     // sync off: the slot's Tempo is live
 
         setParameter (processor.apvts, Processor::slotChopIds[0], 1.0f);
         juce::MessageManager::getInstance()->runDispatchLoopUntil (50);
@@ -1561,16 +1562,19 @@ namespace
         juce::MessageManager::getInstance()->runDispatchLoopUntil (50);
         assert (cyclicalEditor->isSpeedEnabled (0));     // a chopped slot ignores sync
         assert (! cyclicalEditor->isBeatsEnabled (0));
+        assert (! cyclicalEditor->isTempoEnabled (0));   // the beat clock still follows the host
 
         setParameter (processor.apvts, Processor::slotChopIds[0], 0.0f);
         juce::MessageManager::getInstance()->runDispatchLoopUntil (50);
         assert (! cyclicalEditor->isSpeedEnabled (0));   // unchopped + synced: Speed dims
         assert (cyclicalEditor->isBeatsEnabled (0));
         assert (! cyclicalEditor->isSlicesEnabled (0));
+        assert (! cyclicalEditor->isTempoEnabled (0));   // plan 17 Phase 6: the host's tempo is authoritative
 
         setParameter (processor.apvts, Processor::slotSyncIds[0], 0.0f);
         juce::MessageManager::getInstance()->runDispatchLoopUntil (50);
         assert (cyclicalEditor->isSpeedEnabled (0));
+        assert (cyclicalEditor->isTempoEnabled (0));
 
         // The page switch: both pages show their own controls only.
         assert (cyclicalEditor->getPage() == 0);

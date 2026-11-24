@@ -601,6 +601,9 @@ void CyclicalEditor::updateAffinity()
         card.beats.setEnabled (! chopped);
         card.slices.setEnabled (chopped);
         card.sliceLength.setEnabled (chopped);
+        // Plan 17 Phase 6: the slot's Tempo is inert while ITS Host Sync is on — the host
+        // tempo is authoritative then, so the knob dims (the per-slot sync, plan 18).
+        card.tempoCtrl.setEnabled (! synced);
         card.waveform.setAutoEnabled (chopped);   // plan 16: AUTO slices only in chop mode
     }
 }

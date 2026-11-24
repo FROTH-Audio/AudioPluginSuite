@@ -1,0 +1,15 @@
+{
+  "_name": "Two LFO Drift Mix",
+  "_category": "Wide",
+  "_description": "One LFO drifts the depth while the other sways the mix.",
+  "_plugin": "SpectralDrift",
+  "_pluginVersion": "1.0.0",
+  "depth": 40.0,
+  "lfo1Rate": 0.2,
+  "lfo2Rate": 0.35,
+  "mod1Target": 1,
+  "mod1Amount": 70.0,
+  "mod2Source": 1,
+  "mod2Target": 11,
+  "mod2Amount": 45.0
+}

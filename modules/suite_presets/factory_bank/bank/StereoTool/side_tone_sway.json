@@ -1,0 +1,11 @@
+{
+  "_name": "Side Tone Sway",
+  "_category": "Wide",
+  "_description": "The LFO sways the side channel's tilt.",
+  "_plugin": "StereoTool",
+  "_pluginVersion": "1.0.0",
+  "msToneSide": 0.0,
+  "lfo1Rate": 0.3,
+  "mod1Target": 17,
+  "mod1Amount": 65.0
+}

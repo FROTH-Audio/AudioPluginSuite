@@ -153,7 +153,7 @@ Spectral Drift, Dynamic Saturation and Micro-Timing Chaos share a preset system 
 
 **Preset files** use the `.ausp` extension: UTF-8 XML (`<AudioSuitePreset formatVersion="1" plugin="..." pluginVersion="...">`, `<Meta>`, `<PARAMETERS suiteStateVersion="N">`). User presets are stored under `Documents/AudioSuite/<plugin>/Presets` (Windows) or the platform equivalent, and the plugin id and state version are checked on read — a preset saved with a newer plugin version is refused rather than partially applied.
 
-**Factory bank.** With `SUITE_PRESET_BANK=ON`, 240 factory presets are embedded in the plugin binary (`bank/AudioSuitePresets.xml`): 36 for Spectral Drift, 46 for Dynamic Saturation, 38 for Micro-Timing Chaos, 30 for Sgraffito, 15 for MIDI Chord Arp Scale Tool, 25 each for Stereo Tool and Multiband Saturation, and 25 for Cyclical (plans 6.1, 11, 13, 14 and 18 — the plan-13 additions in SD, DS, Stereo Tool and MultiSat use the shared LFO routing, the plan-14 additions in Cyclical use chop/sync/Toggle/notes, and the plan-18 additions in DS, MTC and Sgraffito focus on the new LFO waveforms and the transforms). Each preset is a delta from the default state, so absent parameters are set to their defaults at load time. The bank is checked by `tools/audit_bank.py` (unique names, in-range values, no preset equal to the default, category rules, Micro-Timing Chaos base patterns that fire at least one step, and a `samplePath` only as an `embedded:` URI — file paths are rejected). Without the flag, the bank compiles as empty and the bar shows only user presets and INIT.
+**Factory bank.** With `SUITE_PRESET_BANK=ON`, 270 factory presets are embedded in the plugin binary (`bank/AudioSuitePresets.xml`): 46 for Spectral Drift, 46 for Dynamic Saturation, 38 for Micro-Timing Chaos, 30 for Sgraffito, 15 for MIDI Chord Arp Scale Tool, 35 for Stereo Tool, 35 for Multiband Saturation, and 25 for Cyclical (plans 6.1, 11, 13, 14, 17 and 18 — the plan-13 additions in SD, DS, Stereo Tool and MultiSat use the shared LFO routing, the plan-14 additions in Cyclical use chop/sync/Toggle/notes, the plan-18 additions in DS, MTC and Sgraffito focus on the new LFO waveforms and the transforms, the plan-17 additions in MultiSat use the per-band mix, folds and thermal drift, and the plan-17 Phase 11 additions in SD and Stereo Tool route the uncovered targets). Each preset is a delta from the default state, so absent parameters are set to their defaults at load time. The bank is checked by `tools/audit_bank.py` (unique names, in-range values, no preset equal to the default, category rules, Micro-Timing Chaos base patterns that fire at least one step, and a `samplePath` only as an `embedded:` URI — file paths are rejected). Without the flag, the bank compiles as empty and the bar shows only user presets and INIT.
 
 **Preset bar.** Each editor gains a header bar (right-aligned in the title area) that lists factory presets by category, INIT (reset-all-defaults) and SAVE. The bar is always visible (height 30); when the bank is empty it lists only user presets.
 
@@ -481,17 +481,21 @@ MultibandSaturation name). A Linkwitz-Riley crossover splits the signal; the low
 | **Saturation Mode** | Tube / Tape / Diode | Tube | The transfer curve, shared by both bands. |
 | **Crossover** | 80 Hz – 8 kHz (log) | 500 Hz | The split point. |
 | **Drive Low / Drive High** | 0 – 24 dB each | 6 dB | Pre-gain into the shaper, per band. |
+| **Fold Low / Fold High** | 0 – 50 % each | 0 % | Each band's own wavefolder (the Dynamic Saturation rule), after the shaper. 0 is off. |
+| **Thermal Drift** | 0 – 100 % | 0 % | A very slow follower sags the drive and wows the crossover with the signal — a tube-warmth breath. 0 is transparent. |
 | **Envelope Sensitivity** | 0 – 1 | 0.5 | How strongly each band's envelope pushes its drive harder: Dynamic Drive = Drive × (1 + Sensitivity × Envelope). |
 | **Attack / Release** | 1 – 100 ms / 50 – 2000 ms | 5 ms / 150 ms | Both bands' envelope times. |
 | **Tone Low / Tone High** | −1 – +1 each | 0 | Tilt around 1 kHz, per band. |
+| **Mix Low / Mix High** | 0 – 100 % each | 100 % | Each band's processed signal against its clean band — parallel saturation per band. |
 | **Mix** | 0 – 100 % | 100 % | Dry/wet balance. |
 | **Output** | −12 – +6 dB | 0 dB | Output level. |
 
-The shared router's 34 parameters (two LFOs and six routing slots) sit behind these; ten
-controls are routable targets: Crossover, Drive Low, Drive High, Sensitivity, Attack,
-Release, Tone Low, Tone High, Mix and Output.
+The shared router's 34 parameters (two LFOs and six routing slots) plus the 12 transforms sit
+behind these; ten controls are routable targets: Crossover, Drive Low, Drive High, Sensitivity,
+Attack, Release, Tone Low, Tone High, Mix and Output (the plan-17 interest parameters are not
+routed).
 
-The band sum is clamped to the rails, so the output cannot exceed full scale. The first pass runs at base rate, so no latency is added. The editor has a **SOUND / MOD** page switch in the header row, left of the preset bar: the SOUND page's dual-band visual shows each band's envelope with the crossover marked between the bars (log axis, frequency printed above, dB ticks on the left edge, a frequency × level grid behind the bars and a Hz scale below); the MOD page holds the suite's routing panel. The controls sit in two groups — **SPLIT** (crossover and the shared mode) and **SHAPER** — with the suite's preset bar and hamburger menu in the header.
+The band sum is clamped to the rails, so the output cannot exceed full scale. The first pass runs at base rate, so no latency is added. The editor is 760×860 with a **SOUND / MOD** page switch in the header row, left of the preset bar: the SOUND page's dual-band visual shows each band's envelope with the crossover marked between the bars (log axis, frequency printed above, dB ticks on the left edge, a frequency × level grid behind the bars and a Hz scale below); the MOD page holds the suite's routing panel. The controls sit in two groups — **SPLIT** (crossover and the shared mode) and **SHAPER** (three knob rows: drive/fold/thermal, envelope and tones, then the mix family) — with the suite's preset bar and hamburger menu in the header.
 
 ### Cyclical
 
@@ -595,7 +599,7 @@ Plugin bundles are written to `build/plugins/<Name>/<Name>_artefacts/Release/`.
 |---|---|---|
 | `SUITE_BUILD_PLUGINS` | `ON` | Build the plugins, their editors and the host-level tests. Set to `OFF` to build only the DSP core and its tests, which is faster. |
 | `SUITE_BUILD_TESTS` | `ON` | Build and register the unit tests. |
-| `SUITE_PRESET_BANK` | `OFF` | Embed the factory preset bank into the plugin binaries (`factory_bank/bank/AudioSuitePresets.xml`, 240 presets: 36 SD / 46 DS / 38 MTC / 30 Sgraffito / 15 MidiEffect / 25 StereoTool / 25 Multiband / 25 Cyclical). The preset bar, `.ausp` files and user presets ship in every build; this flag only adds the embedded bank. |
+| `SUITE_PRESET_BANK` | `OFF` | Embed the factory preset bank into the plugin binaries (`factory_bank/bank/AudioSuitePresets.xml`, 270 presets: 46 SD / 46 DS / 38 MTC / 30 Sgraffito / 15 MidiEffect / 35 StereoTool / 35 Multiband / 25 Cyclical). The preset bar, `.ausp` files and user presets ship in every build; this flag only adds the embedded bank. |
 | `SUITE_PRESET_BANK_AS_PROGRAMS` | `OFF` | With `SUITE_PRESET_BANK=ON`, expose the factory bank as host programs (program 0 = Init, then one per preset). Bank order is append-only once hosts cache indices. |
 
 Example, DSP tests only:

@@ -1,0 +1,12 @@
+{
+  "_name": "Clean Low End",
+  "_category": "Bass",
+  "_description": "The lows stay untouched while the highs bite.",
+  "_plugin": "MultibandSaturation",
+  "_pluginVersion": "1.0.0",
+  "crossover": 300.0,
+  "driveLow": 0.0,
+  "driveHigh": 15.0,
+  "mixLow": 0.0,
+  "mixHigh": 100.0
+}

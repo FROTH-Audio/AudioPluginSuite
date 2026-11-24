@@ -1,0 +1,10 @@
+{
+  "_name": "Folded Air",
+  "_category": "Bright",
+  "_description": "The high band's wavefolder adds airy harmonics.",
+  "_plugin": "MultibandSaturation",
+  "_pluginVersion": "1.0.0",
+  "crossover": 2000.0,
+  "driveHigh": 9.0,
+  "foldHigh": 50.0
+}

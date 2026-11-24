@@ -13,10 +13,10 @@ are clamped to the rails, and finish through a dry/wet mix and an output level.
 The editor has a **SOUND / MOD** page switch in the header row, left of the preset bar. The
 SOUND page has
 two groups: **SPLIT** is the crossover and the shared saturation mode; **SHAPER** is the
-per-band shaping. Between the header and the groups sits the dual-band visual: a bar per
-band (the block's envelope maximum) with dB ticks on its left edge and a **log frequency
-grid** behind the bars, the crossover frequency marked between them on a log axis, and the
-Hz scale below.
+per-band shaping, in three rows. Between the header and the groups sits the dual-band visual:
+a bar per band (the block's envelope maximum) with dB ticks on its left edge and a **log
+frequency grid** behind the bars, the crossover frequency marked between them on a log axis,
+and the Hz scale below.
 
 ### SPLIT
 
@@ -31,11 +31,16 @@ Hz scale below.
 |---|---|
 | **Drive Low** | Pre-gain of the low band's shaper, 0–24 dB. |
 | **Drive High** | Pre-gain of the high band's shaper, 0–24 dB. |
+| **Fold Low** | The low band's wavefolder, after its shaper (0–50 %). 0 is off. |
+| **Fold High** | The high band's wavefolder, after its shaper (0–50 %). 0 is off. |
+| **Thermal** | The thermal drift (0–100 %): a very slow follower sags the drive and wows the crossover with the signal — the tube warms up and sags as it works. 0 is transparent. |
 | **Tone Low** | Tilt around 1 kHz on the shaped low band (−1 darkens, +1 brightens). |
 | **Tone High** | Tilt around 1 kHz on the shaped high band. |
 | **Sensitivity** | How far the envelopes push the drives. |
 | **Attack** | Envelope rise, both bands, 1–100 ms. |
 | **Release** | Envelope fall, both bands, 50–2000 ms. |
+| **Mix Low** | The low band's processed signal against its clean band (0–100 %): parallel saturation per band. |
+| **Mix High** | The high band's parallel blend. |
 | **Mix** | Dry/wet balance. |
 | **Output** | Output level after the mix, −12 to +6 dB. |
 
@@ -90,8 +95,9 @@ sound.
 ## Practical notes
 
 - No latency is added (base-rate processing; oversampling is a planned follow-up).
-- 25 factory presets ship with the plugin in bank builds — the original 15 plus 10 that
-  use the modulation routing. Use the preset bar in the header to browse, save and load.
+- 35 factory presets ship with the plugin in bank builds — the original 15, the plan-13
+  modulation ten, and the plan-17 ten that use the per-band mix, folds and thermal drift.
+  Use the preset bar in the header to browse, save and load.
 - The hamburger menu in the header (right of the preset bar) opens Settings… (tooltips toggle,
   fallback tempo, preset folder) and About….
 - Mode is a pill switch (plan 11 rule: a dropdown only for longer lists).

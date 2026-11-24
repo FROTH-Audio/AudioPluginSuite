@@ -1,0 +1,12 @@
+{
+  "_name": "Rotating Rate",
+  "_category": "Experimental",
+  "_description": "The LFO sways the image rotation's own rate.",
+  "_plugin": "StereoTool",
+  "_pluginVersion": "1.0.0",
+  "imageRotationRate": 0.4,
+  "imageRotationDepth": 30.0,
+  "lfo1Rate": 0.3,
+  "mod1Target": 18,
+  "mod1Amount": 80.0
+}

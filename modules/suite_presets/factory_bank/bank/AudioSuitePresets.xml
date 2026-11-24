@@ -339,6 +339,108 @@
       <PARAM id="mod1Amount" value="100"/>
     </PARAMETERS>
   </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="SpectralDrift" pluginVersion="1.0.0">
+    <Meta name="Depth Breather" category="Ambient" author="FROTH Audio" description="The LFO breathes the drift depth itself."/>
+    <PARAMETERS suiteStateVersion="2">
+      <PARAM id="depth" value="50"/>
+      <PARAM id="spread" value="0.3"/>
+      <PARAM id="lfo1Rate" value="0.3"/>
+      <PARAM id="mod1Target" value="1"/>
+      <PARAM id="mod1Amount" value="80"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="SpectralDrift" pluginVersion="1.0.0">
+    <Meta name="Damping Wander" category="Character" author="FROTH Audio" description="The feedback damping drifts slowly with the tail."/>
+    <PARAMETERS suiteStateVersion="2">
+      <PARAM id="feedback" value="10"/>
+      <PARAM id="feedbackDamping" value="40"/>
+      <PARAM id="lfo1Rate" value="0.15"/>
+      <PARAM id="mod1Target" value="8"/>
+      <PARAM id="mod1Amount" value="70"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="SpectralDrift" pluginVersion="1.0.0">
+    <Meta name="Mix Tide" category="Ambient" author="FROTH Audio" description="The wet share rises and falls like a tide."/>
+    <PARAMETERS suiteStateVersion="2">
+      <PARAM id="mix" value="70"/>
+      <PARAM id="lfo1Rate" value="0.08"/>
+      <PARAM id="mod1Target" value="11"/>
+      <PARAM id="mod1Amount" value="60"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="SpectralDrift" pluginVersion="1.0.0">
+    <Meta name="Inverted Drift" category="Character" author="FROTH Audio" description="The routed drift waveform is inverted."/>
+    <PARAMETERS suiteStateVersion="2">
+      <PARAM id="depth" value="45"/>
+      <PARAM id="lfo1Rate" value="0.4"/>
+      <PARAM id="lfo1Invert" value="1"/>
+      <PARAM id="mod1Target" value="12"/>
+      <PARAM id="mod1Amount" value="100"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="SpectralDrift" pluginVersion="1.0.0">
+    <Meta name="Rectified Spread" category="Wide" author="FROTH Audio" description="The rectified LFO pumps the bin spread upward."/>
+    <PARAMETERS suiteStateVersion="2">
+      <PARAM id="spread" value="0.5"/>
+      <PARAM id="lfo1Rate" value="0.6"/>
+      <PARAM id="lfo1Rectify" value="1"/>
+      <PARAM id="mod1Target" value="2"/>
+      <PARAM id="mod1Amount" value="90"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="SpectralDrift" pluginVersion="1.0.0">
+    <Meta name="Stepped Phase" category="Experimental" author="FROTH Audio" description="A quantised LFO steps the stereo phase."/>
+    <PARAMETERS suiteStateVersion="2">
+      <PARAM id="stereoPhase" value="120"/>
+      <PARAM id="lfo1Rate" value="0.7"/>
+      <PARAM id="lfo1Quantise" value="4"/>
+      <PARAM id="mod1Target" value="3"/>
+      <PARAM id="mod1Amount" value="100"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="SpectralDrift" pluginVersion="1.0.0">
+    <Meta name="Pulsed Tilt" category="Bright" author="FROTH Audio" description="A narrow pulse flips the spectral tilt per step."/>
+    <PARAMETERS suiteStateVersion="2">
+      <PARAM id="tilt" value="0.8"/>
+      <PARAM id="lfo1Rate" value="1.2"/>
+      <PARAM id="lfo1PulseWidth" value="0.3"/>
+      <PARAM id="mod1Target" value="5"/>
+      <PARAM id="mod1Amount" value="80"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="SpectralDrift" pluginVersion="1.0.0">
+    <Meta name="Skewed Shift" category="Experimental" author="FROTH Audio" description="A skewed LFO leans the spectral shift early."/>
+    <PARAMETERS suiteStateVersion="2">
+      <PARAM id="shift" value="10"/>
+      <PARAM id="lfo1Rate" value="0.5"/>
+      <PARAM id="lfo1Skew" value="0.4"/>
+      <PARAM id="mod1Target" value="4"/>
+      <PARAM id="mod1Amount" value="70"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="SpectralDrift" pluginVersion="1.0.0">
+    <Meta name="Smoothed Gate" category="Subtle" author="FROTH Audio" description="A heavily smoothed LFO opens the spectral gate gently."/>
+    <PARAMETERS suiteStateVersion="2">
+      <PARAM id="gate" value="-40"/>
+      <PARAM id="lfo1Rate" value="0.2"/>
+      <PARAM id="lfo1Smooth" value="0.9"/>
+      <PARAM id="mod1Target" value="6"/>
+      <PARAM id="mod1Amount" value="100"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="SpectralDrift" pluginVersion="1.0.0">
+    <Meta name="Two LFO Drift Mix" category="Wide" author="FROTH Audio" description="One LFO drifts the depth while the other sways the mix."/>
+    <PARAMETERS suiteStateVersion="2">
+      <PARAM id="depth" value="40"/>
+      <PARAM id="lfo1Rate" value="0.2"/>
+      <PARAM id="lfo2Rate" value="0.35"/>
+      <PARAM id="mod1Target" value="1"/>
+      <PARAM id="mod1Amount" value="70"/>
+      <PARAM id="mod2Source" value="1"/>
+      <PARAM id="mod2Target" value="11"/>
+      <PARAM id="mod2Amount" value="45"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="DynamicSaturation" pluginVersion="1.0.0">
     <Meta name="Tube Glue" category="Mix bus" author="FROTH Audio" description="Gentle tube glue for a mix bus."/>
     <PARAMETERS suiteStateVersion="1">
@@ -1822,6 +1924,101 @@
       <PARAM id="mod1Amount" value="15"/>
     </PARAMETERS>
   </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="StereoTool" pluginVersion="1.0.0">
+    <Meta name="Pan Sway" category="Groove" author="FROTH Audio" description="The LFO sways the balance law side to side."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="pan" value="0"/>
+      <PARAM id="lfo1Rate" value="0.4"/>
+      <PARAM id="mod1Target" value="11"/>
+      <PARAM id="mod1Amount" value="60"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="StereoTool" pluginVersion="1.0.0">
+    <Meta name="Mono Maker Sweep" category="Focus" author="FROTH Audio" description="The LFO sweeps the mono-maker crossover."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="monoMakerCrossover" value="200"/>
+      <PARAM id="lfo1Rate" value="0.15"/>
+      <PARAM id="mod1Target" value="12"/>
+      <PARAM id="mod1Amount" value="70"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="StereoTool" pluginVersion="1.0.0">
+    <Meta name="Low Width Bloom" category="Air" author="FROTH Audio" description="The LFO breathes the low band's width."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="multibandWidthLow" value="0"/>
+      <PARAM id="lfo1Rate" value="0.25"/>
+      <PARAM id="mod1Target" value="13"/>
+      <PARAM id="mod1Amount" value="80"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="StereoTool" pluginVersion="1.0.0">
+    <Meta name="Mid Width Pulse" category="Electronic" author="FROTH Audio" description="A quantised LFO steps the mid-band width."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="multibandWidthMid" value="0"/>
+      <PARAM id="lfo1Rate" value="0.6"/>
+      <PARAM id="lfo1Quantise" value="4"/>
+      <PARAM id="mod1Target" value="14"/>
+      <PARAM id="mod1Amount" value="90"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="StereoTool" pluginVersion="1.0.0">
+    <Meta name="High Width Shimmer" category="Air" author="FROTH Audio" description="The LFO sways the high band's width."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="multibandWidthHigh" value="0"/>
+      <PARAM id="lfo1Rate" value="0.5"/>
+      <PARAM id="mod1Target" value="15"/>
+      <PARAM id="mod1Amount" value="70"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="StereoTool" pluginVersion="1.0.0">
+    <Meta name="Tone Mid Drift" category="Vocals" author="FROTH Audio" description="The LFO drifts the mid channel's tilt."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="msToneMid" value="0.2"/>
+      <PARAM id="lfo1Rate" value="0.2"/>
+      <PARAM id="mod1Target" value="16"/>
+      <PARAM id="mod1Amount" value="60"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="StereoTool" pluginVersion="1.0.0">
+    <Meta name="Side Tone Sway" category="Wide" author="FROTH Audio" description="The LFO sways the side channel's tilt."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="msToneSide" value="0"/>
+      <PARAM id="lfo1Rate" value="0.3"/>
+      <PARAM id="mod1Target" value="17"/>
+      <PARAM id="mod1Amount" value="65"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="StereoTool" pluginVersion="1.0.0">
+    <Meta name="Rotation Pulse" category="Experimental" author="FROTH Audio" description="A square LFO pulses the image rotation depth."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="imageRotationRate" value="0.5"/>
+      <PARAM id="imageRotationDepth" value="40"/>
+      <PARAM id="lfo1Rate" value="0.8"/>
+      <PARAM id="mod1Target" value="19"/>
+      <PARAM id="mod1Amount" value="90"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="StereoTool" pluginVersion="1.0.0">
+    <Meta name="Rotating Rate" category="Experimental" author="FROTH Audio" description="The LFO sways the image rotation's own rate."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="imageRotationRate" value="0.4"/>
+      <PARAM id="imageRotationDepth" value="30"/>
+      <PARAM id="lfo1Rate" value="0.3"/>
+      <PARAM id="mod1Target" value="18"/>
+      <PARAM id="mod1Amount" value="80"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="StereoTool" pluginVersion="1.0.0">
+    <Meta name="Inverted Pan Slide" category="Experimental" author="FROTH Audio" description="An inverted, skewed LFO leans the pan."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="pan" value="0"/>
+      <PARAM id="lfo1Rate" value="0.45"/>
+      <PARAM id="lfo1Invert" value="1"/>
+      <PARAM id="lfo1Skew" value="0.4"/>
+      <PARAM id="mod1Target" value="11"/>
+      <PARAM id="mod1Amount" value="50"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="MultibandSaturation" pluginVersion="1.0.0">
     <Meta name="Band Glue" category="Mix bus" author="FROTH Audio" description="Gentle tube glue on both bands."/>
     <PARAMETERS suiteStateVersion="1">
@@ -2061,6 +2258,92 @@
       <PARAM id="lfo1Shape" value="0"/>
       <PARAM id="mod1Target" value="10"/>
       <PARAM id="mod1Amount" value="50"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="MultibandSaturation" pluginVersion="1.0.0">
+    <Meta name="Clean Low End" category="Bass" author="FROTH Audio" description="The lows stay untouched while the highs bite."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="crossover" value="300"/>
+      <PARAM id="driveLow" value="0"/>
+      <PARAM id="driveHigh" value="15"/>
+      <PARAM id="mixLow" value="0"/>
+      <PARAM id="mixHigh" value="100"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="MultibandSaturation" pluginVersion="1.0.0">
+    <Meta name="Folded Air" category="Bright" author="FROTH Audio" description="The high band's wavefolder adds airy harmonics."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="crossover" value="2000"/>
+      <PARAM id="driveHigh" value="9"/>
+      <PARAM id="foldHigh" value="50"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="MultibandSaturation" pluginVersion="1.0.0">
+    <Meta name="Folded Bass" category="Lo-Fi" author="FROTH Audio" description="Folded low harmonics crunch the bottom."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="crossover" value="250"/>
+      <PARAM id="driveLow" value="12"/>
+      <PARAM id="foldLow" value="35"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="MultibandSaturation" pluginVersion="1.0.0">
+    <Meta name="Thermal Sag" category="Character" author="FROTH Audio" description="The drive eases as the signal sustains."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="driveLow" value="6"/>
+      <PARAM id="driveHigh" value="6"/>
+      <PARAM id="thermalDrift" value="100"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="MultibandSaturation" pluginVersion="1.0.0">
+    <Meta name="Gentle Thermal" category="Subtle" author="FROTH Audio" description="A subtle breath in the drive and crossover."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="driveLow" value="9"/>
+      <PARAM id="driveHigh" value="6"/>
+      <PARAM id="thermalDrift" value="35"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="MultibandSaturation" pluginVersion="1.0.0">
+    <Meta name="Parallel Low" category="Wide" author="FROTH Audio" description="The low band runs parallel saturation."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="crossover" value="400"/>
+      <PARAM id="driveLow" value="18"/>
+      <PARAM id="mixLow" value="40"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="MultibandSaturation" pluginVersion="1.0.0">
+    <Meta name="Parallel High" category="Wide" author="FROTH Audio" description="The high band runs parallel saturation."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="crossover" value="1200"/>
+      <PARAM id="driveHigh" value="15"/>
+      <PARAM id="mixHigh" value="35"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="MultibandSaturation" pluginVersion="1.0.0">
+    <Meta name="Split Fold" category="Drums" author="FROTH Audio" description="Both bands fold for snappy transients."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="crossover" value="900"/>
+      <PARAM id="driveLow" value="9"/>
+      <PARAM id="driveHigh" value="9"/>
+      <PARAM id="foldLow" value="25"/>
+      <PARAM id="foldHigh" value="25"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="MultibandSaturation" pluginVersion="1.0.0">
+    <Meta name="Warm Sag Bass" category="Bass" author="FROTH Audio" description="The thermal sag warms folded bass notes."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="crossover" value="200"/>
+      <PARAM id="driveLow" value="9"/>
+      <PARAM id="thermalDrift" value="60"/>
+      <PARAM id="foldLow" value="15"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="MultibandSaturation" pluginVersion="1.0.0">
+    <Meta name="Half Processed" category="Lo-Fi" author="FROTH Audio" description="Both bands blend halfway to clean."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="driveLow" value="15"/>
+      <PARAM id="driveHigh" value="15"/>
+      <PARAM id="mixLow" value="50"/>
+      <PARAM id="mixHigh" value="50"/>
     </PARAMETERS>
   </AudioSuitePreset>
   <AudioSuitePreset formatVersion="1" plugin="Cyclical" pluginVersion="1.0.0">

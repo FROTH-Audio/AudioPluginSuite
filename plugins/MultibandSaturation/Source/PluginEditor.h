@@ -81,6 +81,12 @@ private:
     SuiteUI::LabelledSlider releaseCtrl    { "RELEASE",    juce::Slider::RotaryVerticalDrag };
     SuiteUI::LabelledSlider mixCtrl        { "MIX",        juce::Slider::RotaryVerticalDrag };
     SuiteUI::LabelledSlider outputCtrl     { "OUTPUT",     juce::Slider::RotaryVerticalDrag };
+    // Plan 17 Phase 9: the interest knobs.
+    SuiteUI::LabelledSlider foldLowCtrl    { "FOLD LOW",   juce::Slider::RotaryVerticalDrag };
+    SuiteUI::LabelledSlider foldHighCtrl   { "FOLD HIGH",  juce::Slider::RotaryVerticalDrag };
+    SuiteUI::LabelledSlider thermalCtrl    { "THERMAL",    juce::Slider::RotaryVerticalDrag };
+    SuiteUI::LabelledSlider mixLowCtrl     { "MIX LOW",    juce::Slider::RotaryVerticalDrag };
+    SuiteUI::LabelledSlider mixHighCtrl    { "MIX HIGH",   juce::Slider::RotaryVerticalDrag };
 
     SuiteUI::LabelledSelector modeCell { "MODE", juce::Colour (0xffFF6B6B) };
 
@@ -100,6 +106,12 @@ private:
     juce::AudioProcessorValueTreeState::SliderAttachment releaseAttachment    { processor.apvts, MultibandSaturationProcessor::releaseId,     releaseCtrl.slider };
     juce::AudioProcessorValueTreeState::SliderAttachment mixAttachment        { processor.apvts, MultibandSaturationProcessor::mixId,         mixCtrl.slider };
     juce::AudioProcessorValueTreeState::SliderAttachment outputAttachment     { processor.apvts, MultibandSaturationProcessor::outputLevelId, outputCtrl.slider };
+    // Plan 17 Phase 9.
+    juce::AudioProcessorValueTreeState::SliderAttachment mixLowAttachment     { processor.apvts, MultibandSaturationProcessor::mixLowId,      mixLowCtrl.slider };
+    juce::AudioProcessorValueTreeState::SliderAttachment mixHighAttachment    { processor.apvts, MultibandSaturationProcessor::mixHighId,     mixHighCtrl.slider };
+    juce::AudioProcessorValueTreeState::SliderAttachment thermalAttachment    { processor.apvts, MultibandSaturationProcessor::thermalDriftId, thermalCtrl.slider };
+    juce::AudioProcessorValueTreeState::SliderAttachment foldLowAttachment    { processor.apvts, MultibandSaturationProcessor::foldLowId,     foldLowCtrl.slider };
+    juce::AudioProcessorValueTreeState::SliderAttachment foldHighAttachment   { processor.apvts, MultibandSaturationProcessor::foldHighId,    foldHighCtrl.slider };
 
     // Page switch and modulation panel (plan 13). The visualiser shows on both pages.
     SuiteUI::SegmentedSelector pageSelector { juce::Colour (0xffFF6B6B) };

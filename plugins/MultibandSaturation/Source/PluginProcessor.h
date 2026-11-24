@@ -39,6 +39,17 @@ public:
     static constexpr const char* mixId          = "mix";
     static constexpr const char* outputLevelId  = "outputLevel";
 
+    // Plan 17 Phase 9: the interest features, appended after the router's parameters so no
+    // saved index moves. The per-band mix blends each band's saturation against its clean
+    // band (100 % = the committed sound); the thermal drift sags the drive and wows the
+    // crossover slowly with the signal; the folds are the Dynamic Saturation wavefolder,
+    // one per band.
+    static constexpr const char* mixLowId       = "mixLow";
+    static constexpr const char* mixHighId      = "mixHigh";
+    static constexpr const char* thermalDriftId = "thermalDrift";
+    static constexpr const char* foldLowId      = "foldLow";
+    static constexpr const char* foldHighId     = "foldHigh";
+
     // LFO 1 and LFO 2. The IDs are fixed by suite_modulation, so every plugin saves them the same way.
     static constexpr const char* lfo1RateId      = "lfo1Rate";
     static constexpr const char* lfo1ShapeId     = "lfo1Shape";
@@ -57,7 +68,7 @@ public:
     static constexpr const char* modAmountIds[6] = { "mod1Amount", "mod2Amount", "mod3Amount", "mod4Amount", "mod5Amount", "mod6Amount" };
     static constexpr const char* modDelayIds[6]  = { "mod1Delay",  "mod2Delay",  "mod3Delay",  "mod4Delay",  "mod5Delay",  "mod6Delay" };
 
-    static constexpr int numControls = 57;   // 45 + 12 plan-17 Phase 7 LFO transforms
+    static constexpr int numControls = 62;   // 57 + 5 plan-17 Phase 9 interest parameters
 
     /** The parameters that an LFO can move. The order is part of the saved session: append new
         targets at the end, and never reorder or remove existing ones. Names come from modTargetNames(). */
@@ -150,10 +161,18 @@ private:
     std::array<CoreDSP::Saturation::EnvelopeFollower, 4> envelopes;   // [band][channel]
     std::array<CoreDSP::Saturation::ToneControl, 4> tones;           // [band][channel]
 
+    // Plan 17 Phase 9: the thermal drift — one very slow follower per channel on the input
+    // magnitude (2 s attack, 4 s release), sagging the drive and wowing the crossover.
+    std::array<CoreDSP::Saturation::EnvelopeFollower, 2> thermalEnvs;   // [channel]
+
     // Smoothed per block, so automation never zips (the Dynamic Saturation rule).
     juce::SmoothedValue<float> driveLowSmoother, driveHighSmoother;
     juce::SmoothedValue<float> toneLowSmoother, toneHighSmoother;
     juce::SmoothedValue<float> mixSmoother, outputGainSmoother;
+
+    // Plan 17 Phase 9: the per-band mix, the thermal drift and the per-band folds.
+    juce::SmoothedValue<float> mixLowSmoother, mixHighSmoother;
+    juce::SmoothedValue<float> foldLowSmoother, foldHighSmoother, thermalSmoother;
 
     // Plan 13: the crossover frequency is smoothed before the LR4 coefficients are computed,
     // so modulating it per block does not click.
@@ -170,6 +189,13 @@ private:
     std::atomic<float>* toneHigh = nullptr;
     std::atomic<float>* mix = nullptr;
     std::atomic<float>* outputLevel = nullptr;
+
+    // Plan 17 Phase 9.
+    std::atomic<float>* mixLow = nullptr;
+    std::atomic<float>* mixHigh = nullptr;
+    std::atomic<float>* thermalDrift = nullptr;
+    std::atomic<float>* foldLow = nullptr;
+    std::atomic<float>* foldHigh = nullptr;
 
     // The visual snapshot (plan 11 D7). Audio thread, once per block, no locks.
     BandSnapshot bandSnapshot;

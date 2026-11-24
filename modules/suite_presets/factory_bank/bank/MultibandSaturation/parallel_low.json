@@ -1,0 +1,10 @@
+{
+  "_name": "Parallel Low",
+  "_category": "Wide",
+  "_description": "The low band runs parallel saturation.",
+  "_plugin": "MultibandSaturation",
+  "_pluginVersion": "1.0.0",
+  "crossover": 400.0,
+  "driveLow": 18.0,
+  "mixLow": 40.0
+}

@@ -109,8 +109,10 @@ every routing amount at 0 the plugin is bit-transparent, exactly as before.
 ## Practical notes
 
 - No latency is added.
-- 25 factory presets ship with the plugin in bank builds — the original 15 plus 10 that use
-  the modulation routing. Use the preset bar in the header to browse, save and load.
+- 35 factory presets ship with the plugin in bank builds — the original 15, the plan-13
+  modulation ten, and the plan-17 ten that route the plan-18 interest targets (pan, mono
+  maker, the three widths, the M/S tones and the rotation). Use the preset bar in the header
+  to browse, save and load.
 - The hamburger menu in the header (right of the preset bar) opens Settings… (tooltips toggle,
   fallback tempo, preset folder) and About….
 - Hovering any control shows what it does in the help line at the bottom of the window; the

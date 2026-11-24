@@ -1,0 +1,12 @@
+{
+  "_name": "Mid Width Pulse",
+  "_category": "Electronic",
+  "_description": "A quantised LFO steps the mid-band width.",
+  "_plugin": "StereoTool",
+  "_pluginVersion": "1.0.0",
+  "multibandWidthMid": 0.0,
+  "lfo1Rate": 0.6,
+  "lfo1Quantise": 4,
+  "mod1Target": 14,
+  "mod1Amount": 90.0
+}

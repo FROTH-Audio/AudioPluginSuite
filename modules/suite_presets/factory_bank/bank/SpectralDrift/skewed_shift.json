@@ -1,0 +1,12 @@
+{
+  "_name": "Skewed Shift",
+  "_category": "Experimental",
+  "_description": "A skewed LFO leans the spectral shift early.",
+  "_plugin": "SpectralDrift",
+  "_pluginVersion": "1.0.0",
+  "shift": 10.0,
+  "lfo1Rate": 0.5,
+  "lfo1Skew": 0.4,
+  "mod1Target": 4,
+  "mod1Amount": 70.0
+}

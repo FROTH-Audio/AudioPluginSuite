@@ -1,0 +1,12 @@
+{
+  "_name": "Stepped Phase",
+  "_category": "Experimental",
+  "_description": "A quantised LFO steps the stereo phase.",
+  "_plugin": "SpectralDrift",
+  "_pluginVersion": "1.0.0",
+  "stereoPhase": 120.0,
+  "lfo1Rate": 0.7,
+  "lfo1Quantise": 4,
+  "mod1Target": 3,
+  "mod1Amount": 100.0
+}

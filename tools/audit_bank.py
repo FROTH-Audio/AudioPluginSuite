@@ -34,9 +34,9 @@ from preset_data import PRESETS, SCHEMA
 
 # Plan 18 Phase 7: the counts grow by the +10 round (DS, MTC and Sgraffito). The counts
 # are append-only expectations, so they only ever grow.
-EXPECTED_COUNTS = {"SpectralDrift": 36, "DynamicSaturation": 46, "MicroTimingChaos": 38, "Sgraffito": 30,
-                   "MidiEffect": 15, "StereoTool": 25, "MultibandSaturation": 25, "Cyclical": 25}
-EXPECTED_TOTAL = 240
+EXPECTED_COUNTS = {"SpectralDrift": 46, "DynamicSaturation": 46, "MicroTimingChaos": 38, "Sgraffito": 30,
+                   "MidiEffect": 15, "StereoTool": 35, "MultibandSaturation": 35, "Cyclical": 25}
+EXPECTED_TOTAL = 270
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_BANK = REPO_ROOT / "modules" / "suite_presets" / "factory_bank" / "bank"

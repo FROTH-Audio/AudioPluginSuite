@@ -58,8 +58,10 @@ public:
         MidiEffectProcessor& processor;
     };
 
-    /** Test seam (plan 15): the live affinity state of the arp-only cells. */
+    /** Test seam (plan 15): the live affinity state of the arp-only cells. Plan 17 Phase 6
+        adds the Tempo seam: the knob also dims while Host Sync is on. */
     bool isArpRowEnabled() const noexcept { return rateCell.isEnabled(); }
+    bool isTempoEnabled() const noexcept { return tempoCtrl.isEnabled(); }
 
 private:
     /** Every UI note the editor started gets its note-off: mouse ending paths handle the

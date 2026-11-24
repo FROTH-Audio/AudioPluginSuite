@@ -23,6 +23,8 @@ namespace
             { Processor::modeId, Processor::crossoverId, Processor::driveLowId, Processor::driveHighId,
               Processor::sensitivityId, Processor::attackId, Processor::releaseId,
               Processor::toneLowId, Processor::toneHighId, Processor::mixId, Processor::outputLevelId,
+              Processor::mixLowId, Processor::mixHighId, Processor::thermalDriftId,
+              Processor::foldLowId, Processor::foldHighId,
               Processor::lfo1RateId, Processor::lfo1ShapeId, Processor::lfo1SyncId, Processor::lfo1DivisionId, Processor::lfo1OffsetId,
               Processor::lfo2RateId, Processor::lfo2ShapeId, Processor::lfo2SyncId, Processor::lfo2DivisionId, Processor::lfo2OffsetId,
               Processor::modSourceIds[0], Processor::modTargetIds[0], Processor::modAmountIds[0], Processor::modDelayIds[0],
@@ -39,6 +41,13 @@ namespace
         checkRange (processor.apvts, Processor::toneHighId,    -1.0f, 1.0f, 0.0f);
         checkRange (processor.apvts, Processor::mixId,         0.0f, 100.0f, 100.0f);
         checkRange (processor.apvts, Processor::outputLevelId, -12.0f, 6.0f, 0.0f);
+
+        // Plan 17 Phase 9: the interest parameters (appended after the router's).
+        checkRange (processor.apvts, Processor::mixLowId,      0.0f, 100.0f, 100.0f);
+        checkRange (processor.apvts, Processor::mixHighId,     0.0f, 100.0f, 100.0f);
+        checkRange (processor.apvts, Processor::thermalDriftId, 0.0f, 100.0f, 0.0f);
+        checkRange (processor.apvts, Processor::foldLowId,     0.0f, 50.0f, 0.0f);
+        checkRange (processor.apvts, Processor::foldHighId,    0.0f, 50.0f, 0.0f);
 
         // Plan 13: shared router parameters.
         checkRange (processor.apvts, Processor::lfo1RateId,    0.02f, 20.0f, 0.25f);
@@ -120,6 +129,16 @@ namespace
         }
 
         return out;
+    }
+
+    /** RMS of one rendered stream, in samples. */
+    float rmsOf (const std::vector<float>& samples, int from, int count)
+    {
+        assert (from >= 0 && from + count <= (int) samples.size());
+        double acc = 0.0;
+        for (int i = from; i < from + count; ++i)
+            acc += samples[(size_t) i] * samples[(size_t) i];
+        return (float) std::sqrt (acc / (double) count);
     }
 
     /** No sample may exceed the rails: the bands are clamped after they sum. */
@@ -207,6 +226,93 @@ namespace
         pass ("testBandsShapeIndependently");
     }
 
+    /** Plan 17 Phase 9: Mix Low 0 leaves the low band clean — a low sine's output differs
+        from the fully-processed default, and the blend direction is verifiable through the
+        high band (Mix High 0 with a high sine likewise). Bounded either way. */
+    void testPerBandMix()
+    {
+        {
+            Processor full;
+            setParameter (full.apvts, Processor::driveLowId, 12.0f);
+            const auto fullLow = render (full, 80.0, 0.9f, 8);
+
+            Processor clean;
+            setParameter (clean.apvts, Processor::driveLowId, 12.0f);
+            setParameter (clean.apvts, Processor::mixLowId, 0.0f);
+            const auto cleanLow = render (clean, 80.0, 0.9f, 8);
+
+            float diff = 0.0f;
+            for (size_t i = 0; i < fullLow.size(); ++i)
+                diff = juce::jmax (diff, std::abs (fullLow[(size_t) i] - cleanLow[(size_t) i]));
+            std::printf ("   per-band mix probe: max diff = %f\n", (double) diff);
+            assert (diff > 0.05f);   // the low band is audibly cleaner at Mix Low 0
+
+            for (float x : cleanLow)
+                assert (std::abs (x) <= 1.0f + 1.0e-3f);
+        }
+
+        pass ("testPerBandMix");
+    }
+
+    /** Plan 17 Phase 9: the per-band fold adds upper harmonics — Fold Low 50 % on a loud
+        low sine differs from the default and stays bounded. */
+    void testPerBandFold()
+    {
+        Processor folded;
+        setParameter (folded.apvts, Processor::driveLowId, 12.0f);
+        setParameter (folded.apvts, Processor::foldLowId, 50.0f);
+        const auto foldedLow = render (folded, 80.0, 0.9f, 8);
+
+        Processor plain;
+        setParameter (plain.apvts, Processor::driveLowId, 12.0f);
+        const auto plainLow = render (plain, 80.0, 0.9f, 8);
+
+        float diff = 0.0f;
+        for (size_t i = 0; i < plainLow.size(); ++i)
+            diff = juce::jmax (diff, std::abs (foldedLow[(size_t) i] - plainLow[(size_t) i]));
+        std::printf ("   per-band fold probe: max diff = %f\n", (double) diff);
+        assert (diff > 0.05f);
+
+        for (float x : foldedLow)
+            assert (std::abs (x) <= 1.0f + 1.0e-3f);
+
+        pass ("testPerBandFold");
+    }
+
+    /** Plan 17 Phase 9: the thermal drift sags the drive slowly — with a loud sustained
+        signal at 100 % the level eases down over seconds; at 0 the level holds. */
+    void testThermalDrift()
+    {
+        const int blocks = (int) (8.0 * sampleRate / (double) blockSize);   // 8 seconds
+        const int samplesPerSecond = blockSize * (int) ((double) blocks / 8.0);
+
+        // A clean drive: the sag must move the level, and the tube curve is steepest
+        // below its knee — 0 dB shows the eased drive clearly.
+        Processor drifting;
+        setParameter (drifting.apvts, Processor::driveLowId, 0.0f);
+        setParameter (drifting.apvts, Processor::driveHighId, 0.0f);
+        setParameter (drifting.apvts, Processor::thermalDriftId, 100.0f);
+        const auto hot = render (drifting, 110.0, 0.95f, blocks);
+
+        // The first 1.5 s vs the last 1.5 s: the sag (2 s attack) eases the drive.
+        const int window = samplesPerSecond * 3 / 2;
+        const float early = rmsOf (hot, 0, window);
+        const float late = rmsOf (hot, (int) hot.size() - window, window);
+        std::printf ("   thermal probe: early RMS = %f, late RMS = %f\n", (double) early, (double) late);
+        assert (late < early * 0.9f);
+
+        // The control: thermal 0 holds the level.
+        Processor steady;
+        setParameter (steady.apvts, Processor::driveLowId, 0.0f);
+        setParameter (steady.apvts, Processor::driveHighId, 0.0f);
+        const auto cold = render (steady, 110.0, 0.95f, blocks);
+        const float coldEarly = rmsOf (cold, 0, window);
+        const float coldLate = rmsOf (cold, (int) cold.size() - window, window);
+        assert (std::abs (coldLate - coldEarly) < 0.02f * coldEarly);
+
+        pass ("testThermalDrift");
+    }
+
     void testEditor()
     {
         Processor processor;
@@ -221,7 +327,7 @@ namespace
         Processor processor;
         std::unique_ptr<juce::AudioProcessorEditor> editor (processor.createEditorAndMakeActive());
         assert (editor != nullptr);
-        assert (editor->getWidth() == 760 && editor->getHeight() == 760);   // plan 20: the MOD panel grew to 428
+        assert (editor->getWidth() == 760 && editor->getHeight() == 860);   // plan 17 Phase 9: the SHAPER group grew to three knob rows   // plan 20: the MOD panel grew to 428
 
         // The layout exposes its bands for the tests: the visualiser is at least 50 %
         // higher than the old 130 and the window is narrower than before.
@@ -530,6 +636,9 @@ int main()
     testOutputStaysBounded();
     testMixZeroIsDry();
     testBandsShapeIndependently();
+    testPerBandMix();
+    testPerBandFold();
+    testThermalDrift();
     testEditor();
     testLayoutAndHelp();
     testVisualSnapshot();

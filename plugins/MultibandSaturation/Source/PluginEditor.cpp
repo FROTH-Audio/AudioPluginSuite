@@ -9,7 +9,7 @@ namespace
     // Plan 12: the owner asked for a narrower window. 760 keeps the SHAPER group's
     // five-knob row comfortable (~140 px cells) and still leaves the header free.
     constexpr int editorWidth = 760;
-    constexpr int editorHeight = 760;   // plan 20: the MOD panel grew to 428 (the transform-knob row + the selector under the rate); 0.7p - 44 = 428 needs page 675 + the visualiser share
+    constexpr int editorHeight = 860;   // plan 17 Phase 9: the SHAPER group grew to three knob rows (+100)
 
     // Same law as SuiteUI::LevelMeter / StereoLevelMeter (plan 13).
     constexpr float meterFloorDb = -60.0f;
@@ -22,7 +22,9 @@ namespace
     constexpr int footerHeight = 26;
     constexpr int groupGap = 8;   // the suite's one-gap rule (plan 05 R7)
     constexpr int groupTitleHeight = SuiteUI::groupTitleHeight;
-    constexpr int groupInnerHeight = 2 * SuiteUI::knobRowHeight + groupGap;
+    // Plan 17 Phase 9: the SHAPER group grows to three knob rows (drive/fold/thermal,
+    // sensitivity envelope and tones, then the mix family).
+    constexpr int groupInnerHeight = 3 * SuiteUI::knobRowHeight + 2 * groupGap;
     constexpr int groupHeight = groupTitleHeight + 4 + groupInnerHeight + 4;
     // SPLIT is one row of content now (crossover + mode), so its frame is one row tall.
     constexpr int splitGroupHeight = groupTitleHeight + 4 + SuiteUI::knobRowHeight + 4;
@@ -65,11 +67,16 @@ MultibandSaturationEditor::MultibandSaturationEditor (MultibandSaturationProcess
     SuiteUI::describe (crossoverCtrl, "The Linkwitz-Riley split point between the two bands.");
     SuiteUI::describe (driveLowCtrl, "Pre-gain of the low band's shaper.");
     SuiteUI::describe (driveHighCtrl, "Pre-gain of the high band's shaper.");
+    SuiteUI::describe (foldLowCtrl, "The low band's wavefolder, after its shaper. 0 is off.");
+    SuiteUI::describe (foldHighCtrl, "The high band's wavefolder, after its shaper. 0 is off.");
+    SuiteUI::describe (thermalCtrl, "The thermal drift: a very slow follower sags the drive and wows the crossover with the signal. 0 is off.");
     SuiteUI::describe (toneLowCtrl, "Tilt around 1 kHz on the shaped low band.");
     SuiteUI::describe (toneHighCtrl, "Tilt around 1 kHz on the shaped high band.");
     SuiteUI::describe (sensitivityCtrl, "How far the envelopes push the drives.");
     SuiteUI::describe (attackCtrl, "Envelope rise, both bands.");
     SuiteUI::describe (releaseCtrl, "Envelope fall, both bands.");
+    SuiteUI::describe (mixLowCtrl, "The low band's processed signal against its clean band. 100 % is fully processed.");
+    SuiteUI::describe (mixHighCtrl, "The high band's processed signal against its clean band. 100 % is fully processed.");
     SuiteUI::describe (mixCtrl, "Dry/wet balance.");
     SuiteUI::describe (outputCtrl, "Output level after the mix.");
     SuiteUI::describe (modeCell, "The saturation curve, shared by both bands.");
@@ -106,11 +113,16 @@ MultibandSaturationEditor::MultibandSaturationEditor (MultibandSaturationProcess
     for (auto* component : { static_cast<juce::Component*> (&crossoverCtrl),
                              static_cast<juce::Component*> (&driveLowCtrl),
                              static_cast<juce::Component*> (&driveHighCtrl),
+                             static_cast<juce::Component*> (&foldLowCtrl),
+                             static_cast<juce::Component*> (&foldHighCtrl),
+                             static_cast<juce::Component*> (&thermalCtrl),
                              static_cast<juce::Component*> (&toneLowCtrl),
                              static_cast<juce::Component*> (&toneHighCtrl),
                              static_cast<juce::Component*> (&sensitivityCtrl),
                              static_cast<juce::Component*> (&attackCtrl),
                              static_cast<juce::Component*> (&releaseCtrl),
+                             static_cast<juce::Component*> (&mixLowCtrl),
+                             static_cast<juce::Component*> (&mixHighCtrl),
                              static_cast<juce::Component*> (&mixCtrl),
                              static_cast<juce::Component*> (&outputCtrl),
                              static_cast<juce::Component*> (&modeCell),
@@ -249,19 +261,25 @@ void MultibandSaturationEditor::layoutSoundPage (juce::Rectangle<int> area)
         modeCell.setBounds (row.removeFromLeft (cellWidth).reduced (3));
     }
 
-    // SHAPER: per-band drive and tone / envelope, mix, output.
+    // SHAPER: drive and fold per band, the thermal drift, the envelope and tones, then the
+    // mix family (per-band mix first, plan 17 Phase 9).
     {
         auto inner = shaperGroupBounds.withTrimmedTop (groupTitleHeight + 4).reduced (10, 4);
 
         auto row1 = inner.removeFromTop (SuiteUI::knobRowHeight);
-        const int cellWidth1 = row1.getWidth() / 4;
-        for (auto* knob : { &driveLowCtrl, &driveHighCtrl, &toneLowCtrl, &toneHighCtrl })
+        const int cellWidth1 = row1.getWidth() / 5;
+        for (auto* knob : { &driveLowCtrl, &driveHighCtrl, &foldLowCtrl, &foldHighCtrl, &thermalCtrl })
             knob->setBounds (row1.removeFromLeft (cellWidth1));
 
-        auto row2 = inner.removeFromBottom (SuiteUI::knobRowHeight);
+        auto row2 = inner.removeFromTop (SuiteUI::knobRowHeight);
         const int cellWidth2 = row2.getWidth() / 5;
-        for (auto* knob : { &sensitivityCtrl, &attackCtrl, &releaseCtrl, &mixCtrl, &outputCtrl })
+        for (auto* knob : { &sensitivityCtrl, &attackCtrl, &releaseCtrl, &toneLowCtrl, &toneHighCtrl })
             knob->setBounds (row2.removeFromLeft (cellWidth2));
+
+        auto row3 = inner.removeFromTop (SuiteUI::knobRowHeight);
+        const int cellWidth3 = row3.getWidth() / 4;
+        for (auto* knob : { &mixLowCtrl, &mixHighCtrl, &mixCtrl, &outputCtrl })
+            knob->setBounds (row3.removeFromLeft (cellWidth3));
     }
 }
 

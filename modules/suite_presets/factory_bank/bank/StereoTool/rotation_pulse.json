@@ -1,0 +1,12 @@
+{
+  "_name": "Rotation Pulse",
+  "_category": "Experimental",
+  "_description": "A square LFO pulses the image rotation depth.",
+  "_plugin": "StereoTool",
+  "_pluginVersion": "1.0.0",
+  "imageRotationRate": 0.5,
+  "imageRotationDepth": 40.0,
+  "lfo1Rate": 0.8,
+  "mod1Target": 19,
+  "mod1Amount": 90.0
+}

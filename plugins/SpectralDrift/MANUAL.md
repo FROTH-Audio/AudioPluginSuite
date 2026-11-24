@@ -65,5 +65,6 @@ Amount 0 % the sound is unchanged.
   clicks.
 - The plugin reports 2048 samples of latency (the FFT frame); the dry signal is delayed to
   match, so the mix stays phase-aligned.
-- The factory presets (bank build) cover rhythmic, wide and frozen textures; `freeze` is
-  used only in the Freeze category.
+- The factory presets (bank build) — 46 of them — cover rhythmic, wide and frozen textures;
+  `freeze` is used only in the Freeze category, and the plan-17 ten route the uncovered
+  targets (Drift Depth, Feedback Damping, Mix) and the transforms.

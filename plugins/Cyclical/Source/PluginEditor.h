@@ -41,6 +41,9 @@ public:
     bool isBeatsEnabled (int slot) const { return cards[(size_t) slot]->beats.isEnabled(); }
     bool isSlicesEnabled (int slot) const { return cards[(size_t) slot]->slices.isEnabled(); }
     bool isSliceLengthEnabled (int slot) const { return cards[(size_t) slot]->sliceLength.isEnabled(); }
+    /** Plan 17 Phase 6: the slot's Tempo seam — it dims while ITS Host Sync is on,
+        unless the slot is chopped (a chopped slot ignores sync, so its Tempo is live). */
+    bool isTempoEnabled (int slot) const { return cards[(size_t) slot]->tempoCtrl.isEnabled(); }
 
 private:
     /** Plan 18 §1.4 (owner answer): the region knobs apply live. The listener captures

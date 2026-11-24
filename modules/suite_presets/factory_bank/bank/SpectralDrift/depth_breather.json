@@ -1,0 +1,12 @@
+{
+  "_name": "Depth Breather",
+  "_category": "Ambient",
+  "_description": "The LFO breathes the drift depth itself.",
+  "_plugin": "SpectralDrift",
+  "_pluginVersion": "1.0.0",
+  "depth": 50.0,
+  "spread": 0.3,
+  "lfo1Rate": 0.3,
+  "mod1Target": 1,
+  "mod1Amount": 80.0
+}
