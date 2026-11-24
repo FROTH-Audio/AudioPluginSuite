@@ -34,7 +34,7 @@ Nine audio plugins written with JUCE 9.0.5 in C++17. Formats: VST3 on Windows an
 | MIDI Chord Arp Scale Tool | `plugins/MidiEffect` | **instrument** (output-only buses, notes out; audio buffer cleared) | `CoreDSP::Chords` (chords, arp patterns, step-clock helpers), `CoreDSP::Sampler::quantizeToScale` | teal `#4ECDC4` |
 | MultiSat | `plugins/MultibandSaturation` (host name "MultiSat"; folder/target/preset ID keep the MultibandSaturation name) | audio effect | `CoreDSP::Multiband::TwoBandSplit`, `CoreDSP::Saturation` shapers/followers | coral `#FF6B6B` |
 | Cyclical | `plugins/Cyclical` | **instrument** (output-only, per-slot notes) | `CoreDSP::Loop` (LoopEngine: regions, crossfaded seams, ping-pong, grains) | tangerine `#FF7A45` (plan 14) |
-| Groove Mutator | `plugins/GrooveMutator` | **instrument** (MIDI effect: output-only buses, notes out, stereo pass-through) | `CoreDSP::Rhythm` (RhythmEngine: euclid/hash/painted patterns, mutation operators, fills) | slate `#9aa0a6` (plan 19) |
+| Groove Mutator | `plugins/GrooveMutator` | **instrument** (MIDI effect: output-only buses, notes out, stereo pass-through) | `CoreDSP::Rhythm` (RhythmEngine: euclid/hash/painted patterns, mutation operators, fills) | lemon `#DCF014` (plan 19) |
 - Manufacturer name `FROTH Audio` (shown by hosts; set by `COMPANY_NAME` in `modules/suite_plugin/SuitePlugin.cmake`), manufacturer code `Asui`, bundle IDs `com.audiosuite.<name>` (kept: they are part of the plugin identity, section 7).
 - Plugin code `Sgrf`. Codes and parameter IDs are saved in sessions
 

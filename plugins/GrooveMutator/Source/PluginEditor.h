@@ -52,11 +52,11 @@ private:
     GrooveMutatorProcessor& processor;
 
     // Declared first so it is destroyed last, after every component that uses it.
-    SuiteUI::SuiteLookAndFeel lookAndFeel { juce::Colour (0xff9aa0a6) };
+    SuiteUI::SuiteLookAndFeel lookAndFeel { juce::Colour (0xffdcf014) };
 
     // R12: the factory preset bar, flat in the header; R13: the menu at its right.
     std::unique_ptr<SuitePresets::PresetBar> presetBar;
-    SuiteUI::HeaderMenuButton headerMenu { juce::Colour (0xff9aa0a6) };
+    SuiteUI::HeaderMenuButton headerMenu { juce::Colour (0xffdcf014) };
 
     // R14a: the shared help line in the footer band.
     SuiteUI::HelpTracker helpTracker;
@@ -78,7 +78,7 @@ private:
         juce::ToggleButton onToggle { "ON" };
         SuiteUI::LabelledDropdown divisionCtrl { "DIVISION" };
 
-        SuiteUI::LabelledSelector patternCtrl { "PATTERN", juce::Colour (0xff9aa0a6) };
+        SuiteUI::LabelledSelector patternCtrl { "PATTERN", juce::Colour (0xffdcf014) };
         SuiteUI::LabelledSlider stepsCtrl { "STEPS", juce::Slider::RotaryVerticalDrag };
         SuiteUI::LabelledSlider pulsesCtrl { "PULSES", juce::Slider::RotaryVerticalDrag };
         SuiteUI::LabelledSlider rotationCtrl { "ROTATION", juce::Slider::RotaryVerticalDrag };
@@ -103,25 +103,25 @@ private:
     std::array<std::unique_ptr<LaneCard>, GrooveMutatorProcessor::numTracks> lanes;
 
     // MUTATE page: the attractor trail (the MTC visual) and the chaos/fill group.
-    SuiteUI::TrailPlot trailPlot { juce::Colour (0xff9aa0a6) };
+    SuiteUI::TrailPlot trailPlot { juce::Colour (0xffdcf014) };
     SuiteUI::LabelledSlider chaosCtrl { "CHAOS", juce::Slider::RotaryVerticalDrag };
     SuiteUI::LabelledSlider mutateScaleCtrl { "MUTATE SCALE", juce::Slider::RotaryVerticalDrag };
     SuiteUI::LabelledSlider seedCtrl { "SEED", juce::Slider::RotaryVerticalDrag };
-    SuiteUI::LabelledSelector evolveRateCtrl { "EVOLVE RATE", juce::Colour (0xff9aa0a6) };
+    SuiteUI::LabelledSelector evolveRateCtrl { "EVOLVE RATE", juce::Colour (0xffdcf014) };
     juce::ToggleButton freezeToggle { "FREEZE" };
     SuiteUI::LabelledSlider fillProbCtrl { "FILL PROB", juce::Slider::RotaryVerticalDrag };
-    SuiteUI::LabelledSelector fillStyleCtrl { "FILL STYLE", juce::Colour (0xff9aa0a6) };
-    SuiteUI::LabelledSelector fillBarsCtrl { "FILL LENGTH", juce::Colour (0xff9aa0a6) };
+    SuiteUI::LabelledSelector fillStyleCtrl { "FILL STYLE", juce::Colour (0xffdcf014) };
+    SuiteUI::LabelledSelector fillBarsCtrl { "FILL LENGTH", juce::Colour (0xffdcf014) };
 
     // GROOVE page: the feel and the clock/trigger.
     SuiteUI::LabelledSlider swingCtrl { "SWING", juce::Slider::RotaryVerticalDrag };
     SuiteUI::LabelledSlider humaniseTimeCtrl { "HUM TIME", juce::Slider::RotaryVerticalDrag };
     SuiteUI::LabelledSlider humaniseVelCtrl { "HUM VEL", juce::Slider::RotaryVerticalDrag };
-    SuiteUI::LabelledSelector velCurveCtrl { "VEL CURVE", juce::Colour (0xff9aa0a6) };
-    SuiteUI::LabelledSelector polyRatioCtrl { "POLY", juce::Colour (0xff9aa0a6) };
+    SuiteUI::LabelledSelector velCurveCtrl { "VEL CURVE", juce::Colour (0xffdcf014) };
+    SuiteUI::LabelledSelector polyRatioCtrl { "POLY", juce::Colour (0xffdcf014) };
     juce::ToggleButton syncToggle { "SYNC" };
     SuiteUI::LabelledSlider tempoCtrl { "TEMPO", juce::Slider::RotaryVerticalDrag };
-    SuiteUI::LabelledSelector triggerModeCtrl { "TRIGGER", juce::Colour (0xff9aa0a6) };
+    SuiteUI::LabelledSelector triggerModeCtrl { "TRIGGER", juce::Colour (0xffdcf014) };
     SuiteUI::LabelledSlider triggerKeyCtrl { "KEY", juce::Slider::RotaryVerticalDrag };
 
     // Attachments for the non-lane widgets.
@@ -144,7 +144,7 @@ private:
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> triggerKeyAttachment;
 
     // The modulation page (plan 19 Phase 4): the shared panel and the live displays.
-    SuiteUI::SegmentedSelector pageSelector { juce::Colour (0xff9aa0a6) };
+    SuiteUI::SegmentedSelector pageSelector { juce::Colour (0xffdcf014) };
     SuiteModulation::ModulationPanel modulationPanel { processor.getRouter(), modulationStyle() };
     std::unique_ptr<SuiteModulation::ControlDisplay> controls;
 

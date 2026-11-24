@@ -17,7 +17,7 @@ suite_add_plugin(
     MODULATION
     # R13: the menu's Settings... entry needs the shared settings store.
     SETTINGS
-    LOCKUP        ${CMAKE_SOURCE_DIR}/modules/suite_ui/brand/lockup_groove_mutator.png
+    LOCKUP        ${CMAKE_SOURCE_DIR}/modules/suite_ui/brand/lockup_groovemutator.png
     # LOCKUP is per-plugin authoring: add the row to the owner's tools/brand/lockups.py (not in this repo), run it, then
     # uncomment the line above (the About dialog shows the lockup when one is embedded).
 )

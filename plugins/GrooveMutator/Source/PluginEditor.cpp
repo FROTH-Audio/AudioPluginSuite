@@ -68,11 +68,11 @@ GrooveMutatorEditor::GrooveMutatorEditor (GrooveMutatorProcessor& p)
 
     // The bar exists before setSize(), because setSize() runs resized(), which lays it out.
     presetBar.reset (new SuitePresets::PresetBar (static_cast<SuitePresets::StateHolder&> (processor),
-                                                  juce::Colour (0xff9aa0a6)));
+                                                  juce::Colour (0xffdcf014)));
 
     // The eight lane cards before setSize() as well: the first resized() walks them.
     for (int track = 0; track < GrooveMutatorProcessor::numTracks; ++track)
-        lanes[(size_t) track] = std::make_unique<LaneCard> (processor, track, juce::Colour (0xff9aa0a6));
+        lanes[(size_t) track] = std::make_unique<LaneCard> (processor, track, juce::Colour (0xffdcf014));
 
     setSize (editorWidth, editorHeight);
     setResizable (true, true);
@@ -244,7 +244,7 @@ GrooveMutatorEditor::~GrooveMutatorEditor()
 
 SuiteModulation::ModulationPanel::Style GrooveMutatorEditor::modulationStyle()
 {
-    return { { juce::Colour (0xff9aa0a6), juce::Colour (0xff9aa0a6) },
+    return { { juce::Colour (0xff252525), juce::Colour (0xff252525) },
              SuiteUI::Colours::text, SuiteUI::Colours::textDim,
              SuiteUI::Colours::panel, SuiteUI::Colours::track };
 }
