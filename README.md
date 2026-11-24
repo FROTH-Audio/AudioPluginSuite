@@ -153,7 +153,7 @@ Spectral Drift, Dynamic Saturation and Micro-Timing Chaos share a preset system 
 
 **Preset files** use the `.ausp` extension: UTF-8 XML (`<AudioSuitePreset formatVersion="1" plugin="..." pluginVersion="...">`, `<Meta>`, `<PARAMETERS suiteStateVersion="N">`). User presets are stored under `Documents/AudioSuite/<plugin>/Presets` (Windows) or the platform equivalent, and the plugin id and state version are checked on read — a preset saved with a newer plugin version is refused rather than partially applied.
 
-**Factory bank.** With `SUITE_PRESET_BANK=ON`, 210 factory presets are embedded in the plugin binary (`bank/AudioSuitePresets.xml`): 36 for Spectral Drift, 36 for Dynamic Saturation, 28 for Micro-Timing Chaos, 20 for Sgraffito, 15 for MIDI Chord Arp Scale Tool, 25 each for Stereo Tool and Multiband Saturation, and 25 for Cyclical (plans 6.1, 11, 13 and 14 — the plan-13 additions in SD, DS, Stereo Tool and MultiSat use the shared LFO routing, the plan-14 additions in Cyclical use chop/sync/Toggle/notes). Each preset is a delta from the default state, so absent parameters are set to their defaults at load time. The bank is checked by `tools/audit_bank.py` (unique names, in-range values, no preset equal to the default, category rules, Micro-Timing Chaos base patterns that fire at least one step, and a `samplePath` only as an `embedded:` URI — five Sgraffito presets ship the embedded cloud variant; file paths are rejected). Without the flag, the bank compiles as empty and the bar shows only user presets and INIT.
+**Factory bank.** With `SUITE_PRESET_BANK=ON`, 240 factory presets are embedded in the plugin binary (`bank/AudioSuitePresets.xml`): 36 for Spectral Drift, 46 for Dynamic Saturation, 38 for Micro-Timing Chaos, 30 for Sgraffito, 15 for MIDI Chord Arp Scale Tool, 25 each for Stereo Tool and Multiband Saturation, and 25 for Cyclical (plans 6.1, 11, 13, 14 and 18 — the plan-13 additions in SD, DS, Stereo Tool and MultiSat use the shared LFO routing, the plan-14 additions in Cyclical use chop/sync/Toggle/notes, and the plan-18 additions in DS, MTC and Sgraffito focus on the new LFO waveforms and the transforms). Each preset is a delta from the default state, so absent parameters are set to their defaults at load time. The bank is checked by `tools/audit_bank.py` (unique names, in-range values, no preset equal to the default, category rules, Micro-Timing Chaos base patterns that fire at least one step, and a `samplePath` only as an `embedded:` URI — file paths are rejected). Without the flag, the bank compiles as empty and the bar shows only user presets and INIT.
 
 **Preset bar.** Each editor gains a header bar (right-aligned in the title area) that lists factory presets by category, INIT (reset-all-defaults) and SAVE. The bar is always visible (height 30); when the bank is empty it lists only user presets.
 
@@ -402,10 +402,12 @@ The editor has three pages. SOUND shows the sample's waveform with each key's re
 The [user manual](plugins/StereoTool/MANUAL.md) is a short walkthrough with a screenshot.
 A stereo tool. It splits the input into mid and side, shapes each band with a selectable
 saturation character, optionally moves the width or drive on transients, reshapes the image
-(mid focus, a side filter), and mixes the result against the dry input. Two LFOs and six
-routing slots (the suite's shared modulation) can move ten of the controls; a SOUND / MOD
+(mid focus, a side filter, a mono-maker, per-band width, M/S tone shaping, an image rotation
+— plan 17 Phase 8), rotates the right channel's phase up to 360° (plan 18), and mixes the
+result against the dry input. Two LFOs and six routing slots (the suite's shared modulation,
+with the transform row on each LFO strip) can move sixteen of the controls; a SOUND / MOD
 page switch holds the routing panel. The mid/side + follower preview sits at the top of the
-720×658 window (the default height **is** the minimum).
+720×858 window (the default height **is** the minimum).
 
 | Control | Range | Default | Description |
 |---|---|---|---|
@@ -419,18 +421,24 @@ page switch holds the routing panel. The mid/side + follower preview sits at the
 | **Mid Focus** | −100 – +100 % | 0 % | `midGain = 1 + f`, `sideGain = 1 − f`: positive pulls the centre forward, negative widens. |
 | **Side Filter** | Off / High Pass / Low Pass / Band Pass | Off | A filter on the side component only, so the lows can stay mono. Off is a true bypass. |
 | **Side Crossover** | 20 Hz – 8 kHz (log) | 200 Hz | The side filter's corner. |
-| **Input** | −24 – +24 dB | 0 dB | Gain into the chain, in the LEVEL group. |
+| **Input** | −24 – +24 dB | 0 dB | Gain into the chain, in the MASTER group. |
 | **Output** | −24 – +24 dB | 0 dB | The final gain stage. |
-| **Pan** | −100 – +100 % | 0 % | The balance after the mix (plan 17): right attenuates the left, left attenuates the right; the centre is untouched. Routable as an 11th LFO target. |
-| **Pan** | −100 – +100 % | 0 % | The balance after the mix (plan 17): right attenuates the left, left attenuates the right; the centre is untouched. Routable as an 11th LFO target. |
+| **Pan** | −100 – +100 % | 0 % | The balance after the mix (plan 17): right attenuates the left, left attenuates the right; the centre is untouched. Routable as an LFO target. |
+| **Phase** | 0 – 360 ° | 0 ° | The master phase rotation (plan 18): an all-pass rotation of the right channel, calibrated at 1 kHz. 0 is transparent; 180° inverts the right channel's 1 kHz content. |
+| **Mono Maker Crossover** | 0 – 800 Hz (skewed) | Off (0) | Everything below this crossover collapses to mono. 0 is Off (plan 17 Phase 8). |
+| **Multiband Width Low / Mid / High** | −100 – +100 % | 0 % | Per-band width: the side splits at fixed 200 Hz and 2 kHz, and each band's side energy is narrowed or widened by its own knob. |
+| **MS Tone Mid / Side** | −1 – +1 | 0 | Separate tilt around 1 kHz for the mid and the side channel. |
+| **Image Rotation Rate / Depth** | 0.02 – 2 Hz / 0 – 100 % | 0.25 Hz / 0 % | The image rotation: an orthonormal L/R plane swing that preserves energy, up to ±90° at depth 100 %. |
 
-The shared router's 34 parameters (two LFOs and six routing slots) sit behind these; eleven
-controls are routable targets: Width, Drive, Mix, Transient Attack, Transient Release,
-Transient Amount, Mid Focus, Side Crossover, Input, Output and Pan. The editor is 720×658: the
-full-width stereo visual at the top (mid/side bars and the follower trace), LEVEL and IMAGE
+The shared router's 34 parameters (two LFOs and six routing slots, plus the 12 transform
+parameters per pair) sit behind these; sixteen controls are routable targets: Width, Drive,
+Mix, Transient Attack, Transient Release, Transient Amount, Mid Focus, Side Crossover,
+Input, Output, Pan, Mono Maker Crossover, Multiband Width Low/Mid/High, MS Tone Mid,
+MS Tone Side, Image Rotation Rate and Depth. The editor is 720×858: the full-width stereo
+visual at the top (mid/side bars and the follower trace), MASTER and the taller IMAGE group
 in the row below, CHARACTER across the full width underneath. Controls that do not apply
-right now are dimmed: Side Crossover while the Side Filter is Off, and the follower's
-Attack/Release/Target while Amount is 0.
+right now are dimmed: Side Crossover while the Side Filter is Off, the follower's
+Attack/Release/Target while Amount is 0, and the rotation rate while Depth is 0.
 
 At the defaults the plugin is bit-transparent (the mid/side round trip skips work when neither the drive, nor the width, nor any of the new controls touches the signal). No latency is added.
 
@@ -489,32 +497,40 @@ The band sum is clamped to the rails, so the output cannot exceed full scale. Th
 
 <img src="docs/manuals/cyclical-slots.png" alt="Cyclical screenshot" width="653">
 
-The [user manual](plugins/Cyclical/MANUAL.md) walks through both pages.
-A four-slot loop instrument (plan 6.1, overhauled by plan 14 with a chop workflow from plan 16). Four loaded audio loops play with a region, a speed, a direction (forward, reverse or ping-pong with randomised turn points), a granular mode and velocity scaling — quantised to a musical grid with swing. No recording, no audio input: each slot is triggered by its own **Note** key (defaults 60–63), and a chopped slot adds one key per slice above its base note (Dr. Rex style). With **Host Sync on** each unchopped loop plays in exactly **Beats** beats (Speed is inactive); **Chop** splits a slot's region into Slices with a **Slice Length** skew; **AUTO** re-slices at the loop's transients; the arrangement strip re-arranges the slices per key (click to cycle, right-click to select one for the tools); **REV / NORM / TRIM** reverse (loop or slice), normalise to −0.1 dBFS and align the region to the content — all in-memory, session-local. The window is 1000×876 with a tangerine accent.
+The [user manual](plugins/Cyclical/MANUAL.md) walks through the pages.
+A four-slot loop instrument (plan 6.1, overhauled by plan 14 with a chop workflow from plan 16, reworked by plan 18: one full-width tab per slot plus a MOD page, and the former GLOBAL controls as per-slot parameters that work independently). Four loaded audio loops play with a region, a speed, a direction (forward, reverse or ping-pong with randomised turn points), a per-slot filter (type + cutoff/reso), attack/release shaping and velocity scaling — quantised to a musical grid with swing. No recording, no audio input: each slot is triggered by its own **Note** key (defaults 60–63), and a chopped slot adds one key per slice above its base note (Dr. Rex style). With a slot's **Host Sync on** its unchopped loop plays in exactly **Beats** beats (Speed is inactive); **Chop** splits a slot's region into Slices with a **Slice Length** skew; **AUTO** re-slices at the loop's transients; the arrangement strip re-arranges the slices per key (click to cycle, right-click to select one for the tools); **REV / NORM / TRIM** reverse (loop or slice), normalise to −0.1 dBFS and align the region to the content — all in-memory, session-local. The region knobs apply live: a knob release that moved the value retriggers the playing voice. The window is 1000×994 with a tangerine accent.
 
 | Control | Range | Default | Description |
 |---|---|---|---|
-| **Output** | −24 – +12 dB | 0 dB | Output level (smoothed 20 ms). |
-| **Pan** | −100 – +100 % | 0 % | Constant-power law. |
-| **Quantize** | Off / 1/16 / 1/8 / 1/4 / 1/2 / Bar | Off | Triggers start on the next grid point. |
-| **Swing** | −20 – +20 % | 0 % | Shifts odd grid points. |
-| **Trigger Mode** | Latch / Gate / Toggle | Latch | Gate plays only while the key is held; Toggle starts on the first press and stops on the second. |
-| **Start** | 0 – 100 % | 0 % | Where the slot's loop starts (capped at 95 %). |
-| **Length** | 5 – 100 % | 100 % | How much of the loop plays. |
-| **Speed** | 0.25 – 4.0 × | 1.0 | Tape varispeed; inert in granular mode and under Host Sync (unless chopped). |
+| **Output** | −24 – +12 dB | 0 dB | Output level of the whole instrument (smoothed 20 ms) — the one global. |
+| **Quantize** | Off / 1/16 / 1/8 / 1/4 / 1/2 / Bar | Off | This slot's triggers start on the next grid point. Per slot. |
+| **Swing** | −20 – +20 % | 0 % | Shifts this slot's odd grid points. Per slot. |
+| **Trigger Mode** | Latch / Gate / Toggle | Latch | Gate plays only while the key is held; Toggle starts on the first press and stops on the second. Per slot. |
+| **Start** | 0 – 100 % | 0 % | Where the slot's loop starts (capped at 95 %). Applies live. |
+| **Length** | 5 – 100 % | 100 % | How much of the loop plays. Applies live. |
+| **Speed** | 0.25 – 4.0 × | 1.0 | Tape varispeed; inert in granular mode and under this slot's Host Sync (unless chopped). A modulation target. |
 | **Direction** | Forward / Reverse / Ping-Pong | Forward | Ping-pong turns at both bounds. |
 | **Ping Rand** | on / off | off | Randomises the ping-pong turn points per trigger; the rate is untouched. |
 | **Grain** | on / off | off | One 80 ms grain at a time, deterministic. |
 | **Velocity** | 30 – 150 % | 100 % | Scales the slot's key velocity. |
 | **Note** | 24 – 96 | 60–63 | The slot's trigger key. |
-| **Beats** | 1 – 16 | 4 | The whole loop's musical length under Host Sync. |
+| **Beats** | 1 – 16 | 4 | The whole loop's musical length under this slot's Host Sync. Applies live. |
+| **Filter / Cutoff / Reso** | Off / HP / LP / BP, 20 Hz – 20 kHz, 0.5 – 10 | Off / 20 kHz / 0.7 | The slot's own filter (plan 17, wired in plan 18). Cutoff is a modulation target. |
+| **Attack / Release** | 1 – 1000 ms / 1 – 10000 ms | 1 ms / 5 ms | The slot's own envelope over the loop's gain. |
+| **Level** | 0 – 200 % | 100 % | The slot's output level before the master stage. A modulation target. |
 | **Chop** | on / off | off | Slice mode: one key per slice; sync is disabled for a chopped slot. |
-| **Slices** | 2 – 16 | 8 | The chop slice count. |
-| **Slice Length** | −100 – +100 % | 0 % | Skews the slice boundaries; 0 % is the equal split. |
-| **Pitch** | −12 – +12 | 0 | Detunes all slots together (speed and pitch move). |
-| **Crossfade** | 0 – 500 ms | 5 ms | The loop-seam blend, shared by all slots. |
-| **Tempo** | 40 – 240 BPM | 120 | The clock while Host Sync is off. |
-| **Host Sync** | off / on | off | On: the clock and the synced loops follow the host. |
+| **Slices** | 2 – 16 | 8 | The chop slice count. Applies live. |
+| **Slice Length** | −100 – +100 % | 0 % | Skews the slice boundaries; 0 % is the equal split. Applies live. |
+| **Pan** | −100 – +100 % | 0 % | The slot's own constant-power pan before the master sum. A modulation target. |
+| **Pitch** | −12 – +12 | 0 | Detunes this slot (speed and pitch move). |
+| **Crossfade** | 0 – 500 ms | 5 ms | This slot's loop-seam blend. |
+| **Tempo** | 40 – 240 BPM | 120 | This slot's clock while its Host Sync is off. |
+| **Host Sync** | off / on | off | On: this slot's clock and its synced loops follow the host. |
+
+The shared router's 34 parameters (two LFOs and six routing slots, plus the 12 transforms)
+sit behind these; sixteen controls are routable targets: Level 1–4, Cutoff 1–4, Speed 1–4
+and Pan 1–4. The MOD page holds the shared panel; the four slot pages each carry that
+slot's complete control set.
 
 Loops come from a 12-loop embedded library or the user's disk; the loaded loop travels with the session and with presets as a state property, and a path that cannot be found keeps the slot playing with a "Loop missing" overlay. A retrigger cuts the sounding loop into a 2 ms tail and starts fresh. No latency is added; the tail length is 2 s.
 
@@ -579,7 +595,7 @@ Plugin bundles are written to `build/plugins/<Name>/<Name>_artefacts/Release/`.
 |---|---|---|
 | `SUITE_BUILD_PLUGINS` | `ON` | Build the plugins, their editors and the host-level tests. Set to `OFF` to build only the DSP core and its tests, which is faster. |
 | `SUITE_BUILD_TESTS` | `ON` | Build and register the unit tests. |
-| `SUITE_PRESET_BANK` | `OFF` | Embed the factory preset bank into the plugin binaries (`factory_bank/bank/AudioSuitePresets.xml`, 210 presets: 36 SD / 36 DS / 28 MTC / 20 Sgraffito / 15 MidiEffect / 25 StereoTool / 25 Multiband / 25 Cyclical). The preset bar, `.ausp` files and user presets ship in every build; this flag only adds the embedded bank. |
+| `SUITE_PRESET_BANK` | `OFF` | Embed the factory preset bank into the plugin binaries (`factory_bank/bank/AudioSuitePresets.xml`, 240 presets: 36 SD / 46 DS / 38 MTC / 30 Sgraffito / 15 MidiEffect / 25 StereoTool / 25 Multiband / 25 Cyclical). The preset bar, `.ausp` files and user presets ship in every build; this flag only adds the embedded bank. |
 | `SUITE_PRESET_BANK_AS_PROGRAMS` | `OFF` | With `SUITE_PRESET_BANK=ON`, expose the factory bank as host programs (program 0 = Init, then one per preset). Bank order is append-only once hosts cache indices. |
 
 Example, DSP tests only:

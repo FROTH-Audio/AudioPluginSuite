@@ -85,7 +85,10 @@ the TEXTURE page, with its dimmed controls:
 <img src="../../docs/manuals/sgraffito-detail-modulation-panel.png" alt="Modulation panel" width="568">
 
 Two LFOs and six routing slots move 24 of the controls — the region, envelope, timing,
-ghost, cloud and surface parameters all included. Sgraffito has no beat of its own, so a
+ghost, cloud and surface parameters all included. Each LFO strip carries the **transform
+row** (plan 18): Invert and Rectify pills, plus Quantise, Smooth, Pulse width and Skew
+sliders — the scope above draws the transformed waveform live. The defaults are all neutral,
+so an untouched transform row changes nothing. Sgraffito has no beat of its own, so a
 synced LFO runs at the host tempo (120 BPM when there is no playhead). The shared LFOs and
 routing are described in the [suite README](../README.md#modulation).
 

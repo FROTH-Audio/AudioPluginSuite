@@ -4,38 +4,59 @@ The plugin code is `Cycl`. The bundle id is `com.audiosuite.cyclical`.
 
 ## The interface at a glance
 
-<img src="../../docs/manuals/cyclical-slots.png" alt="Cyclical SLOTS page" width="653">
+<img src="../../docs/manuals/cyclical-slots.png" alt="Cyclical SLOT 1 page" width="653">
 
 Cyclical is a four-slot loop instrument. Four loaded audio loops play with a region, a speed,
-a direction (forward, reverse or ping-pong), an optional granular mode and velocity scaling —
-locked to a musical grid with a quantised start and swing. There is no recording and no audio
-input: the plugin is output-only. Each slot is triggered by its own **Note** key (by default
-C4, C#4, D4, D#4 = MIDI 60–63); a chopped slot adds one key per slice above its base note.
-The preset bar (R12) and the hamburger menu (R13) sit in the header; the page switch (R8,
-top right) moves between the SLOTS and GLOBAL pages. The accent is tangerine.
+a direction (forward, reverse or ping-pong), a per-slot filter, attack/release shaping and
+velocity scaling — locked to a musical grid with a quantised start and swing. There is no
+recording and no audio input: the plugin is output-only. Each slot is triggered by its own
+**Note** key (by default C4, C#4, D4, D#4 = MIDI 60–63); a chopped slot adds one key per slice
+above its base note. The preset bar (R12) and the hamburger menu (R13) sit in the header; the
+page switch (R8, top right) moves between the **four SLOT pages and the MOD page** — one tab
+per slot, so every control of a slot lives on its own page, and the former GLOBAL controls
+work **independently per slot**. The accent is tangerine.
 
-## Page: SLOTS
+## Page: SLOT 1 … SLOT 4
 
-<img src="../../docs/manuals/cyclical-slots.png" alt="SLOTS page" width="653">
+<img src="../../docs/manuals/cyclical-slots.png" alt="SLOT page" width="653">
 
-Four cards, one per slot. Each card shows the slot's base key in its title (it follows the
-Note knob) and holds two knob rows and a pill row:
+One full-width card per page, carrying that slot's complete control set. The card shows the
+slot's base key in its title (it follows the Note knob). Every parameter below belongs to this
+slot alone — each slot runs its own grid, swing, trigger mode and beat clock:
 
 | Control | Range | What it does |
 |---|---|---|
 | **Waveform** | — | The loaded loop with its region band, the chop lines (Chop mode), the arrangement strip (Chop mode) and the playhead. The header band carries six actions: **LOAD** opens a WAV/AIFF browser; **AUTO** slices the region at the loop's transients (Chop mode only, dimmed otherwise); **REV** reverses the whole loop, or the selected slice; **NORM** matches the loop's peak to −0.1 dBFS; **TRIM** aligns Start/Length to the first and last non-silent frames. A missing loop draws "Loop missing - click to locate" over the still-playing audio, and clicking it opens the same browser. |
-| **Start** | 0 – 100 % | Where the loop starts, as a share of its length (capped at 95 %). |
-| **Length** | 5 – 100 % | How much of the loop plays. Effective length = min(Length, 100 − Start). |
-| **Speed** | 0.25 – 4.0 × | Playback speed (a tape varispeed: pitch moves with it). Dimmed while Grain is on, and while Host Sync is on — unless the slot is chopped (a chopped slot ignores sync). |
+| **Start** | 0 – 100 % | Where the loop starts, as a share of its length (capped at 95 %). Applies live: releasing a moved knob retriggers the playing voice in the new region. |
+| **Length** | 5 – 100 % | How much of the loop plays. Effective length = min(Length, 100 − Start). Applies live, like Start. |
+| **Speed** | 0.25 – 4.0 × | Playback speed (a tape varispeed: pitch moves with it). Dimmed while Grain is on, and while this slot's Host Sync is on — unless the slot is chopped (a chopped slot ignores sync). |
 | **Velocity** | 30 – 150 % | Scales the note velocity of the slot's keys. |
+| **Filter** | Off / HP / LP / BP | The slot's own filter, with **Cutoff** (20 Hz – 20 kHz) and **Reso** (0.5 – 10). Off is a true bypass. |
+| **Cutoff / Reso** | see Filter | The filter's corner and resonance. Cutoff is a modulation target. |
+| **Attack / Release** | 1 ms – 1 s / 1 ms – 10 s | The slot's own envelope over the loop's gain: attack rises on a trigger, release fades on stop or retrigger. Defaults 1 ms / 5 ms (the engine's old feel). |
+| **Level** | 0 – 200 % | The slot's output level before the master stage. A modulation target. |
 | **Note** | 24 – 96 | The MIDI key that triggers the slot. Defaults 60–63 (the old fixed map). Two slots sharing a note: the lowest slot wins. |
-| **Beats** | 1 – 16 | The musical length of the whole loaded loop, in beats. Used while Host Sync is on; **dimmed in Chop mode** (sync is disabled there). |
-| **Slices** | 2 – 16 | How many slices Chop divides the region into. Only live in Chop mode. |
-| **Slice Length** | −100 – +100 % | Skews the slice boundaries: positive lengthens the late slices, negative the early ones. 0 % is the equal split. **This is not Length**: Length trims the loop region that all slices live in; Slice Length only redistributes the boundaries inside it. |
+| **Beats** | 1 – 16 | The musical length of the whole loaded loop, in beats. Used while this slot's Host Sync is on; **dimmed in Chop mode** (sync is disabled there). Applies live, like Start. |
+| **Slices** | 2 – 16 | How many slices Chop divides the region into. Only live in Chop mode. Applies live. |
+| **Slice Length** | −100 – +100 % | Skews the slice boundaries: positive lengthens the late slices, negative the early ones. 0 % is the equal split. **This is not Length**: Length trims the loop region that all slices live in; Slice Length only redistributes the boundaries inside it. Applies live. |
 | **FWD / REV / PP** | — | Direction. Ping-pong turns at both bounds; **Ping Rand** (below) randomises the turn points per trigger. |
 | **PING RAND** | on / off | Random turn points on each trigger. The rate is untouched, so the pitch never drifts. Only live in Ping-Pong — dimmed otherwise, never hidden. |
 | **GRAIN** | on / off | Granular playback: one 80 ms grain at a time (a stutter, not a cloud). Speed is dimmed while it is on. Allowed inside a chopped slice — very short slices sound grainy. |
 | **CHOP** | on / off | Chop mode: the slot's region splits into **Slices** parts, and key Note + k plays slice k (Dr. Rex style). **Host Sync is disabled for a chopped slot** — its Speed knob stays live. |
+
+### The slot's own clock and mix (the former GLOBAL controls, per slot)
+
+| Control | Range | What it does |
+|---|---|---|
+| **Pan** | −100 – +100 % | The slot's constant-power pan before the master sum. A modulation target. |
+| **Pitch** | −12 – +12 | Detunes this slot (speed and pitch move, like tape). |
+| **Swing** | −20 – +20 % | Shifts this slot's odd grid points. Positive is late. |
+| **Quantize** | Off / 1/16 / 1/8 / 1/4 / 1/2 / Bar | This slot's triggers start on the next grid point. Off starts immediately. |
+| **Trigger** | Latch / Gate / Toggle | Latch: a note runs until retriggered. Gate: the loop plays only while the key is held. **Toggle**: the first press starts the slot looping (scheduled on the grid when Quantize is on), the second press stops it immediately — a note-off never stops it, a trigger-mode change stops the voices, and a stopped transport stops this slot when its mode is Toggle. |
+| **Tempo** | 40 – 240 BPM | This slot's clock tempo while its Host Sync is off. Each slot can run at its own tempo. |
+| **Host Sync** | on / off | On: this slot's clock and its synced loops follow the host's position and tempo. Chopped slots ignore it. |
+| **Crossfade** | 0 – 500 ms | This slot's loop-seam blend. |
+| **Output** | −24 – +12 dB | Output level of the whole instrument — the one global, shown beneath every slot page. |
 
 ### The arrangement strip and the tools
 
@@ -51,9 +72,9 @@ unchanged, so **a session reload re-reads the original file** — the transforms
 session-local. A playing voice keeps its old buffer until the transform installs, so nothing
 tears.
 
-The seam of the region crossfades so loops don't click at the wrap; **Crossfade** (GLOBAL)
-sets the blend length for all four slots. A retrigger cuts the sounding loop into a 2 ms tail
-and starts fresh, so a slot never doubles up.
+The seam of the region crossfades so loops don't click at the wrap; **Crossfade** (per slot)
+sets the blend length. A retrigger cuts the sounding loop into a 2 ms tail and starts fresh,
+so a slot never doubles up.
 
 The footer line shows the help text of the control under the pointer.
 
@@ -68,31 +89,14 @@ Overlaps between slots are accepted (a lower slot wins), so the manual's default
 60, 61, 62, 63 — is overlap-free, but nothing stops you mapping a 16-slice chop over another
 slot's key.
 
-## Page: GLOBAL
-
-<img src="../../docs/manuals/cyclical-global.png" alt="GLOBAL page" width="653">
-
-| Control | Range | What it does |
-|---|---|---|
-| **Output** | −24 – +12 dB | Output level of the whole instrument. |
-| **Pan** | −100 – +100 % | Constant-power pan: +100 % pans right, −100 % pans left; the sum of the two channels' power stays put. |
-| **Pitch** | −12 – +12 | Detunes all four slots together (speed and pitch move, like tape). |
-| **Crossfade** | 0 – 500 ms | The loop-seam blend, shared by all slots. |
-| **Swing** | −20 – +20 % | Shifts odd grid points. Positive is late. |
-| **Quantize** | Off / 1/16 / 1/8 / 1/4 / 1/2 / Bar | A trigger starts on the next grid point. Off starts immediately. |
-| **Trigger** | Latch / Gate / Toggle | Latch: a note runs until retriggered. Gate: the loop plays only while the key is held. **Toggle**: the first press starts the slot looping (scheduled on the grid when Quantize is on), the second press stops it immediately — a note-off never stops it, and a stopped transport stops the toggled slots. |
-| **Tempo** | 40 – 240 BPM | Runs the beat clock while Host Sync is off. |
-| **Host Sync** | on / off | On: the clock and the synced loops follow the host's position and tempo. Chopped slots ignore it. |
-| **Beat readout** | — | The beat clock's position, for reference. |
-
 ## BPM sync and Beats
 
-With **Host Sync on**, every unchopped slot plays its whole loop in exactly **Beats** beats:
-the rate is derived from the loop's own duration, so the Speed knob is inactive (dimmed) and
-the loop is in musical time. **Start and Length choose which part plays; they do not change
-the rate.** With sync off, Speed works exactly as before and the **Tempo** parameter paces
-the clock (the host's tempo is authoritative while synced). A change to Tempo or Beats takes
-effect from the next trigger.
+With a slot's **Host Sync on**, every unchopped slot plays its whole loop in exactly
+**Beats** beats: the rate is derived from the loop's own duration, so the Speed knob is
+inactive (dimmed) and the loop is in musical time. **Start and Length choose which part
+plays; they do not change the rate.** With sync off, Speed works exactly as before and the
+slot's **Tempo** parameter paces its clock (the host's tempo is authoritative while synced).
+A change to Tempo or Beats applies live (the playing voice retriggers on knob release).
 
 ## Chop mode
 
@@ -109,6 +113,16 @@ Slices to the count, and every slice then starts on a hit. The detected boundari
 with the session. **Right-click a strip cell** to select a slice for the tools; **left-click**
 re-arranges (key k plays the source slice the cell shows). The three tools (REV, NORM, TRIM)
 transform the loop in memory — session-local, as above.
+
+## Page: MOD
+
+<img src="../../docs/manuals/cyclical-mod.png" alt="MOD page" width="653">
+
+Two LFOs (with the shared waveform transforms — invert, rectify, quantise, smooth, pulse
+width, skew — drawn live in the scopes) and six routing slots. The targets are the per-slot
+controls: **Level 1–4, Cutoff 1–4, Speed 1–4 and Pan 1–4** (16 targets), so one LFO can
+breathe one slot's level while another sweeps a different slot's filter. The delay column
+starts each routing after its own delay time on the delay clock.
 
 ## Missing loops
 
@@ -146,9 +160,13 @@ bar in the header to browse, save and load. The fifteen plan-6.1 presets come fi
 | Spread Keys | Electronic | The four slots sit across the keyboard, one chop included. |
 | Tempo Runner | Electronic | Free-running 150 BPM drives the quantised chop. |
 
+(The presets' former global settings — quantise, swing, sync — now apply to all four slots,
+so the presets play the same after the plan-18 rework.)
+
 **Ableton Live note:** after a plugin update, rescan the VST3s (Preferences → Plug-Ins →
 Rescan, "use incompatible cache" off) — Ableton's cache keeps the old parameter list and the
-plugin then receives no notes at all.
+plugin then receives no notes at all. This applies again after the plan-18 rework: the
+parameter count changed (57 → 151).
 
 ## MIDI / host notes
 

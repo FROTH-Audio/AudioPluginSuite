@@ -34,7 +34,6 @@ Eight audio plugins written with JUCE 9.0.5 in C++17. Formats: VST3 on Windows a
 | MIDI Chord Arp Scale Tool | `plugins/MidiEffect` | **instrument** (output-only buses, notes out; audio buffer cleared) | `CoreDSP::Chords` (chords, arp patterns, step-clock helpers), `CoreDSP::Sampler::quantizeToScale` | teal `#4ECDC4` |
 | MultiSat | `plugins/MultibandSaturation` (host name "MultiSat"; folder/target/preset ID keep the MultibandSaturation name) | audio effect | `CoreDSP::Multiband::TwoBandSplit`, `CoreDSP::Saturation` shapers/followers | coral `#FF6B6B` |
 | Cyclical | `plugins/Cyclical` | **instrument** (output-only, per-slot notes) | `CoreDSP::Loop` (LoopEngine: regions, crossfaded seams, ping-pong, grains) | tangerine `#FF7A45` (plan 14) |
-
 - Manufacturer name `FROTH Audio` (shown by hosts; set by `COMPANY_NAME` in `modules/suite_plugin/SuitePlugin.cmake`), manufacturer code `Asui`, bundle IDs `com.audiosuite.<name>` (kept: they are part of the plugin identity, section 7).
 - Plugin code `Sgrf`. Codes and parameter IDs are saved in sessions
 
@@ -45,8 +44,8 @@ Eight audio plugins written with JUCE 9.0.5 in C++17. Formats: VST3 on Windows a
 - **DSP engine** (Phase 4): Lorenz chaos drift, tape stop, ghost notes, scale lock, cloud granular mode. 71 parameters total (37 original + 34 new: 2 LFOs + 6 modulation slots + 21 creative parameters).
 - **Editor** (Phase 5, Sgraffito): 880×700 px window, SOUND/TEXTURE/MOD pages, 60 Hz timer, slate accent colour `#9aa0a6`.
 - **Modulation** (Phase 5): `SuiteModulation::Router` shared with other plugins, 2 LFOs, 6 routing slots (source/target/amount/delay). All parameters automatable, savable, restorable.
-- **Presets**: 210 factory presets (36 SD / 36 DS / 28 MTC / 20 Sgraffito / 15 MidiEffect / 25 StereoTool / 25 Multiband / 25 Cyclical, plans 6.1, 11, 13 and 14 — plan 13 added +10 modulation presets each to SD, DS, StereoTool and MultiSat, plan 14 added +10 concept presets to Cyclical) behind the `SUITE_PRESET_BANK` flag (full bank accepted by owner decision, 2026-11-12; five Sgraffito presets added by plan 05.3 F1.3; the two first-pass plugins joined in plan 6.1, then Cyclical, then Multiband Saturation in plan 11). Bank + programs (`SUITE_PRESET_BANK_AS_PROGRAMS`) maps Init=program 0, factory presets=programs 1..N.
-- **Test results**: 28/28 CTest entries pass with the factory bank on (last full run 2026-11-21, plan 13; the default build is 20, the bank build adds eight preset-test executables).
+- **Presets**: 240 factory presets (36 SD / 46 DS / 38 MTC / 30 Sgraffito / 15 MidiEffect / 25 StereoTool / 25 Multiband / 25 Cyclical, plans 6.1, 11, 13 and 14 — plan 13 added +10 modulation presets each to SD, DS, StereoTool and MultiSat, plan 14 added +10 concept presets to Cyclical, plan 18 Phase 7 added +10 transform/LFO-waveform presets each to DS, MTC and Sgraffito) behind the `SUITE_PRESET_BANK` flag (full bank accepted by owner decision, 2026-11-12; five Sgraffito presets added by plan 05.3 F1.3; the two first-pass plugins joined in plan 6.1, then Cyclical, then Multiband Saturation in plan 11). Bank + programs (`SUITE_PRESET_BANK_AS_PROGRAMS`) maps Init=program 0, factory presets=programs 1..N.
+- **Test results**: 28/28 CTest entries pass with the factory bank on (last full run 2026-11-24, plan 18; the default build is 20, the bank build adds eight preset-test executables).
 
 ---
 
@@ -170,7 +169,7 @@ Before 2026-11-08 the list was 9 entries: CoreDSPTests, SuiteUI_Tests, SuiteModu
 
 Parameter IDs are `static constexpr const char*` members of each processor. Defaults and ranges below are what `createParameterLayout()` defines. Each float uses a `NormalisableRange`, and some use a log or skew. The plugin tests check these values with `checkRange`, so a change here must change the test too.
 
-### 4.1 Spectral Drift Shifter (48 parameters)
+### 4.1 Spectral Drift Shifter (60 parameters)
 
 The 12 controls below are the original sound parameters. The next 34 are the two LFOs and six modulation
 routings added by `SuiteModulation::Router` (`lfo1Rate` … `mod6Delay`), and the last two are the sidechain
@@ -216,7 +215,7 @@ the buffer's channel count.
 
 Latency reported: 2048 samples (`setLatencySamples`). Tail length: 0.
 
-### 4.2 Dynamic Saturation Companion (47 parameters)
+### 4.2 Dynamic Saturation Companion (59 parameters)
 
 The 13 controls below are the original sound parameters. The remaining 34 are the
 two LFOs and six modulation
@@ -241,7 +240,7 @@ moves. At defaults every routing amount is 0, so the sound is bit-identical to t
 
 Latency reported: the oversampler's integer latency, computed in `prepareToPlay`. The dry path is delayed by the same amount. Tail length: 0.
 
-### 4.3 Micro-Timing Chaos Sequencer (54 parameters)
+### 4.3 Micro-Timing Chaos Sequencer (66 parameters)
 
 | ID | Name | Range | Default | Notes |
 |---|---|---|---|---|
@@ -305,7 +304,7 @@ DS already smooths drive, mix and output level for 50 ms, and its other targets 
 
 Synced LFOs in both effects use a tempo-locked beat clock (`beatClock += numSamples × tempo / 60 / sampleRate`), not the host's PPQ. The tempo is the host's when the host reports one, clamped to 20–300 BPM (`SuiteModulation::hostTempoOrDefault`). With no playhead (Standalone) it is 120 BPM. The clock only accumulates, so it does not jump on loop or relocate, and it keeps moving while the host still reports a tempo with the transport stopped. The routing Delay clock runs from `prepareToPlay` and is not restarted on transport start.
 
-### 4.5 MultiSat (45 parameters)
+### 4.5 MultiSat (57 parameters)
 
 A two-band saturator (plan 06 idea 2.4, first pass). Host name "MultiSat" since plan 12 (display
 name only: the folder, target, bundle ID and preset ID keep the MultibandSaturation name). The
@@ -381,7 +380,16 @@ flush), a stopped transport (a playhead running→stopped transition flushes the
 Tempo, Gate Length, Velocity Curve, Velocity Direction, Octave Spread) are dimmed, live again
 in Arp mode — the chord parameters and the Pattern ordering stay live in both.
 
-### 4.7 Stereo Tool Effect (48 parameters)
+### 4.7 Stereo Tool Effect (69 parameters)
+
+Plan 17 Phase 8 appended eight interest-feature parameters (Mono Maker Crossover 0–800 Hz,
+**0 = Off**, Multiband Width Low/Mid/High ±100 %, MS Tone Mid/Side ±1, Image Rotation Rate
+0.02–2 Hz, Depth 0–100 %) and plan 18 appended the Phase knob (0–360°). The DSP behind all
+nine is implemented (plan 18 Phase 3): the mono-maker is a true side high-pass, the
+multiband width splits the side at fixed 200 Hz/2 kHz, the M/S tone is the shared
+ToneControl per channel, and the rotation is an orthonormal L/R plane rotation with an
+accumulated phase. The routing table grew to 16 targets (+Pan, +the eight interest
+parameters). The identity early-return requires all nine at their defaults.
 
 The first three controls are the original stereo parameters (plan 06 idea 2.9). The eight after
 them are the character processor added by plan 6.1, appended in that order so no saved parameter
@@ -425,23 +433,32 @@ A SOUND / MOD page switch (R8: top right of the header, left of the preset bar) 
 modulation panel on the MOD page. Plan 15 affinity: Side Crossover is dimmed while the Side
 Filter is Off, and the transient Attack/Release/Target are dimmed while Amount is 0.
 
-### 4.8 Cyclical (57 parameters)
+### 4.8 Cyclical (151 parameters)
 
-The four-slot loop instrument (plan 6.1, overhauled by plan 14). Five global parameters,
-twelve per slot (× 4, in slot order so the bank order is stable), two playback. All plan-14
-parameters are appended, so no saved index moves and the state stays version 1 (resetMissing
-restores the defaults for absent IDs). The loop references are **not** parameters: they ride
-as `loop1Path` … `loop4Path` attributes on `<PARAMETERS>` (the samplePath pattern). The
-per-slot IDs are `const char* x[4]` arrays with a literal size, which is the form
-`tools/audit_bank.py`'s coverage check parses.
+The four-slot loop instrument (plan 6.1, overhauled by plan 14, reworked by plan 18 Phase 4).
+**Plan 18 removed the global Pan/Quantize/Swing/TriggerMode/Pitch/CrossfadeLength/Tempo/Sync
+parameters and re-created them per slot** (`slotNQuantize` … `slotNPan`, × 4, appended so no
+saved index moves — safe before a release): each slot runs its own beat clock, grid, swing,
+trigger mode, pitch, crossfade, tempo, host sync and pan, and the Phase-9
+filter/attack/release/level parameters are wired through a per-slot render stage (scratch →
+filter → level → pan → master). The layout order is: `masterVolume` (the one global), 12
+playback parameters per slot, filter + cutoff/reso + attack/release/level per slot, the 8
+former globals per slot, then the shared Router (46). The per-slot A/R drive the voice's
+envelope via `CoreDSP::Loop::Voice::setEnvelopeTimes` (per-slot Release default **5 ms**).
+The region knobs (Start/Length/Slices/Slice Length/Beats) apply live: a knob release that
+moved the value retriggers the playing voice (`requestRegionRetrigger`, the plan-16
+retransform pattern; a routed Speed is heard from the trigger via `blockOffsets`). The
+modulation targets are per-slot: Level 1–4, Cutoff 1–4, Speed 1–4, Pan 1–4 (16). The loop
+references are **not** parameters: they ride as `loop1Path` … `loop4Path` attributes on
+`<PARAMETERS>` (the samplePath pattern). The per-slot IDs are `const char* x[4]` arrays with
+a literal size, which is the form `tools/audit_bank.py`'s coverage check parses.
 
 | ID | Name | Range | Default | Notes |
 |---|---|---|---|---|
-| `masterVolume` | Output | −24 – +12 dB | 0 dB | Smoothed 20 ms; named "Output" suite-wide (plan 12); the ID keeps the masterVolumeId name |
-| `pan` | Pan | −100 – +100 % | 0 % | Constant-power law, −3 dB centre, smoothed 20 ms |
-| `quantize` | Quantize | Off, 1/16, 1/8, 1/4, 1/2, 1 Bar | Off | 4/4 grid; the host time signature is not read |
-| `swing` | Swing | −20 – +20 % | 0 % | Odd grid points, `Sequencer::swingBeats` |
-| `triggerMode` | Trigger Mode | Latch, Gate, Toggle | Latch | Plan 14 appended Toggle (index 2): the first press starts the slot looping, the second stops it immediately; a note-off never stops it; transport stop stops the toggled slots |
+| `masterVolume` | Output | −24 – +12 dB | 0 dB | Smoothed 20 ms; named "Output" suite-wide (plan 12); the ID keeps the masterVolumeId name — the one global, shown on every slot page |
+| `slotNQuantize` | Quantize | Off, 1/16, 1/8, 1/4, 1/2, 1 Bar | Off | This slot's grid; the host time signature is not read |
+| `slotNSwing` | Swing | −20 – +20 % | 0 % | This slot's odd grid points, `Sequencer::swingBeats` |
+| `slotNTrigger` | Trigger | Latch, Gate, Toggle | Latch | Plan 14 appended Toggle (index 2): the first press starts the slot looping, the second stops it immediately; a note-off never stops it; a transport stop stops this slot when its mode is Toggle |
 | `slotNStart` | Start | 0 – 100 % | 0 % | Capped at 95 %; effective length = min(Length, 100 − Start), via the shared `CoreDSP::Loop::regionFrames` |
 | `slotNLength` | Length | 5 – 100 % | 100 % | Share of the loaded loop |
 | `slotNSpeed` | Speed | 0.25 – 4.0 ×, skew 0.5 | 1.0 | × the sample-rate ratio; inert in granular mode, and inactive while Host Sync is on — unless the slot is chopped (a chopped slot ignores sync). The editor dims it in those states |
@@ -669,6 +686,17 @@ Mouse events in tests use the 15-argument `juce::MouseEvent` constructor, which 
 - **Phase 4 (playable keyboard) dropped** by the owner: the rescan fixed the DAW path, so Cyclical keeps DAW-side triggering only.
 - JUCE 9 removed `MouseEvent::isPopupMenu()` (the AGENTS §11 note was for JUCE 7): use `event.mods.isPopupMenu()`.
 
+**Plan 18 decisions (DAW-test findings 5, 2026-11-23/24):**
+- **The LFO transforms are visible and turnable** (Phase 1): the shared LFO strip gains a transform row — INVERT/RECT pills and four mini sliders (Quantise 0–16, Smooth, Pulse width, Skew) — with help texts; the scope draws the transformed output live. Defaults neutral, so an untouched strip changes nothing. Panel preferred height 140 → 200; SD's window is 750 (the MOD panel needs 414).
+- **StereoTool interest features implemented** (Phase 3, completing plan 17 Phase 8): the eight parameters were dead until now. Mono-maker = a **true side high-pass** (0 = Off; the original 200 Hz default would have broken the identity contract, so the default is 0); multiband width = a two-filter side split (200 Hz / 2 kHz fixed); M/S tone = the shared `ToneControl` per channel; image rotation = an orthonormal L/R plane rotation with an accumulated phase. Five audio regression tests. The routing table gained the missing Pan + 8 targets (16 total).
+- **The Phase control is a 0–360° rotation knob** (the owner's pick over a polarity toggle): two cascaded all-pass sections on the right channel, calibrated at 1 kHz, the digital coefficient `c = (1−k)/(1+k)` with `k = tan(φ/2)/tan(ω/2)`; 0° is the bit-exact identity. LEVEL renamed MASTER.
+- **Cyclical's former GLOBAL controls are per-slot parameters** (Phase 4, owner decision): Quantize, Swing, Trigger, Pitch, Crossfade, Tempo, Host Sync, Pan ×4; master Output the one global; the GLOBAL page removed; four SLOT tabs + MOD. Each slot runs its own beat clock, grid and swing. The Phase-9 filter/A-R/Level params are wired through a per-slot render stage (scratch → filter → level → pan → master). numControls 57 → 151 (105 after Phase 4, +46 router). **Per-slot Release default 5 ms** (the engine's old feel), not 1000 ms.
+- **A real bug found by the router wiring**: the per-slot Level's `jlimit(0, 2, …)` clamped the 0–200 % value at 2 before the /100 — level 100 % played at 2 %. Fix: `jlimit(0, 200, …)`.
+- **Region knobs apply live** (Phase 5, owner answer): a knob release that moved Start/Length/Slices/Slice Length/Beats retriggers the slot's voice (the plan-16 retransform pattern, driven from the editor's drag end; a no-op drag does not restart). Gate slots wait for the next press.
+- **Cyclical's modulation targets are per-slot** (Phase 6): Level 1–4, Cutoff 1–4, Speed 1–4, Pan 1–4 (16 targets). Level/Cutoff/Pan read `modulate` per block per slot; Speed reads the block offsets in `regionFor` (a routed speed is heard from the trigger). The ROUTER_PARAMETER_IDS in `audit_bank.py` gained the 12 transforms.
+- **+10 presets each for DS, MTC and Sgraffito** (Phase 7), focused on Bouncing Ball and the transforms; ten new Sgraffito sample recipes; the bank is 240; the audit's expected counts updated.
+- **Ableton rescan note applies again** after every parameter-count change (Cyclical 57 → 151, StereoTool 48 → 69).
+
 ---
 
 ## 8. SuiteUI is compiled into each consumer
@@ -830,7 +858,7 @@ Development of the Sgraffito memory sampler plugin is complete across all phases
 - **Phase 4 - Creative Features**: Lorenz chaos drift, tape stop, ghost notes, scale lock, cloud granular mode. 71 parameters total (37 original + 34 new: 2 LFOs + 6 modulation slots + 21 creative parameters).
 - **Phase 5 - Modulation Infrastructure**: SuiteModulation::Router shared with other plugins, 2 LFOs, 6 routing slots (source/target/amount/delay). All parameters automatable, savable, restorable.
 - **Editor**: 880×700 window (plan 05 budget; plan 05.1 added the MOD page and the playable keyboard), SOUND/TEXTURE/MOD pages, brand lockup in the header (`lockup_sgraffito.png`, embedded via LOCKUP; generated by the owner's lockup template generator `tools/brand/lockups.py` (not in this repository) — one table row per plugin, composited from the family template so the wordmark, "Audio" and mark are pixel-identical across the suite; the old one-off `build/brand/lockup_sgraffito.py` is superseded) and the factory preset bar (added to the component tree in every build). Knobs come from the shared `SuiteUI` tokens (40 px, plan 05.1); toggle buttons and selectors are 36 px pills. The SOUND page shows the waveform view (region overlay, Chop slice lines) and a Root Key value box that reads as a note name and number (`C3 (60)`); the TEXTURE page groups the controls into framed rows (TAPE & MEMORY, DRIFT & TIMING, GHOST, CLOUD, SWELL & SURFACE); the MOD page holds only the `ModulationPanel` (both LFOs in the slate accent). A status bar below the keyboard shows the help text of the control under the pointer (`SuiteUI::HelpTracker`, plan 10 phase 5; honours the settings' `ui/tooltips` toggle), and every control carries a help text. Controls that only work in one mode (Slice Count = Chop, the three grain knobs = Cloud, the two swell knobs = Swell) are disabled — dimmed, never hidden — in the other modes (`updateModeAffinity`, plan 10 phase 2, decision G1), and Slice Count sits in the TAPE & MEMORY row. A `PlayableKeyboardStrip` (MIDI 24–96) sits above the status bar on every page and plays through an SPSC note queue drained in `processBlock`. The waveform's region maths mirrors `CoreDSP::Sampler::keyRegion`/`chopRegion`, and the SOUND page also draws an envelope preview — the attack/sustain/release trapezoid of the displayed key's region, laid over the waveform (plan 10 phase 3, decision G3).
-- **Presets**: Sgraffito ships 20 factory presets (the 15-preset minimum plus five added by plan 05.3 F1.3); the suite-wide bank is 210 factory presets (36 SD / 36 DS / 28 MTC / 20 Sgraffito / 15 MidiEffect / 25 StereoTool / 25 Multiband / 25 Cyclical) behind SUITE_PRESET_BANK flag. CI and the release workflow configure with `-DSUITE_PRESET_BANK=ON`, so published binaries carry the presets. Since plan 10 phase 7 every Sgraffito preset ships its own generated sample (`embedded:<slug>_4k.wav`, generated by `tools/sgraffito_samples.py`, one recipe per preset, ~5 MB embedded total; the old `cloud_4k.wav` variant is retired and `grain_4k.wav` stays the INIT default), so selecting a preset always loads the sample it was made with.
+- **Presets**: Sgraffito ships 30 factory presets (the 15-preset minimum plus five added by plan 05.3 F1.3 and ten by plan 18 Phase 7); the suite-wide bank is 240 factory presets (36 SD / 46 DS / 38 MTC / 30 Sgraffito / 15 MidiEffect / 25 StereoTool / 25 Multiband / 25 Cyclical) behind SUITE_PRESET_BANK flag. CI and the release workflow configure with `-DSUITE_PRESET_BANK=ON`, so published binaries carry the presets. Since plan 10 phase 7 every Sgraffito preset ships its own generated sample (`embedded:<slug>_4k.wav`, generated by `tools/sgraffito_samples.py`, one recipe per preset, ~7.5 MB embedded total; the old `cloud_4k.wav` variant is retired and `grain_4k.wav` stays the INIT default), so selecting a preset always loads the sample it was made with.
 - **Documentation**: AGENTS.md updated with Sgraffito plugin entry, parameter tables, and minimum 15 presets requirement.
 - **Test results**: 20 CTest entries with `SUITE_PRESET_BANK=OFF`, 28 with `=ON` (both include `SuiteSettings_Tests` since plan 08). The 8 plugin test executables run in both; the bank build adds 8 preset-test executables. Sgraffito's plugin tests cover 55 functions: parameters, state, note-on/off voice handling, region mapping, Chop slices, output, the editor paint, the preset bar in the component tree, per-page knob visibility (a knob missing from a page's visibility list floats over every page), editor renders (3 pages plus the missing-sample overlay), the shared routing, the plan 05.1 sound regressions (the four modes produce different audio; the key changes the pitch), the T2 audio regressions (Scrub plays at the sample's own rate; Cloud holds its level in stereo over a second with identical L/R reads; a tape-stop release frees its voice), the plan 07 sample-linked preset/session tests (7 in phase 1, 5 in phase 2, 2 in phase 4: the async latest-wins race and destruction with a load pending), the plan 09 tests (the capped retirement queue, pending-note stealing per D1, pending Cloud lanes, pending-matches-direct, and the preset-identity session round trip), the plan 10 tests (LOAD SOUND top-right bounds; mode affinity; the status bar's help texts; Attack on direct notes; Release shaping the tail under tape stop; the envelope overlay; Root Key as pitch centre; the sample switch-back rule), and the plan 12 tests (the region-boundary declick in Scrub and Swell, the Output gain scaling, the quietest-voice steal).
 - **Plan 12 owner findings**: the Level knob (now **Output**, `levelId` unchanged) is wired to the summed voice output through a 20 ms `SmoothedValue`; 0 dB is exactly 1.0, so the default is bit-identical. A one-shot that reaches its region boundary fades over its last 5 ms instead of cutting (distance-based: `declickFactor = distanceToEnd / declickFrames`, so any playback rate lands on ~zero at the cut; no Voice state needed). A voice steal takes the **quietest** active voice (`envValue × gain × velocity`) after the tape-stop and oldest-release tiers. Deep Cloud stays Scrub by owner decision, so the declick covers the Scrub cut it hits.

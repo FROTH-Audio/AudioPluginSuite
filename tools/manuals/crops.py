@@ -24,7 +24,7 @@ CROPS = [
     ("sgraffito-texture.png", (14, 58, 866, 190), "sgraffito-detail-tape-memory.png"),
     ("sgraffito-texture.png", (14, 328, 866, 462), "sgraffito-detail-ghost-cloud.png"),
     ("sgraffito-texture.png", (14, 468, 866, 596), "sgraffito-detail-swell-surface.png"),
-    ("sgraffito-mod.png", (14, 60, 866, 415), "sgraffito-detail-modulation-panel.png"),
+    ("sgraffito-mod.png", (14, 60, 836, 472), "sgraffito-detail-modulation-panel.png"),
     # Plan 12: the SEQUENCE page is two columns now — PATTERN left, TRANSPORT top right,
     # MELODY right mid — and the step grid spans the full width below the block.
     ("microtimingchaos-sequence.png", (10, 436, 970, 672), "microtimingchaos-detail-step-grid.png"),
@@ -36,10 +36,10 @@ CROPS = [
     ("spectraldrift-sound.png", (16, 95, 704, 345), "spectraldrift-detail-spectrum.png"),
     ("dynamicsaturation-sound.png", (20, 92, 700, 332), "dynamicsaturation-detail-transfer-curve.png"),
     ("dynamicsaturation-sound.png", (135, 326, 645, 364), "dynamicsaturation-detail-mode-pills.png"),
-    # Plan 12: the new LEVEL group beside the visualiser, and MultiSat's framed groups.
-    # Plan 15: the preview sits at the top, so LEVEL shares row 2 with IMAGE (658 px tall);
-    # MultiSat's page switch moved into the header, so the groups start higher.
-    ("stereotool-default.png", (10, 170, 220, 402), "stereotool-detail-level.png"),
+    # Plan 17 Phase 8 + plan 18 Phase 3: the MASTER group (renamed from LEVEL) carries
+    # Input/Output/Pan/Phase; the IMAGE group grew to four knob rows, so the window is
+    # 858 px tall and the MASTER frame reaches further down.
+    ("stereotool-default.png", (10, 172, 215, 572), "stereotool-detail-level.png"),
     ("multibandsaturation-default.png", (10, 304, 750, 662), "multibandsaturation-detail-groups.png"),
 ]
 

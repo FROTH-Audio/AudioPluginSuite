@@ -44,10 +44,13 @@ the rails, so the output cannot exceed full scale.
 
 <img src="../../docs/manuals/dynamicsaturation-mod.png" alt="MOD page" width="520">
 
-The MOD page holds the two LFOs and the six routing slots over the curve preview. Every
-routable control shows its modulated value live. Drive, Sensitivity, Mix, Output, Attack,
-Release, Detect HPF, Stereo Link, Tube Bias, Fold, Tone and Curve are all routable; the
-shared LFOs and routing are described in the [suite README](../README.md#modulation).
+The MOD page holds the two LFOs and the six routing slots over the curve preview. Each LFO
+strip carries the **transform row** (plan 18): Invert and Rectify pills, plus Quantise,
+Smooth, Pulse width and Skew sliders — the scope above draws the transformed waveform live.
+The defaults are all neutral, so an untouched transform row changes nothing. Every routable
+control shows its modulated value live. Drive, Sensitivity, Mix, Output, Attack, Release,
+Detect HPF, Stereo Link, Tube Bias, Fold, Tone and Curve are all routable; the shared LFOs
+and routing are described in the [suite README](../README.md#modulation).
 
 ## Practical notes
 

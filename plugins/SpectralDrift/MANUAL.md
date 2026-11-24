@@ -37,10 +37,14 @@ keep advancing, and Output sets the final level.
 
 <img src="../../docs/manuals/spectraldrift-mod.png" alt="MOD page" width="480">
 
-The MOD page holds the two LFOs and the six routing slots. Each slot picks a source (LFO 1
-or 2), a target (any of the sound controls, or the Drift target itself), a signed amount and
-a delay. Every sound control shows its modulated value live. The shared LFOs and routing are
-described in the [suite README](../README.md#modulation).
+The MOD page holds the two LFOs and the six routing slots. Each LFO strip carries the
+**transform row** (plan 18): Invert and Rectify pills, plus Quantise (0–16 steps per cycle),
+Smooth, Pulse width and Skew sliders — the scope above draws the transformed waveform live,
+so you see exactly what the routing reads. The defaults are all neutral, so an untouched
+transform row changes nothing. Each slot picks a source (LFO 1 or 2), a target (any of the
+sound controls, or the Drift target itself), a signed amount and a delay. Every sound control
+shows its modulated value live. The shared LFOs and routing are described in the
+[suite README](../README.md#modulation).
 
 ## Sidechain
 

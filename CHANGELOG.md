@@ -7,6 +7,17 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Plan 18 — the fifth DAW-test round (`owner_findings.md`), implemented and verified (28/28 CTest, the bank at 240):
+  - **The LFO transforms are visible and turnable**: the shared LFO strips (SD, DS, MTC, Sgraffito, StereoTool, MultiSat) gain a transform row per LFO — Invert/Rectify pills and Quantise (0–16), Smooth, Pulse width and Skew sliders — with the scopes drawing the transformed waveform live. The panel grew 140 → 200; Spectral Drift's window is 750 so the MOD page fits.
+  - **Stereo Tool's interest features are implemented** (plan 17 Phase 8's parameters were dead): a Mono Maker (true side high-pass, 0 = Off), per-band Multiband Width (fixed 200 Hz / 2 kHz split), M/S Tone shaping (the shared ToneControl per channel) and an Image Rotation (an orthonormal L/R plane swing with its own slow LFO). Five audio regression tests; the routing table grew to 16 targets.
+  - **The master Phase knob** (the owner's pick): a 0–360° all-pass rotation of the right channel, calibrated at 1 kHz; 0° is the bit-exact identity. The LEVEL group is renamed MASTER.
+  - **Cyclical's GLOBAL page is gone** (the owner's "every control per slot"): Quantize, Swing, Trigger, Pitch, Crossfade, Tempo, Host Sync and Pan are per-slot parameters working independently, each slot runs its own beat clock/grid/trigger, the Phase-9 filter (type + Cutoff + Reso), attack/release and Level are wired through a per-slot render stage, and the editor is four SLOT tabs + a MOD page (numControls 57 → 151). The per-slot Release default is 5 ms.
+  - **Cyclical's region knobs apply live**: releasing a moved Start/Length/Slices/Slice Length/Beats knob retriggers the playing voice in the new region (Gate slots wait for the next press).
+  - **Cyclical's MOD page**: two LFOs + six routing slots with 16 per-slot targets (Level, Cutoff, Speed, Pan — one entry per slot).
+  - **+10 presets each for DS, MTC and Sgraffito** focused on the new LFO waveforms and the transforms (Bouncing Ball, invert/rectify/quantise/smooth/pulse/skew through the routing); ten new generated Sgraffito samples; the bank is 240, audited.
+  - **A real bug found and fixed on the way**: Cyclical's per-slot Level `jlimit` clamped the 0–200 % value at 2 before the /100 — level 100 % played at 2 %. The router wiring exposed it.
+  - **MultiSat's crossover marker follows the modulation** (it drew the raw parameter, not the modulated value).
+  - **Ableton Live note:** the parameter counts changed again (Cyclical 57 → 151, StereoTool 48 → 69) — rescan the VST3s before judging the plugins.
 - Plan 17 — the fourth DAW-test round (`owner_findings.md`), first phases implemented and verified:
   - **The Cyclical key map is fixed** (the owner's "each note plays slot 1 only"): a chopped slot's key range shadowed the other slots' base notes. An exact Note match now always wins; a chop range claims only the keys no other slot claims. The Dr Rex Grid preset got disjoint ranges.
   - **Cyclical loops no longer outlive their settings**: a trigger-mode change or a preset/state load silences every voice and clears the toggle state (a loop started under Toggle kept looping after the mode read Gate). **REV/NORM are heard immediately** — the playing voice restarts on the transformed buffer with the articulation it started with.

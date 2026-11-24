@@ -60,8 +60,9 @@ ones — the two bands respond independently.
 ## The MOD page
 
 The MOD page keeps the visual on top and adds the suite's shared modulation panel: two
-LFOs (rate, shape, sync, division, offset) and six routing slots (source, target, amount,
-delay).
+LFOs (rate, shape, sync, division, offset, and the transform row — invert, rectify, quantise,
+smooth, pulse width, skew, with the scopes drawing the transformed waveform live) and six
+routing slots (source, target, amount, delay).
 
 <img src="../../docs/manuals/multibandsaturation-mod.png" alt="MOD page" width="507">
 
