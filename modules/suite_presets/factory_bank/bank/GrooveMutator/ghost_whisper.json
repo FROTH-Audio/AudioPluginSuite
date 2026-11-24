@@ -1,0 +1,13 @@
+{
+  "_name": "Ghost Whisper",
+  "_category": "Groove",
+  "_description": "Ghosts everywhere, soft velocity spread.",
+  "_plugin": "GrooveMutator",
+  "_pluginVersion": "1.0.0",
+  "sync": 0,
+  "humaniseVelocity": 25.0,
+  "chaos": 20.0,
+  "track1Ghost": 40.0,
+  "track2Ghost": 45.0,
+  "track3Ghost": 25.0
+}

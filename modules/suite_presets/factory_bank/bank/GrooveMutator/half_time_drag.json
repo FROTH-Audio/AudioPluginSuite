@@ -1,0 +1,12 @@
+{
+  "_name": "Half Time Drag",
+  "_category": "Feel",
+  "_description": "A dragged, swung, humanised backbeat.",
+  "_plugin": "GrooveMutator",
+  "_pluginVersion": "1.0.0",
+  "sync": 0,
+  "swing": 35.0,
+  "humaniseTime": 6.0,
+  "humaniseVelocity": 25.0,
+  "velCurve": 2
+}

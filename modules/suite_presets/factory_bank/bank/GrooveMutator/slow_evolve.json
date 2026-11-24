@@ -1,0 +1,12 @@
+{
+  "_name": "Slow Evolve",
+  "_category": "Mutation",
+  "_description": "A slow, deep mutation every eight bars.",
+  "_plugin": "GrooveMutator",
+  "_pluginVersion": "1.0.0",
+  "sync": 0,
+  "chaos": 60.0,
+  "evolveRate": 4,
+  "mutateScale": 80.0,
+  "seed": 7
+}

@@ -1,0 +1,12 @@
+{
+  "_name": "Snare Build",
+  "_category": "Fills",
+  "_description": "The snare builds into the drop.",
+  "_plugin": "GrooveMutator",
+  "_pluginVersion": "1.0.0",
+  "sync": 0,
+  "fillProb": 70.0,
+  "fillStyle": 1,
+  "fillBars": 2,
+  "track2Accent": 45.0
+}

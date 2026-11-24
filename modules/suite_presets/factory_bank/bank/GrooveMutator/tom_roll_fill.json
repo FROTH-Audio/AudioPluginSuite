@@ -1,0 +1,13 @@
+{
+  "_name": "Tom Roll Fill",
+  "_category": "Fills",
+  "_description": "Tom fills race over the last two bars.",
+  "_plugin": "GrooveMutator",
+  "_pluginVersion": "1.0.0",
+  "sync": 0,
+  "fillProb": 55.0,
+  "fillStyle": 0,
+  "fillBars": 2,
+  "track5Vel": 120.0,
+  "track6Vel": 120.0
+}

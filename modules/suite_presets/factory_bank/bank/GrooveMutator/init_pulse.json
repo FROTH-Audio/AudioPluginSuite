@@ -1,0 +1,9 @@
+{
+  "_name": "Init Pulse",
+  "_category": "Groove",
+  "_description": "The INIT groove with a touch more mutation.",
+  "_plugin": "GrooveMutator",
+  "_pluginVersion": "1.0.0",
+  "sync": 0,
+  "chaos": 30.0
+}

@@ -65,6 +65,11 @@ FROTH Audio makes plugins that work on sound at the level of its structure: the 
 <td><b>Cyclical</b><br><sub>Loop instrument</sub></td>
 <td>Four loops, one instrument.<br>Regions, speed, reverse and ping-pong, granular playback, quantised to the host grid.</td>
 </tr>
+<tr>
+<td align="center"><img src="modules/suite_ui/brand/lockup_groovemutator.png" width="200" alt="FROTH Audio Groove Mutator"></td>
+<td><b>Groove Mutator</b><br><sub>MIDI groove instrument</sub></td>
+<td>A beat that writes itself.<br>Eight mutated percussion lanes behind one trigger key: Euclid patterns, fills and a musical mutation tick.</td>
+</tr>
 </table>
 
 ---
@@ -83,6 +88,7 @@ FROTH Audio makes plugins that work on sound at the level of its structure: the 
   - [MIDI Chord Arp Scale Tool](#midi-chord-arp-scale-tool)
   - [MultiSat](#multisat)
   - [Cyclical](#cyclical)
+  - [Groove Mutator](#groove-mutator)
   - [Latency](#latency)
 - [For developers](#for-developers)
   - [Requirements](#requirements)
@@ -153,7 +159,7 @@ Spectral Drift, Dynamic Saturation and Micro-Timing Chaos share a preset system 
 
 **Preset files** use the `.ausp` extension: UTF-8 XML (`<AudioSuitePreset formatVersion="1" plugin="..." pluginVersion="...">`, `<Meta>`, `<PARAMETERS suiteStateVersion="N">`). User presets are stored under `Documents/AudioSuite/<plugin>/Presets` (Windows) or the platform equivalent, and the plugin id and state version are checked on read — a preset saved with a newer plugin version is refused rather than partially applied.
 
-**Factory bank.** With `SUITE_PRESET_BANK=ON`, 270 factory presets are embedded in the plugin binary (`bank/AudioSuitePresets.xml`): 46 for Spectral Drift, 46 for Dynamic Saturation, 38 for Micro-Timing Chaos, 30 for Sgraffito, 15 for MIDI Chord Arp Scale Tool, 35 for Stereo Tool, 35 for Multiband Saturation, and 25 for Cyclical (plans 6.1, 11, 13, 14, 17 and 18 — the plan-13 additions in SD, DS, Stereo Tool and MultiSat use the shared LFO routing, the plan-14 additions in Cyclical use chop/sync/Toggle/notes, the plan-18 additions in DS, MTC and Sgraffito focus on the new LFO waveforms and the transforms, the plan-17 additions in MultiSat use the per-band mix, folds and thermal drift, and the plan-17 Phase 11 additions in SD and Stereo Tool route the uncovered targets). Each preset is a delta from the default state, so absent parameters are set to their defaults at load time. The bank is checked by `tools/audit_bank.py` (unique names, in-range values, no preset equal to the default, category rules, Micro-Timing Chaos base patterns that fire at least one step, and a `samplePath` only as an `embedded:` URI — file paths are rejected). Without the flag, the bank compiles as empty and the bar shows only user presets and INIT.
+**Factory bank.** With `SUITE_PRESET_BANK=ON`, 289 factory presets are embedded in the plugin binary (`bank/AudioSuitePresets.xml`): 46 for Spectral Drift, 46 for Dynamic Saturation, 38 for Micro-Timing Chaos, 30 for Sgraffito, 15 for MIDI Chord Arp Scale Tool, 35 for Stereo Tool, 35 for Multiband Saturation, 25 for Cyclical and 19 for Groove Mutator (plans 6.1, 11, 13, 14, 17, 18 and 19 — the plan-13 additions in SD, DS, Stereo Tool and MultiSat use the shared LFO routing, the plan-14 additions in Cyclical use chop/sync/Toggle/notes, the plan-18 additions in DS, MTC and Sgraffito focus on the new LFO waveforms and the transforms, the plan-17 additions in MultiSat use the per-band mix, folds and thermal drift, the plan-17 Phase 11 additions in SD and Stereo Tool route the uncovered targets, and the plan-19 Groove Mutator presets run on the internal clock, playable from one held note). Each preset is a delta from the default state, so absent parameters are set to their defaults at load time. The bank is checked by `tools/audit_bank.py` (unique names, in-range values, no preset equal to the default, category rules, Micro-Timing Chaos base patterns that fire at least one step, Groove Mutator presets that keep the trigger key and the internal clock, and a `samplePath` only as an `embedded:` URI — file paths are rejected). Without the flag, the bank compiles as empty and the bar shows only user presets and INIT.
 
 **Preset bar.** Each editor gains a header bar (right-aligned in the title area) that lists factory presets by category, INIT (reset-all-defaults) and SAVE. The bar is always visible (height 30); when the bank is empty it lists only user presets.
 
@@ -538,6 +544,38 @@ slot's complete control set.
 
 Loops come from a 12-loop embedded library or the user's disk; the loaded loop travels with the session and with presets as a state property, and a path that cannot be found keeps the slot playing with a "Loop missing" overlay. A retrigger cuts the sounding loop into a 2 ms tail and starts fresh. No latency is added; the tail length is 2 s.
 
+### Groove Mutator
+
+<img src="docs/manuals/groovemutator-grid.png" alt="Groove Mutator screenshot" width="653">
+
+The [user manual](plugins/GrooveMutator/MANUAL.md) walks through the pages.
+A generative rhythm-MIDI instrument (plan 19): eight percussion lanes, each running a Euclid, hashed or hand-painted step pattern in its own grid (division and polyrhythm-scalable), mutated on a musical tick by a deterministic operator set (Chaos gates the tick, Mutation Scale picks the operator tier, Freeze locks the shape), with fills on the cycle's tail (four styles, the last 1/2/4 bars). One trigger key (default C2) starts the groove — **Latch** keeps it running, **Gate** plays only while held — and every lane emits GM-mapped notes on one MIDI channel while audio passes through untouched. **Swing** and **Humanise** (time and velocity) shape the feel; a velocity curve shapes each pattern. With **Host Sync on** the grid follows the host's PPQ and tempo (the Micro-Timing Chaos law); off, the **Tempo** parameter drives it. The GRID page draws all eight lanes over a shared step ruler — dots fire, bright dots are accents, rings are ghosts, doubles are flams, and a Steps lane paints its cells directly — with Note, Velocity, Level, the On switch and each lane's Division beside it. The window is 1000×960 with a slate accent.
+
+| Control | Range | Default | Description |
+|---|---|---|---|
+| **Host Sync** | off / on | on | On: the grid follows the host's position and tempo; off, the Tempo parameter. |
+| **Tempo** | 40 – 240 BPM | 120 | The clock while Host Sync is off. Dims while synced. |
+| **Trigger Mode** | Latch / Gate | Latch | Gate runs only while the key is held. |
+| **Trigger Key** | 24 – 96 | C2 (36) | The key that starts and stops the groove. |
+| **Swing** | −50 – +50 % | 0 % | Shifts every second step late (or, negative, early). A modulation target. |
+| **Humanise Time / Velocity** | 0 – 20 ms / 0 – 100 % | 2 ms / 10 % | Deterministic timing and velocity jitter. Modulation targets. |
+| **Velocity Curve** | Flat / Linear / Exponential / Random | Flat | Shapes velocity across each pattern. |
+| **Polyrhythm** | 1:1 … 8:7 | 1:1 | Metric modulation: scales every lane's division. |
+| **Chaos** | 0 – 100 % | 25 % | The mutation input: gates each lane's mutation per tick. A modulation target. |
+| **Evolve Rate** | per Beat … 8 Bars | per Bar | How often the mutation tick fires, in musical time. |
+| **Mutation Scale** | 0 – 100 % | 50 % | Picks the mutation-operator tier: small shifts first, re-shapes at 100 %. A modulation target. |
+| **Freeze** | on / off | off | Locks the current patterns; the tick stops touching them. |
+| **Fill Probability / Style / Length** | 0 – 100 %, 4 styles, 1/2/4 Bars | 15 %, Tom Roll, 1 Bar | Fills ride on the last bars of the cycle. Probability is a modulation target. |
+| **Seed** | 0 – 999 | 42 | The determinism anchor; a change re-derives every lane. |
+| **Per lane** | On, Pattern (Euclid / Hash / Steps), Steps 1–32, Pulses, Rotation, Division (1/32 … 1 Bar), Note, Velocity, Accent, Flam, Ghost, Level | GM drum map | Each lane's pattern and articulation; Pattern, Steps, Pulses and Rotation re-derive the lane's mask. Velocity is a modulation target per lane. |
+
+The shared router's 34 parameters (two LFOs and six routing slots, plus the 12 transforms)
+sit behind these; fourteen controls are routable targets: Chaos, Mutation Scale, Fill
+Probability, Swing, Humanise Time, Humanise Velocity and each lane's Velocity. The MOD page
+holds the shared panel.
+
+Latency is a fixed 50 ms (the Micro-Timing Chaos budget, so the lane grids can schedule late); audio passes through untouched. The painted Steps patterns ride with the session as a state property.
+
 ### Latency
 
 | Plugin | Reported latency | Why |
@@ -550,6 +588,7 @@ Loops come from a 12-loop embedded library or the user's disk; the loaded loop t
 | MIDI Chord Arp Scale Tool | 50 ms | Fixed, whatever the rate or gate (matching Micro-Timing Chaos), so host delay compensation stays stable. No event is scheduled before its grid time; the chord path emits at the note-on's position. |
 | MultiSat | 0 samples | The Linkwitz-Riley split adds no latency (first pass runs at base rate). |
 | Cyclical | 0 samples | Playback reads the loaded loops directly; the 2 s tail is reported through `getTailLengthSeconds`, not latency. |
+| Groove Mutator | 50 ms | Fixed, matching Micro-Timing Chaos, so the lane grids can schedule within the timing budget and host delay compensation stays stable. |
 
 ---
 
@@ -617,7 +656,7 @@ Plugin formats are chosen automatically: VST3 and Standalone everywhere, plus AU
 ctest --test-dir build -C Release --output-on-failure
 ```
 
-**Default build** (`SUITE_PRESET_BANK=OFF`): twenty CTest entries run fourteen test executables:
+**Default build** (`SUITE_PRESET_BANK=OFF`): twenty CTest entries run fifteen test executables:
 
 | Executable | Scope | Tests |
 |---|---|---|
@@ -634,9 +673,10 @@ ctest --test-dir build -C Release --output-on-failure
 | `MidiEffectTests` | MIDI Chord Arp Scale Tool processor and editor | 26 |
 | `MultibandSaturationTests` | Multiband Saturation processor and editor | 14 |
 | `CyclicalTests` | Cyclical processor and editor | 39 |
-| `PluginHostTests` (×7) | Each built VST3 bundle, loaded through JUCE's own plugin host | 1 per plugin |
+| `GrooveMutatorTests` | Groove Mutator processor and editor | 18 |
+| `PluginHostTests` (×8) | Each built VST3 bundle, loaded through JUCE's own plugin host | 1 per plugin |
 
-**Bank build** (`SUITE_PRESET_BANK=ON`): twenty-eight CTest entries - the twenty public entries plus eight `*_PresetTests` executables, one per plugin (bank ranges, apply/reset, editor, menu model, audio sanity). With `SUITE_PRESET_BANK_AS_PROGRAMS=ON`, the program-list virtuals are also exercised inside the plugin preset tests.
+**Bank build** (`SUITE_PRESET_BANK=ON`): thirty-one CTest entries - the twenty public entries plus nine `*_PresetTests` executables, one per plugin (bank ranges, apply/reset, editor, menu model, audio sanity). With `SUITE_PRESET_BANK_AS_PROGRAMS=ON`, the program-list virtuals are also exercised inside the plugin preset tests.
 
 The tests use `assert` with `NDEBUG` undefined, so they also check in Release builds. Without that, every check would be compiled out.
 

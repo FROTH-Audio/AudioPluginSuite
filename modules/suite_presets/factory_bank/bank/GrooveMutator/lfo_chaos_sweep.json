@@ -1,0 +1,14 @@
+{
+  "_name": "LFO Chaos Sweep",
+  "_category": "Mutation",
+  "_description": "A synced LFO sweeps the mutation input.",
+  "_plugin": "GrooveMutator",
+  "_pluginVersion": "1.0.0",
+  "sync": 0,
+  "chaos": 45.0,
+  "lfo1Rate": 0.25,
+  "lfo1Sync": 1,
+  "lfo1Division": 2,
+  "mod1Target": 1,
+  "mod1Amount": 90.0
+}

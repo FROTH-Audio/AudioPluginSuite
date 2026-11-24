@@ -1,0 +1,15 @@
+{
+  "_name": "Sparse Skeleton",
+  "_category": "Utility",
+  "_description": "One kick every beat: a frame to play against.",
+  "_plugin": "GrooveMutator",
+  "_pluginVersion": "1.0.0",
+  "sync": 0,
+  "chaos": 10.0,
+  "track1Steps": 8,
+  "track1Pulses": 1,
+  "track1Division": 5,
+  "track2On": 0,
+  "track3On": 0,
+  "track4On": 0
+}

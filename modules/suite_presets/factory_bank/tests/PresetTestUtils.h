@@ -20,6 +20,9 @@ namespace PresetTest
     constexpr double sampleRate = 48000.0;
     constexpr int blockSize = 512;
 
+    inline bool allFinite (const juce::AudioBuffer<float>& buffer);
+    inline float peak (const juce::AudioBuffer<float>& buffer);
+
     inline void pass (const char* name)
     {
         std::printf ("[PASS] %s\n", name);

@@ -1,0 +1,12 @@
+{
+  "_name": "Seven Eight Strut",
+  "_category": "Polyrhythm",
+  "_description": "A 7:8 shuffle with a laid-back swing.",
+  "_plugin": "GrooveMutator",
+  "_pluginVersion": "1.0.0",
+  "sync": 0,
+  "swing": 15.0,
+  "polyRatio": 3,
+  "evolveRate": 2,
+  "seed": 23
+}

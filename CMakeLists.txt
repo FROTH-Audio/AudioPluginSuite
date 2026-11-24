@@ -84,6 +84,7 @@ if(SUITE_BUILD_PLUGINS)
     add_subdirectory(plugins/MidiEffect)
     add_subdirectory(plugins/MultibandSaturation)
     add_subdirectory(plugins/Cyclical)
+    add_subdirectory(plugins/GrooveMutator)
 
     if(SUITE_BUILD_TESTS)
         add_subdirectory(tests/host)

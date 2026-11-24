@@ -5,9 +5,12 @@ Concept approved by the owner 2026-11-23. Source: `19_groove-mutator-concept.md`
 there define the idea; this file is the build order). Naming: MidiTool =
 `plugins/MidiEffect`.
 
-Status: approved concept; nothing implemented. Execution starts after plan 20 closes (the plan-18
-Cyclical phases 4–6 landed, and the modulation panel's transform row is fixed in plan 20 Phase 1),
-so the shared pattern maths and the modulation panel's transforms are landed.
+Status: Phases 0–7 executed 2026-11-24 and verified (31/31 CTest; the bank at 289 with 19
+GrooveMutator presets, audited; MANUAL.md + the five page renders committed). Pending owner
+items: the window size approval from the renders (R4 — `build/renders/groovemutator-*.png`,
+1000×960), the lockup row in `tools/brand/lockups.py` + the LOCKUP CMake line (commented
+until the owner runs the generator), and the DAW/Ableton check (parameter count 159 — a
+rescan applies). Delete the plan after those land.
 
 ---
 

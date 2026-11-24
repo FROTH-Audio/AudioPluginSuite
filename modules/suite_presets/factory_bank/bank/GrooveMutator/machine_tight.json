@@ -1,0 +1,12 @@
+{
+  "_name": "Machine Tight",
+  "_category": "Feel",
+  "_description": "No jitter, no mutation: the grid, perfectly straight.",
+  "_plugin": "GrooveMutator",
+  "_pluginVersion": "1.0.0",
+  "sync": 0,
+  "humaniseTime": 0.0,
+  "humaniseVelocity": 0.0,
+  "chaos": 0.0,
+  "fillProb": 0.0
+}

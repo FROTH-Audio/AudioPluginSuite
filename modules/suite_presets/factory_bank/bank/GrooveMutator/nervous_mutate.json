@@ -1,0 +1,12 @@
+{
+  "_name": "Nervous Mutate",
+  "_category": "Mutation",
+  "_description": "The pattern mutates every beat, lightly.",
+  "_plugin": "GrooveMutator",
+  "_pluginVersion": "1.0.0",
+  "sync": 0,
+  "chaos": 70.0,
+  "evolveRate": 0,
+  "mutateScale": 40.0,
+  "seed": 97
+}

@@ -1,0 +1,13 @@
+{
+  "_name": "Chaos Burst",
+  "_category": "Fills",
+  "_description": "A chaos burst tears the tail apart.",
+  "_plugin": "GrooveMutator",
+  "_pluginVersion": "1.0.0",
+  "sync": 0,
+  "chaos": 40.0,
+  "mutateScale": 70.0,
+  "fillProb": 85.0,
+  "fillStyle": 3,
+  "fillBars": 1
+}

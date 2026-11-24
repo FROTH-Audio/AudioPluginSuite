@@ -1,0 +1,12 @@
+{
+  "_name": "Hat Drop",
+  "_category": "Fills",
+  "_description": "Hats carry the fill into the next cycle.",
+  "_plugin": "GrooveMutator",
+  "_pluginVersion": "1.0.0",
+  "sync": 0,
+  "fillProb": 50.0,
+  "fillStyle": 2,
+  "fillBars": 1,
+  "track3Division": 1
+}
