@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <vector>
 
+#include "SaturationEngine.h"   // CoreDSP::EnvelopeFollower, for the sidechain detector
 #include "SpectralEngine.h"
 #include "SuiteModulationRouter.h"
 #include "SuiteState.h"
@@ -68,7 +69,11 @@ public:
     static constexpr const char* modAmountIds[6] = { "mod1Amount", "mod2Amount", "mod3Amount", "mod4Amount", "mod5Amount", "mod6Amount" };
     static constexpr const char* modDelayIds[6] = { "mod1Delay", "mod2Delay", "mod3Delay", "mod4Delay", "mod5Delay", "mod6Delay" };
 
-    static constexpr int numControls = 46;
+    // Sidechain ducking (plan 06 idea 2.5), appended after the routing so no saved index moves.
+    static constexpr const char* sidechainAmountId = "sidechainAmount";
+    static constexpr const char* sidechainTargetId = "sidechainTarget";
+
+    static constexpr int numControls = 60;   // 48 + 12 plan-17 Phase 7 LFO transforms
 
     /** Largest feedback the plugin allows. The engine itself can go to 0.95. */
     static constexpr float maxFeedbackPercent = 12.0f;
@@ -139,10 +144,10 @@ public:
     void setStateInformation (const void*, int) override;
 
     // Preset system: StateHolder interface
-    juce::String getPresetPluginId() const { return "SpectralDrift"; }
+    juce::String getPresetPluginId() const override { return "SpectralDrift"; }
     int getPresetStateVersion() const override { return stateVersion; }
-    juce::AudioProcessorValueTreeState& getPresetStateTree() { return apvts; }
-    void applyPresetState (const juce::ValueTree&);
+    juce::AudioProcessorValueTreeState& getPresetStateTree() override { return apvts; }
+    void applyPresetState (const juce::ValueTree&) override;
 
     // The preset identity (plan 09 1.4): which factory preset or user file the bar last
     // applied. Message thread. Persisted as the presetSelection state property, so it
@@ -185,6 +190,12 @@ private:
     std::atomic<float>* feedbackDamping = nullptr;
     std::atomic<float>* driftStart = nullptr;
     std::atomic<float>* outputGain = nullptr;
+    std::atomic<float>* sidechainAmount = nullptr;
+    std::atomic<float>* sidechainTarget = nullptr;
+
+    // The sidechain detector: a peak follower on the sidechain bus. Its level ducks the
+    // drift or the gate (plan 06 idea 2.5).
+    CoreDSP::Saturation::EnvelopeFollower sidechainEnv;
 
     SpectrumSnapshot snapshot;
 

@@ -1,0 +1,13 @@
+{
+  "_name": "Deep Space",
+  "_category": "Ambient",
+  "_description": "Slow random 32nds, wide and high.",
+  "_plugin": "MidiEffect",
+  "_pluginVersion": "1.0.0",
+  "octave": 1,
+  "arpMode": 1,
+  "stepRate": 9,
+  "gateLength": 45.0,
+  "velocityCurve": 3,
+  "octaveSpread": 0.6
+}

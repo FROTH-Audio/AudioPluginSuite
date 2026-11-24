@@ -1,0 +1,15 @@
+{
+  "_name": "Amount Pulse",
+  "_category": "Electronic",
+  "_description": "Synced square pulses the transient amount.",
+  "_plugin": "StereoTool",
+  "_pluginVersion": "1.0.0",
+  "drive": 8.0,
+  "transientTarget": 0,
+  "lfo1Rate": 2.0,
+  "lfo1Shape": 3,
+  "lfo1Sync": 1,
+  "lfo1Division": 4,
+  "mod1Target": 6,
+  "mod1Amount": 60.0
+}

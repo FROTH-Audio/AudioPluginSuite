@@ -1,0 +1,12 @@
+{
+  "_name": "Rectified Density",
+  "_category": "Techno",
+  "_description": "A rectified LFO pumps the density upward only.",
+  "_plugin": "MicroTimingChaos",
+  "_pluginVersion": "1.0.0",
+  "density": 45.0,
+  "lfo1Rate": 2.0,
+  "lfo1Rectify": 1,
+  "mod1Target": 8,
+  "mod1Amount": 50.0
+}

@@ -58,7 +58,7 @@ public:
     static constexpr const char* modAmountIds[6] = { "mod1Amount", "mod2Amount", "mod3Amount", "mod4Amount", "mod5Amount", "mod6Amount" };
     static constexpr const char* modDelayIds[6] = { "mod1Delay", "mod2Delay", "mod3Delay", "mod4Delay", "mod5Delay", "mod6Delay" };
 
-    static constexpr int numControls = 47;
+    static constexpr int numControls = 59;   // 47 + 12 plan-17 Phase 7 LFO transforms
     static constexpr int lfoCount = 2;
     static constexpr int slotCount = 6;
 
@@ -114,10 +114,10 @@ public:
     void setStateInformation (const void*, int) override;
 
     // Preset system: StateHolder interface
-    juce::String getPresetPluginId() const { return "DynamicSaturation"; }
+    juce::String getPresetPluginId() const override { return "DynamicSaturation"; }
     int getPresetStateVersion() const override { return stateVersion; }
-    juce::AudioProcessorValueTreeState& getPresetStateTree() { return apvts; }
-    void applyPresetState (const juce::ValueTree&);
+    juce::AudioProcessorValueTreeState& getPresetStateTree() override { return apvts; }
+    void applyPresetState (const juce::ValueTree&) override;
 
     // The preset identity (plan 09 1.4): which factory preset or user file the bar last
     // applied. Message thread. Persisted as the presetSelection state property, so it

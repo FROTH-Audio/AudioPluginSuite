@@ -1,4 +1,4 @@
-﻿#include "PluginEditor.h"
+#include "PluginEditor.h"
 
 #include "BinaryData.h"
 #include "SuiteBrand.h"
@@ -48,14 +48,14 @@ DynamicSaturationEditor::DynamicSaturationEditor (DynamicSaturationProcessor& p)
     setResizable (true, true);
     setResizeLimits (700, 680, 1200, 1200);
 
-    helpTracker.onMove = [this] (const juce::MouseEvent& e) { showHelp (e); };
-    addMouseListener (&helpTracker, true);
+    // The shared help line (plan 12): visible on both pages, the footer sentence is the
+    // idle text, and hovering a control without help text returns to it.
+    helpLine.setIdleText ("2x oversampled  |  transfer curve tracks the input level");
+    helpLine.setComponentID ("dynamicsaturation-help");
+    helpLine.setEnablePredicate ([] { return SuiteSettings::shared().getBool (SuiteSettings::tooltipsKey, true); });
+    SuiteUI::attachHelpLine (*this, helpLine, helpTracker);
 
-    helpLabel.setFont (juce::Font (juce::FontOptions (14.0f)));
-    helpLabel.setColour (juce::Label::textColourId, SuiteUI::Colours::text);
-    helpLabel.setText ("Hover a control to see what it does.", juce::dontSendNotification);
-
-    for (auto* component : { static_cast<juce::Component*> (&helpLabel),
+    for (auto* component : { static_cast<juce::Component*> (&helpLine),
                              static_cast<juce::Component*> (&transferCurve),
                              static_cast<juce::Component*> (&outputMeterL),
                              static_cast<juce::Component*> (&outputMeterR),
@@ -108,6 +108,27 @@ DynamicSaturationEditor::DynamicSaturationEditor (DynamicSaturationProcessor& p)
     bind (DynamicSaturationProcessor::foldId, foldSlider.slider);
     bind (DynamicSaturationProcessor::toneId, toneSlider.slider);
     bind (DynamicSaturationProcessor::outputLevelId, outputSlider.slider);
+
+    // Help text on every control (plan 12), through the shared describe() helper.
+    SuiteUI::describe (modeSelector, "The saturation curve: Tube, Tape or Diode.");
+    SuiteUI::describe (driveSlider, "Gain before the shaper, smoothed 50 ms. The envelope pushes it further at Sensitivity > 0.");
+    SuiteUI::describe (sensitivitySlider, "How far the envelope pushes the drive: full drive = base x (1 + sensitivity).");
+    SuiteUI::describe (curveSlider, "The envelope's exponent. 1 is linear; higher values emphasise transients.");
+    SuiteUI::describe (attackSlider, "Envelope rise time.");
+    SuiteUI::describe (releaseSlider, "Envelope fall time.");
+    SuiteUI::describe (mixSlider, "Dry/wet balance. The dry path is delayed by the oversampler's latency, so the mix stays phase-aligned.");
+    SuiteUI::describe (detectHpfSlider, "A high-pass on the detector only, so bass does not pump the envelope.");
+    SuiteUI::describe (stereoLinkSlider, "100 % = one shared envelope (the louder channel); lower values give each channel its own.");
+    SuiteUI::describe (biasSlider, "Tube asymmetry. Tube mode only.");
+    SuiteUI::describe (foldSlider, "A wavefolder after the shaper.");
+    SuiteUI::describe (toneSlider, "A tilt around 1 kHz after the shaper.");
+    SuiteUI::describe (outputSlider, "The final gain stage, smoothed 50 ms.");
+    SuiteUI::describe (transferCurve, "The transfer curve at the current drive, bias and fold, drawn at the input level.");
+    SuiteUI::describe (outputMeterL, "The left channel's output level.");
+    SuiteUI::describe (outputMeterR, "The right channel's output level.");
+    SuiteUI::describe (pageSelector, "SOUND: the shaper. MOD: the two LFOs and the six routing slots.");
+    SuiteUI::describe (*presetBar, "Factory presets, INIT and SAVE. The menu lists user presets.");
+    SuiteUI::describe (headerMenu, "Settings... and About...");
 
     // The mode switch mirrors a choice parameter: the segment index equals the choice index.
     modeSelector.setOptions ({ "TUBE", "TAPE", "DIODE" });
@@ -171,17 +192,6 @@ SuiteModulation::ModulationPanel::Style DynamicSaturationEditor::modulationStyle
              SuiteUI::Colours::panel, SuiteUI::Colours::track };
 }
 
-void DynamicSaturationEditor::showHelp (const juce::MouseEvent& e)
-{
-    if (auto* component = e.eventComponent)
-    {
-        const auto text = component->getHelpText();
-
-        if (text.isNotEmpty())
-            helpLabel.setText (text, juce::dontSendNotification);
-    }
-}
-
 void DynamicSaturationEditor::setPage (int newPage)
 {
     page = juce::jlimit (0, 1, newPage);
@@ -203,7 +213,6 @@ void DynamicSaturationEditor::setPage (int newPage)
         component->setVisible (page == 0);
 
     modulation.setVisible (page == 1);
-    helpLabel.setVisible (page == 1);
 
     resized();
     repaint();
@@ -218,24 +227,10 @@ void DynamicSaturationEditor::paint (juce::Graphics& g)
 
     SuiteUI::drawBrandLockup (g, getLocalBounds().reduced (16, 0).removeFromTop (headerHeight), brandLockup());
 
-    g.setColour (SuiteUI::Colours::textDim);
-    g.setFont (juce::Font (juce::FontOptions (11.0f)));
-    g.drawText ("2x oversampled  |  transfer curve tracks the input level",
-                getLocalBounds().removeFromBottom (helpHeight).reduced (16), juce::Justification::centredLeft);
-
     if (page == 1)
     {
-        const auto bounds = modulationGroupBounds.toFloat();
-
-        g.setColour (SuiteUI::Colours::panel.withAlpha (0.55f));
-        g.fillRoundedRectangle (bounds, 8.0f);
-        g.setColour (SuiteUI::Colours::track);
-        g.drawRoundedRectangle (bounds, 8.0f, 1.0f);
-
-        g.setColour (lookAndFeel.getAccent());
-        g.setFont (juce::Font (juce::FontOptions (15.0f, juce::Font::bold)));
-        g.drawText ("MODULATION", modulationGroupBounds.withHeight (groupTitleHeight).translated (0, 4).reduced (12, 0),
-                    juce::Justification::centredLeft);
+        // The shared group frame (plan 12).
+        SuiteUI::drawGroupFrame (g, modulationGroupBounds, "MODULATION", lookAndFeel.getAccent());
     }
 }
 
@@ -249,7 +244,7 @@ void DynamicSaturationEditor::resized()
     const int barWidth = 300;
     const int barHeight = presetBar != nullptr ? presetBar->getPreferredHeight() : 0;
 
-    // The gear sits at the far right of the header, right of the preset bar (plan 08 Q4).
+    // The menu button sits at the far right of the header, right of the preset bar (plan 08 Q4).
     headerMenu.setBounds (headerArea.removeFromRight (26).withHeight (26)
                             .withY (headerArea.getCentreY() - 13));
 
@@ -264,6 +259,10 @@ void DynamicSaturationEditor::resized()
         layoutSoundPage (area);
     else
         layoutModPage (area);
+
+    // The help line lives on both pages now (plan 12), in the band the paint used to
+    // draw its footer sentence in.
+    helpLine.setBounds (getLocalBounds().removeFromBottom (helpHeight));
 }
 
 void DynamicSaturationEditor::layoutSoundPage (juce::Rectangle<int> area)
@@ -299,8 +298,7 @@ void DynamicSaturationEditor::layoutSoundPage (juce::Rectangle<int> area)
 
 void DynamicSaturationEditor::layoutModPage (juce::Rectangle<int> area)
 {
-    helpLabel.setBounds (area.removeFromBottom (helpHeight));
-    area.removeFromBottom (groupGap);
+    area.removeFromBottom (helpHeight + groupGap);
 
     // The stereo output meters also live on the MOD page (plan 05.1 pass 2).
     auto meterColumn = area.removeFromRight (56);
@@ -327,6 +325,11 @@ void DynamicSaturationEditor::timerCallback()
 
     const float env = processor.getEnvelopeLevel();
 
+    // Plan 15: Tube Bias applies to Tube mode only — dimmed, never hidden (plan 10 G1).
+    const int modeIndex = juce::roundToInt (
+        processor.apvts.getRawParameterValue (DynamicSaturationProcessor::modeId)->load());
+    biasSlider.setEnabled (modeIndex == 0);
+
     // The curve is drawn at the values the processor is using right now, including any modulation.
     using Target = DynamicSaturationProcessor::ModTarget;
     const float baseGain = CoreDSP::decibelsToGain (processor.getModulatedValue (Target::Drive));
@@ -334,8 +337,7 @@ void DynamicSaturationEditor::timerCallback()
     const float curveValue = processor.getModulatedValue (Target::Curve);
     const float biasValue = processor.getModulatedValue (Target::Bias);
     const float foldAmount = processor.getModulatedValue (Target::Fold) / 100.0f;
-    const auto shaping = static_cast<CoreDSP::Saturation::Mode> (juce::roundToInt (
-        processor.apvts.getRawParameterValue (DynamicSaturationProcessor::modeId)->load()));
+    const auto shaping = static_cast<CoreDSP::Saturation::Mode> (modeIndex);
 
     const float preGain = CoreDSP::Saturation::dynamicDrive (baseGain, sens,
                                                              CoreDSP::Saturation::shapeEnvelope (env, curveValue));

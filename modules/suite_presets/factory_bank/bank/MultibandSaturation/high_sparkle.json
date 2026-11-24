@@ -1,0 +1,10 @@
+{
+  "_name": "High Sparkle",
+  "_category": "Bright",
+  "_description": "A bright, driven high band over a calm low.",
+  "_plugin": "MultibandSaturation",
+  "_pluginVersion": "1.0.0",
+  "crossover": 2500.0,
+  "driveHigh": 10.0,
+  "toneHigh": 0.9
+}

@@ -1,0 +1,14 @@
+{
+  "_name": "Wet/Dry Pulse",
+  "_category": "Mix bus",
+  "_description": "Synced square LFO pulses the mix.",
+  "_plugin": "MultibandSaturation",
+  "_pluginVersion": "1.0.0",
+  "mix": 80.0,
+  "lfo1Rate": 2.0,
+  "lfo1Shape": 3,
+  "lfo1Sync": 1,
+  "lfo1Division": 4,
+  "mod1Target": 9,
+  "mod1Amount": -60.0
+}

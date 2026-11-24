@@ -1,0 +1,13 @@
+{
+  "_name": "Focus Sway",
+  "_category": "Vocals",
+  "_description": "Triangle LFO sways the centre focus.",
+  "_plugin": "StereoTool",
+  "_pluginVersion": "1.0.0",
+  "drive": 5.0,
+  "midFocus": -30.0,
+  "lfo1Rate": 0.4,
+  "lfo1Shape": 1,
+  "mod1Target": 7,
+  "mod1Amount": 100.0
+}

@@ -1,0 +1,19 @@
+{
+  "_name": "Dual Drift",
+  "_category": "Ambient",
+  "_description": "Two slow LFOs drift the spectrum and stereo phase.",
+  "_plugin": "SpectralDrift",
+  "_pluginVersion": "1.0.0",
+  "depth": 50.0,
+  "stereoPhase": 90.0,
+  "lfo1Rate": 0.08,
+  "lfo1Shape": 0,
+  "lfo2Rate": 0.05,
+  "lfo2Shape": 1,
+  "mod1Target": 12,
+  "mod1Amount": 100.0,
+  "mod2Source": 1,
+  "mod2Target": 3,
+  "mod2Amount": 60.0,
+  "mod2Delay": 1.0
+}

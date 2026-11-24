@@ -1,0 +1,11 @@
+{
+  "_name": "Piano Lift",
+  "_category": "Classical",
+  "_description": "Rising linear velocity over 16ths.",
+  "_plugin": "MidiEffect",
+  "_pluginVersion": "1.0.0",
+  "arpMode": 1,
+  "velocityCurve": 1,
+  "velocityDirection": 0,
+  "octaveSpread": 0.2
+}

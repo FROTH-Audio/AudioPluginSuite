@@ -1,0 +1,12 @@
+{
+  "_name": "Width Sway",
+  "_category": "Groove",
+  "_description": "Triangle LFO sways the stereo width.",
+  "_plugin": "StereoTool",
+  "_pluginVersion": "1.0.0",
+  "drive": 4.0,
+  "lfo1Rate": 0.3,
+  "lfo1Shape": 1,
+  "mod1Target": 1,
+  "mod1Amount": 100.0
+}

@@ -1,0 +1,11 @@
+{
+  "_name": "Laid-Back Keys",
+  "_category": "R&B",
+  "_description": "Soft decaying 16ths, slightly hot.",
+  "_plugin": "MidiEffect",
+  "_pluginVersion": "1.0.0",
+  "velocity": 120.0,
+  "arpMode": 1,
+  "gateLength": 55.0,
+  "velocityCurve": 2
+}

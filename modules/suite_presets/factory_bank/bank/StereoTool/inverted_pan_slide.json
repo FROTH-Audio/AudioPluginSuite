@@ -1,0 +1,13 @@
+{
+  "_name": "Inverted Pan Slide",
+  "_category": "Experimental",
+  "_description": "An inverted, skewed LFO leans the pan.",
+  "_plugin": "StereoTool",
+  "_pluginVersion": "1.0.0",
+  "pan": 0.0,
+  "lfo1Rate": 0.45,
+  "lfo1Invert": 1,
+  "lfo1Skew": 0.4,
+  "mod1Target": 11,
+  "mod1Amount": 50.0
+}

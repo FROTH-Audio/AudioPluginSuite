@@ -1,0 +1,9 @@
+{
+  "_name": "Diode Bright",
+  "_category": "Electronic",
+  "_description": "Bright asymmetric edge.",
+  "_plugin": "StereoTool",
+  "_pluginVersion": "1.0.0",
+  "drive": 12.0,
+  "character": 2
+}

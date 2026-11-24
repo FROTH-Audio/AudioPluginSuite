@@ -1,0 +1,21 @@
+{
+  "_name": "Slow Motion",
+  "_category": "Ambient",
+  "_description": "Quarter-speed pads and bells.",
+  "_plugin": "Cyclical",
+  "_pluginVersion": "1.0.0",
+  "_loopPaths": [
+    "embedded:texture_4k.wav",
+    "embedded:bells_4k.wav",
+    "embedded:drone_4k.wav",
+    "embedded:noise_4k.wav"
+  ],
+  "masterVolume": -6.0,
+  "slot1Speed": 0.5,
+  "slot1Crossfade": 300.0,
+  "slot2Speed": 0.5,
+  "slot2Crossfade": 300.0,
+  "slot3Speed": 0.25,
+  "slot3Crossfade": 300.0,
+  "slot4Crossfade": 300.0
+}

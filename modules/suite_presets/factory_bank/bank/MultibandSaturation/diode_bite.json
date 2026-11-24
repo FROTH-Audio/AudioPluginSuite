@@ -1,0 +1,10 @@
+{
+  "_name": "Diode Bite",
+  "_category": "Character",
+  "_description": "Aggressive diode edge in each band.",
+  "_plugin": "MultibandSaturation",
+  "_pluginVersion": "1.0.0",
+  "mode": 2,
+  "driveLow": 14.0,
+  "driveHigh": 10.0
+}

@@ -1,0 +1,12 @@
+{
+  "_name": "Guitar Roll",
+  "_category": "Rock",
+  "_description": "Rolling 16ths under a major 7.",
+  "_plugin": "MidiEffect",
+  "_pluginVersion": "1.0.0",
+  "chord": 7,
+  "arpMode": 1,
+  "gateLength": 50.0,
+  "velocityCurve": 1,
+  "octaveSpread": -0.2
+}

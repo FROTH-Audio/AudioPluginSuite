@@ -1,0 +1,11 @@
+{
+  "_name": "Tone Mid Drift",
+  "_category": "Vocals",
+  "_description": "The LFO drifts the mid channel's tilt.",
+  "_plugin": "StereoTool",
+  "_pluginVersion": "1.0.0",
+  "msToneMid": 0.2,
+  "lfo1Rate": 0.2,
+  "mod1Target": 16,
+  "mod1Amount": 60.0
+}

@@ -1,0 +1,8 @@
+{
+  "_name": "Null Split",
+  "_category": "Utility",
+  "_description": "Fully dry: a transparent reference.",
+  "_plugin": "MultibandSaturation",
+  "_pluginVersion": "1.0.0",
+  "mix": 0.0
+}

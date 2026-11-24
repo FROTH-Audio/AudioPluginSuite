@@ -1,0 +1,15 @@
+{
+  "_name": "Stepped Drift",
+  "_category": "Experimental",
+  "_description": "A quantised LFO stairs the wow through eight flat steps.",
+  "_plugin": "Sgraffito",
+  "_pluginVersion": "1.0.0",
+  "_samplePath": "embedded:stepped_drift_4k.wav",
+  "release": 800.0,
+  "memoryAmount": 20.0,
+  "wow": 12.0,
+  "lfo1Rate": 0.8,
+  "lfo1Quantise": 8,
+  "mod1Target": 24,
+  "mod1Amount": 60.0
+}

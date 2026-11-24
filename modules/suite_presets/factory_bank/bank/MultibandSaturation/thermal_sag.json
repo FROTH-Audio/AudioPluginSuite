@@ -1,0 +1,10 @@
+{
+  "_name": "Thermal Sag",
+  "_category": "Character",
+  "_description": "The drive eases as the signal sustains.",
+  "_plugin": "MultibandSaturation",
+  "_pluginVersion": "1.0.0",
+  "driveLow": 6.0,
+  "driveHigh": 6.0,
+  "thermalDrift": 100.0
+}

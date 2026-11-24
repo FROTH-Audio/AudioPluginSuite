@@ -1,0 +1,21 @@
+{
+  "_name": "Slice Skew Pair",
+  "_category": "Texture",
+  "_description": "Two chopped pads skewed in opposite directions.",
+  "_plugin": "Cyclical",
+  "_pluginVersion": "1.0.0",
+  "_loopPaths": [
+    "embedded:texture_4k.wav",
+    "embedded:chord_4k.wav",
+    "embedded:bells_4k.wav",
+    "embedded:drone_4k.wav"
+  ],
+  "slot1Note": 48,
+  "slot1Chop": 1,
+  "slot1Slices": 6,
+  "slot1SliceLength": 45.0,
+  "slot2Note": 60,
+  "slot2Chop": 1,
+  "slot2Slices": 6,
+  "slot2SliceLength": -45.0
+}

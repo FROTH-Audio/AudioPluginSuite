@@ -1,0 +1,14 @@
+{
+  "_name": "Shift Wander",
+  "_category": "Rhythmic",
+  "_description": "Triangle LFO moves the spectral shift up and down.",
+  "_plugin": "SpectralDrift",
+  "_pluginVersion": "1.0.0",
+  "depth": 30.0,
+  "shift": 6.0,
+  "mix": 70.0,
+  "lfo1Rate": 0.5,
+  "lfo1Shape": 1,
+  "mod1Target": 4,
+  "mod1Amount": 80.0
+}

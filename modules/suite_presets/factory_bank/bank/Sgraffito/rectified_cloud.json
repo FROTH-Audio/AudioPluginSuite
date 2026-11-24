@@ -1,0 +1,15 @@
+{
+  "_name": "Rectified Cloud",
+  "_category": "Ambient",
+  "_description": "A rectified LFO lifts the memory trace from silence.",
+  "_plugin": "Sgraffito",
+  "_pluginVersion": "1.0.0",
+  "_samplePath": "embedded:rectified_cloud_4k.wav",
+  "release": 1200.0,
+  "memoryAmount": 30.0,
+  "memoryDecay": 12.0,
+  "lfo1Rate": 0.3,
+  "lfo1Rectify": 1,
+  "mod1Target": 9,
+  "mod1Amount": 60.0
+}

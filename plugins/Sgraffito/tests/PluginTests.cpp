@@ -35,6 +35,9 @@ namespace
                            Processor::numControls);
         checkRange (processor.apvts, Processor::modeId, 0.0f, 3.0f, 0.0f);
         checkRange (processor.apvts, Processor::levelId, -60.0f, 6.0f, 0.0f);
+
+    // Plan 12: the final gain stage is named "Output" everywhere in the suite.
+    assert (processor.apvts.getParameter (Processor::levelId)->getName (100) == "Output");
         checkRange (processor.apvts, Processor::driftAmountId, 0.0f, 100.0f, 0.0f);
         checkRange (processor.apvts, Processor::memoryAmountId, 0.0f, 100.0f, 20.0f);
         checkRange (processor.apvts, Processor::grainSpreadId, 0.0f, 100.0f, 40.0f);
@@ -118,6 +121,173 @@ namespace
 
         assert (processor.voicePool.countActive() == 0);
         pass ("testMidiNoteOffReleasesVoice");
+    }
+
+    /** Plan 12: a one-shot's region boundary is a short fade, not a hard cut. The note
+        plays a full sine whose region ends mid-waveform, the worst case for a cut. Runs
+        for Scrub (Deep Cloud's mode, kept by owner decision) and for Swell (Swell Pad). */
+    void testRegionEndIsDeclicked (int mode)
+    {
+        Processor processor;
+        processor.prepareToPlay (sampleRate, blockSize);
+
+        juce::AudioBuffer<float> testBuffer (2, 48000);
+        for (int ch = 0; ch < 2; ++ch)
+            for (int i = 0; i < 48000; ++i)
+                testBuffer.setSample (ch, i,
+                    0.5f * (float) std::sin (2.0 * juce::MathConstants<double>::pi * 440.0 * i / sampleRate));
+        processor.loadedSample = std::make_unique<LoadedSample>();
+        processor.loadedSample->buffer = testBuffer;
+        processor.loadedSample->sourceSampleRate = sampleRate;
+        processor.sampleBuffer.store (&processor.loadedSample->buffer, std::memory_order_release);
+
+        // Deep Cloud's values: root key 84, attack 120 ms, release 1500 ms. The mode comes
+        // from the caller; a held note plays out to the region boundary without a release.
+        setParameter (processor.apvts, Processor::modeId, (float) mode);
+        setParameter (processor.apvts, Processor::rootKeyId, 84.0f);
+        setParameter (processor.apvts, Processor::attackId, 120.0f);
+        setParameter (processor.apvts, Processor::releaseId, 1500.0f);
+        setParameter (processor.apvts, Processor::tapeStopTimeId, 0.0f);
+        setParameter (processor.apvts, Processor::regionLengthId, 25.0f);
+        setParameter (processor.apvts, Processor::dustId, 0.0f);
+        setParameter (processor.apvts, Processor::crackleId, 0.0f);
+        setParameter (processor.apvts, Processor::wowId, 0.0f);
+        setParameter (processor.apvts, Processor::flutterId, 0.0f);
+        setParameter (processor.apvts, Processor::memoryAmountId, 0.0f);
+
+        juce::AudioBuffer<float> audio (2, blockSize);
+        audio.clear();
+        juce::MidiBuffer midiOn;
+        midiOn.addEvent (juce::MidiMessage::noteOn (1, 60, 0.9f), 0);
+        processor.processBlock (audio, midiOn);
+        assert (processor.voicePool.countActive() > 0);
+
+        // Record the whole one-shot, then find where it stops.
+        std::vector<float> tail;
+        juce::MidiBuffer noMidi;
+        const size_t limit = (size_t) (sampleRate * 10.0);
+
+        while (processor.voicePool.countActive() > 0 && tail.size() < limit)
+        {
+            audio.clear();
+            processor.processBlock (audio, noMidi);
+
+            for (int n = 0; n < blockSize; ++n)
+                tail.push_back (audio.getSample (0, n));
+        }
+
+        assert (processor.voicePool.countActive() == 0);   // the one-shot ended
+        assert (! tail.empty());
+
+        int lastLoud = -1;
+        for (int i = (int) tail.size() - 1; i >= 0; --i)
+            if (std::abs (tail[(size_t) i]) > 0.005f)
+            {
+                lastLoud = i;
+                break;
+            }
+
+        assert (lastLoud >= 0);
+
+        // The click size is the last faded sample's level: with the fade it is a fraction
+        // of the waveform's 0.5 peak; a hard cut would leave it near 0.5.
+        const float click = std::abs (tail[(size_t) lastLoud]);
+        std::printf ("declick (mode %d): last level before cut %.5f\n", mode, click);
+        assert (click < 0.05f);
+
+        // And the 10 ms behind it ramp down: the biggest step in that window is far below
+        // the sine's own step at full level (about 0.14 per sample at 440 Hz).
+        const int window = (int) (0.010 * sampleRate);
+        float maxStep = 0.0f;
+        for (int i = juce::jmax (1, lastLoud - window); i <= lastLoud; ++i)
+            maxStep = juce::jmax (maxStep, std::abs (tail[(size_t) i] - tail[(size_t) (i - 1)]));
+
+        assert (maxStep < 0.05f);
+    }
+
+    void testRegionEndIsDeclicked()
+    {
+        testRegionEndIsDeclicked (0);   // Scrub: Deep Cloud's effective mode
+        testRegionEndIsDeclicked (3);   // Swell: Swell Pad's mode
+        pass ("testRegionEndIsDeclicked");
+    }
+
+    /** Plan 12: the former dead Level knob is now the output gain on the summed voices. */
+    void testOutputGainScalesTheSum()
+    {
+        const auto run = [&] (float db)
+        {
+            Processor processor;
+            processor.prepareToPlay (sampleRate, blockSize);
+
+            juce::AudioBuffer<float> testBuffer (2, 48000);
+            for (int ch = 0; ch < 2; ++ch)
+                for (int i = 0; i < 48000; ++i)
+                    testBuffer.setSample (ch, i,
+                        0.25f * (float) std::sin (2.0 * juce::MathConstants<double>::pi * 440.0 * i / sampleRate));
+            processor.loadedSample = std::make_unique<LoadedSample>();
+            processor.loadedSample->buffer = testBuffer;
+            processor.loadedSample->sourceSampleRate = sampleRate;
+            processor.sampleBuffer.store (&processor.loadedSample->buffer, std::memory_order_release);
+
+            setParameter (processor.apvts, Processor::levelId, db);
+            setParameter (processor.apvts, Processor::dustId, 0.0f);
+            setParameter (processor.apvts, Processor::crackleId, 0.0f);
+            setParameter (processor.apvts, Processor::wowId, 0.0f);
+            setParameter (processor.apvts, Processor::flutterId, 0.0f);
+            setParameter (processor.apvts, Processor::memoryAmountId, 0.0f);
+
+            juce::AudioBuffer<float> audio (2, blockSize);
+            audio.clear();
+            juce::MidiBuffer midiOn;
+            midiOn.addEvent (juce::MidiMessage::noteOn (1, 60, 0.9f), 0);
+            processor.processBlock (audio, midiOn);
+
+            // Let the 20 ms smoothing settle, then measure one block's peak.
+            juce::MidiBuffer noMidi;
+            for (int i = 0; i < 10; ++i)
+            {
+                audio.clear();
+                processor.processBlock (audio, noMidi);
+            }
+
+            return peak (audio);
+        };
+
+        const float unity = run (0.0f);
+        assert (unity > 0.1f);                                        // the note actually sounds
+        assert (std::abs (run (-6.0f) - unity * 0.5012f) < unity * 0.05f);
+        assert (std::abs (run (6.0f) - unity * 1.9953f) < unity * 0.08f);
+
+        pass ("testOutputGainScalesTheSum");
+    }
+
+    /** Plan 12: a steal takes the quietest active voice, not the oldest. */
+    void testStolenVoicePrefersTheQuietest()
+    {
+        Processor processor;
+        processor.prepareToPlay (sampleRate, blockSize);
+
+        // Fill the pool, then make the last voice the quiet one.
+        for (int i = 0; i < CoreDSP::Sampler::maxVoices; ++i)
+            processor.voicePool.allocateVoice (60, 1.0f, 100.0, 100.0, 0, 2);
+
+        assert (processor.voicePool.countActive() == CoreDSP::Sampler::maxVoices);
+
+        for (auto& voice : processor.voicePool.voices)
+        {
+            voice.envValue = 1.0f;
+            voice.gain = 1.0f;
+            voice.velocity = 1.0f;
+        }
+
+        const int quiet = CoreDSP::Sampler::maxVoices - 1;
+        processor.voicePool.voices[quiet].velocity = 0.01f;   // 40 dB below the others
+
+        const int stolen = processor.voicePool.allocateVoice (62, 1.0f, 100.0, 100.0, 0, 2);
+        assert (stolen == quiet);
+
+        pass ("testStolenVoicePrefersTheQuietest");
     }
 
     // Swing (plan 05.4): the first note of a key plays straight, the next one is swung and
@@ -462,13 +632,14 @@ namespace
         assert (status->getY() >= keyboard->getBottom());   // the bar sits below the keyboard
 
         // The idle hint shows before any pointer movement.
-        auto* statusText = dynamic_cast<juce::Label*> (status);
+        auto* statusText = dynamic_cast<SuiteUI::HelpLine*> (status);
         assert (statusText != nullptr);
         assert (statusText->getText() == "Hover a control for help.");
 
         // Every control carries a help text (spot checks across all three pages).
-        assert (findLabelledSliderDeep (editor.get(), "LEVEL") != nullptr
-                && ! findLabelledSliderDeep (editor.get(), "LEVEL")->getHelpText().isEmpty());
+        // The former Level knob is "OUTPUT" now (plan 12's one-name rule).
+        assert (findLabelledSliderDeep (editor.get(), "OUTPUT") != nullptr
+                && ! findLabelledSliderDeep (editor.get(), "OUTPUT")->getHelpText().isEmpty());
         assert (! findLabelledSliderDeep (editor.get(), "SLICE COUNT")->getHelpText().isEmpty());
         assert (! findLabelledSliderDeep (editor.get(), "GRAIN SIZE")->getHelpText().isEmpty());
         assert (! findTextButtonDeep (editor.get(), "LOAD SOUND")->getHelpText().isEmpty());
@@ -483,7 +654,7 @@ namespace
                                      juce::Time::getCurrentTime(), 1, false);
         };
 
-        auto* level = findLabelledSliderDeep (editor.get(), "LEVEL");
+        auto* level = findLabelledSliderDeep (editor.get(), "OUTPUT");
         const auto levelText = level->getHelpText();
         sgraffito->showHelp (makeEvent (*level));
         assert (statusText->getText() == levelText);
@@ -553,7 +724,7 @@ namespace
         struct Case { int mode; const char* on; std::initializer_list<const char*> off; };
         const Case cases[] = {
             // Scrub: level (common) stays on; every mode-only control is off.
-            { 0, "LEVEL", { "SLICE COUNT", "GRAIN SIZE", "GRAIN DENSITY", "GRAIN SPREAD",
+            { 0, "OUTPUT", { "SLICE COUNT", "GRAIN SIZE", "GRAIN DENSITY", "GRAIN SPREAD",
                             "SWELL TIME", "SWELL CROSSFADE" } },
             { 1, "SLICE COUNT", { "GRAIN SIZE", "GRAIN DENSITY", "GRAIN SPREAD",
                                   "SWELL TIME", "SWELL CROSSFADE" } },
@@ -572,16 +743,18 @@ namespace
         }
 
         // Per-mode TEXTURE renders (suite rule R9): this change intentionally dims
-        // controls, so the renders are the record of the new look.
+        // controls, so the renders are the record of the new look. The names carry the
+        // mode, so the user manual can show them without a translation table.
         const auto renderDir = juce::SystemStats::getEnvironmentVariable ("SUITE_RENDER_DIR", {});
         if (renderDir.isNotEmpty())
         {
+            const char* modeNames[4] = { "scrub", "chop", "cloud", "swell" };
             sgraffito->setPage (1);
             for (int m = 0; m < 4; ++m)
             {
                 PluginTest::setParameter (processor.apvts, SgraffitoProcessor::modeId, (float) m);
                 assert (PluginTest::writeDeterministicPng (*editor,
-                            juce::File (renderDir).getChildFile ("sgraffito-mode-" + juce::String (m) + ".png")));
+                            juce::File (renderDir).getChildFile ("sgraffito-texture-mode-" + juce::String (modeNames[m]) + ".png")));
             }
         }
 
@@ -637,6 +810,24 @@ namespace
             assert (PluginTest::writeDeterministicPng (*editor, file));
             processor.editorBeingDeleted (editor.get());
         }
+
+        // The four playback modes, each on the SOUND page, for the user manual (plan 10-era
+        // renders only cover the pages).
+        for (int mode = 0; mode < 4; ++mode)
+        {
+            setParameter (processor.apvts, Processor::modeId, (float) mode);
+
+            std::unique_ptr<juce::AudioProcessorEditor> editor (processor.createEditor());
+            assert (editor != nullptr);
+            static_cast<SgraffitoEditor*> (editor.get())->setPage (0);
+
+            const juce::File file (juce::File (folder).getChildFile (
+                std::array<const char*, 4> { "sgraffito-mode-scrub.png", "sgraffito-mode-chop.png",
+                                             "sgraffito-mode-cloud.png", "sgraffito-mode-swell.png" }[(size_t) mode]));
+            assert (PluginTest::writeDeterministicPng (*editor, file));
+            processor.editorBeingDeleted (editor.get());
+        }
+        setParameter (processor.apvts, Processor::modeId, 0.0f);
 
         pass ("testRenderBaseline");
     }
@@ -720,7 +911,7 @@ namespace
         Processor processor;
 
         checkRange (processor.apvts, Processor::lfo1RateId, 0.02f, 20.0f, 0.25f);
-        checkRange (processor.apvts, Processor::lfo1ShapeId, 0.0f, 6.0f, 0.0f);
+        checkRange (processor.apvts, Processor::lfo1ShapeId, 0.0f, 7.0f, 0.0f);
         checkRange (processor.apvts, Processor::lfo1SyncId, 0.0f, 1.0f, 0.0f);
         checkRange (processor.apvts, Processor::lfo1DivisionId, 0.0f, 6.0f, 4.0f);
         checkRange (processor.apvts, Processor::lfo1OffsetId, -100.0f, 100.0f, 0.0f);
@@ -2562,6 +2753,9 @@ int main (int argc, char** argv)
     testStateRoundTrip();
     testMidiNoteOnAllocatesVoice();
     testMidiNoteOffReleasesVoice();
+    testRegionEndIsDeclicked();
+    testOutputGainScalesTheSum();
+    testStolenVoicePrefersTheQuietest();
     testSwingDelaysRepeatedNotes();
     testHumaniseDelaysNoteOnset();
     testGhostDelaysQuietNote();

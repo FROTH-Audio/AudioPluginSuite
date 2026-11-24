@@ -75,6 +75,463 @@ namespace
     }
 
     //==============================================================================
+    // Loop playback (plan 6.1, Cyclical)
+
+    namespace LoopFixture
+    {
+        using namespace CoreDSP::Loop;
+
+        constexpr double loopRate = 48000.0;
+
+        /** A ramp loop: sample[i] = i, so every output value names the frame it read. */
+        struct RampLoop
+        {
+            juce::AudioBuffer<float> buffer;
+            std::array<const float*, 1> channelPointers {};
+            Source source;
+
+            explicit RampLoop (int frames) : buffer (1, frames)
+            {
+                for (int i = 0; i < frames; ++i)
+                    buffer.setSample (0, i, (float) i);
+
+                channelPointers[0] = buffer.getReadPointer (0);
+                source.channels = channelPointers.data();
+                source.numChannels = 1;
+                source.numFrames = frames;
+                source.sourceSampleRate = loopRate;
+            }
+
+            /** The time-mirrored copy of this loop (same length). */
+            RampLoop mirrored() const
+            {
+                RampLoop copy (source.numFrames);
+
+                for (int i = 0; i < source.numFrames; ++i)
+                    copy.buffer.setSample (0, i, buffer.getSample (0, source.numFrames - 1 - i));
+
+                copy.channelPointers[0] = copy.buffer.getReadPointer (0);
+                copy.source.channels = copy.channelPointers.data();
+                return copy;
+            }
+        };
+
+        /** Runs one voice into a fresh buffer and returns its samples. */
+        std::vector<float> run (Voice& voice, const Source& source, const Region& region,
+                                int samples, double pitchRatio = 1.0, double gain = 1.0,
+                                std::uint32_t seed = 1)
+        {
+            voice.prepare (loopRate);
+            voice.start (source, region, pitchRatio, gain, seed);
+
+            juce::AudioBuffer<float> out (1, samples);
+            out.clear();
+            voice.render (out, 0, samples);
+
+            return { out.getReadPointer (0), out.getReadPointer (0) + samples };
+        }
+    }
+
+    void testLoopDoubleSpeedLapsTwicePerBar()
+    {
+        using namespace LoopFixture;
+
+        // One bar: 48000 frames at 48 kHz. A ramp source names every frame it reads.
+        RampLoop loop (48000);
+        Region region;
+        region.startFrame = 0;
+        region.lengthFrames = 48000;
+        region.speed = 2.0;
+        region.direction = Direction::forward;
+        region.crossfadeFrames = 0;
+
+        Voice voice;
+        const auto out = run (voice, loop.source, region, 48000);
+
+        // One bar of output at speed 2 traverses the bar twice, and the second lap equals
+        // the first bit for bit (integral positions, crossfade 0). The 5 ms attack ramps
+        // the first lap in, so the identity is checked after it.
+        const int attackSamples = (int) std::lround (kAttackMs * 0.001 * loopRate);
+
+        for (int n = attackSamples; n < 24000; ++n)
+        {
+            assert (out[(size_t) n] == (float) (2 * n));
+            assert (out[(size_t) (n + 24000)] == out[(size_t) n]);
+        }
+
+        std::puts ("[PASS] testLoopDoubleSpeedLapsTwicePerBar");
+    }
+
+    void testLoopRegionBoundsAndClamping()
+    {
+        using namespace LoopFixture;
+
+        // Start/Length percents resolve to frames, with Start capped at 95 % and the
+        // effective length min(Length, 100 - Start).
+        auto frames = regionFrames (1000, 0.0f, 100.0f);
+        assert (frames[0] == 0 && frames[1] == 1000);
+
+        frames = regionFrames (1000, 50.0f, 100.0f);
+        assert (frames[0] == 500 && frames[1] == 500);          // length capped at 100 - start
+
+        frames = regionFrames (1000, 80.0f, 90.0f);
+        assert (frames[0] == 800 && frames[1] == 200);
+
+        frames = regionFrames (1000, 99.0f, 10.0f);
+        assert (frames[0] == 950 && frames[1] == 50);           // start capped at 95 %
+
+        frames = regionFrames (10, 0.0f, 5.0f);
+        assert (frames[0] == 0 && frames[1] == 1);              // minimum length of one frame
+
+        frames = regionFrames (1, 0.0f, 100.0f);
+        assert (frames[0] == 0 && frames[1] == 1);              // a one-frame buffer still plays
+
+        // No read outside the region: a ramp source names every frame it touches.
+        RampLoop loop (1000);
+        Region region;
+        region.startFrame = 500;
+        region.lengthFrames = 500;
+        region.crossfadeFrames = 0;
+
+        Voice voice;
+        const auto forward = run (voice, loop.source, region, 1000);
+        const int attackSamples = (int) std::lround (kAttackMs * 0.001 * loopRate);
+
+        for (int n = attackSamples; n < 1000; ++n)
+        {
+            const float sample = forward[(size_t) n];
+            if (sample < 500.0f || sample >= 1000.0f)
+            {
+                std::printf ("PROBE forward out of region n=%d sample=%f\n", n, (double) sample);
+                std::fflush (stdout);
+                assert (false);
+            }
+        }
+
+        region.direction = Direction::reverse;
+        const auto reverse = run (voice, loop.source, region, 1000);
+        for (int n = attackSamples; n < 1000; ++n)
+        {
+            const float sample = reverse[(size_t) n];
+            if (sample < 500.0f || sample >= 1000.0f)
+            {
+                std::printf ("PROBE reverse out of region n=%d sample=%f\n", n, (double) sample);
+                std::fflush (stdout);
+                assert (false);
+            }
+        }
+
+        std::puts ("[PASS] testLoopRegionBoundsAndClamping");
+    }
+
+    void testLoopReverseIsTheMirror()
+    {
+        using namespace LoopFixture;
+
+        RampLoop loop (4800);
+        Region region;
+        region.startFrame = 0;
+        region.lengthFrames = 4800;
+        region.crossfadeFrames = 0;
+
+        // At X = 0: reverse output is the forward output of the mirrored source (checked
+        // after the 5 ms attack, which the two runs ramp differently).
+        region.direction = Direction::forward;
+        Voice voice;
+        const auto forward = run (voice, loop.source, region, 4800);
+        const int attackSamples = (int) std::lround (kAttackMs * 0.001 * loopRate);
+
+        region.direction = Direction::reverse;
+        const auto reverse = run (voice, loop.source, region, 4800);
+        // The pairing crosses the two runs' attack ramps, so only the settled window
+        // (both samples past the 5 ms attack) is compared.
+        for (int n = attackSamples; n < 4800 - attackSamples; ++n)
+            assert (reverse[(size_t) n] == forward[(size_t) (4799 - n)]);
+
+        // At X > 0 the pre-rolls are mirrored too: reverse equals forward over the
+        // time-mirrored copy of the source, sample for sample.
+        const auto mirrored = loop.mirrored();
+        region.crossfadeFrames = 2400;
+
+        region.direction = Direction::forward;
+        const auto forwardMirrored = run (voice, mirrored.source, region, 4800);
+
+        region.direction = Direction::reverse;
+        const auto reverseOriginal = run (voice, loop.source, region, 4800);
+        for (int n = attackSamples; n < 4800; ++n)
+            assert (reverseOriginal[(size_t) n] == forwardMirrored[(size_t) n]);
+
+        std::puts ("[PASS] testLoopReverseIsTheMirror");
+    }
+
+    void testPingPongReflectsAtBounds()
+    {
+        using namespace LoopFixture;
+
+        RampLoop loop (100);
+        Region region;
+        region.startFrame = 0;
+        region.lengthFrames = 100;
+        region.direction = Direction::pingPong;
+        region.crossfadeFrames = 0;
+
+        Voice voice;
+        const auto out = run (voice, loop.source, region, 1000);
+        const int attackSamples = (int) std::lround (kAttackMs * 0.001 * loopRate);
+
+        // The steady state is a triangle of period 2 * (length - 1) = 198: it ascends to
+        // the upper bound, reflects without repeating it, and descends to the lower one.
+        const int period = 198;
+        auto triangle = [period] (int n)
+        {
+            const int phase = n % period;
+            return phase <= period / 2 ? phase : period - phase;
+        };
+
+        for (int n = attackSamples; n < 1000; ++n)
+        {
+            const float expected = (float) triangle (n);
+            if (out[(size_t) n] != expected)
+            {
+                std::printf ("PROBE ping-pong n=%d got=%f expected=%f\n", n, (double) out[(size_t) n], (double) expected);
+                std::fflush (stdout);
+                assert (false);
+            }
+        }
+
+        for (float sample : out)
+            assert (sample >= 0.0f && sample <= 99.0f);  // never outside the region
+
+        std::puts ("[PASS] testPingPongReflectsAtBounds");
+    }
+
+    void testPingRandomIsPerTriggerAndBounded()
+    {
+        using namespace LoopFixture;
+
+        RampLoop loop (400);
+        Region region;
+        region.startFrame = 0;
+        region.lengthFrames = 400;
+        region.direction = Direction::pingPong;
+        region.pingRandom = true;
+        region.crossfadeFrames = 0;
+
+        // Same seed: identical output (the turn points are drawn once per trigger).
+        Voice voice;
+        const auto a = run (voice, loop.source, region, 1600, 1.0, 1.0, 7);
+        const auto b = run (voice, loop.source, region, 1600, 1.0, 1.0, 7);
+        assert (a == b);
+
+        // The bounds stay constant for the voice and lie inside the region, inset from the
+        // ends (a, b in [0, 0.25) x length).
+        auto boundsOf = [] (const std::vector<float>& samples)
+        {
+            float lowest = samples.front(), highest = samples.front();
+            for (float sample : samples)
+            {
+                lowest = std::min (lowest, sample);
+                highest = std::max (highest, sample);
+            }
+            return std::pair<float, float> { lowest, highest };
+        };
+
+        // The turn points stay constant for the voice: the steady state (after the 5 ms
+        // attack) is exactly periodic with the period the bounds imply.
+        const int attack = (int) std::lround (kAttackMs * 0.001 * loopRate);
+        const auto steady = boundsOf ({ a.begin() + attack, a.end() });
+
+        assert (steady.first >= 0.0f && steady.first <= 100.0f);       // a in [0, 0.25) x length
+        assert (steady.second >= 299.0f && steady.second <= 399.0f);   // b in [0, 0.25) x length
+
+        const int period = 2 * (int) (steady.second - steady.first);
+        for (int n = attack + period; n < 1600; ++n)
+        {
+            if (a[(size_t) n] != a[(size_t) (n - period)])
+            {
+                std::printf ("PROBE ping-random not periodic n=%d\n", n);
+                std::fflush (stdout);
+                assert (false);
+            }
+        }
+
+        // Different seeds give different turn points (checked over a few pairs).
+        bool differs = false;
+        for (std::uint32_t seed = 0; seed < 8 && ! differs; ++seed)
+        {
+            const auto one = run (voice, loop.source, region, 1600, 1.0, 1.0, seed);
+            const auto two = run (voice, loop.source, region, 1600, 1.0, 1.0, seed + 100);
+            if (boundsOf (one) != boundsOf (two))
+                differs = true;
+        }
+        assert (differs);
+
+        // The rate is identical with the random on and off: every step of a ramp source
+        // moves exactly one frame, at the reflections too (a rate multiplier would detune
+        // each retrigger against pitchShift and the other slots). Checked on the steady
+        // state, after the attack ramp.
+        for (int n = attack + 1; n < 1600; ++n)
+            assert (std::abs (a[(size_t) n] - a[(size_t) (n - 1)]) == 1.0f);
+
+        region.pingRandom = false;
+        const auto plain = run (voice, loop.source, region, 1600, 1.0, 1.0, 7);
+        assert (boundsOf (plain).first == 0.0f && boundsOf (plain).second == 399.0f);
+
+        std::puts ("[PASS] testPingRandomIsPerTriggerAndBounded");
+    }
+
+    void testCrossfadeSeamContinuity()
+    {
+        using namespace LoopFixture;
+
+        // A genuinely loopable fixture: a 20 Hz sine whose period (2400 frames) divides the
+        // 48000-frame bar, so the seam's blend partner equals the main read and the blend
+        // sums to unity (the correlated case; the -3 dB uncorrelated dip is documented).
+        const int barFrames = 48000;
+        juce::AudioBuffer<float> sineBuffer (1, barFrames);
+        for (int i = 0; i < barFrames; ++i)
+            sineBuffer.setSample (0, i, 0.5f * (float) std::sin (2.0 * pi * 20.0 * (double) i / loopRate));
+
+        std::array<const float*, 1> sinePointers { sineBuffer.getReadPointer (0) };
+        Source sineSource;
+        sineSource.channels = sinePointers.data();
+        sineSource.numChannels = 1;
+        sineSource.numFrames = barFrames;
+        sineSource.sourceSampleRate = loopRate;
+
+        Region region;
+        region.startFrame = 0;
+        region.lengthFrames = barFrames;
+        region.direction = Direction::forward;
+
+        // 0 ms: the plain hard wrap, bit-exact (checked after the 5 ms attack, which
+        // attenuates the first lap).
+        region.crossfadeFrames = 0;
+        Voice voice;
+        const auto hardWrap = run (voice, sineSource, region, 2 * barFrames);
+        const int attack = (int) std::lround (kAttackMs * 0.001 * loopRate);
+        for (int n = attack; n < 2 * barFrames; ++n)
+            assert (hardWrap[(size_t) n] == sineBuffer.getSample (0, n % barFrames));
+
+        // 50 ms (2400 frames at 48 kHz): sample across the wrap (end -> start + X) and
+        // assert the step stays within the source's own maximum step, and the cycle's RMS
+        // is within +/-1 dB of the source's.
+        region.crossfadeFrames = 2400;
+        const auto blended = run (voice, sineSource, region, 2 * barFrames);
+
+        float sourceMaxStep = 0.0f;
+        for (int i = 1; i < barFrames; ++i)
+            sourceMaxStep = std::max (sourceMaxStep,
+                                      std::abs (sineBuffer.getSample (0, i) - sineBuffer.getSample (0, i - 1)));
+
+        for (std::size_t n = (std::size_t) (attack + 2); n < blended.size(); ++n)
+        {
+            const float step = std::abs (blended[n] - blended[(size_t) (n - 1)]);
+            assert (step <= sourceMaxStep * 1.05f + 1.0e-6f);
+        }
+
+        const double sourceRms = (double) rms ({ sineBuffer.getReadPointer (0),
+                                                 sineBuffer.getReadPointer (0) + barFrames }, barFrames);
+        const double outRms = (double) rms ({ blended.begin() + barFrames, blended.end() }, barFrames);
+        const double levelDb = 20.0 * std::log10 (outRms / sourceRms);
+        assert (std::abs (levelDb) <= 1.0);
+
+        std::puts ("[PASS] testCrossfadeSeamContinuity");
+    }
+
+    void testGranularIsDeterministicAndWindowed()
+    {
+        using namespace LoopFixture;
+
+        RampLoop loop (4800);
+        Region region;
+        region.startFrame = 0;
+        region.lengthFrames = 4800;
+        region.granular = true;
+        region.crossfadeFrames = 0;
+
+        const int grainSamples = (int) std::lround (kGrainMs * 0.001 * loopRate);   // 3840
+
+        // Same seed: identical output.
+        Voice voice;
+        const auto first = run (voice, loop.source, region, 3 * grainSamples, 1.0, 1.0, 5);
+        const auto second = run (voice, loop.source, region, 3 * grainSamples, 1.0, 1.0, 5);
+        assert (first == second);
+
+        // The first grain starts at start: with a rate of 1, sample n of the grain reads
+        // frame n of the region through the half-sine window (checked where the window is
+        // large enough to divide by).
+        for (int n : { 960, 1920, 2880 })
+        {
+            const double window = 0.5 * (1.0 - std::cos (2.0 * pi * (double) n / (double) grainSamples));
+            assert (window > 0.1);
+            const double expected = (double) first[(size_t) n] / window;
+            assert (std::abs (expected - (double) loop.buffer.getSample (0, n)) < 0.01);
+        }
+
+        // The window closes at the grain boundaries, so there is no step between grains.
+        for (int k = 1; k < 3; ++k)
+            assert (std::abs (first[(size_t) (k * grainSamples)]) < 1.0e-4);
+
+        // Grains stay inside the region and wrap within it: the ramp's values bound the reads.
+        for (float sample : first)
+            assert (sample >= 0.0f && sample <= 4799.0f);
+
+        std::puts ("[PASS] testGranularIsDeterministicAndWindowed");
+    }
+
+    void testVoiceReleaseCutAndRetriggerLifecycle()
+    {
+        using namespace LoopFixture;
+
+        RampLoop loop (4800);
+        Region region;
+        region.startFrame = 0;
+        region.lengthFrames = 4800;
+        region.crossfadeFrames = 0;
+
+        const int releaseSamples = (int) std::lround (kReleaseMs * 0.001 * loopRate);
+        const int cutSamples = (int) std::lround (kCutMs * 0.001 * loopRate);
+
+        Voice voice;
+        voice.prepare (loopRate);
+        voice.start (loop.source, region, 1.0, 1.0, 1);
+
+        juce::AudioBuffer<float> out (1, 1000);
+        out.clear();
+        voice.render (out, 0, 1000);
+        assert (voice.isActive());
+
+        // Gate note-off: a 5 ms fade, then the voice retires.
+        voice.release();
+        out.clear();
+        voice.render (out, 0, releaseSamples + 100);
+        assert (! voice.isActive());
+
+        // The fade is linear down from the last full level.
+        assert (out.getSample (0, 0) > out.getSample (0, releaseSamples / 2));
+        assert (out.getSample (0, releaseSamples / 2) > 0.0f);
+
+        // Retrigger cut: a 2 ms fade, then inactive; a fresh start plays from the top.
+        voice.start (loop.source, region, 1.0, 1.0, 1);
+        out.clear();
+        voice.render (out, 0, 500);
+        voice.cut();
+        out.clear();
+        voice.render (out, 0, cutSamples + 100);
+        assert (! voice.isActive());
+
+        voice.start (loop.source, region, 1.0, 1.0, 1);
+        out.clear();
+        voice.render (out, 0, 500);
+        assert (voice.isActive());
+        // The fresh traversal begins at frame 0: past the attack, sample n reads frame n.
+        assert (out.getSample (0, 300) == 300.0f);
+
+        std::puts ("[PASS] testVoiceReleaseCutAndRetriggerLifecycle");
+    }
+
+    //==============================================================================
     // Saturation
 
     void testSaturationCurves()
@@ -810,12 +1267,37 @@ namespace
         assert (Mod::lfoValue (Mod::LfoShape::square, 0.75, seed) == -1.0f);
 
         // Every shape stays in [-1, 1], also for negative and large cycle counts.
-        for (int shape = 0; shape <= 6; ++shape)
+        // Covers every shape including the bouncing ball (index 7); the whole-cycle check below
+        // stays limited to the shapes that do not depend on the cycle index.
+        for (int shape = 0; shape <= 7; ++shape)
             for (double c = -5.0; c < 5.0; c += 0.01)
             {
                 const float v = Mod::lfoValue ((Mod::LfoShape) shape, c, seed);
                 assert (v >= -1.0f - 1e-6f && v <= 1.0f + 1e-6f);
             }
+
+        // Bouncing ball (index 7, replacing the pendulum): four diminishing bounces. The
+        // ball starts each cycle at full height (+1) and rests at the bottom (-1) at the
+        // cycle's end; it must not decay with the cycle count.
+        assert (std::abs (Mod::lfoValue (Mod::LfoShape::bouncingBall, 0.0, seed) - 1.0f) < 1e-5f);
+        // p is the fractional cycle, so 0.9999 is the cycle's last moment: the ball rests
+        // at the bottom. (cycles = 1.0 is already the next cycle's start, p = 0.)
+        assert (Mod::lfoValue (Mod::LfoShape::bouncingBall, 0.9999, seed) < -0.98f);
+
+        // The four bounce humps descend strictly: the ball loses height per bounce.
+        double previousPeak = 2.0;
+        for (int hump = 0; hump < 4; ++hump)
+        {
+            double peak = -2.0;
+            for (double t = hump * 0.25; t < (hump + 1) * 0.25; t += 0.002)
+                peak = juce::jmax (peak, (double) Mod::lfoValue (Mod::LfoShape::bouncingBall, t, seed));
+            assert (peak < previousPeak);
+            previousPeak = peak;
+        }
+
+        // The same bounce repeats every cycle, however many cycles have elapsed.
+        assert (std::abs (Mod::lfoValue (Mod::LfoShape::bouncingBall, 0.25, seed)
+                          - Mod::lfoValue (Mod::LfoShape::bouncingBall, 400.25, seed)) < 1e-4f);
 
         // Whole cycles do not change the waveform (checked for the shapes that do not depend on the cycle index).
         for (int shape = 0; shape <= 3; ++shape)
@@ -874,6 +1356,79 @@ namespace
         }
 
         std::puts ("[PASS] testModulationShapes");
+    }
+
+    // Plan 17 Phase 7: the per-LFO waveform transforms (invert, rectify, quantise, smooth, pulse
+    // width, skew) on top of the shape, before the routing offset is added.
+    void testLfoTransforms()
+    {
+        namespace Mod = CoreDSP::Modulation;
+        constexpr std::uint32_t seed = 0x51A5;
+
+        // Identity by default: the plain shape is the transforms-disabled case, bit for bit.
+        const Mod::LfoTransforms identity;
+        assert (Mod::lfoValue (Mod::LfoShape::sine, 0.25, seed, identity) > 0.99f);
+        assert (Mod::lfoValue (Mod::LfoShape::sine, 0.75, seed, identity) < -0.99f);
+        assert (Mod::lfoValue (Mod::LfoShape::sine, 0.25, seed) == Mod::lfoValue (Mod::LfoShape::sine, 0.25, seed, identity));
+
+        // Invert: the polarity toggle negates the waveform.
+        Mod::LfoTransforms invert;
+        invert.invert = true;
+        assert (Mod::lfoValue (Mod::LfoShape::sine, 0.25, seed, invert) < -0.99f);
+        assert (Mod::lfoValue (Mod::LfoShape::sine, 0.75, seed, invert) > 0.99f);
+
+        // Rectify: folds into the upper half; with invert on the pair gives the lower half.
+        Mod::LfoTransforms rectify;
+        rectify.rectify = true;
+        assert (Mod::lfoValue (Mod::LfoShape::sine, 0.75, seed, rectify) > 0.99f);   // was -1, folded to +1
+        assert (Mod::lfoValue (Mod::LfoShape::sine, 0.25, seed, rectify) > 0.99f);   // +1 stays +1
+        Mod::LfoTransforms rectifyAndInvert;
+        rectifyAndInvert.rectify = true;
+        rectifyAndInvert.invert = true;
+        assert (Mod::lfoValue (Mod::LfoShape::sine, 0.25, seed, rectifyAndInvert) < -0.99f);  // lower half
+
+        // Skew: leans the phase. Sine at phase 0.25 (peak +1) with a skew of 0.25 leans to phase 0.5, where it is 0.
+        Mod::LfoTransforms skew;
+        skew.skew = 0.25f;
+        assert (std::abs (Mod::lfoValue (Mod::LfoShape::sine, 0.25, seed, skew)) < 1e-5f);
+        Mod::LfoTransforms noSkew;
+        noSkew.skew = 0.0f;
+        assert (Mod::lfoValue (Mod::LfoShape::sine, 0.25, seed, noSkew) > 0.99f);
+
+        // Pulse width: the shape is read as a pulse, high while phase < width; 1 is the passthrough.
+        Mod::LfoTransforms pulse;
+        pulse.pulseWidth = 0.5f;
+        assert (Mod::lfoValue (Mod::LfoShape::sine, 0.25, seed, pulse) > 0.99f);
+        assert (Mod::lfoValue (Mod::LfoShape::sine, 0.75, seed, pulse) == 0.0f);
+        Mod::LfoTransforms fullPulse;
+        fullPulse.pulseWidth = 1.0f;
+        assert (Mod::lfoValue (Mod::LfoShape::sine, 0.75, seed, fullPulse) < -0.99f);
+
+        // Smooth: 0 is off and bit-exact; above 0 the sharp corner is rounded towards the
+        // interpolation between the neighbouring phases (square at 0.75 was -1, at 0.5 it is +1).
+        Mod::LfoTransforms smooth;
+        smooth.smooth = 0.5f;
+        assert (Mod::lfoValue (Mod::LfoShape::square, 0.75, seed, smooth) == -0.5f);
+        Mod::LfoTransforms noSmooth;
+        noSmooth.smooth = 0.0f;
+        assert (Mod::lfoValue (Mod::LfoShape::square, 0.75, seed, noSmooth) == -1.0f);
+
+        // Quantise: snaps to N levels over [-1, 1]; 0 is off. Three levels are -1, 0, +1.
+        // The sine at 0.125 (0.707) is closest to +1, and at 0.75 (the bottom) snaps to -1.
+        Mod::LfoTransforms quantise;
+        quantise.quantiseSteps = 3.0f;
+        assert (Mod::lfoValue (Mod::LfoShape::sine, 0.125, seed, quantise) == 1.0f);
+        assert (Mod::lfoValue (Mod::LfoShape::sine, 0.75, seed, quantise) == -1.0f);
+        Mod::LfoTransforms noQuantise;
+        noQuantise.quantiseSteps = 0.0f;
+        assert (Mod::lfoValue (Mod::LfoShape::sine, 0.125, seed, noQuantise) > 0.69f);
+
+        // The routing offset is added after the transforms.
+        Mod::LfoTransforms invertOffset;
+        invertOffset.invert = true;
+        assert (Mod::withOffset (Mod::lfoValue (Mod::LfoShape::sine, 0.25, seed, invertOffset), 0.5f) == -0.5f);
+
+        std::puts ("[PASS] testLfoTransforms");
     }
 
     void testSampleAndHold()
@@ -1100,6 +1655,265 @@ namespace
         std::puts ("[PASS] testTapeStopRamp");
     }
 
+    /** Plan 06 idea 2.9 first step: mid/side encode/decode is exactly lossless, the width
+        control is transparent at 0, folds to mono at -1, doubles the side at +1, and the
+        tanh saturator stays bounded with a unity small-signal slope. */
+    void testMidSideStereo()
+    {
+        namespace St = CoreDSP::Stereo;
+
+        // Lossless round trip for a spread of pairs, including out-of-phase and DC inputs.
+        for (float l = -1.0f; l <= 1.0f; l += 0.25f)
+            for (float r = -1.0f; r <= 1.0f; r += 0.25f)
+            {
+                float mid = 0.0f, side = 0.0f, outL = 0.0f, outR = 0.0f;
+                St::encode (l, r, mid, side);
+                St::decode (mid, side, outL, outR);
+                assert (std::abs (outL - l) < 1e-6f);
+                assert (std::abs (outR - r) < 1e-6f);
+            }
+
+        // Width 0 is a no-op through the whole chain.
+        float mid = 0.0f, side = 0.0f;
+        St::encode (0.8f, -0.4f, mid, side);
+        const float gain0 = St::sideGain (0.0f);
+        float wl = 0.0f, wr = 0.0f;
+        St::decode (mid, side * gain0, wl, wr);
+        assert (std::abs (wl - 0.8f) < 1e-6f && std::abs (wr + 0.4f) < 1e-6f);
+
+        // Width -1 folds to mono: both channels carry the mid only.
+        const float gainMono = St::sideGain (-1.0f);
+        St::decode (mid, side * gainMono, wl, wr);
+        assert (wl == wr);
+
+        // Width +1 doubles the side component.
+        const float gainWide = St::sideGain (1.0f);
+        assert (gainWide == 2.0f);
+        St::decode (mid, side * gainWide, wl, wr);
+        assert (std::abs (wl - (mid + 2.0f * side)) < 1e-6f);
+
+        // The gain is guarded outside [-1, 1], so the decode never folds.
+        assert (St::sideGain (5.0f) == 2.0f);
+        assert (St::sideGain (-5.0f) == 0.0f);
+
+        // Saturator: transparent at amount 0, bounded at the rails with drive, monotonic.
+        assert (St::saturate (0.7f, 0.0f, 8.0f) == 0.7f);
+        assert (St::saturate (0.0f, 1.0f, 8.0f) == 0.0f);
+        const float driven = St::saturate (0.7f, 1.0f, 8.0f);
+        assert (driven > 0.95f && driven <= 1.0f + 1e-6f);   // a loud signal sits near the rail
+        const float quiet = St::saturate (0.01f, 1.0f, 8.0f);
+        assert (quiet > 0.01f && quiet < 0.08f);            // drive lifts small signals
+
+        std::puts ("[PASS] testMidSideStereo");
+    }
+
+    /** Plan 06 idea 2.4 first step: the 2-way Linkwitz-Riley split. Below the crossover the
+        low band carries the signal, above it the high band does, and the two bands sum back
+        to the input's magnitude through the crossover's all-pass phase. */
+    void testTwoBandSplit()
+    {
+        namespace Mb = CoreDSP::Multiband;
+
+        constexpr double sampleRate = 48000.0;
+        constexpr float crossover = 800.0f;
+
+        // Measures the peak of low, of high and of low+high over a settled window.
+        auto probe = [&] (double hz)
+        {
+            Mb::TwoBandSplit split;
+            split.prepare (sampleRate, crossover);
+
+            float peakLow = 0.0f, peakHigh = 0.0f, peakSum = 0.0f, peakIn = 0.0f;
+            for (int n = 0; n < 48000; ++n)   // 1 s: the LR4 settles well within it
+            {
+                const double phase = 2.0 * pi * hz * (double) n / sampleRate;
+                const float in = 0.5f * (float) std::sin (phase);
+                float low = 0.0f, high = 0.0f;
+                split.process (0, in, low, high);
+
+                if (n >= 24000)   // the settled second half-second
+                {
+                    peakLow = juce::jmax (peakLow, std::abs (low));
+                    peakHigh = juce::jmax (peakHigh, std::abs (high));
+                    peakSum = juce::jmax (peakSum, std::abs (low + high));
+                    peakIn = juce::jmax (peakIn, std::abs (in));
+                }
+            }
+            return std::array<float, 4> { peakIn, peakLow, peakHigh, peakSum };
+        };
+
+        // Two octaves below the crossover: the low band carries the signal, the high band is down.
+        {
+            const auto below = probe (200.0);
+            assert (below[1] > 0.85f * below[0]);   // low ≈ input
+            assert (below[2] < 0.1f * below[0]);    // high is 48 dB down, in the floor by now
+        }
+
+        // Two octaves above: the high band carries it.
+        {
+            const auto above = probe (3200.0);
+            assert (above[2] > 0.85f * above[0]);   // high ≈ input
+            assert (above[1] < 0.1f * above[0]);
+        }
+
+        // At the crossover both bands sit 6 dB down, and the sum carries the input's magnitude
+        // (the LR4 sum is all-pass), sample for sample.
+        {
+            Mb::TwoBandSplit split;
+            split.prepare (sampleRate, crossover);
+            const double hz = 800.0;
+            for (int n = 0; n < 24000; ++n)
+            {
+                const double phase = 2.0 * pi * hz * (double) n / sampleRate;
+                const float in = 0.5f * (float) std::sin (phase);
+                float low = 0.0f, high = 0.0f;
+                split.process (0, in, low, high);
+                if (n >= 12000)
+                    assert (std::abs (std::abs (low + high) - std::abs (in)) < 0.02f);
+            }
+        }
+
+        std::puts ("[PASS] testTwoBandSplit");
+    }
+
+    /** Plan 06 idea 2.11 first step: chord tone intervals and the scale-quantisation the
+        MIDI Chord/Arp/Scale Tool reuses (CoreDSP::SamplerMaps::quantizeToScale). */
+    void testChordsAndScaleQuantise()
+    {
+        namespace Ch = CoreDSP::Chords;
+        namespace Maps = CoreDSP::Sampler;
+
+        // A major chord on C4 (60) is 60, 64, 67.
+        int notes[4];
+        Ch::chordNotes (60, Ch::Quality::major, notes);
+        assert (notes[0] == 60 && notes[1] == 64 && notes[2] == 67);
+        assert (Ch::noteCount (Ch::Quality::major) == 3);
+
+        // A minor 7 on A3 (57) is 57, 60, 64, 67.
+        Ch::chordNotes (57, Ch::Quality::minor7, notes);
+        assert (notes[0] == 57 && notes[1] == 60 && notes[2] == 64 && notes[3] == 67);
+        assert (Ch::noteCount (Ch::Quality::minor7) == 4);
+
+        // Chords clamp to the MIDI range.
+        Ch::chordNotes (126, Ch::Quality::major, notes);
+        assert (notes[0] == 126 && notes[1] == 127 && notes[2] == 127);
+
+        // Arp ordering: down reverses, up keeps, alternate goes outer-in, random is
+        // deterministic for the same seed.
+        const int up[4] = { 60, 64, 67, -1 };
+        int out[4];
+        Ch::orderArp (Ch::ArpPattern::up, 3, up, out, 7);
+        assert (out[0] == 60 && out[1] == 64 && out[2] == 67 && out[3] == -1);
+        Ch::orderArp (Ch::ArpPattern::down, 3, up, out, 7);
+        assert (out[0] == 67 && out[1] == 64 && out[2] == 60);
+        Ch::orderArp (Ch::ArpPattern::alternate, 3, up, out, 7);
+        assert (out[0] == 60 && out[1] == 67 && out[2] == 64);
+        int randomA[4], randomB[4];
+        Ch::orderArp (Ch::ArpPattern::random, 3, up, randomA, 7);
+        Ch::orderArp (Ch::ArpPattern::random, 3, up, randomB, 7);
+        for (int i = 0; i < 4; ++i)
+            assert (randomA[i] == randomB[i]);
+        // The random order is a permutation of the input.
+        int sumA = 0, sumIn = 0;
+        for (int i = 0; i < 3; ++i) { sumA += randomA[i]; sumIn += up[i]; }
+        assert (sumA == sumIn);
+
+        // Scale quantisation: 61 in C major (root 60, scale 1) snaps to 60 — the
+        // strict-diff search keeps the first best (the root) on a tie.
+        assert (Maps::quantizeToScale (61, 60, 1) == 60);
+        assert (Maps::quantizeToScale (61, 60, 0) == 61);   // chromatic: unchanged
+        assert (Maps::quantizeToScale (64, 60, 1) == 64);   // already in the scale (E)
+        assert (Maps::quantizeToScale (65, 60, 1) == 65);   // F is in C major
+        assert (Maps::quantizeToScale (66, 60, 1) == 65);   // F# sits nearer F (65) than G (67)
+
+        std::puts ("[PASS] testChordsAndScaleQuantise");
+    }
+
+    /** Plan 6.1: the step-clock arp helpers, and the appended Scattered pattern. */
+    void testArpHelpers()
+    {
+        namespace Ch = CoreDSP::Chords;
+
+        // Step lengths in beats: straight values and triplets.
+        // All twelve step rates (plan 12): straight, triplet and dotted for each note value.
+        assert (std::abs (Ch::arpStepBeats (0) - 1.0) < 1.0e-12);
+        assert (std::abs (Ch::arpStepBeats (1) - 2.0 / 3.0) < 1.0e-12);
+        assert (std::abs (Ch::arpStepBeats (2) - 1.5) < 1.0e-12);
+        assert (std::abs (Ch::arpStepBeats (3) - 0.5) < 1.0e-12);
+        assert (std::abs (Ch::arpStepBeats (4) - 1.0 / 3.0) < 1.0e-12);
+        assert (std::abs (Ch::arpStepBeats (5) - 0.75) < 1.0e-12);
+        assert (std::abs (Ch::arpStepBeats (6) - 0.25) < 1.0e-12);
+        assert (std::abs (Ch::arpStepBeats (7) - 1.0 / 6.0) < 1.0e-12);
+        assert (std::abs (Ch::arpStepBeats (8) - 0.375) < 1.0e-12);
+        assert (std::abs (Ch::arpStepBeats (9) - 0.125) < 1.0e-12);
+        assert (std::abs (Ch::arpStepBeats (10) - 1.0 / 12.0) < 1.0e-12);
+        assert (std::abs (Ch::arpStepBeats (11) - 3.0 / 16.0) < 1.0e-12);
+        // Plan 15: the appended slow plain rates.
+        assert (std::abs (Ch::arpStepBeats (12) - 2.0) < 1.0e-12);
+        assert (std::abs (Ch::arpStepBeats (13) - 4.0) < 1.0e-12);
+        assert (std::abs (Ch::arpStepBeats (14) - 8.0) < 1.0e-12);
+        assert (std::abs (Ch::arpStepBeats (15) - 16.0) < 1.0e-12);
+        // Out of range clamps to the ends.
+        assert (std::abs (Ch::arpStepBeats (99) - 16.0) < 1.0e-12);
+        assert (std::abs (Ch::arpStepBeats (-5) - 1.0) < 1.0e-12);
+
+        // Octave lift: 0 spread stays put; +1 crawls up an octave per pass through the tones.
+        assert (Ch::arpOctaveLift (0.0f, 3) == 0);
+        assert (Ch::arpOctaveLift (1.0f, 0) == 0);
+        assert (Ch::arpOctaveLift (1.0f, 1) == 12);
+        assert (Ch::arpOctaveLift (1.0f, 2) == 24);
+        assert (Ch::arpOctaveLift (-1.0f, 1) == -12);
+        assert (Ch::arpOctaveLift (0.5f, 1) == 12);   // lround rounds half away from zero
+        assert (Ch::arpOctaveLift (0.5f, 2) == 12);
+
+        // Velocity curves across 8 steps: Flat is 1, Linear and Exponential run 0.2..1
+        // with the direction flipping which end starts.
+        assert (Ch::arpCurveValue (0, true, 3, 8) == 1.0f);
+        assert (std::abs (Ch::arpCurveValue (1, true, 0, 8) - 0.2f) < 1.0e-6f);
+        assert (std::abs (Ch::arpCurveValue (1, true, 7, 8) - 1.0f) < 1.0e-6f);
+        assert (std::abs (Ch::arpCurveValue (1, false, 0, 8) - 1.0f) < 1.0e-6f);
+        assert (std::abs (Ch::arpCurveValue (1, false, 7, 8) - 0.2f) < 1.0e-6f);
+        assert (std::abs (Ch::arpCurveValue (2, true, 7, 8) - 1.0f) < 1.0e-6f);
+        assert (std::abs (Ch::arpCurveValue (2, true, 0, 8) - 0.2f) < 1.0e-6f);
+        // Exponential descending at step 3 of 8: s = 1 - 3/7 -> 0.2 + 0.8 s^2.
+        assert (std::abs (Ch::arpCurveValue (2, false, 3, 8) - (0.2f + 0.8f * (4.0f / 7.0f) * (4.0f / 7.0f))) < 1.0e-6f);
+
+        // Random velocity is deterministic, in [0.2, 1], and changes across cycles.
+        const float r0 = Ch::arpRandomVelocity (64, 3, 0);
+        assert (r0 == Ch::arpRandomVelocity (64, 3, 0));
+        assert (r0 >= 0.2f && r0 <= 1.0f);
+        assert (Ch::arpRandomVelocity (64, 3, 0) != Ch::arpRandomVelocity (64, 3, 1)
+             || Ch::arpRandomVelocity (64, 5, 0) != Ch::arpRandomVelocity (64, 5, 2));
+
+        // Scattered: deterministic, a permutation of the input, unused slots marked.
+        const int up[4] = { 60, 64, 67, -1 };
+        int scatteredA[4], scatteredB[4], random[4];
+        Ch::orderArp (Ch::ArpPattern::scattered, 3, up, scatteredA, 7);
+        Ch::orderArp (Ch::ArpPattern::scattered, 3, up, scatteredB, 7);
+        Ch::orderArp (Ch::ArpPattern::random, 3, up, random, 7);
+        for (int i = 0; i < 4; ++i)
+            assert (scatteredA[i] == scatteredB[i]);
+        assert (scatteredA[3] == -1);
+        int sum = 0, sumIn = 0;
+        for (int i = 0; i < 3; ++i) { sum += scatteredA[i]; sumIn += up[i]; }
+        assert (sum == sumIn);
+
+        // The scattered stream is a different shuffle from the random one (checked across
+        // several seeds, since the two can coincide by chance for a single one).
+        bool everDiffers = false;
+        for (std::uint32_t trialSeed = 0; trialSeed < 24 && ! everDiffers; ++trialSeed)
+        {
+            Ch::orderArp (Ch::ArpPattern::scattered, 3, up, scatteredA, trialSeed);
+            Ch::orderArp (Ch::ArpPattern::random, 3, up, random, trialSeed);
+            for (int i = 0; i < 3; ++i)
+                if (scatteredA[i] != random[i])
+                    everDiffers = true;
+        }
+        assert (everDiffers);
+
+        std::puts ("[PASS] testArpHelpers");
+    }
+
     void testVoicePool()
     {
         using namespace CoreDSP::Sampler;
@@ -1163,6 +1977,7 @@ int main()
     testBlendDegree();
     testTimingSwingGateVelocity();
     testModulationShapes();
+    testLfoTransforms();
     testSampleAndHold();
     testModulationTiming();
     testKeyRegionMapping();
@@ -1172,6 +1987,18 @@ int main()
     testMemoryTrace();
     testTapeStopRamp();
     testVoicePool();
+    testMidSideStereo();
+    testChordsAndScaleQuantise();
+    testArpHelpers();
+    testLoopDoubleSpeedLapsTwicePerBar();
+    testLoopRegionBoundsAndClamping();
+    testLoopReverseIsTheMirror();
+    testPingPongReflectsAtBounds();
+    testPingRandomIsPerTriggerAndBounded();
+    testCrossfadeSeamContinuity();
+    testGranularIsDeterministicAndWindowed();
+    testVoiceReleaseCutAndRetriggerLifecycle();
+    testTwoBandSplit();
 
     std::puts ("All CoreDSP unit tests passed.");
     return 0;

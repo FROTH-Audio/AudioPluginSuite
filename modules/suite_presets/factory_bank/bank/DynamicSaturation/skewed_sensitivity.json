@@ -1,0 +1,14 @@
+{
+  "_name": "Skewed Sensitivity",
+  "_category": "Subtle",
+  "_description": "A skewed LFO leans the envelope sensitivity into its rise.",
+  "_plugin": "DynamicSaturation",
+  "_pluginVersion": "1.0.0",
+  "drive": 5.0,
+  "sensitivity": 0.4,
+  "lfo2Rate": 0.5,
+  "lfo2Skew": 0.6,
+  "mod2Source": 1,
+  "mod2Target": 2,
+  "mod2Amount": 60.0
+}

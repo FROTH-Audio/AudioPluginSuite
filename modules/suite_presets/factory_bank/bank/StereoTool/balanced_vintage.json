@@ -1,0 +1,10 @@
+{
+  "_name": "Balanced Vintage",
+  "_category": "Classic",
+  "_description": "Rounded vintage tone with a touch of centre.",
+  "_plugin": "StereoTool",
+  "_pluginVersion": "1.0.0",
+  "drive": 8.0,
+  "character": 1,
+  "midFocus": 10.0
+}

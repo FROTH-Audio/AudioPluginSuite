@@ -1,0 +1,24 @@
+{
+  "_name": "Toggle Looper",
+  "_category": "Ambient",
+  "_description": "Toggle mode: one press starts the pad, the next stops it.",
+  "_plugin": "Cyclical",
+  "_pluginVersion": "1.0.0",
+  "_loopPaths": [
+    "embedded:drone_4k.wav",
+    "embedded:texture_4k.wav",
+    "embedded:chord_4k.wav",
+    "embedded:noise_4k.wav"
+  ],
+  "slot1Note": 48,
+  "slot1Trigger": 2,
+  "slot1Crossfade": 120.0,
+  "slot2Note": 50,
+  "slot2Trigger": 2,
+  "slot2Crossfade": 120.0,
+  "slot3Note": 52,
+  "slot3Trigger": 2,
+  "slot3Crossfade": 120.0,
+  "slot4Trigger": 2,
+  "slot4Crossfade": 120.0
+}

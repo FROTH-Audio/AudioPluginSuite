@@ -1,0 +1,12 @@
+{
+  "_name": "Pulsed Tilt",
+  "_category": "Bright",
+  "_description": "A narrow pulse flips the spectral tilt per step.",
+  "_plugin": "SpectralDrift",
+  "_pluginVersion": "1.0.0",
+  "tilt": 0.8,
+  "lfo1Rate": 1.2,
+  "lfo1PulseWidth": 0.3,
+  "mod1Target": 5,
+  "mod1Amount": 80.0
+}

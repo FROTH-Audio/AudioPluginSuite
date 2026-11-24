@@ -1,0 +1,14 @@
+{
+  "_name": "Bouncing Dust",
+  "_category": "Experimental",
+  "_description": "Bouncing Ball hops the pitch centre over a plucked loop.",
+  "_plugin": "Sgraffito",
+  "_pluginVersion": "1.0.0",
+  "_samplePath": "embedded:bouncing_dust_4k.wav",
+  "release": 400.0,
+  "dust": 8.0,
+  "lfo1Rate": 1.4,
+  "lfo1Shape": 7,
+  "mod1Target": 3,
+  "mod1Amount": 30.0
+}

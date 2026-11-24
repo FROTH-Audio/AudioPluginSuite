@@ -38,7 +38,8 @@ namespace
                              SpectralDriftProcessor::modSourceIds[0], SpectralDriftProcessor::modSourceIds[5],
                              SpectralDriftProcessor::modTargetIds[0], SpectralDriftProcessor::modTargetIds[5],
                              SpectralDriftProcessor::modAmountIds[0], SpectralDriftProcessor::modAmountIds[5],
-                             SpectralDriftProcessor::modDelayIds[0], SpectralDriftProcessor::modDelayIds[5] },
+                             SpectralDriftProcessor::modDelayIds[0], SpectralDriftProcessor::modDelayIds[5],
+                             SpectralDriftProcessor::sidechainAmountId, SpectralDriftProcessor::sidechainTargetId },
                            SpectralDriftProcessor::numControls);
 
         checkRange (processor.apvts, SpectralDriftProcessor::depthId, 0.0f, 100.0f, 19.1f);
@@ -58,12 +59,12 @@ namespace
 
         // The 34 shared LFO and routing parameters.
         checkRange (processor.apvts, Processor::lfo1RateId, 0.02f, 20.0f, 0.25f);
-        checkRange (processor.apvts, Processor::lfo1ShapeId, 0.0f, 6.0f, 0.0f);
+        checkRange (processor.apvts, Processor::lfo1ShapeId, 0.0f, 7.0f, 0.0f);
         checkRange (processor.apvts, Processor::lfo1SyncId, 0.0f, 1.0f, 0.0f);
         checkRange (processor.apvts, Processor::lfo1DivisionId, 0.0f, 6.0f, 4.0f);
         checkRange (processor.apvts, Processor::lfo1OffsetId, -100.0f, 100.0f, 0.0f);
         checkRange (processor.apvts, Processor::lfo2RateId, 0.02f, 20.0f, 0.25f);
-        checkRange (processor.apvts, Processor::lfo2ShapeId, 0.0f, 6.0f, 0.0f);
+        checkRange (processor.apvts, Processor::lfo2ShapeId, 0.0f, 7.0f, 0.0f);
         checkRange (processor.apvts, Processor::lfo2SyncId, 0.0f, 1.0f, 0.0f);
         checkRange (processor.apvts, Processor::lfo2DivisionId, 0.0f, 6.0f, 4.0f);
         checkRange (processor.apvts, Processor::lfo2OffsetId, -100.0f, 100.0f, 0.0f);
@@ -72,6 +73,10 @@ namespace
         checkRange (processor.apvts, Processor::modTargetIds[0], 0.0f, 12.0f, 0.0f);
         checkRange (processor.apvts, Processor::modAmountIds[0], -100.0f, 100.0f, 0.0f);
         checkRange (processor.apvts, Processor::modDelayIds[0], 0.0f, 10.0f, 0.0f);
+
+        // Sidechain ducking (plan 06 idea 2.5): the amount defaults to 0, so the sound is unchanged.
+        checkRange (processor.apvts, Processor::sidechainAmountId, 0.0f, 100.0f, 0.0f);
+        checkRange (processor.apvts, Processor::sidechainTargetId, 0.0f, 1.0f, 0.0f);
 
         // The target choices must match the enum order the sessions save.
         auto* target = dynamic_cast<juce::AudioParameterChoice*> (processor.apvts.getParameter (Processor::modTargetIds[0]));
@@ -168,6 +173,33 @@ namespace
         mismatched.inputBuses.add (juce::AudioChannelSet::mono());
         mismatched.outputBuses.add (juce::AudioChannelSet::stereo());
         assert (! processor.isBusesLayoutSupported (mismatched));
+
+        // The sidechain bus (plan 06 idea 2.5) is declared disabled by default; a host can
+        // enable it with mono or stereo, and anything else is refused.
+        assert (processor.getBusCount (true) == 2);
+        assert (processor.getBus (true, 1) != nullptr && ! processor.getBus (true, 1)->isEnabled());
+
+        juce::AudioProcessor::BusesLayout withStereoSidechain;
+        withStereoSidechain.inputBuses.add (juce::AudioChannelSet::stereo());
+        withStereoSidechain.inputBuses.add (juce::AudioChannelSet::stereo());
+        withStereoSidechain.outputBuses.add (juce::AudioChannelSet::stereo());
+        assert (processor.isBusesLayoutSupported (withStereoSidechain));
+
+        juce::AudioProcessor::BusesLayout withMonoSidechain;
+        withMonoSidechain.inputBuses.add (juce::AudioChannelSet::stereo());
+        withMonoSidechain.inputBuses.add (juce::AudioChannelSet::mono());
+        withMonoSidechain.outputBuses.add (juce::AudioChannelSet::stereo());
+        assert (processor.isBusesLayoutSupported (withMonoSidechain));
+
+        juce::AudioProcessor::BusesLayout withQuadSidechain;
+        withQuadSidechain.inputBuses.add (juce::AudioChannelSet::stereo());
+        withQuadSidechain.inputBuses.add (juce::AudioChannelSet::quadraphonic());
+        withQuadSidechain.outputBuses.add (juce::AudioChannelSet::stereo());
+        assert (! processor.isBusesLayoutSupported (withQuadSidechain));
+
+        // Enabling it through the public bus API keeps the bus usable for the duck.
+        assert (processor.setBusesLayout (withStereoSidechain));
+        assert (processor.getBus (true, 1)->isEnabled());
 
         pass ("testBusLayouts");
     }
@@ -617,7 +649,7 @@ namespace
         Processor processor;
 
         checkRange (processor.apvts, Processor::lfo1RateId, 0.02f, 20.0f, 0.25f);
-        checkRange (processor.apvts, Processor::lfo1ShapeId, 0.0f, 6.0f, 0.0f);
+        checkRange (processor.apvts, Processor::lfo1ShapeId, 0.0f, 7.0f, 0.0f);
         checkRange (processor.apvts, Processor::lfo1SyncId, 0.0f, 1.0f, 0.0f);
         checkRange (processor.apvts, Processor::lfo1DivisionId, 0.0f, 6.0f, 4.0f);
         checkRange (processor.apvts, Processor::lfo1OffsetId, -100.0f, 100.0f, 0.0f);
@@ -765,7 +797,167 @@ namespace
         pass ("testModulationClampsToRange");
     }
 
+    //==============================================================================
+    // Sidechain ducking (plan 06 idea 2.5)
+
+    /** Runs blocks with the sidechain bus enabled: a 4-channel buffer, main audio in 0/1 and
+        the sidechain signal in 2/3. Returns the left output of each block. */
+    std::vector<std::vector<float>> renderWithSidechain (Processor& processor, int blocks, int loudFromBlock,
+                                                         float mainAmplitude = 0.5f)
+    {
+        juce::AudioProcessor::BusesLayout layout;
+        layout.inputBuses.add (juce::AudioChannelSet::stereo());
+        layout.inputBuses.add (juce::AudioChannelSet::stereo());
+        layout.outputBuses.add (juce::AudioChannelSet::stereo());
+        assert (processor.setBusesLayout (layout));
+
+        processor.prepareToPlay (sampleRate, blockSize);
+        juce::MidiBuffer midi;
+        int64_t first = 0;
+        std::vector<std::vector<float>> out;
+
+        for (int block = 0; block < blocks; ++block)
+        {
+            juce::AudioBuffer<float> audio (4, blockSize);
+            audio.clear();
+            addSine (audio, 0, sampleRate, 1000.0, mainAmplitude, first);
+            addSine (audio, 1, sampleRate, 1000.0, mainAmplitude, first);
+
+            if (block >= loudFromBlock)
+            {
+                addSine (audio, 2, sampleRate, 80.0, 0.9f, first);   // the "kick": loud and low
+                addSine (audio, 3, sampleRate, 80.0, 0.9f, first);
+            }
+
+            processor.processBlock (audio, midi);
+            out.push_back (std::vector<float> (audio.getReadPointer (0), audio.getReadPointer (0) + blockSize));
+            first += blockSize;
+        }
+
+        return out;
+    }
+
+    float rmsOf (const std::vector<float>& samples)
+    {
+        double sum = 0.0;
+        for (float x : samples)
+            sum += (double) x * (double) x;
+        return (float) std::sqrt (sum / (double) samples.size());
+    }
+
+    /** With Sidechain Amount 0 the duck is 0, so the sound is unchanged: the routing-driven
+        drift is identical whether the sidechain is silent or loud (the committed regression). */
+    void testSidechainAmountZeroIsTransparent()
+    {
+        auto run = [] (float amount)
+        {
+            Processor processor;
+            setLfo (processor, 0, 4.0f, 3.0f, false, 4.0f);   // square
+            setRoute (processor, 0, 0, (int) Processor::ModTarget::Drift, 100.0f);
+            setParameter (processor.apvts, Processor::sidechainAmountId, amount);
+            return renderWithSidechain (processor, 10, 2);    // loud sidechain from block 2
+        };
+
+        const auto silentSidechain = run (0.0f);
+        const auto loudSidechain = run (0.0f);
+
+        // Before the sidechain starts, and after it starts (the follower runs, the amount is 0),
+        // the outputs are identical.
+        for (int block = 0; block < 10; ++block)
+            assert (silentSidechain[(size_t) block] == loudSidechain[(size_t) block]);
+
+        pass ("testSidechainAmountZeroIsTransparent");
+    }
+
+    /** Sidechain Target Drift: the routed drift flattens while the sidechain sounds, and comes
+        back when it stops (the effect breathes). */
+    void testSidechainDucksDrift()
+    {
+        auto run = [] (float amount)
+        {
+            Processor processor;
+            setLfo (processor, 0, 4.0f, 3.0f, false, 4.0f);   // square: the drift swings hard
+            setRoute (processor, 0, 0, (int) Processor::ModTarget::Drift, 100.0f);
+            setParameter (processor.apvts, Processor::sidechainAmountId, amount);
+            return renderWithSidechain (processor, 14, 4);    // loud sidechain from block 4
+        };
+
+        const auto unDucked = run (0.0f);
+        const auto ducked = run (100.0f);
+
+        // While the sidechain sounds (the follower has settled by the later blocks), the drift
+        // is reduced, so the outputs differ.
+        for (int block = 9; block < 13; ++block)
+            assert (unDucked[(size_t) block] != ducked[(size_t) block]);
+
+        // With no sidechain yet (block 1), the two runs are identical.
+        assert (unDucked[1] == ducked[1]);
+
+        pass ("testSidechainDucksDrift");
+    }
+
+    /** Sidechain Target Gate: a loud sidechain sweeps the gate threshold up, so bins below it
+        are removed — a quiet tone disappears while the sidechain sounds, and the gate reopens
+        as the sidechain fades (the wet spectrum breathes). */
+    void testSidechainDucksGate()
+    {
+        auto run = [] (float amount, int blocks, float mainAmplitude)
+        {
+            Processor processor;
+            setParameter (processor.apvts, Processor::sidechainAmountId, amount);
+            setParameter (processor.apvts, Processor::sidechainTargetId, 1.0f);   // Gate
+            // The gate starts fully open (-90 dB); the duck sweeps it toward 0 dB.
+            return renderWithSidechain (processor, blocks, 0, mainAmplitude);
+        };
+
+        // A quiet tone sits below the swept threshold, so the closed gate removes it.
+        const auto control = run (0.0f, 12, 0.05f);     // no duck: the gate stays open
+        const auto ducked = run (100.0f, 12, 0.05f);    // loud sidechain the whole time
+
+        // Once the gate has closed (past the 2048-sample frame latency), the tone is gated
+        // away and the output is far quieter than the control.
+        const float controlRms = rmsOf (control[10]);
+        const float duckedRms = rmsOf (ducked[10]);
+        assert (controlRms > 0.005f);
+        assert (duckedRms < 0.1f * controlRms);
+
+        pass ("testSidechainDucksGate");
+    }
+
     // Both editor pages paint, and switching pages does not change a parameter.
+    /** Plan 12: the shared help line on both pages, with the stale-hover regression, and
+        the "Output" name from the suite-wide naming pass. */
+    void testHelpLine()
+    {
+        SpectralDriftProcessor processor;
+        std::unique_ptr<juce::AudioProcessorEditor> editor (processor.createEditorAndMakeActive());
+        assert (editor != nullptr);
+
+        // The final gain stage is named "Output" everywhere in the suite (plan 12).
+        assert (processor.apvts.getParameter (SpectralDriftProcessor::outputGainId)
+                    ->getName (100) == "Output");
+
+        std::function<juce::Component* (juce::Component&)> findSlider = [&] (juce::Component& root)
+            -> juce::Component*
+        {
+            if (auto* cell = dynamic_cast<SuiteUI::LabelledSlider*> (&root))
+                if (cell->label.getText() == "DRIFT DEPTH")
+                    return cell;
+            for (auto* child : root.getChildren())
+                if (auto* found = findSlider (*child))
+                    return found;
+            return nullptr;
+        };
+
+        auto* slider = findSlider (*editor);
+        assert (slider != nullptr && slider->getHelpText().isNotEmpty());
+
+        PluginTest::checkHelpLine (*editor, "spectraldrift-help", *slider);
+
+        processor.editorBeingDeleted (editor.get());
+        pass ("testHelpLine");
+    }
+
     void testEditorPages()
     {
         SpectralDriftProcessor processor;
@@ -851,6 +1043,10 @@ int main()
     testModulationReachesAudio();
     testSyncedLfoFollowsTempo();
     testModulationClampsToRange();
+    testSidechainAmountZeroIsTransparent();
+    testSidechainDucksDrift();
+    testSidechainDucksGate();
+    testHelpLine();
     testEditorPages();
 
     testRenderBaseline ();

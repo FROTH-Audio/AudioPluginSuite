@@ -54,7 +54,8 @@ int main()
         // Plan 10 phase 7: every preset ships its own generated sample, so switching
         // presets always switches the sample (finding #7/#8). The per-URI load above is
         // the typo guard: an unknown resource name would silently keep the current sample.
-        assert (embeddedCount == 20);
+        // Plan 18 Phase 7: the count grows with the +10 round (30 total).
+        assert (embeddedCount == 30);
         PresetTest::pass ("embeddedSamples");
     }
 

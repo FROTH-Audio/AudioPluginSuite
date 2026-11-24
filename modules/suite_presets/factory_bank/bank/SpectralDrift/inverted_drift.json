@@ -1,0 +1,12 @@
+{
+  "_name": "Inverted Drift",
+  "_category": "Character",
+  "_description": "The routed drift waveform is inverted.",
+  "_plugin": "SpectralDrift",
+  "_pluginVersion": "1.0.0",
+  "depth": 45.0,
+  "lfo1Rate": 0.4,
+  "lfo1Invert": 1,
+  "mod1Target": 12,
+  "mod1Amount": 100.0
+}

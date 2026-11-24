@@ -1,6 +1,6 @@
-# Micro-Timing Chaos
+# Micro-Timing Chaos - technical reference
 
-A MIDI step sequencer plugin by FROTH Audio.
+A MIDI step sequencer plugin by FROTH Audio. For the page-by-page walkthrough with screenshots, see [MANUAL.md](MANUAL.md). This file is the control reference, with the LFO and routing details, latency, and how to build and test.
 
 ## Overview
 

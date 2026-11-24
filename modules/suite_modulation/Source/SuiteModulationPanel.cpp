@@ -1,5 +1,6 @@
 #include "SuiteModulationPanel.h"
 
+#include "SuiteLookAndFeel.h"
 #include "SuiteWidgets.h"
 
 namespace SuiteModulation
@@ -7,13 +8,24 @@ namespace SuiteModulation
     namespace
     {
         // Layout constants. These match the Micro-Timing Chaos panel as it was tuned on screen.
-        constexpr int lfoBlockHeight = 140;
         constexpr int knobWidth = 110;
         constexpr int scopeHeight = 46;
         constexpr int controlHeight = 26;
         constexpr int headingHeight = 16;
         constexpr int slotRowHeight = 26;
         constexpr int gap = 6;
+        // Owner refinement (2026-11-24): the four transform knobs are 25 % smaller than the
+        // suite 40 px (30 px) — a size exemption for these four controls; the RATE knob stays
+        // suite-size. The cell mirrors LabelledSlider's own formula with the smaller diameter.
+        // Strip rows: rate+scope (92), the waveform-type selector under the rate (26), the
+        // transform row (72), offset (26) and sync/division (26), tight 2 px gaps — the
+        // sync/division row is back (it had been pushed out of the old 240 block since the
+        // knobs landed, and only the renders showed it).
+        constexpr int transformKnobDiameter = SuiteUI::knobDiameter * 3 / 4;   // 30 px
+        constexpr int transformKnobCell = SuiteUI::captionHeight + transformKnobDiameter
+                                        + 6 + SuiteUI::valueBoxHeight;         // 72
+        constexpr int lfoBlockHeight = SuiteUI::knobRowHeight + controlHeight + transformKnobCell
+                                     + controlHeight + controlHeight + 8;      // 250
 
         // Column split of the routing rows, shared by the headings, the rows and paint()
         constexpr float sourceFraction = 0.22f;
@@ -40,6 +52,15 @@ namespace SuiteModulation
         const std::array<const char*, Router::lfoCount> lfoDivisionIds { "lfo1Division", "lfo2Division" };
         const std::array<const char*, Router::lfoCount> lfoOffsetIds { "lfo1Offset", "lfo2Offset" };
 
+        // Plan 17 Phase 7 + plan 18 Phase 1: the per-LFO waveform transforms. The defaults
+        // are neutral (off / zero), so an untouched strip leaves the waveform unchanged.
+        const std::array<const char*, Router::lfoCount> lfoInvertIds { "lfo1Invert", "lfo2Invert" };
+        const std::array<const char*, Router::lfoCount> lfoRectifyIds { "lfo1Rectify", "lfo2Rectify" };
+        const std::array<const char*, Router::lfoCount> lfoQuantiseIds { "lfo1Quantise", "lfo2Quantise" };
+        const std::array<const char*, Router::lfoCount> lfoSmoothIds { "lfo1Smooth", "lfo2Smooth" };
+        const std::array<const char*, Router::lfoCount> lfoPulseIds { "lfo1PulseWidth", "lfo2PulseWidth" };
+        const std::array<const char*, Router::lfoCount> lfoSkewIds { "lfo1Skew", "lfo2Skew" };
+
         constexpr int offsetLabelWidth = 64;
         constexpr int offsetTextWidth = 60;
 
@@ -48,7 +69,7 @@ namespace SuiteModulation
         const std::array<const char*, Router::slotCount> modAmountIds { "mod1Amount", "mod2Amount", "mod3Amount", "mod4Amount", "mod5Amount", "mod6Amount" };
         const std::array<const char*, Router::slotCount> modDelayIds { "mod1Delay", "mod2Delay", "mod3Delay", "mod4Delay", "mod5Delay", "mod6Delay" };
 
-        juce::StringArray shapeNames() { return { "Sine", "Triangle", "Saw", "Square", "Sample & Hold", "Random", "Noise" }; }
+        juce::StringArray shapeNames() { return { "Sine", "Triangle", "Saw", "Square", "Sample & Hold", "Random", "Noise", "Bouncing Ball" }; }
         juce::StringArray divisionNames() { return { "4 bars", "2 bars", "1 bar", "1/2", "1/4", "1/8", "1/16" }; }
         juce::StringArray sourceNames() { return { "LFO 1", "LFO 2" }; }
 
@@ -67,7 +88,11 @@ namespace SuiteModulation
         LfoStrip (Router& router, int index, const ModulationPanel::Style& style)
             : rate ("RATE", juce::Slider::RotaryVerticalDrag),
               scope (router, index, style.lfoColours[index], style.panel, style.track),
-              offset (juce::Slider::LinearHorizontal, juce::Slider::TextBoxRight)
+              offset (juce::Slider::LinearHorizontal, juce::Slider::TextBoxRight),
+              quantise ("QUANTISE", juce::Slider::RotaryVerticalDrag),
+              smooth ("SMOOTH", juce::Slider::RotaryVerticalDrag),
+              pulse ("PULSE", juce::Slider::RotaryVerticalDrag),
+              skew ("SKEW", juce::Slider::RotaryVerticalDrag)
         {
             const auto i = (size_t) index;
             auto& state = router.getState();
@@ -85,11 +110,35 @@ namespace SuiteModulation
             offset.setTextValueSuffix (" %");
             offset.setNumDecimalPlacesToDisplay (0);
 
+            // The transform pills and knobs (plan 18 Phase 1, revisited 2026-11-24): the four
+            // transforms are suite 40 px knobs with captions, so they carry the full R2 idiom.
+            invertToggle.setClickingTogglesState (true);
+            rectifyToggle.setClickingTogglesState (true);
+            for (auto* toggle : { &invertToggle, &rectifyToggle })
+                toggle->setColour (juce::ToggleButton::textColourId, style.textDim);
+            for (auto* slider : { &quantise.slider, &smooth.slider, &pulse.slider, &skew.slider })
+            {
+                slider->setColour (juce::Slider::trackColourId, style.track);
+                slider->setColour (juce::Slider::thumbColourId, style.lfoColours[index]);
+                slider->setWantsKeyboardFocus (true);
+            }
+
             rateAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (state, lfoRateIds[i], rate.slider);
             shapeAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (state, lfoShapeIds[i], shape);
             syncAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (state, lfoSyncIds[i], sync);
             divisionAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (state, lfoDivisionIds[i], division);
             offsetAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (state, lfoOffsetIds[i], offset);
+            invertAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (state, lfoInvertIds[i], invertToggle);
+            rectifyAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (state, lfoRectifyIds[i], rectifyToggle);
+            quantiseAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (state, lfoQuantiseIds[i], quantise.slider);
+            smoothAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (state, lfoSmoothIds[i], smooth.slider);
+            pulseAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (state, lfoPulseIds[i], pulse.slider);
+            skewAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (state, lfoSkewIds[i], skew.slider);
+
+            // Owner refinement (2026-11-24): one digit after "." in the transform value boxes.
+            // The formatting lives on the parameter (Smooth/Pulse/Skew ranges carry a 0.1
+            // interval; the attachment's textFromValueFunction reads the parameter text), so
+            // the value box shows the parameter's own 1-decimal format.
 
             rate.setHelpText (name + " rate in Hz. Disabled while Sync is on.");
             rate.slider.setHelpText (name + " rate in Hz. Disabled while Sync is on.");
@@ -97,7 +146,13 @@ namespace SuiteModulation
             offset.setHelpText (name + " offset, from -100 % to +100 %. It moves the waveform up or down before routing, and the output stops at -1 and +1.");
             sync.setHelpText (name + " follows the host tempo. The division then sets the cycle length.");
             division.setHelpText (name + " cycle length in bars or beats. Used only while Sync is on.");
-            scope.setHelpText (name + " shape. The dot shows where the LFO is now.");
+            scope.setHelpText (name + " shape after the transforms. The dot shows where the LFO is now.");
+            invertToggle.setHelpText (name + " invert: the waveform is negated before routing.");
+            rectifyToggle.setHelpText (name + " rectify: the waveform folds into the upper half (with Invert, the lower half).");
+            quantise.setHelpText (name + " quantise: the waveform snaps to this many steps per cycle. 0 is off.");
+            smooth.setHelpText (name + " smooth: rounds the waveform's sharp corners. 0 is off.");
+            pulse.setHelpText (name + " pulse width: the shape reads as a pulse, high while the phase is inside the width. 0 is off.");
+            skew.setHelpText (name + " skew: leans the waveform left or right in the cycle. 0 is off.");
 
             addAndMakeVisible (rate);
             addAndMakeVisible (shape);
@@ -106,28 +161,62 @@ namespace SuiteModulation
             addAndMakeVisible (sync);
             addAndMakeVisible (division);
             addAndMakeVisible (scope);
+            addAndMakeVisible (invertToggle);
+            addAndMakeVisible (rectifyToggle);
+            addAndMakeVisible (quantise);
+            addAndMakeVisible (smooth);
+            addAndMakeVisible (pulse);
+            addAndMakeVisible (skew);
         }
 
         void resized() override
         {
             auto area = getLocalBounds();
 
-            // Rate knob on the left, the scope, then shape with offset, sync and division on the right
-            rate.setBounds (area.removeFromLeft (knobWidth));
-            area.removeFromLeft (gap);
+            // Top row: RATE knob on the left, waveform scope on the right (plan 20 refinement).
+            // The rate knob is one knob-row tall; the scope sits at its height within that row.
+            auto topRow = area.removeFromTop (SuiteUI::knobRowHeight);
+            rate.setBounds (topRow.removeFromLeft (knobWidth));
+            topRow.removeFromLeft (gap);
+            scope.setBounds (topRow.removeFromTop (scopeHeight).withY (topRow.getY()
+                                   + (topRow.getHeight() - scopeHeight) / 2));
 
-            scope.setBounds (area.removeFromTop (scopeHeight));
-            area.removeFromTop (5);
+            area.removeFromTop (2);
 
-            shape.setBounds (area.removeFromTop (controlHeight));
-            area.removeFromTop (4);
+            // Waveform-type selection under the rate knob, narrower than the old full-width
+            // row (owner refinement, 2026-11-24).
+            shape.setBounds (area.removeFromTop (controlHeight).removeFromLeft (knobWidth));
 
-            // Offset gets a full-width row, so its track is long enough to drag
+            area.removeFromTop (2);
+
+            // Transform row: compact INVERT/RECT pills and the 30 px transform knobs, using
+            // the whole column width.
+            auto transformRow = area.removeFromTop (transformKnobCell);
+            const int pillW = 52;
+            auto pillBand = transformRow.removeFromLeft (pillW * 2 + gap);
+            invertToggle.setBounds (pillBand.removeFromLeft (pillW)
+                                        .withSizeKeepingCentre (pillW, controlHeight));
+            pillBand.removeFromLeft (gap);
+            rectifyToggle.setBounds (pillBand.withSizeKeepingCentre (pillW, controlHeight));
+            transformRow.removeFromLeft (gap);
+            const int knobW = transformRow.getWidth() / 4;
+            quantise.setBounds (transformRow.removeFromLeft (knobW));
+            transformRow.removeFromLeft (gap);
+            smooth.setBounds (transformRow.removeFromLeft (knobW));
+            transformRow.removeFromLeft (gap);
+            pulse.setBounds (transformRow.removeFromLeft (knobW));
+            transformRow.removeFromLeft (gap);
+            skew.setBounds (transformRow);
+
+            area.removeFromTop (2);
+
+            // Offset row.
             auto offsetRow = area.removeFromTop (controlHeight);
             offsetLabel.setBounds (offsetRow.removeFromLeft (offsetLabelWidth));
             offset.setBounds (offsetRow);
-            area.removeFromTop (4);
+            area.removeFromTop (2);
 
+            // Sync + division row.
             auto row = area.removeFromTop (controlHeight);
             sync.setBounds (row.removeFromLeft (row.getWidth() / 2));
             row.removeFromLeft (4);
@@ -144,11 +233,23 @@ namespace SuiteModulation
         juce::Label offsetLabel;
         juce::Slider offset;
 
+        // Plan 18 Phase 1 (revisited 2026-11-24): the transform strip — INVERT/RECT pills and
+        // four suite 40 px knobs (the scope draws the transformed output).
+        juce::ToggleButton invertToggle { "INVERT" };
+        juce::ToggleButton rectifyToggle { "RECT" };
+        SuiteUI::LabelledSlider quantise, smooth, pulse, skew;
+
         std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> rateAttachment;
         std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> shapeAttachment;
         std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> syncAttachment;
         std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> divisionAttachment;
         std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> offsetAttachment;
+        std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> invertAttachment;
+        std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> rectifyAttachment;
+        std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> quantiseAttachment;
+        std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> smoothAttachment;
+        std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> pulseAttachment;
+        std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> skewAttachment;
     };
 
     //==============================================================================

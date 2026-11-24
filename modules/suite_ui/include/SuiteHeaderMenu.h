@@ -5,7 +5,7 @@
 namespace SuiteUI
 {
     /**
-        A small gear icon button for the plugin header. Left click opens a popup menu with
+        A small hamburger icon button for the plugin header. Left click opens a popup menu with
         "Settings..." and "About..."; the callbacks run on the message thread. The icon is
         drawn with a Path - there is no new binary asset (plan 08 Q3).
 

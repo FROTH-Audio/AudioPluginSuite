@@ -50,6 +50,38 @@ void __NAME__Processor::getStateInformation (juce::MemoryBlock& destData)
 void __NAME__Processor::setStateInformation (const void* data, int sizeInBytes)
 {
     SuiteState::read (data, sizeInBytes, apvts, stateVersion, migrations);
+
+    // The preset identity rides as a state property (plan 09 1.4): restore it from the
+    // replaced state. A session without the property reads as Init.
+    lastPresetSelection = SuitePresets::decodePresetSelection (
+        apvts.state.getProperty (presetSelectionProperty).toString());
+}
+
+void __NAME__Processor::setPresetSelection (const SuitePresets::PresetSelection& selection)
+{
+    lastPresetSelection = selection;
+
+    // Keep the property in sync at change time (the lerpCurve/samplePath pattern), so the
+    // identity rides in every saved session and host program dump.
+    if (selection.kind == SuitePresets::PresetSelection::Kind::none)
+        apvts.state.removeProperty (presetSelectionProperty, nullptr);
+    else
+        apvts.state.setProperty (presetSelectionProperty,
+                                 SuitePresets::encodePresetSelection (selection), nullptr);
+}
+
+void __NAME__Processor::applyPresetState (const juce::ValueTree& tree)
+{
+    // A preset is a delta on the default state, so resetMissing is true. The tree goes
+    // through the same read path as a saved session: version check, migrations, replaceState.
+    const juce::MemoryBlock block = SuiteState::detail::encodeXml (*tree.createXml());
+
+    if (SuiteState::read (block.getData(), (int) block.getSize(), apvts, stateVersion,
+                          migrations, {}, true) == SuiteState::LoadResult::loaded)
+    {
+        // The caller (the bar or the host program bridge) re-states the selection right after.
+        lastPresetSelection = {};
+    }
 }
 
 //==============================================================================

@@ -33,4 +33,14 @@ suite_add_plugin(
                     Resources/samples/presets/held_breath_4k.wav
                     Resources/samples/presets/fine_grained_drift_4k.wav
                     Resources/samples/presets/slow_attack_tape_4k.wav
+                    Resources/samples/presets/bouncing_dust_4k.wav
+                    Resources/samples/presets/rectified_cloud_4k.wav
+                    Resources/samples/presets/quantised_ghosts_4k.wav
+                    Resources/samples/presets/smoothed_swell_4k.wav
+                    Resources/samples/presets/pulse_dust_4k.wav
+                    Resources/samples/presets/skewed_tape_4k.wav
+                    Resources/samples/presets/bouncing_memory_4k.wav
+                    Resources/samples/presets/inverted_swell_4k.wav
+                    Resources/samples/presets/stepped_drift_4k.wav
+                    Resources/samples/presets/pulse_ghosts_4k.wav
 )

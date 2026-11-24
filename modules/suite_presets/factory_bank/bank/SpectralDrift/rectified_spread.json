@@ -1,0 +1,12 @@
+{
+  "_name": "Rectified Spread",
+  "_category": "Wide",
+  "_description": "The rectified LFO pumps the bin spread upward.",
+  "_plugin": "SpectralDrift",
+  "_pluginVersion": "1.0.0",
+  "spread": 0.5,
+  "lfo1Rate": 0.6,
+  "lfo1Rectify": 1,
+  "mod1Target": 2,
+  "mod1Amount": 90.0
+}

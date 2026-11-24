@@ -1,0 +1,14 @@
+{
+  "_name": "Release Swell",
+  "_category": "Groove",
+  "_description": "Sine LFO swells the follower release.",
+  "_plugin": "StereoTool",
+  "_pluginVersion": "1.0.0",
+  "drive": 6.0,
+  "transientRelease": 150.0,
+  "transientAmount": 30.0,
+  "lfo1Rate": 0.2,
+  "lfo1Shape": 0,
+  "mod1Target": 5,
+  "mod1Amount": 80.0
+}

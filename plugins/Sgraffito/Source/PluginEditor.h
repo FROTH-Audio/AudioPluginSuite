@@ -264,16 +264,15 @@ private:
     std::vector<Group> groups;
 
     // Status bar: the help text of the control under the pointer, below the keyboard
-    // (plan 10 phase 5). The tracker is added as a mouse listener with children.
+    // (plan 10 phase 5). It is the shared HelpLine now (plan 12): one idle text, no
+    // stale strings, honouring the settings' tooltips toggle.
     SuiteUI::HelpTracker helpTracker;
-    juce::Label statusLabel;
-    juce::String idleHelpText { "Hover a control for help." };
-    bool showHelpTexts = true;
+    SuiteUI::HelpLine helpLine;
 
     // Preset bar (right of the header).
     std::unique_ptr<SuitePresets::PresetBar> presetBar;
 
-    // Gear at the far right of the header: settings and about (plan 08).
+    // menu at the far right of the header: settings and about (plan 08).
     SuiteUI::HeaderMenuButton headerMenu { juce::Colour (0xff9aa0a6) };
 
     // Page switch.
@@ -289,7 +288,7 @@ private:
     juce::ToggleButton scaleLockButton { "SCALE LOCK" };
     SuiteUI::SegmentedSelector scaleSelector { juce::Colour (0xff9aa0a6) };
     SuiteUI::LabelledSlider glideSlider { "GLIDE", juce::Slider::RotaryVerticalDrag };
-    SuiteUI::LabelledSlider levelSlider { "LEVEL", juce::Slider::RotaryVerticalDrag };
+    SuiteUI::LabelledSlider levelSlider { "OUTPUT", juce::Slider::RotaryVerticalDrag };
     SuiteUI::LabelledSlider velocityCurveSlider { "VELOCITY CURVE", juce::Slider::RotaryVerticalDrag };
     SuiteUI::LabelledSlider attackSlider { "ATTACK", juce::Slider::RotaryVerticalDrag };
     SuiteUI::LabelledSlider releaseSlider { "RELEASE", juce::Slider::RotaryVerticalDrag };

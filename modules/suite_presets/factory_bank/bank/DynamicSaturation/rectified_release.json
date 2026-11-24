@@ -1,0 +1,13 @@
+{
+  "_name": "Rectified Release",
+  "_category": "Ambient",
+  "_description": "Rectification folds the release time upward.",
+  "_plugin": "DynamicSaturation",
+  "_pluginVersion": "1.0.0",
+  "drive": 7.0,
+  "release": 600.0,
+  "lfo1Rate": 0.25,
+  "lfo1Rectify": 1,
+  "mod1Target": 6,
+  "mod1Amount": 60.0
+}

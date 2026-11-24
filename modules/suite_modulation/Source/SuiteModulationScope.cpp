@@ -51,10 +51,7 @@ namespace SuiteModulation
 
     float LfoScope::curveValue(float phase) const
     {
-        const auto shape = static_cast<CoreDSP::Modulation::LfoShape>(router.getLfoShape(lfoIndex));
-        const auto seed = Router::lfoSeeds[(size_t) lfoIndex];
-
-        return Router::withOffset(CoreDSP::Modulation::lfoValue(shape, (double) phase, seed), router.getLfoOffset(lfoIndex));
+        return router.transformedLfoValue(lfoIndex, (double) phase);
     }
 
     void LfoScope::paint(juce::Graphics& g)
@@ -63,7 +60,6 @@ namespace SuiteModulation
         const auto area = bounds.reduced(6.0f, 5.0f);
         const auto midLine = area.getCentreY();
         const auto shape = static_cast<CoreDSP::Modulation::LfoShape>(router.getLfoShape(lfoIndex));
-        const auto seed = Router::lfoSeeds[(size_t) lfoIndex];
         const bool scrolling = isHistoryShape(shape);
 
         g.setColour(background);
@@ -95,8 +91,8 @@ namespace SuiteModulation
             for (int i = 0; i <= waveformPoints; ++i)
             {
                 const double cycles = (double) i / (double) waveformPoints;
-                // The curve is the output the routing receives, so it includes the Offset.
-                const float value = Router::withOffset(CoreDSP::Modulation::lfoValue(shape, cycles, seed), router.getLfoOffset(lfoIndex));
+                // The curve is the transformed output the routing receives, so it includes the Offset.
+                const float value = router.transformedLfoValue(lfoIndex, cycles);
                 const juce::Point<float> point(area.getX() + area.getWidth() * (float) cycles,
                                                midLine - value * area.getHeight() * 0.5f);
 

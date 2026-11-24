@@ -1,0 +1,13 @@
+{
+  "_name": "Curve Mod",
+  "_category": "Character",
+  "_description": "Saw LFO modulates the envelope curve.",
+  "_plugin": "DynamicSaturation",
+  "_pluginVersion": "1.0.0",
+  "drive": 9.0,
+  "curve": 1.0,
+  "lfo1Rate": 0.3,
+  "lfo1Shape": 2,
+  "mod1Target": 12,
+  "mod1Amount": 80.0
+}

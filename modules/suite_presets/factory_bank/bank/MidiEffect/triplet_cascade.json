@@ -1,0 +1,13 @@
+{
+  "_name": "Triplet Cascade",
+  "_category": "Funk",
+  "_description": "Rising 8th-note triplets.",
+  "_plugin": "MidiEffect",
+  "_pluginVersion": "1.0.0",
+  "arpMode": 1,
+  "stepRate": 4,
+  "gateLength": 65.0,
+  "velocityCurve": 1,
+  "velocityDirection": 0,
+  "octaveSpread": 0.2
+}

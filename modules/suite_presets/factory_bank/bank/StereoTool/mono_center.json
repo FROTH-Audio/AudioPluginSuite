@@ -1,0 +1,9 @@
+{
+  "_name": "Mono Center",
+  "_category": "Focus",
+  "_description": "Mid-forward, tight centre.",
+  "_plugin": "StereoTool",
+  "_pluginVersion": "1.0.0",
+  "drive": 6.0,
+  "midFocus": 50.0
+}

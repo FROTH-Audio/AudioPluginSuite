@@ -62,27 +62,8 @@ namespace
         return group.withTrimmedTop (groupTitleHeight + 4).reduced (10, 4);
     }
 
-    void describe (juce::Component& component, const juce::String& help)
-    {
-        component.setHelpText (help);
-    }
-
-    /** Sets the same help text on a knob, its caption and its slider, so hovering any of them shows it. */
-    void describe (SuiteUI::LabelledSlider& control, const juce::String& help)
-    {
-        control.setHelpText (help);
-        control.label.setHelpText (help);
-        control.slider.setHelpText (help);
-        control.slider.setTooltip (help);
-    }
-
-    void styleCaption (juce::Label& label, const juce::String& text)
-    {
-        label.setText (text, juce::dontSendNotification);
-        label.setFont (juce::Font (juce::FontOptions (13.0f, juce::Font::bold)));
-        label.setColour (juce::Label::textColourId, SuiteUI::Colours::textDim);
-        label.setJustificationType (juce::Justification::centred);
-    }
+    // The shared help helpers (plan 12); the local copies are gone.
+    using SuiteUI::describe;
 }
 
 //==============================================================================
@@ -239,12 +220,11 @@ MicroTimingChaosEditor::MicroTimingChaosEditor (MicroTimingChaosProcessor& p)
     pageSelector.setFontHeight (12.0f);
     pageSelector.onChange = [this] (int index) { setPage (index); };
 
-    helpTracker.onMove = [this] (const juce::MouseEvent& e) { showHelp (e); };
-    addMouseListener (&helpTracker, true);
-
-    helpLabel.setFont (juce::Font (juce::FontOptions (14.0f)));
-    helpLabel.setColour (juce::Label::textColourId, SuiteUI::Colours::text);
-    helpLabel.setText ("Hover a control to see what it does.", juce::dontSendNotification);
+    // The shared help line (plan 12): one idle text, no stale strings.
+    helpLine.setIdleText ("Hover a control to see what it does.");
+    helpLine.setComponentID ("microtimingchaos-help");
+    helpLine.setEnablePredicate ([] { return SuiteSettings::shared().getBool (SuiteSettings::tooltipsKey, true); });
+    SuiteUI::attachHelpLine (*this, helpLine, helpTracker);
 
     readout.setJustificationType (juce::Justification::centredLeft);
     readout.setColour (juce::Label::textColourId, SuiteUI::Colours::text);
@@ -253,8 +233,6 @@ MicroTimingChaosEditor::MicroTimingChaosEditor (MicroTimingChaosProcessor& p)
     hostTempoLabel.setFont (juce::Font (juce::FontOptions (13.0f, juce::Font::bold)));
     hostTempoLabel.setColour (juce::Label::textColourId, SuiteUI::Colours::textDim);
     hostTempoLabel.setJustificationType (juce::Justification::centred);
-
-    styleCaption (scaleCaption, "SCALE");
 
     // Knob captions: all the same size and weight
     for (auto* caption : { &lengthSlider.label, &densitySlider.label, &seedSlider.label, &gateSlider.label,
@@ -267,13 +245,13 @@ MicroTimingChaosEditor::MicroTimingChaosEditor (MicroTimingChaosProcessor& p)
     rateSelector.setFontHeight (15.0f);
     lerpViewSelector.setFontHeight (15.0f);
 
-    for (auto* component : { static_cast<juce::Component*> (&helpLabel), static_cast<juce::Component*> (&attractor),
+    for (auto* component : { static_cast<juce::Component*> (&helpLine), static_cast<juce::Component*> (&attractor),
                               static_cast<juce::Component*> (&readout), static_cast<juce::Component*> (&grid),
                               static_cast<juce::Component*> (&lengthSlider), static_cast<juce::Component*> (&densitySlider),
                               static_cast<juce::Component*> (&seedSlider), static_cast<juce::Component*> (&gateSlider),
                               static_cast<juce::Component*> (&swingSlider), static_cast<juce::Component*> (&velocitySlider),
                               static_cast<juce::Component*> (&rootSlider), static_cast<juce::Component*> (&octavesSlider),
-                              static_cast<juce::Component*> (&scaleCaption), static_cast<juce::Component*> (&scaleBox),
+                              static_cast<juce::Component*> (&scaleDropdown),
                               static_cast<juce::Component*> (&chaosSlider), static_cast<juce::Component*> (&timingRangeSlider),
                               static_cast<juce::Component*> (&velocityChaosSlider),
                               static_cast<juce::Component*> (&lerpViewSelector), static_cast<juce::Component*> (&curveEditor),
@@ -295,7 +273,7 @@ MicroTimingChaosEditor::MicroTimingChaosEditor (MicroTimingChaosProcessor& p)
     describe (velocitySlider, "Base velocity of each note, before chaos.");
     describe (rootSlider, "Lowest melody note, as a MIDI note number.");
     describe (octavesSlider, "How many octaves the melody spans.");
-    describe (scaleBox, "The scale the melody is chosen from.");
+    describe (scaleDropdown, "The scale the melody is chosen from.");
     describe (chaosSlider, "Chaos, 0 to 100 %. It is the input to the lerp curve. At 0 the pattern never moves.");
     describe (timingRangeSlider, "Maximum timing shift in ms, reached at the attractor's X extremes.");
     describe (velocityChaosSlider, "How strongly the attractor's Z moves velocity.");
@@ -313,6 +291,17 @@ MicroTimingChaosEditor::MicroTimingChaosEditor (MicroTimingChaosProcessor& p)
     lerpPreview.setHelpText ("Live drift per axis, and the timing, pitch and velocity of the last steps.");
     lerpViewSelector.setHelpText ("Switch between the curve editor and the live preview.");
 
+    // The owner's explicit request: the step grid explains itself (plan 12).
+    grid.setComponentID ("microtimingchaos-grid");
+    describe (grid, "The sequencer view: one column per step. The dot shows the timing offset "
+                    "of the last pass, the bar the gate length; the outlined column is the current step.");
+    describe (attractor, "The Lorenz attractor's trail; the bright point is where it is now.");
+    describe (readout, "The attractor's X, Y and Z, and the drift amounts they produce.");
+    describe (hostTempoLabel, "The host's tempo, when BPM Sync is on.");
+    describe (pageSelector, "SEQUENCE: pattern and step grid. DRIFT: the lerp curve. MOD: the LFOs and routing.");
+    describe (*presetBar, "Factory presets, INIT and SAVE. The menu lists user presets.");
+    describe (headerMenu, "Settings... and About...");
+
     rateSelector.setOptions ({ "1/4", "1/8", "1/16", "1/32" });
     rateAttachment = std::make_unique<juce::ParameterAttachment> (
         *processor.apvts.getParameter (MicroTimingChaosProcessor::rateId),
@@ -329,8 +318,7 @@ MicroTimingChaosEditor::MicroTimingChaosEditor (MicroTimingChaosProcessor& p)
     };
     lerpPreview.setVisible (false);
 
-    scaleBox.addItemList ({ "Chromatic", "Major", "Minor", "Minor Pentatonic", "Dorian", "Whole Tone" }, 1);
-    scaleBox.setTextWhenNothingSelected ("Scale");
+    scaleDropdown.setOptions ({ "Chromatic", "Major", "Minor", "Minor Pentatonic", "Dorian", "Whole Tone" });
 
     if (presetBar->getPreferredHeight() > 0)
         addAndMakeVisible (*presetBar);
@@ -391,8 +379,8 @@ MicroTimingChaosEditor::MicroTimingChaosEditor (MicroTimingChaosProcessor& p)
     bind (MicroTimingChaosProcessor::bpmId, tempoSlider.slider);
     bind (MicroTimingChaosProcessor::speedId, speedSlider.slider);
 
-    scaleAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (
-        apvts, MicroTimingChaosProcessor::scaleId, scaleBox);
+    // The scale dropdown carries its own attachment (plan 12, one shared dropdown widget).
+    SuiteUI::attachDropdown (scaleDropdown, *apvts.getParameter (MicroTimingChaosProcessor::scaleId), scaleAttachment);
     syncAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (
         apvts, MicroTimingChaosProcessor::syncId, syncButton);
 
@@ -428,17 +416,6 @@ MicroTimingChaosEditor::~MicroTimingChaosEditor()
     setLookAndFeel (nullptr);
 }
 
-void MicroTimingChaosEditor::showHelp (const juce::MouseEvent& e)
-{
-    if (auto* component = e.eventComponent)
-    {
-        const auto text = component->getHelpText();
-
-        if (text.isNotEmpty())
-            helpLabel.setText (text, juce::dontSendNotification);
-    }
-}
-
 void MicroTimingChaosEditor::setPage (int newPage)
 {
     page = juce::jlimit (0, 2, newPage);
@@ -458,7 +435,7 @@ void MicroTimingChaosEditor::setPage (int newPage)
                               static_cast<juce::Component*> (&swingSlider), static_cast<juce::Component*> (&velocitySlider),
                               static_cast<juce::Component*> (&grid),
                               static_cast<juce::Component*> (&rootSlider), static_cast<juce::Component*> (&octavesSlider),
-                              static_cast<juce::Component*> (&scaleCaption), static_cast<juce::Component*> (&scaleBox),
+                              static_cast<juce::Component*> (&scaleDropdown),
                               static_cast<juce::Component*> (&tempoSlider), static_cast<juce::Component*> (&speedSlider),
                               static_cast<juce::Component*> (&rateSelector), static_cast<juce::Component*> (&syncButton),
                               static_cast<juce::Component*> (&hostTempoLabel) })
@@ -513,22 +490,13 @@ void MicroTimingChaosEditor::paint (juce::Graphics& g)
     SuiteUI::drawBrandLockup (g, header.toNearestInt(), brandLockup());
 
     // Every group title has the same colour and size; groups on other pages are not drawn.
+    // The chrome is the suite's shared group frame (plan 12).
     for (const auto& group : groups)
     {
         if (group.page != page)
             continue;
 
-        const auto bounds = group.bounds.toFloat();
-
-        g.setColour (SuiteUI::Colours::panel.withAlpha (0.55f));
-        g.fillRoundedRectangle (bounds, 8.0f);
-        g.setColour (SuiteUI::Colours::track);
-        g.drawRoundedRectangle (bounds, 8.0f, 1.0f);
-
-        g.setColour (lookAndFeel.getAccent());
-        g.setFont (juce::Font (juce::FontOptions (15.0f, juce::Font::bold)));
-        g.drawText (group.title, group.bounds.withHeight (groupTitleHeight).translated (0, 4).reduced (12, 0),
-                    juce::Justification::centredLeft);
+        SuiteUI::drawGroupFrame (g, group.bounds, group.title, lookAndFeel.getAccent());
     }
 }
 
@@ -542,7 +510,7 @@ void MicroTimingChaosEditor::resized()
     const int barWidth = 360;
     const int barHeight = 34;
 
-    // The gear sits at the far right of the header, right of the preset bar (plan 08 Q4).
+    // The menu button sits at the far right of the header, right of the preset bar (plan 08 Q4).
     headerMenu.setBounds (titleBand.removeFromRight (28)
                             .withSizeKeepingCentre (28, 28));
 
@@ -555,33 +523,42 @@ void MicroTimingChaosEditor::resized()
 
     // Every gap is groupGap: the outer margin, and the space between groups in both directions.
     auto content = getLocalBounds().withTrimmedTop (titleBandHeight).reduced (groupGap);
-    helpLabel.setBounds (content.removeFromBottom (helpHeight));
+    helpLine.setBounds (content.removeFromBottom (helpHeight));
     content.removeFromBottom (groupGap);
 
     const int x0 = content.getX();
     const int width = content.getWidth();
 
-    // Page 0 (SEQUENCE): the pattern, then melody and transport, the step grid takes the rest
-    // (plan 05.1 pass 2: melody and transport moved here from the MOD page).
+    // Page 0 (SEQUENCE): the pattern on the left; transport on top and melody in the middle
+    // of the right column; the step grid spans the full width below (plan 12, the owner's
+    // request). The pattern's six knobs sit in two columns of three rows.
     if (page == 0)
     {
-        const juce::Rectangle<int> patternGroup (x0, content.getY(), width,
-                                                 groupTitleHeight + 2 * SuiteUI::knobRowHeight + groupGap + 10);
-        const int rowHeight = groupTitleHeight + SuiteUI::knobRowHeight + 20;
-        const juce::Rectangle<int> melodyGroup (x0, patternGroup.getBottom() + groupGap, width / 2 - groupGap / 2, rowHeight);
-        const juce::Rectangle<int> transportGroup (melodyGroup.getRight() + groupGap, melodyGroup.getY(),
-                                                   width - melodyGroup.getWidth() - groupGap, rowHeight);
-        const juce::Rectangle<int> sequencerGroup (x0, melodyGroup.getBottom() + groupGap, width,
-                                                   content.getBottom() - melodyGroup.getBottom() - groupGap);
+        const int rightWidth = juce::roundToInt (width * 0.45f);
+        const int leftWidth = width - rightWidth - groupGap;
+
+        const int transportHeight = groupTitleHeight + SuiteUI::knobRowHeight + groupGap
+                                  + 2 * SuiteUI::pillHeight + 2 + groupGap + readoutHeight + 10;
+        const int melodyHeight = groupTitleHeight + SuiteUI::knobRowHeight + 10;
+        const int blockHeight = juce::jmax (groupTitleHeight + 3 * SuiteUI::knobRowHeight + 2 * groupGap + 10,
+                                            transportHeight + groupGap + melodyHeight);
+
+        const juce::Rectangle<int> patternGroup (x0, content.getY(), leftWidth, blockHeight);
+        const juce::Rectangle<int> transportGroup (patternGroup.getRight() + groupGap, content.getY(),
+                                                   rightWidth, transportHeight);
+        const juce::Rectangle<int> melodyGroup (transportGroup.getX(), transportGroup.getBottom() + groupGap,
+                                                rightWidth, melodyHeight);
+        const juce::Rectangle<int> sequencerGroup (x0, patternGroup.getBottom() + groupGap, width,
+                                                   content.getBottom() - patternGroup.getBottom() - groupGap);
 
         groups.push_back ({ "PATTERN", patternGroup, 0 });
-        groups.push_back ({ "MELODY", melodyGroup, 0 });
         groups.push_back ({ "TRANSPORT", transportGroup, 0 });
+        groups.push_back ({ "MELODY", melodyGroup, 0 });
         groups.push_back ({ "SEQUENCER", sequencerGroup, 0 });
 
         grid.setBounds (innerOf (sequencerGroup));
 
-        const auto patternCells = gridCells (innerOf (patternGroup), 6, 3);
+        const auto patternCells = gridCells (innerOf (patternGroup), 6, 2);
         placeKnob (lengthSlider, patternCells[0]);
         placeKnob (densitySlider, patternCells[1]);
         placeKnob (seedSlider, patternCells[2]);
@@ -589,18 +566,19 @@ void MicroTimingChaosEditor::resized()
         placeKnob (swingSlider, patternCells[4]);
         placeKnob (velocitySlider, patternCells[5]);
 
-        // Melody: root, octaves, and the scale box.
+        // Melody: root, octaves, and the scale dropdown.
         const auto melodyCells = gridCells (innerOf (melodyGroup), 3, 3);
         placeKnob (rootSlider, melodyCells[0]);
         placeKnob (octavesSlider, melodyCells[1]);
-        auto scaleCell = melodyCells[2];
-        scaleCaption.setBounds (scaleCell.removeFromTop (18));
-        scaleBox.setBounds (scaleCell.withSizeKeepingCentre (scaleCell.getWidth(), SuiteUI::pillHeight));
+        scaleDropdown.setBounds (melodyCells[2].withSizeKeepingCentre (melodyCells[2].getWidth(), SuiteUI::captionHeight + SuiteUI::pillHeight));
 
         // Transport: tempo and speed knobs on the left; on the right, the rate switches with
-        // BPM Sync below them, and the host tempo readout underneath.
+        // BPM Sync below them, and the host tempo readout underneath. The knob cells are one
+        // knob row tall, so the caption sits directly above the knob (owner finding, plan 13:
+        // the full-height cell pushed the knobs far below their captions).
         auto transportInner = innerOf (transportGroup);
-        auto knobArea = transportInner.removeFromLeft (juce::roundToInt ((float) transportInner.getWidth() * 0.4f));
+        auto knobArea = transportInner.removeFromLeft (juce::roundToInt ((float) transportInner.getWidth() * 0.4f))
+                          .removeFromTop (SuiteUI::knobRowHeight);
         placeKnob (tempoSlider, knobArea.removeFromLeft (knobArea.getWidth() / 2));
         placeKnob (speedSlider, knobArea);
         transportInner.removeFromLeft (groupGap);

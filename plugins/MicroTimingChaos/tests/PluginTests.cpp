@@ -140,7 +140,7 @@ namespace
         for (const char* rateId : { Processor::lfo1RateId, Processor::lfo2RateId })
             checkRange (processor.apvts, rateId, 0.02f, 20.0f, 0.25f);
         for (const char* shapeId : { Processor::lfo1ShapeId, Processor::lfo2ShapeId })
-            checkRange (processor.apvts, shapeId, 0.0f, 6.0f, 0.0f);
+            checkRange (processor.apvts, shapeId, 0.0f, 7.0f, 0.0f);
         for (const char* syncId : { Processor::lfo1SyncId, Processor::lfo2SyncId })
             checkRange (processor.apvts, syncId, 0.0f, 1.0f, 0.0f);
         for (const char* divisionId : { Processor::lfo1DivisionId, Processor::lfo2DivisionId })
@@ -1465,13 +1465,19 @@ namespace
             auto* mtcEditor = static_cast<MicroTimingChaosEditor*> (editor.get());
             mtcEditor->setPage (renderPage);
 
-            // On the drift page both lerp views are rendered (plan 05 R9).
+            // On the drift page both lerp views are rendered (plan 05 R9), each to its
+            // own file, so the user manual can show both.
             if (renderPage == 1)
+            {
+                mtcEditor->setLerpView (0);
+                assert (PluginTest::writeDeterministicPng (*editor,
+                    juce::File (folder).getChildFile ("microtimingchaos-drift-curve.png")));
                 mtcEditor->setLerpView (1);
+            }
 
             const juce::File file (juce::File (folder).getChildFile (
                 renderPage == 0 ? "microtimingchaos-sequence.png"
-                                : renderPage == 1 ? "microtimingchaos-drift.png" : "microtimingchaos-mod.png"));
+                                : renderPage == 1 ? "microtimingchaos-drift-preview.png" : "microtimingchaos-mod.png"));
             assert (PluginTest::writeDeterministicPng (*editor, file));
             processor.editorBeingDeleted (editor.get());
         }
@@ -1511,6 +1517,66 @@ namespace
         processor.editorBeingDeleted (driftEditor.get());
 
         pass ("testEditor");
+    }
+
+    /** Plan 12: the SEQUENCE page's new arrangement and the step grid's help text. */
+    void testSequenceLayout()
+    {
+        Processor processor;
+        std::unique_ptr<juce::AudioProcessorEditor> editor (processor.createEditorAndMakeActive());
+        auto* mtcEditor = static_cast<MicroTimingChaosEditor*> (editor.get());
+        mtcEditor->setPage (0);
+
+        juce::Rectangle<int> pattern, transport, melody, sequencer;
+        for (const auto& group : mtcEditor->pageGroups())
+        {
+            if (group.title == "PATTERN")    pattern = group.bounds;
+            if (group.title == "TRANSPORT") transport = group.bounds;
+            if (group.title == "MELODY")    melody = group.bounds;
+            if (group.title == "SEQUENCER") sequencer = group.bounds;
+        }
+
+        assert (pattern.getX() < transport.getX());
+        assert (pattern.getX() < melody.getX());
+        assert (transport.getY() < melody.getY());
+        assert (transport.getRight() <= melody.getRight() + 1);
+        assert (sequencer.getY() >= pattern.getBottom() && sequencer.getY() >= melody.getBottom());
+        assert (sequencer.getWidth() == pattern.getWidth() + transport.getWidth() + 8);
+
+        // The step grid explains itself (plan 12, the owner's request).
+        auto* grid = PluginTest::findComponentById (*editor, "microtimingchaos-grid");
+        assert (grid != nullptr && grid->getHelpText().contains ("one column per step"));
+
+        processor.editorBeingDeleted (editor.get());
+        pass ("testSequenceLayout");
+    }
+
+    /** Plan 12: the shared help line, with the stale-hover regression. */
+    void testHelpLine()
+    {
+        Processor processor;
+        std::unique_ptr<juce::AudioProcessorEditor> editor (processor.createEditorAndMakeActive());
+        assert (editor != nullptr);
+
+        std::function<juce::Component* (juce::Component&)> findSlider = [&] (juce::Component& root)
+            -> juce::Component*
+        {
+            if (auto* cell = dynamic_cast<SuiteUI::LabelledSlider*> (&root))
+                if (cell->label.getText() == "CHAOS")
+                    return cell;
+            for (auto* child : root.getChildren())
+                if (auto* found = findSlider (*child))
+                    return found;
+            return nullptr;
+        };
+
+        auto* slider = findSlider (*editor);
+        assert (slider != nullptr && slider->getHelpText().isNotEmpty());
+
+        PluginTest::checkHelpLine (*editor, "microtimingchaos-help", *slider);
+
+        processor.editorBeingDeleted (editor.get());
+        pass ("testHelpLine");
     }
 }
 
@@ -1564,6 +1630,8 @@ int main()
     testEditorWithModulation();
     testDisplayFollowsModulation();
     testEditor();
+    testSequenceLayout();
+    testHelpLine();
 
     testRenderBaseline ();
 

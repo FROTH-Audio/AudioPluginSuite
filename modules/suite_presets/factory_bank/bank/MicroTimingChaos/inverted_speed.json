@@ -1,0 +1,13 @@
+{
+  "_name": "Inverted Speed",
+  "_category": "Sparse",
+  "_description": "The inverted waveform drags the attractor speed down.",
+  "_plugin": "MicroTimingChaos",
+  "_pluginVersion": "1.0.0",
+  "density": 35.0,
+  "speed": 0.7,
+  "lfo1Rate": 0.3,
+  "lfo1Invert": 1,
+  "mod1Target": 12,
+  "mod1Amount": 60.0
+}

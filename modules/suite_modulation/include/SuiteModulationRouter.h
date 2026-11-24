@@ -103,6 +103,11 @@ namespace SuiteModulation
         /** UI thread: the LFO's offset as a fraction, -1 to 1 (the Offset control in percent, divided by 100). */
         float getLfoOffset(int lfo) const noexcept;
 
+        /** The LFO's waveform at a cycle position, with its transforms (invert/rectify/quantise/
+            smooth/pulse/skew) and its Offset applied — the one path shared by the routing and by
+            the scope's curve. UI thread. */
+        float transformedLfoValue(int lfo, double cycles) const noexcept;
+
         /** The waveform value moved by an offset and limited to -1 to 1. Used for the output and for the scope's curve. */
         static float withOffset(float value, float offset) noexcept;
 
@@ -133,6 +138,8 @@ namespace SuiteModulation
 
         // Read-only raw values, looked up once in the constructor
         std::array<std::atomic<float>*, lfoCount> lfoRate {}, lfoShape {}, lfoSync {}, lfoDivision {};
+        std::array<std::atomic<float>*, lfoCount> lfoInvert {}, lfoRectify {};
+        std::array<std::atomic<float>*, lfoCount> lfoQuantise {}, lfoSmooth {}, lfoPulseWidth {}, lfoSkew {};
         std::array<std::atomic<float>*, slotCount> modSource {}, modTarget {}, modAmount {}, modDelay {};
         std::atomic<float>* hostSync = nullptr;
 
@@ -142,7 +149,10 @@ namespace SuiteModulation
 
         double lfoCyclesAt(int lfo, double timeSamples, double beat, double blockStartSample) const;
 
-        /** The LFO's output at a cycle position: its waveform, moved by its Offset. */
+        /**
+            The LFO's output at a cycle position: its waveform, moved by its transforms and then by its Offset.
+            Audio thread.
+        */
         float lfoOutputAt(int lfo, double cycles) const;
 
         std::array<std::atomic<float>, maxTargets> publishedOffset {};

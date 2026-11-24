@@ -13,6 +13,12 @@ namespace SuiteModulation
         constexpr std::array<const char*, Router::lfoCount> lfoSyncIds { "lfo1Sync", "lfo2Sync" };
         constexpr std::array<const char*, Router::lfoCount> lfoDivisionIds { "lfo1Division", "lfo2Division" };
         constexpr std::array<const char*, Router::lfoCount> lfoOffsetIds { "lfo1Offset", "lfo2Offset" };
+        constexpr std::array<const char*, Router::lfoCount> lfoInvertIds { "lfo1Invert", "lfo2Invert" };
+        constexpr std::array<const char*, Router::lfoCount> lfoRectifyIds { "lfo1Rectify", "lfo2Rectify" };
+        constexpr std::array<const char*, Router::lfoCount> lfoQuantiseIds { "lfo1Quantise", "lfo2Quantise" };
+        constexpr std::array<const char*, Router::lfoCount> lfoSmoothIds { "lfo1Smooth", "lfo2Smooth" };
+        constexpr std::array<const char*, Router::lfoCount> lfoPulseIds { "lfo1PulseWidth", "lfo2PulseWidth" };
+        constexpr std::array<const char*, Router::lfoCount> lfoSkewIds { "lfo1Skew", "lfo2Skew" };
 
         constexpr std::array<const char*, Router::slotCount> modSourceIds { "mod1Source", "mod2Source", "mod3Source", "mod4Source", "mod5Source", "mod6Source" };
         constexpr std::array<const char*, Router::slotCount> modTargetIds { "mod1Target", "mod2Target", "mod3Target", "mod4Target", "mod5Target", "mod6Target" };
@@ -26,7 +32,7 @@ namespace SuiteModulation
                      [](float s, float e, float v) { return std::log(v / s) / std::log(e / s); } };
         }
 
-        juce::StringArray lfoShapeNames() { return { "Sine", "Triangle", "Saw", "Square", "Sample & Hold", "Random", "Noise" }; }
+        juce::StringArray lfoShapeNames() { return { "Sine", "Triangle", "Saw", "Square", "Sample & Hold", "Random", "Noise", "Bouncing Ball" }; }
         juce::StringArray divisionNames() { return { "4 bars", "2 bars", "1 bar", "1/2", "1/4", "1/8", "1/16" }; }
         juce::StringArray sourceNames() { return { "LFO 1", "LFO 2" }; }
 
@@ -86,6 +92,31 @@ namespace SuiteModulation
                 juce::ParameterID { modDelayIds[(size_t) slot], 1 }, "Mod " + number + " Delay",
                 juce::NormalisableRange<float>(0.0f, 10.0f, 0.01f, 0.5f), 0.0f, "s"));
         }
+
+        // Plan 17 Phase 7: the per-LFO waveform transforms, appended after every existing parameter
+        // so no saved parameter index moves. Each LFO owns its six transforms; zero / false / off
+        // leaves that LFO's waveform untouched, so idle plugins sound bit-identical.
+        for (int lfo = 0; lfo < lfoCount; ++lfo)
+        {
+            const auto number = juce::String(lfo + 1);
+
+            params.push_back (std::make_unique<juce::AudioParameterBool>(
+                juce::ParameterID { lfoInvertIds[(size_t) lfo], 1 }, "LFO " + number + " Invert", false));
+            params.push_back(std::make_unique<juce::AudioParameterBool>(
+                juce::ParameterID { lfoRectifyIds[(size_t) lfo], 1 }, "LFO " + number + " Rectify", false));
+            params.push_back(std::make_unique<juce::AudioParameterFloat>(
+                juce::ParameterID { lfoQuantiseIds[(size_t) lfo], 1 }, "LFO " + number + " Quantise",
+                juce::NormalisableRange<float>(0.0f, 16.0f, 0.5f), 0.0f, ""));
+            params.push_back(std::make_unique<juce::AudioParameterFloat>(
+                juce::ParameterID { lfoSmoothIds[(size_t) lfo], 1 }, "LFO " + number + " Smooth",
+                juce::NormalisableRange<float>(0.0f, 1.0f, 0.1f), 0.0f, ""));
+            params.push_back(std::make_unique<juce::AudioParameterFloat>(
+                juce::ParameterID { lfoPulseIds[(size_t) lfo], 1 }, "LFO " + number + " Pulse Width",
+                juce::NormalisableRange<float>(0.0f, 1.0f, 0.1f), 0.0f, "%"));
+            params.push_back(std::make_unique<juce::AudioParameterFloat>(
+                juce::ParameterID { lfoSkewIds[(size_t) lfo], 1 }, "LFO " + number + " Skew",
+                juce::NormalisableRange<float>(-1.0f, 1.0f, 0.1f), 0.0f, ""));
+        }
     }
 
     Router::Router(juce::AudioProcessorValueTreeState& state, const TargetInfo* t, int count, const char* syncId)
@@ -100,6 +131,12 @@ namespace SuiteModulation
             lfoSync[(size_t) lfo] = apvts.getRawParameterValue(lfoSyncIds[(size_t) lfo]);
             lfoDivision[(size_t) lfo] = apvts.getRawParameterValue(lfoDivisionIds[(size_t) lfo]);
             lfoOffset[(size_t) lfo] = apvts.getRawParameterValue(lfoOffsetIds[(size_t) lfo]);
+            lfoInvert[(size_t) lfo] = apvts.getRawParameterValue(lfoInvertIds[(size_t) lfo]);
+            lfoRectify[(size_t) lfo] = apvts.getRawParameterValue(lfoRectifyIds[(size_t) lfo]);
+            lfoQuantise[(size_t) lfo] = apvts.getRawParameterValue(lfoQuantiseIds[(size_t) lfo]);
+            lfoSmooth[(size_t) lfo] = apvts.getRawParameterValue(lfoSmoothIds[(size_t) lfo]);
+            lfoPulseWidth[(size_t) lfo] = apvts.getRawParameterValue(lfoPulseIds[(size_t) lfo]);
+            lfoSkew[(size_t) lfo] = apvts.getRawParameterValue(lfoSkewIds[(size_t) lfo]);
         }
 
         for (int slot = 0; slot < slotCount; ++slot)
@@ -300,12 +337,30 @@ namespace SuiteModulation
         return juce::jlimit(-1.0f, 1.0f, value + offset);
     }
 
-    float Router::lfoOutputAt(int lfo, double cycles) const
+    float Router::transformedLfoValue(int lfo, double cycles) const noexcept
     {
+        if (lfo < 0 || lfo >= lfoCount)
+            return 0.0f;
+
         const auto shape = static_cast<CoreDSP::Modulation::LfoShape>(getLfoShape(lfo));
-        const float wave = CoreDSP::Modulation::lfoValue(shape, cycles, lfoSeeds[(size_t) lfo]);
+        const auto index = (size_t) lfo;
+
+        CoreDSP::Modulation::LfoTransforms transforms;
+        transforms.invert = lfoInvert[index]->load() > 0.5f;
+        transforms.rectify = lfoRectify[index]->load() > 0.5f;
+        transforms.quantiseSteps = lfoQuantise[index]->load();
+        transforms.smooth = lfoSmooth[index]->load();
+        transforms.pulseWidth = lfoPulseWidth[index]->load();
+        transforms.skew = lfoSkew[index]->load();
+
+        const float wave = CoreDSP::Modulation::lfoValue(shape, cycles, lfoSeeds[index], transforms);
 
         return withOffset(wave, getLfoOffset(lfo));
+    }
+
+    float Router::lfoOutputAt(int lfo, double cycles) const
+    {
+        return transformedLfoValue(lfo, cycles);
     }
 
     float Router::getLfoPhase(int lfo) const noexcept

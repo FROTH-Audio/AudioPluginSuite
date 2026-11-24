@@ -1,0 +1,11 @@
+{
+  "_name": "Half Processed",
+  "_category": "Lo-Fi",
+  "_description": "Both bands blend halfway to clean.",
+  "_plugin": "MultibandSaturation",
+  "_pluginVersion": "1.0.0",
+  "driveLow": 15.0,
+  "driveHigh": 15.0,
+  "mixLow": 50.0,
+  "mixHigh": 50.0
+}

@@ -1,0 +1,14 @@
+{
+  "_name": "Start Scanner",
+  "_category": "Mix",
+  "_description": "Slow saw scans the drift start point across the spectrum.",
+  "_plugin": "SpectralDrift",
+  "_pluginVersion": "1.0.0",
+  "depth": 60.0,
+  "driftStart": 0.0,
+  "lfo2Rate": 0.1,
+  "lfo2Shape": 2,
+  "mod2Source": 1,
+  "mod2Target": 9,
+  "mod2Amount": 100.0
+}

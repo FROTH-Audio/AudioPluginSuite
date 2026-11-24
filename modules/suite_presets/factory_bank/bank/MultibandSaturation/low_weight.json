@@ -1,0 +1,10 @@
+{
+  "_name": "Low Weight",
+  "_category": "Bass",
+  "_description": "Driven low band, clean highs.",
+  "_plugin": "MultibandSaturation",
+  "_pluginVersion": "1.0.0",
+  "driveLow": 12.0,
+  "driveHigh": 2.0,
+  "toneLow": -0.3
+}

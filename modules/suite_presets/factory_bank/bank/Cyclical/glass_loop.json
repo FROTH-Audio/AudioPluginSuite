@@ -1,0 +1,19 @@
+{
+  "_name": "Glass Loop",
+  "_category": "Texture",
+  "_description": "Bells and pads drifting at uneven speeds.",
+  "_plugin": "Cyclical",
+  "_pluginVersion": "1.0.0",
+  "_loopPaths": [
+    "embedded:bells_4k.wav",
+    "embedded:texture_4k.wav",
+    "embedded:drone_4k.wav",
+    "embedded:noise_4k.wav"
+  ],
+  "slot1Crossfade": 50.0,
+  "slot2Speed": 0.75,
+  "slot2Crossfade": 50.0,
+  "slot3Speed": 0.5,
+  "slot3Crossfade": 50.0,
+  "slot4Crossfade": 50.0
+}

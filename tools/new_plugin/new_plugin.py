@@ -12,7 +12,8 @@ Usage:
 
 What it does:
     - Refuses if plugins/<Name>/ exists, or if the plugin code is already used by a plugin in plugins/*/CMakeLists.txt.
-    - Copies the skeleton into plugins/<Name>/ and replaces __NAME__, __PRODUCT__ and __CODE__.
+    - Copies the skeleton into plugins/<Name>/ and replaces __NAME__, __PRODUCT__, __CODE__ and
+      __LOWERCASENAME__ (used by the manual's screenshot file names).
     - Writes nothing outside plugins/<Name>/. It reads the skeleton and the plugins' CMakeLists.txt files.
 
 After it runs, add one line to the root CMakeLists.txt, next to the other plugins:
@@ -75,7 +76,8 @@ def main(argv):
     if not SKELETON.is_dir():
         fail(f"skeleton folder not found: {SKELETON}")
 
-    replacements = {"__NAME__": name, "__PRODUCT__": product, "__CODE__": code}
+    replacements = {"__NAME__": name, "__PRODUCT__": product, "__CODE__": code,
+                    "__LOWERCASENAME__": name.lower()}
     created = []
     try:
         for source in sorted(SKELETON.rglob("*")):

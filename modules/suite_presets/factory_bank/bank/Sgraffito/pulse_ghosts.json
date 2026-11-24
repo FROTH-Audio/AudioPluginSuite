@@ -1,0 +1,16 @@
+{
+  "_name": "Pulse Ghosts",
+  "_category": "Echo",
+  "_description": "A narrow pulse gates the ghost threshold in and out.",
+  "_plugin": "Sgraffito",
+  "_pluginVersion": "1.0.0",
+  "_samplePath": "embedded:pulse_ghosts_4k.wav",
+  "ghostOn": 1,
+  "ghostThreshold": 60.0,
+  "ghostDelay": 36.0,
+  "crackle": 6.0,
+  "lfo1Rate": 1.6,
+  "lfo1PulseWidth": 0.3,
+  "mod1Target": 16,
+  "mod1Amount": 65.0
+}

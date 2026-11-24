@@ -7,6 +7,7 @@
 #include "StateFixtures.h"
 
 #include <cstdint>
+#include <functional>
 
 namespace
 {
@@ -86,6 +87,9 @@ namespace
         checkRange (processor.apvts, Processor::foldId, 0.0f, 50.0f, 0.0f);
         checkRange (processor.apvts, Processor::toneId, -1.0f, 1.0f, 0.0f);
         checkRange (processor.apvts, Processor::curveId, 0.5f, 3.0f, 1.0f);
+
+        // The final gain stage is named "Output" everywhere in the suite (plan 12).
+        assert (processor.apvts.getParameter (Processor::outputLevelId)->getName (100) == "Output");
 
         pass ("testParameters");
     }
@@ -411,6 +415,55 @@ namespace
         pass ("testEditor");
     }
 
+    /** Plan 15 (owner): Tube Bias applies to Tube mode only — the editor dims it in Tape
+        and Diode, and keeps it live in Tube (the plan 10 G1 rule: dimmed, never hidden). */
+    void testModeAffinity()
+    {
+        Processor processor;
+        processor.prepareToPlay (sampleRate, blockSize);
+        std::unique_ptr<juce::AudioProcessorEditor> editor (processor.createEditorAndMakeActive());
+        assert (editor != nullptr);
+        juce::MessageManager::getInstance()->runDispatchLoopUntil (120);   // one timer tick
+
+        auto* dsEditor = dynamic_cast<DynamicSaturationEditor*> (editor.get());
+        assert (dsEditor != nullptr);
+
+        juce::Component* bias = nullptr;
+        std::function<juce::Component* (juce::Component&)> findByCaption = [&] (juce::Component& root)
+            -> juce::Component*
+        {
+            if (auto* cell = dynamic_cast<SuiteUI::LabelledSlider*> (&root))
+                if (cell->label.getText() == "TUBE BIAS")
+                    return cell;
+            for (auto* child : root.getChildren())
+                if (auto* found = findByCaption (*child))
+                    return found;
+            return nullptr;
+        };
+        bias = findByCaption (*editor);
+        assert (bias != nullptr);
+
+        // Default mode is Tube: the bias knob is live.
+        assert (bias->isEnabled());
+
+        // Tape and Diode dim it.
+        setParameter (processor.apvts, Processor::modeId, 1.0f);
+        juce::MessageManager::getInstance()->runDispatchLoopUntil (120);
+        assert (! bias->isEnabled());
+
+        setParameter (processor.apvts, Processor::modeId, 2.0f);
+        juce::MessageManager::getInstance()->runDispatchLoopUntil (120);
+        assert (! bias->isEnabled());
+
+        // Back to Tube: live again.
+        setParameter (processor.apvts, Processor::modeId, 0.0f);
+        juce::MessageManager::getInstance()->runDispatchLoopUntil (120);
+        assert (bias->isEnabled());
+
+        processor.editorBeingDeleted (editor.get());
+        pass ("testModeAffinity");
+    }
+
     //==============================================================================
     // LFOs and modulation routing
 
@@ -437,7 +490,7 @@ namespace
         Processor processor;
 
         checkRange (processor.apvts, Processor::lfo1RateId, 0.02f, 20.0f, 0.25f);
-        checkRange (processor.apvts, Processor::lfo1ShapeId, 0.0f, 6.0f, 0.0f);
+        checkRange (processor.apvts, Processor::lfo1ShapeId, 0.0f, 7.0f, 0.0f);
         checkRange (processor.apvts, Processor::lfo1SyncId, 0.0f, 1.0f, 0.0f);
         checkRange (processor.apvts, Processor::lfo1DivisionId, 0.0f, 6.0f, 4.0f);
         checkRange (processor.apvts, Processor::lfo1OffsetId, -100.0f, 100.0f, 0.0f);
@@ -678,6 +731,43 @@ namespace
         pass ("testEditorPages");
     }
 
+    /** Plan 12: the shared help line on both pages, with the stale-hover regression. */
+    void testHelpLine()
+    {
+        Processor processor;
+        std::unique_ptr<juce::AudioProcessorEditor> editor (processor.createEditorAndMakeActive());
+        assert (editor != nullptr);
+
+        auto* saturationEditor = dynamic_cast<DynamicSaturationEditor*> (editor.get());
+        assert (saturationEditor != nullptr);
+
+        // Find the drive knob by its caption.
+        std::function<juce::Component* (juce::Component&)> findSlider = [&] (juce::Component& root)
+            -> juce::Component*
+        {
+            if (auto* cell = dynamic_cast<SuiteUI::LabelledSlider*> (&root))
+                if (cell->label.getText() == "DRIVE")
+                    return cell;
+            for (auto* child : root.getChildren())
+                if (auto* found = findSlider (*child))
+                    return found;
+            return nullptr;
+        };
+
+        auto* slider = findSlider (*editor);
+        assert (slider != nullptr && slider->getHelpText().isNotEmpty());
+
+        PluginTest::checkHelpLine (*editor, "dynamicsaturation-help", *slider);
+
+        // The line exists on both pages (plan 12): the MOD page shows it too.
+        saturationEditor->setPage (1);
+        auto* lineAgain = PluginTest::findComponentById (*editor, "dynamicsaturation-help");
+        assert (lineAgain != nullptr && lineAgain->isVisible());
+
+        processor.editorBeingDeleted (editor.get());
+        pass ("testHelpLine");
+    }
+
     // The output meters read the real per-channel output: a block with signal only on the
     // left must light the left bar, not the right (plan 05.1 pass 2).
     void testStereoOutputMeter()
@@ -722,6 +812,7 @@ int main()
     testStereoLinkDrivesQuietChannelHarder();
     testFoldChangesSound();
     testEditor();
+    testModeAffinity();
     testModulationParameters();
     testDefaultRoutingIsSilent();
     testModulationDirection();
@@ -729,6 +820,7 @@ int main()
     testSyncedLfoFollowsTempo();
     testModulationStaysInRange();
     testEditorPages();
+    testHelpLine();
     testStereoOutputMeter();
 
     testRenderBaseline ();

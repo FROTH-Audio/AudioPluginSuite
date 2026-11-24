@@ -1,0 +1,11 @@
+{
+  "_name": "Extreme Split",
+  "_category": "Extreme",
+  "_description": "Maximum drive on both bands, diode mode.",
+  "_plugin": "MultibandSaturation",
+  "_pluginVersion": "1.0.0",
+  "mode": 2,
+  "driveLow": 24.0,
+  "driveHigh": 24.0,
+  "sensitivity": 1.0
+}

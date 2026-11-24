@@ -1,0 +1,19 @@
+{
+  "_name": "Tape Halo",
+  "_category": "Texture",
+  "_description": "A reversed pad over a slow forward texture.",
+  "_plugin": "Cyclical",
+  "_pluginVersion": "1.0.0",
+  "_loopPaths": [
+    "embedded:texture_4k.wav",
+    "embedded:drone_4k.wav",
+    "embedded:bells_4k.wav",
+    "embedded:noise_4k.wav"
+  ],
+  "slot1Speed": 0.5,
+  "slot1Crossfade": 200.0,
+  "slot2Direction": 1,
+  "slot2Crossfade": 200.0,
+  "slot3Crossfade": 200.0,
+  "slot4Crossfade": 200.0
+}

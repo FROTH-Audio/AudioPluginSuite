@@ -50,6 +50,17 @@ jobs:
       - name: Run unit tests
         run: ctest --test-dir build -C Release --output-on-failure
 
+      # The factory bank has its own rules (ranges, categories, defaults, sample URIs). The audit
+      # reads the authoring data and the generated XML/JSON, so it catches a preset mistake that
+      # the C++ tests would not.
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Audit factory bank
+        run: python tools/audit_bank.py
+
       # Only reached when the build and the tests pass. The run number keeps each run's artifact
       # distinct, so an older download cannot be mistaken for the current build.
       - name: Upload VST3 bundles

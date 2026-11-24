@@ -101,6 +101,93 @@ namespace
         std::puts ("[PASS] testSegmentedSelectorClicksNotify");
     }
 
+    /** The note-off guarantee's widget paths (plan 13): a mouse-up releases the held key,
+        a drag releases the previous key before the next one starts, the pointer leaving
+        releases everything, and a destroyed strip flushes its held note. */
+    void testPlayableKeyboardGuarantee()
+    {
+        std::vector<int> ons, offs;
+        auto wire = [&ons, &offs] (SuiteUI::PlayableKeyboardStrip& strip)
+        {
+            strip.onNoteOn = [&ons] (int note, float) { ons.push_back (note); };
+            strip.onNoteOff = [&offs] (int note) { offs.push_back (note); };
+        };
+
+        const auto keyEvent = [] (juce::Component& component, float x, float y)
+        {
+            return juce::MouseEvent (juce::Desktop::getInstance().getMainMouseSource(),
+                                     juce::Point<float> (x, y), juce::ModifierKeys(), 1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+                                     &component, &component, juce::Time::getCurrentTime(),
+                                     juce::Point<float> (x, y), juce::Time::getCurrentTime(), 1, false);
+        };
+
+        // 73 keys over 730 px: 10 px per key, so key 60 sits at x = 365, key 64 at 405.
+        SuiteUI::PlayableKeyboardStrip strip;
+        strip.setBounds (0, 0, 730, 40);
+        wire (strip);
+
+        strip.mouseDown (keyEvent (strip, 365.0f, 30.0f));
+        assert (ons == std::vector<int> { 60 });
+        assert (strip.isAnyNoteHeld());
+
+        // Mouse-up over a different key releases only the held one (plan 13).
+        strip.mouseUp (keyEvent (strip, 725.0f, 30.0f));
+        assert (offs == std::vector<int> { 60 });
+        assert (! strip.isAnyNoteHeld());
+
+        // A drag releases the previous key before the next one starts.
+        strip.mouseDown (keyEvent (strip, 365.0f, 30.0f));
+        strip.mouseDrag (keyEvent (strip, 405.0f, 30.0f));
+        assert (ons == (std::vector<int> { 60, 60, 64 }));
+        assert (offs == (std::vector<int> { 60, 60 }));
+        strip.mouseUp (keyEvent (strip, 405.0f, 30.0f));
+        assert (offs.back() == 64);
+
+        // The pointer leaving the strip releases everything it holds.
+        strip.mouseDown (keyEvent (strip, 365.0f, 30.0f));
+        strip.mouseExit (keyEvent (strip, 365.0f, 45.0f));
+        assert (offs.back() == 60);
+        assert (! strip.isAnyNoteHeld());
+
+        // releaseHeldNotes is idempotent.
+        strip.releaseHeldNotes();
+        assert (offs.size() == 4);
+
+        // A destroyed strip flushes its held note.
+        {
+            SuiteUI::PlayableKeyboardStrip doomed;
+            doomed.setBounds (0, 0, 730, 40);
+            wire (doomed);
+            doomed.mouseDown (keyEvent (doomed, 365.0f, 30.0f));
+            assert (ons.back() == 60);
+        }
+        assert (offs.back() == 60);
+        assert (ons.size() == 5 && offs.size() == 5);   // note-ons equal note-offs
+
+        std::puts ("[PASS] testPlayableKeyboardGuarantee");
+    }
+
+    void testLabelledSelector()
+    {
+        SuiteUI::LabelledSelector cell ("MODE", juce::Colour (testAccent));
+        cell.setOptions ({ "A", "B", "C" });
+
+        assert (cell.label.getText() == "MODE");
+        assert (cell.getSelectedIndex() == 0);
+
+        // Manual updates work without a parameter and never notify.
+        cell.setSelectedIndex (2);
+        assert (cell.getSelectedIndex() == 2);
+
+        // The pill paints (caption above, selector below).
+        SuiteUI::SuiteLookAndFeel laf { juce::Colour (testAccent) };
+        cell.setLookAndFeel (&laf);
+        assert (paintAndCountVisiblePixels (cell, 160, SuiteUI::captionHeight + SuiteUI::pillHeight + 6) > 0);
+        cell.setLookAndFeel (nullptr);
+
+        std::puts ("[PASS] testLabelledSelector");
+    }
+
     void testLabelledSliders()
     {
         SuiteUI::LabelledSlider rotary ("DRIVE", juce::Slider::RotaryVerticalDrag);
@@ -267,6 +354,104 @@ namespace
         std::puts ("[PASS] testCurveView");
     }
 
+    void testLabelledDropdown()
+    {
+        SuiteUI::LabelledDropdown cell { "SHAPE" };
+        cell.setOptions ({ "SINE", "TRIANGLE", "SAW" });
+
+        assert (cell.getSelectedIndex() == -1);
+
+        cell.setSelectedIndex (2);
+        assert (cell.getSelectedIndex() == 2);
+        assert (cell.box.getNumItems() == 3);
+        assert (cell.box.getItemText (0) == "SINE");
+        assert (cell.box.getItemText (2) == "SAW");
+
+        // Out-of-range clears the selection to nothing rather than wrapping.
+        cell.setSelectedIndex (-1);
+        assert (cell.getSelectedIndex() == -1);
+
+        cell.setSelectedIndex (0);
+        assert (cell.getSelectedIndex() == 0);
+
+        // The caption and the box both paint (the look and feel styles the box).
+        SuiteUI::SuiteLookAndFeel laf { juce::Colour (testAccent) };
+        cell.setLookAndFeel (&laf);
+        assert (paintAndCountVisiblePixels (cell, 160, 54) > 0);
+        cell.setLookAndFeel (nullptr);
+
+        std::puts ("[PASS] testLabelledDropdown");
+    }
+
+    void testHelpLine()
+    {
+        SuiteUI::HelpLine line;
+        line.setIdleText ("Idle sentence.");
+
+        // The idle text is what the line shows before anything is hovered.
+        assert (line.getText() == "Idle sentence.");
+
+        // The owner's bug: the line kept the first hovered control's text. showFor must
+        // always write something - the help text or the idle text, never the last one.
+        juce::Component withHelp;
+        withHelp.setHelpText ("Attack: envelope rise.");
+
+        line.showFor (&withHelp);
+        assert (line.getText() == "Attack: envelope rise.");
+
+        juce::Component withoutHelp;
+        line.showFor (&withoutHelp);
+        assert (line.getText() == "Idle sentence.");
+
+        line.showFor (nullptr);
+        assert (line.getText() == "Idle sentence.");
+
+        // A new idle text reaches the line while it is showing the idle text.
+        line.setIdleText ("New idle sentence.");
+        assert (line.getText() == "New idle sentence.");
+
+        // A disabled predicate (the settings' tooltips toggle) always shows the idle text,
+        // even over a control with help text.
+        line.setEnablePredicate ([] { return false; });
+        line.showFor (&withHelp);
+        assert (line.getText() == "New idle sentence.");
+
+        line.setEnablePredicate ([] { return true; });
+        line.showFor (&withHelp);
+        assert (line.getText() == "Attack: envelope rise.");
+        line.setEnablePredicate ({});
+
+        assert (paintAndCountVisiblePixels (line, 300, 26) > 0);
+
+        std::puts ("[PASS] testHelpLine");
+    }
+
+    void testDrawGroupFrame()
+    {
+        juce::Image image (juce::Image::ARGB, 240, 120, true);
+
+        {
+            juce::Graphics g (image);
+            SuiteUI::drawGroupFrame (g, juce::Rectangle<int> (20, 20, 200, 80), "GLOBAL",
+                                     juce::Colour (testAccent));
+        }
+
+        // The fill, the border and the title all paint inside the bounds.
+        int visible = 0;
+        for (int y = 20; y < 100; ++y)
+            for (int x = 20; x < 220; ++x)
+                if (image.getPixelAt (x, y).getAlpha() > 0)
+                    ++visible;
+
+        assert (visible > 200);
+
+        // Nothing paints outside the bounds.
+        assert (image.getPixelAt (10, 10).getAlpha() == 0);
+        assert (image.getPixelAt (230, 110).getAlpha() == 0);
+
+        std::puts ("[PASS] testDrawGroupFrame");
+    }
+
     void testLevelMeter()
     {
         SuiteUI::LevelMeter meter { juce::Colour (testAccent) };
@@ -279,6 +464,42 @@ namespace
 
         std::puts ("[PASS] testLevelMeter");
     }
+
+    void testStereoLevelMeter()
+    {
+        const juce::Colour leftColour (0xffaaaaaa);
+        const juce::Colour rightColour (testAccent);
+        SuiteUI::StereoLevelMeter meter { leftColour, rightColour };
+
+        // Idle: the track backgrounds paint, but neither bar's accent colour appears.
+        meter.setLevels (0.0f, 0.0f);
+        assert (countPixelsNear (meter, 32, 160, leftColour, 30) == 0);
+        assert (countPixelsNear (meter, 32, 160, rightColour, 30) == 0);
+
+        // Left-only level: left half lights, right half stays dark.
+        meter.setLevels (1.0f, 0.0f);
+        const int leftPixels = countPixelsNear (meter, 32, 160, leftColour, 30);
+        assert (leftPixels > 100);
+        assert (countPixelsNear (meter, 32, 160, rightColour, 30) == 0);
+
+        // Right-only level: right half lights, left returns to dark.
+        meter.setLevels (0.0f, 1.0f);
+        const int rightPixels = countPixelsNear (meter, 32, 160, rightColour, 30);
+        assert (rightPixels > 100);
+        assert (countPixelsNear (meter, 32, 160, leftColour, 30) == 0);
+
+        // Both at 0 dB: both bars light up.
+        meter.setLevels (1.0f, 1.0f);
+        assert (countPixelsNear (meter, 32, 160, leftColour, 30) > 100);
+        assert (countPixelsNear (meter, 32, 160, rightColour, 30) > 100);
+
+        // Saturation: 4.0 is still drawn at 0 dB (clamped).
+        meter.setLevels (4.0f, 4.0f);
+        assert (countPixelsNear (meter, 32, 160, leftColour, 30) > 100);
+        assert (countPixelsNear (meter, 32, 160, rightColour, 30) > 100);
+
+        std::puts ("[PASS] testStereoLevelMeter");
+    }
 }
 
 int main()
@@ -289,13 +510,19 @@ int main()
 
     testSegmentedSelector();
     testSegmentedSelectorClicksNotify();
+    testPlayableKeyboardGuarantee();
+    testLabelledSelector();
     testLabelledSliders();
+    testLabelledDropdown();
+    testHelpLine();
+    testDrawGroupFrame();
     testLookAndFeelToggleButton();
     testSpectrumDisplay();
     testSpectrumCurveIsDrawn();
     testTrailPlot();
     testCurveView();
     testLevelMeter();
+    testStereoLevelMeter();
 
     std::puts ("All SuiteUI tests passed.");
     return 0;

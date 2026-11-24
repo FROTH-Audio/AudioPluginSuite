@@ -1,0 +1,10 @@
+{
+  "_name": "Folded Bass",
+  "_category": "Lo-Fi",
+  "_description": "Folded low harmonics crunch the bottom.",
+  "_plugin": "MultibandSaturation",
+  "_pluginVersion": "1.0.0",
+  "crossover": 250.0,
+  "driveLow": 12.0,
+  "foldLow": 35.0
+}

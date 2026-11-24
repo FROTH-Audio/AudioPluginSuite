@@ -494,9 +494,9 @@ juce::AudioProcessorValueTreeState::ParameterLayout SgraffitoProcessor::createPa
         juce::ParameterID { glideId, 1 }, "Glide",
         juce::NormalisableRange<float> (0.0f, 500.0f, 1.0f), 50.0f, "ms"));
 
-    // Level
+    // Output (plan 12: one name for the final gain stage; the ID never changes)
     params.push_back (std::make_unique<juce::AudioParameterFloat> (
-        juce::ParameterID { levelId, 1 }, "Level",
+        juce::ParameterID { levelId, 1 }, "Output",
         juce::NormalisableRange<float> (-60.0f, 6.0f, 0.1f), 0.0f, "dB"));
     params.push_back (std::make_unique<juce::AudioParameterFloat> (
         juce::ParameterID { velocityCurveId, 1 }, "Velocity Curve",
@@ -613,6 +613,12 @@ void SgraffitoProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
     juce::ignoreUnused (samplesPerBlock);
     preparedSampleRate = sampleRate;
+
+    // The output gain (plan 12): 20 ms smoothing, started at the target so the first
+    // block is bit-exact at the 0 dB default.
+    outputGainSmoothed.reset (sampleRate > 0.0 ? sampleRate : 44100.0, 0.02);
+    outputGainSmoothed.setCurrentAndTargetValue (
+        juce::Decibels::decibelsToGain (juce::jlimit (-60.0f, 6.0f, levelParam->load())));
 
     modulation.prepare (sampleRate);
     streamSample = 0;
@@ -925,6 +931,16 @@ void SgraffitoProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         const double grainInterval = juce::jmax (minGrainIntervalSamples, preparedSampleRate / (double) juce::jmax (1.0f, grainDensityParam->load()));
         const double grainSpread = juce::jlimit (0.0, 1.0, (double) grainSpreadParam->load() / 100.0);
 
+        // The region-boundary fade (plan 12): the last 5 ms of the region ramps the voice
+        // down, so a one-shot that reaches the boundary never cuts mid-waveform. Distance
+        // based, so any playback rate lands on ~0 at the cut. Cloud is untouched (its
+        // grains are already windowed).
+        const double declickFrames = juce::jmax (1.0, 0.005 * preparedSampleRate);
+
+        // The output gain (plan 12), one smoothed value per block target, advanced per sample.
+        outputGainSmoothed.setTargetValue (juce::Decibels::decibelsToGain (
+            juce::jlimit (-60.0f, 6.0f, levelParam->load())));
+
         // The plugin is stereo-only; a host that offered more channels would leave the
         // extras silent (the buffer is cleared), never out of bounds.
         constexpr int maxOutChannels = 2;
@@ -941,6 +957,9 @@ void SgraffitoProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         for (int n = 0; n < numSamples; ++n)
         {
             const double currentSampleIdx = blockStartSample + static_cast<double> (n);
+
+            // The output gain advances once per sample, whatever the voice modes (plan 12).
+            const float outputGain = outputGainSmoothed.getNextValue();
 
             for (int i = 0; i < CoreDSP::Sampler::maxVoices; ++i)
             {
@@ -1042,7 +1061,7 @@ void SgraffitoProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 
                             const double window = std::sin (progress * juce::MathConstants<double>::pi);
                             const double level = window * voice.gain * voice.velocity * envValue
-                                                 * tapeLevel * voice.surfaceGainFactor;
+                                                 * tapeLevel * voice.surfaceGainFactor * outputGain;
 
                             // Linear interpolation: the old integer truncation stepped
                             // between frames, an audible crackle at high rates.
@@ -1061,8 +1080,20 @@ void SgraffitoProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                     // with the dust jitter), advance one frame per output sample (backwards
                     // for Swell), and end as a one-shot at the region end.
                     const double readPos = voice.position + voice.surfaceReadOffset;
+
+                    // The boundary fade (plan 12): the level ramps down over the last
+                    // declickFrames before the region end, so the cut lands on ~zero.
+                    // Distance based, so any playback rate lands on ~0 at the cut.
+                    const double distanceToEnd = voice.mode == 3
+                        ? (voice.position - regionStartF)
+                        : (regionEndF - voice.position);
+                    const float declickFactor = distanceToEnd < declickFrames
+                        ? (float) juce::jmax (0.0, distanceToEnd) / (float) declickFrames
+                        : 1.0f;
+
                     const double level = voice.gain * voice.velocity * envValue
-                                         * tapeLevel * voice.surfaceGainFactor;
+                                         * tapeLevel * voice.surfaceGainFactor
+                                         * declickFactor * outputGain;
 
                     for (int ch = 0; ch < outChannels; ++ch)
                         writePtrs[ch][n] += CoreDSP::Sampler::readLinear (readPtrs[ch], numSampleFrames, readPos)

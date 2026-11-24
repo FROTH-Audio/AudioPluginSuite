@@ -1,0 +1,12 @@
+{
+  "_name": "Damping Wander",
+  "_category": "Character",
+  "_description": "The feedback damping drifts slowly with the tail.",
+  "_plugin": "SpectralDrift",
+  "_pluginVersion": "1.0.0",
+  "feedback": 10.0,
+  "feedbackDamping": 40.0,
+  "lfo1Rate": 0.15,
+  "mod1Target": 8,
+  "mod1Amount": 70.0
+}

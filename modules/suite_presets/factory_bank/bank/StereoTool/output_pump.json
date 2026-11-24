@@ -1,0 +1,14 @@
+{
+  "_name": "Output Pump",
+  "_category": "Mix bus",
+  "_description": "Synced square pumps the output level.",
+  "_plugin": "StereoTool",
+  "_pluginVersion": "1.0.0",
+  "drive": 3.0,
+  "lfo1Rate": 2.0,
+  "lfo1Shape": 3,
+  "lfo1Sync": 1,
+  "lfo1Division": 4,
+  "mod1Target": 10,
+  "mod1Amount": 15.0
+}

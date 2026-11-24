@@ -268,6 +268,75 @@ namespace
         pass ("testOutOfRangeIndicesDoNothing");
     }
 
+    // Plan 17 Phase 7: the per-LFO waveform transforms reach the routed LFO output and the scope.
+    void testLfoTransformsAreApplied()
+    {
+        StubProcessor stub;
+        juce::AudioProcessorValueTreeState apvts (stub, nullptr, "PARAMETERS", makeLayout());
+
+        // Set up LFO before creating router so the router reads the correct parameters.
+        setLfo (apvts, 0, 1.0f, 0.0f, false, 4.0f);  // sine, free running
+        setRoute (apvts, 0, 0, 1, 100.0f);  // source LFO 0, target 1 (tA), amount 100%
+
+        SuiteModulation::Router router (apvts, targets, numTargets, "sync");
+        router.prepare (sampleRate);
+
+        // The block flow: the phase is advanced at the END of a block (advanceBlock), and
+        // publish then reports the value the accumulated phase has reached at the next block
+        // start. Advance one quarter second so the 1 Hz sine sits on its quarter-cycle peak.
+        router.advanceBlock ((int) (0.25 * sampleRate));
+        router.publish (router.computeOffsets (0.25 * sampleRate, 0.0, 0.0), 0.25 * sampleRate, 0.0);
+        assert (std::abs (router.getLfoValue (0) - 1.0f) < 1e-4);   // sine at a quarter cycle: +1
+
+        // Invert negates the waveform the routing reads.
+        set (apvts, "lfo1Invert", 1.0f);
+        router.publish (router.computeOffsets (0.25 * sampleRate, 0.0, 0.0), 0.25 * sampleRate, 0.0);
+        assert (std::abs (router.getLfoValue (0) + 1.0f) < 1e-4);
+
+        // Rectify folds into the upper half, so the inverted view is reachable without a polarity knob.
+        set (apvts, "lfo1Invert", 0.0f);
+        set (apvts, "lfo1Rectify", 1.0f);
+        router.publish (router.computeOffsets (0.25 * sampleRate, 0.0, 0.0), 0.25 * sampleRate, 0.0);
+        assert (std::abs (router.getLfoValue (0) - 1.0f) < 1e-4);
+
+        // All transforms off again: the plain shape.
+        set (apvts, "lfo1Rectify", 0.0f);
+        router.publish (router.computeOffsets (0.25 * sampleRate, 0.0, 0.0), 0.25 * sampleRate, 0.0);
+        assert (std::abs (router.getLfoValue (0) - 1.0f) < 1e-4);
+
+        pass ("testLfoTransformsAreApplied");
+    }
+
+    // Phase 1 regression: transformedLfoValue is the single path shared by the routing and
+    // the scope's curve, so a transform must change the value the scope draws.
+    void testTransformedLfoValueFollowsTransforms()
+    {
+        StubProcessor stub;
+        juce::AudioProcessorValueTreeState apvts (stub, nullptr, "PARAMETERS", makeLayout());
+        SuiteModulation::Router router (apvts, targets, numTargets, "sync");
+        router.prepare (sampleRate);
+
+        setLfo (apvts, 0, 1.0f, 0.0f, false, 4.0f);   // sine
+
+        // Sine at a quarter cycle: +1.
+        assert (std::abs (router.transformedLfoValue (0, 0.25) - 1.0f) < 1e-4);
+
+        // Invert negates it.
+        set (apvts, "lfo1Invert", 1.0f);
+        assert (std::abs (router.transformedLfoValue (0, 0.25) + 1.0f) < 1e-4);
+
+        // Rectify folds into the upper half.
+        set (apvts, "lfo1Invert", 0.0f);
+        set (apvts, "lfo1Rectify", 1.0f);
+        assert (std::abs (router.transformedLfoValue (0, 0.25) - 1.0f) < 1e-4);
+
+        // Neutral again: back to the plain shape.
+        set (apvts, "lfo1Rectify", 0.0f);
+        assert (std::abs (router.transformedLfoValue (0, 0.25) - 1.0f) < 1e-4);
+
+        pass ("testTransformedLfoValueFollowsTransforms");
+    }
+
     void testControlDisplayShowsValueWithoutNotifying()
     {
         StubProcessor stub;
@@ -336,6 +405,8 @@ int main()
     testSyncedPeriodIsOneBarEveryFourBeats();
     testSampleAndHoldHoldsOneValuePerCycle();
     testOutOfRangeIndicesDoNothing();
+    testLfoTransformsAreApplied();
+    testTransformedLfoValueFollowsTransforms();
     testControlDisplayShowsValueWithoutNotifying();
     testPanelPreferredHeightFitsItsRows();
 

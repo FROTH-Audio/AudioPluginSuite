@@ -1,0 +1,12 @@
+{
+  "_name": "Smoothed Gate",
+  "_category": "Subtle",
+  "_description": "A heavily smoothed LFO opens the spectral gate gently.",
+  "_plugin": "SpectralDrift",
+  "_pluginVersion": "1.0.0",
+  "gate": -40.0,
+  "lfo1Rate": 0.2,
+  "lfo1Smooth": 0.9,
+  "mod1Target": 6,
+  "mod1Amount": 100.0
+}

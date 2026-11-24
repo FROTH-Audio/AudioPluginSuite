@@ -1,0 +1,13 @@
+{
+  "_name": "Stepped Drive",
+  "_category": "Glitch",
+  "_description": "A quantised LFO stairs the drive in six levels.",
+  "_plugin": "DynamicSaturation",
+  "_pluginVersion": "1.0.0",
+  "drive": 12.0,
+  "mode": 1,
+  "lfo1Rate": 2.5,
+  "lfo1Quantise": 6,
+  "mod1Target": 1,
+  "mod1Amount": 55.0
+}

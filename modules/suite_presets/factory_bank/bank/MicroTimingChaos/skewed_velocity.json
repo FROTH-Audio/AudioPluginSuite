@@ -1,0 +1,12 @@
+{
+  "_name": "Skewed Velocity",
+  "_category": "Melodic",
+  "_description": "The skew leans the velocity shape into its rise.",
+  "_plugin": "MicroTimingChaos",
+  "_pluginVersion": "1.0.0",
+  "baseVelocity": 80,
+  "lfo1Rate": 0.5,
+  "lfo1Skew": 0.6,
+  "mod1Target": 11,
+  "mod1Amount": 40.0
+}

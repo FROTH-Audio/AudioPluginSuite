@@ -22,10 +22,20 @@ def _routing(target_max):
 
     for index in (1, 2):
         params[f"lfo{index}Rate"] = {"min": 0.02, "max": 20.0, "default": 0.25, "type": "float"}
-        params[f"lfo{index}Shape"] = {"min": 0, "max": 6, "default": 0, "type": "choice"}
+        params[f"lfo{index}Shape"] = {"min": 0, "max": 7, "default": 0, "type": "choice"}
         params[f"lfo{index}Sync"] = {"min": 0, "max": 1, "default": 0, "type": "bool"}
         params[f"lfo{index}Division"] = {"min": 0, "max": 6, "default": 4, "type": "choice"}
         params[f"lfo{index}Offset"] = {"min": -100.0, "max": 100.0, "default": 0.0, "type": "float"}
+
+        # Plan 17 Phase 7: the per-LFO waveform transforms (the recorded decision holds:
+        # transform defaults are neutral, so no preset moves them; the schema covers them
+        # for the audit).
+        params[f"lfo{index}Invert"] = {"min": 0, "max": 1, "default": 0, "type": "bool"}
+        params[f"lfo{index}Rectify"] = {"min": 0, "max": 1, "default": 0, "type": "bool"}
+        params[f"lfo{index}Quantise"] = {"min": 0.0, "max": 16.0, "default": 0.0, "type": "float"}
+        params[f"lfo{index}Smooth"] = {"min": 0.0, "max": 1.0, "default": 0.0, "type": "float"}
+        params[f"lfo{index}PulseWidth"] = {"min": 0.0, "max": 1.0, "default": 0.0, "type": "float"}
+        params[f"lfo{index}Skew"] = {"min": -1.0, "max": 1.0, "default": 0.0, "type": "float"}
 
     for slot in range(1, 7):
         params[f"mod{slot}Source"] = {"min": 0, "max": 1, "default": 0, "type": "choice"}
@@ -50,6 +60,9 @@ SCHEMA = {
         "feedbackDamping": {"min": 0.0, "max": 100.0, "default": 30.0, "type": "float"},
         "driftStart": {"min": 0.0, "max": 100.0, "default": 0.0, "type": "float"},
         "outputGain": {"min": -12.0, "max": 12.0, "default": 0.0, "type": "float"},
+        # Plan 06 idea 2.5: the sidechain ducking pair (appended after the routing).
+        "sidechainAmount": {"min": 0.0, "max": 100.0, "default": 0.0, "type": "float"},
+        "sidechainTarget": {"min": 0, "max": 1, "default": 0, "type": "choice"},
         **_routing(12),
     },
     "DynamicSaturation": {
@@ -131,10 +144,134 @@ SCHEMA = {
         "shuffleSeed": {"min": 0, "max": 9999, "default": 1, "type": "int"},
         **_routing(24),
     },
+    # Plan 6.1: the two first-pass plugins joined the bank, 15 presets each.
+    "MidiEffect": {
+        "root": {"min": 24, "max": 84, "default": 60, "type": "int"},
+        "scale": {"min": 0, "max": 5, "default": 2, "type": "choice"},
+        "chord": {"min": 0, "max": 7, "default": 0, "type": "choice"},
+        "arp": {"min": 0, "max": 4, "default": 0, "type": "choice"},
+        "octave": {"min": -2, "max": 2, "default": 0, "type": "int"},
+        "velocity": {"min": 0.0, "max": 150.0, "default": 100.0, "type": "float"},
+        "arpMode": {"min": 0, "max": 1, "default": 0, "type": "choice"},
+        # Plan 12: twelve step rates in the clean order (0=1/4 ... 11=1/32D); plan 15
+        # appended 12=1/2, 13=1 Bar, 14=2 Bars, 15=4 Bars (append-only, no migration).
+        # authoring indices (0=1/8, 1=1/8T, 2=1/16, 3=1/16T, 4=1/32) were remapped, so
+        # each preset still means the note value it was written with.
+        "stepRate": {"min": 0, "max": 15, "default": 6, "type": "choice"},
+        "hostSync": {"min": 0, "max": 1, "default": 0, "type": "choice"},
+        "tempo": {"min": 40.0, "max": 240.0, "default": 120.0, "type": "float"},
+        "gateLength": {"min": 10.0, "max": 100.0, "default": 60.0, "type": "float"},
+        "velocityCurve": {"min": 0, "max": 3, "default": 0, "type": "choice"},
+        "velocityDirection": {"min": 0, "max": 1, "default": 1, "type": "choice"},
+        "octaveSpread": {"min": -1.0, "max": 1.0, "default": 0.0, "type": "float"},
+    },
+    "StereoTool": {
+        "width": {"min": -100.0, "max": 100.0, "default": 0.0, "type": "float"},
+        "drive": {"min": -24.0, "max": 24.0, "default": 0.0, "type": "float"},
+        "mix": {"min": 0.0, "max": 100.0, "default": 100.0, "type": "float"},
+        "pan": {"min": -100.0, "max": 100.0, "default": 0.0, "type": "float"},
+        "character": {"min": 0, "max": 4, "default": 0, "type": "choice"},
+        "transientAttack": {"min": 1.0, "max": 200.0, "default": 5.0, "type": "float"},
+        "transientRelease": {"min": 20.0, "max": 2000.0, "default": 150.0, "type": "float"},
+        "transientAmount": {"min": 0.0, "max": 100.0, "default": 0.0, "type": "float"},
+        "transientTarget": {"min": 0, "max": 2, "default": 2, "type": "choice"},
+        "midFocus": {"min": -100.0, "max": 100.0, "default": 0.0, "type": "float"},
+        "sideFilter": {"min": 0, "max": 3, "default": 0, "type": "choice"},
+        "sideCrossover": {"min": 20.0, "max": 8000.0, "default": 200.0, "type": "float"},
+        # Plan 12: the level stage. The recorded decision holds: levels/gains are never
+        # preset-authored, so the schema only covers them for the audit.
+        "inputLevel": {"min": -24.0, "max": 24.0, "default": 0.0, "type": "float"},
+        "outputLevel": {"min": -24.0, "max": 24.0, "default": 0.0, "type": "float"},
+        # Plan 17 Phase 8 + plan 18: the interest features and the Phase rotation knob.
+        "monoMakerCrossover": {"min": 0.0, "max": 800.0, "default": 0.0, "type": "float"},
+        "multibandWidthLow": {"min": -100.0, "max": 100.0, "default": 0.0, "type": "float"},
+        "multibandWidthMid": {"min": -100.0, "max": 100.0, "default": 0.0, "type": "float"},
+        "multibandWidthHigh": {"min": -100.0, "max": 100.0, "default": 0.0, "type": "float"},
+        "msToneMid": {"min": -1.0, "max": 1.0, "default": 0.0, "type": "float"},
+        "msToneSide": {"min": -1.0, "max": 1.0, "default": 0.0, "type": "float"},
+        "imageRotationRate": {"min": 0.02, "max": 2.0, "default": 0.25, "type": "float"},
+        "imageRotationDepth": {"min": 0.0, "max": 100.0, "default": 0.0, "type": "float"},
+        "phase": {"min": 0.0, "max": 360.0, "default": 0.0, "type": "float"},
+        # Plan 13: the shared LFO/routing parameters. Plan 18 grew the table to 19 targets
+        # (Pan, Mono Maker, the three widths, the M/S tones and the rotation).
+        **_routing(19),
+    },
+    # Plan 13: Multiband Saturation, the two-band split with LFOs and routing
+    # (11 sound parameters + 34 router parameters).
+    "MultibandSaturation": {
+        "mode": {"min": 0, "max": 2, "default": 0, "type": "choice"},
+        "crossover": {"min": 80.0, "max": 8000.0, "default": 500.0, "type": "float"},
+        "driveLow": {"min": 0.0, "max": 24.0, "default": 6.0, "type": "float"},
+        "driveHigh": {"min": 0.0, "max": 24.0, "default": 6.0, "type": "float"},
+        "sensitivity": {"min": 0.0, "max": 1.0, "default": 0.5, "type": "float"},
+        "attack": {"min": 1.0, "max": 100.0, "default": 5.0, "type": "float"},
+        "release": {"min": 50.0, "max": 2000.0, "default": 150.0, "type": "float"},
+        "toneLow": {"min": -1.0, "max": 1.0, "default": 0.0, "type": "float"},
+        "toneHigh": {"min": -1.0, "max": 1.0, "default": 0.0, "type": "float"},
+        "mix": {"min": 0.0, "max": 100.0, "default": 100.0, "type": "float"},
+        "outputLevel": {"min": -12.0, "max": 6.0, "default": 0.0, "type": "float"},
+        # Plan 17 Phase 9: the interest features (the per-band mix, the thermal drift
+        # and the per-band folds). Appended after the router's parameters.
+        "mixLow": {"min": 0.0, "max": 100.0, "default": 100.0, "type": "float"},
+        "mixHigh": {"min": 0.0, "max": 100.0, "default": 100.0, "type": "float"},
+        "thermalDrift": {"min": 0.0, "max": 100.0, "default": 0.0, "type": "float"},
+        "foldLow": {"min": 0.0, "max": 50.0, "default": 0.0, "type": "float"},
+        "foldHigh": {"min": 0.0, "max": 50.0, "default": 0.0, "type": "float"},
+        **_routing(10),
+    },
+    # Plan 6.1: Cyclical, the four-slot loop instrument. Plan 18 Phase 4 (owner decision
+    # 2026-11-23): the former globals are per slot and work independently; the schema
+    # covers every per-slot parameter (the plan-17 creative controls included).
+    "Cyclical": {
+        "masterVolume": {"min": -24.0, "max": 12.0, "default": 0.0, "type": "float"},
+        **{f"slot{slot}{field}": spec
+           for slot in (1, 2, 3, 4)
+           for field, spec in {
+               "Start": {"min": 0.0, "max": 100.0, "default": 0.0, "type": "float"},
+               "Length": {"min": 5.0, "max": 100.0, "default": 100.0, "type": "float"},
+               "Speed": {"min": 0.25, "max": 4.0, "default": 1.0, "type": "float"},
+               "Direction": {"min": 0, "max": 2, "default": 0, "type": "choice"},
+               "PingRandom": {"min": 0, "max": 1, "default": 0, "type": "bool"},
+               "Granular": {"min": 0, "max": 1, "default": 0, "type": "bool"},
+               "Velocity": {"min": 30.0, "max": 150.0, "default": 100.0, "type": "float"},
+               "Note": {"min": 24, "max": 96, "default": 60, "type": "int"},
+               "Beats": {"min": 1, "max": 16, "default": 4, "type": "int"},
+               "Chop": {"min": 0, "max": 1, "default": 0, "type": "bool"},
+               "Slices": {"min": 2, "max": 16, "default": 8, "type": "int"},
+               "SliceLength": {"min": -100.0, "max": 100.0, "default": 0.0, "type": "float"},
+               # Plan 17 Phase 2 (creative) and plan 18 §1.1 (cutoff/reso).
+               "Filter": {"min": 0, "max": 3, "default": 0, "type": "choice"},
+               "Attack": {"min": 1.0, "max": 1000.0, "default": 1.0, "type": "float"},
+               "Release": {"min": 1.0, "max": 10000.0, "default": 5.0, "type": "float"},
+               "Level": {"min": 0.0, "max": 200.0, "default": 100.0, "type": "float"},
+               "Cutoff": {"min": 20.0, "max": 20000.0, "default": 20000.0, "type": "float"},
+               "Reso": {"min": 0.5, "max": 10.0, "default": 0.7, "type": "float"},
+               # Plan 18 Phase 4: the former GLOBAL controls, per slot.
+               "Quantize": {"min": 0, "max": 5, "default": 0, "type": "choice"},
+               "Swing": {"min": -20.0, "max": 20.0, "default": 0.0, "type": "float"},
+               "Trigger": {"min": 0, "max": 2, "default": 0, "type": "choice"},
+               "Pitch": {"min": -12, "max": 12, "default": 0, "type": "int"},
+               "Crossfade": {"min": 0.0, "max": 500.0, "default": 5.0, "type": "float"},
+               "Tempo": {"min": 40.0, "max": 240.0, "default": 120.0, "type": "float"},
+               "Sync": {"min": 0, "max": 1, "default": 0, "type": "choice"},
+               "Pan": {"min": -100.0, "max": 100.0, "default": 0.0, "type": "float"},
+           }.items()},
+        # Plan 18 Phase 6: the shared LFO/routing parameters (16 per-slot targets + None).
+        **_routing(16),
+    },
 }
 
 
-def _preset(name, category, description, lerp_curve=None, sample_path=None, **params):
+def per_slot (**values):
+    """Plan 18 Phase 4: a Cyclical preset's former global settings apply to every slot."""
+    out = {}
+    for key, value in values.items():
+        for slot in (1, 2, 3, 4):
+            out[f"slot{slot}{key[0].upper()}{key[1:]}"] = value
+    return out
+
+
+def _preset(name, category, description, lerp_curve=None, sample_path=None, loop_paths=None, **params):
     preset = {"name": name, "category": category, "description": description, "params": params}
 
     # Micro-Timing Chaos only: the Lerp curve is a state property, not a parameter.
@@ -145,6 +282,11 @@ def _preset(name, category, description, lerp_curve=None, sample_path=None, **pa
     # allowed in the bank (revised Q3); the audit rejects anything else.
     if sample_path is not None:
         preset["samplePath"] = sample_path
+
+    # Cyclical only (plan 6.1): the four slot loops. Only `embedded:` URIs are allowed;
+    # the audit rejects anything else.
+    if loop_paths is not None:
+        preset["loopPaths"] = loop_paths
 
     return preset
 
@@ -177,6 +319,55 @@ PRESETS = {
         _preset("Fast Chatter", "Lo-Fi", "Fast drift with a wide spread.", lfo1Rate=8.0, mod1Target=12, mod1Amount=100.0, spread=0.9, shift=5.0),
         _preset("Null Test", "Utility", "No drift, no shaping: a transparent reference.", depth=0.0),
         _preset("Init Bright", "Utility", "Near-default with a little brightness.", tilt=0.5),
+        # Plan 13: 10 new SpectralDrift presets that exercise modulation beyond the existing
+        # eight LFO1-sine-to-Drift entries.
+        _preset("Shift Wander", "Rhythmic", "Triangle LFO moves the spectral shift up and down.",
+                lfo1Rate=0.5, lfo1Shape=1, mod1Target=4, mod1Amount=80.0, shift=6.0, mix=70.0, depth=30.0),
+        _preset("Gate Breathe", "Character", "Square LFO opens and closes the spectral gate.",
+                lfo1Rate=0.25, lfo1Shape=3, mod1Target=6, mod1Amount=-100.0, gate=-80.0, depth=40.0),
+        _preset("Tilt Sway", "Character", "Triangle LFO sweeps the spectral tilt.",
+                lfo1Rate=0.4, lfo1Shape=1, mod1Target=5, mod1Amount=100.0, depth=25.0, mix=80.0),
+        _preset("Feedback Pulse", "Lo-Fi", "Sample-and-hold LFO jumps the feedback amount.",
+                lfo2Rate=4.0, lfo2Shape=4, mod2Source=1, mod2Target=7, mod2Amount=100.0, feedback=2.0, depth=50.0, mix=90.0),
+        _preset("Phase Rotation", "Wide", "Sine LFO rotates the stereo phase width.",
+                lfo1Rate=0.2, lfo1Shape=0, mod1Target=3, mod1Amount=100.0, stereoPhase=90.0, depth=45.0, spread=0.3),
+        _preset("Start Scanner", "Mix", "Slow saw scans the drift start point across the spectrum.",
+                lfo2Rate=0.1, lfo2Shape=2, mod2Source=1, mod2Target=9, mod2Amount=100.0, driftStart=0.0, depth=60.0),
+        _preset("Output Pump", "Utility", "Synced square LFO pumps the output level.",
+                lfo1Rate=2.0, lfo1Shape=3, lfo1Sync=1, lfo1Division=4, mod1Target=10, mod1Amount=50.0, outputGain=0.0, depth=0.0),
+        _preset("Bin Spray", "Lo-Fi", "Noise LFO randomises the bin spread each block.",
+                lfo2Rate=8.0, lfo2Shape=6, mod2Source=1, mod2Target=2, mod2Amount=100.0, spread=0.0, depth=70.0, mix=75.0),
+        _preset("Dual Drift", "Ambient", "Two slow LFOs drift the spectrum and stereo phase.",
+                lfo1Rate=0.08, lfo1Shape=0, mod1Target=12, mod1Amount=100.0,
+                lfo2Rate=0.05, lfo2Shape=1, mod2Source=1, mod2Target=3, mod2Amount=60.0, mod2Delay=1.0,
+                depth=50.0, stereoPhase=90.0),
+        _preset("Pendulum Drift", "Rhythmic", "Pendulum LFO gives a swinging drift motion.",
+                lfo1Rate=0.5, lfo1Shape=7, mod1Target=12, mod1Amount=100.0, depth=60.0, spread=0.4),
+        # Plan 17 Phase 11: +10 presets focused on the modulation routing — the targets the
+        # plan-13 set did not cover (Drift Depth, Feedback Damping, Mix) and the plan-17
+        # transforms (invert, rectify, quantise, pulse width, skew) on the routed shapes.
+        # Appended, so the bank order stays stable for host programs.
+        _preset("Depth Breather", "Ambient", "The LFO breathes the drift depth itself.",
+                lfo1Rate=0.3, mod1Target=1, mod1Amount=80.0, depth=50.0, spread=0.3),
+        _preset("Damping Wander", "Character", "The feedback damping drifts slowly with the tail.",
+                lfo1Rate=0.15, mod1Target=8, mod1Amount=70.0, feedback=10.0, feedbackDamping=40.0),
+        _preset("Mix Tide", "Ambient", "The wet share rises and falls like a tide.",
+                lfo1Rate=0.08, mod1Target=11, mod1Amount=60.0, mix=70.0),
+        _preset("Inverted Drift", "Character", "The routed drift waveform is inverted.",
+                lfo1Rate=0.4, mod1Target=12, mod1Amount=100.0, lfo1Invert=1, depth=45.0),
+        _preset("Rectified Spread", "Wide", "The rectified LFO pumps the bin spread upward.",
+                lfo1Rate=0.6, mod1Target=2, mod1Amount=90.0, lfo1Rectify=1, spread=0.5),
+        _preset("Stepped Phase", "Experimental", "A quantised LFO steps the stereo phase.",
+                lfo1Rate=0.7, mod1Target=3, mod1Amount=100.0, lfo1Quantise=4, stereoPhase=120.0),
+        _preset("Pulsed Tilt", "Bright", "A narrow pulse flips the spectral tilt per step.",
+                lfo1Rate=1.2, mod1Target=5, mod1Amount=80.0, lfo1PulseWidth=0.3, tilt=0.8),
+        _preset("Skewed Shift", "Experimental", "A skewed LFO leans the spectral shift early.",
+                lfo1Rate=0.5, mod1Target=4, mod1Amount=70.0, lfo1Skew=0.4, shift=10.0),
+        _preset("Smoothed Gate", "Subtle", "A heavily smoothed LFO opens the spectral gate gently.",
+                lfo1Rate=0.2, mod1Target=6, mod1Amount=100.0, lfo1Smooth=0.9, gate=-40.0),
+        _preset("Two LFO Drift Mix", "Wide", "One LFO drifts the depth while the other sways the mix.",
+                lfo1Rate=0.2, mod1Target=1, mod1Amount=70.0,
+                lfo2Rate=0.35, mod2Source=1, mod2Target=11, mod2Amount=45.0, depth=40.0),
     ],
     "DynamicSaturation": [
         _preset("Tube Glue", "Mix bus", "Gentle tube glue for a mix bus.", drive=4.0, sensitivity=0.4),
@@ -205,6 +396,49 @@ PRESETS = {
         _preset("Stereo Split", "Utility", "Unlinked envelopes with light drive.", stereoLink=0.0, drive=7.0),
         _preset("Transient Keeper", "Utility", "Slow attack, fast release.", attack=30.0, release=50.0, sensitivity=0.1),
         _preset("Null Reference", "Utility", "Fully dry: a null reference.", drive=0.0, mix=0.0),
+        # Plan 13: 10 new DynamicSaturation presets that use the shared LFO/routing.
+        _preset("Pumping Glue", "Mix bus", "Tube glue with a rhythmic wet/dry pump.",
+                lfo1Rate=0.5, lfo1Shape=0, mod1Target=3, mod1Amount=-60.0, mix=80.0, drive=4.0, sensitivity=0.4),
+        _preset("Bias Wobble", "Character", "Triangle LFO wobbles the tube bias.",
+                lfo1Rate=0.3, lfo1Shape=1, mod1Target=9, mod1Amount=100.0, bias=0.12, drive=8.0),
+        _preset("Fold Flutter", "Lo-Fi", "Sample-and-hold LFO jitters the wavefolder.",
+                lfo2Rate=6.0, lfo2Shape=4, mod2Source=1, mod2Target=10, mod2Amount=80.0, fold=10.0, drive=12.0, mode=2),
+        _preset("Attack Rider", "Drums", "Slow sine rides the attack time.",
+                lfo1Rate=0.25, lfo1Shape=0, mod1Target=5, mod1Amount=50.0, attack=5.0, drive=10.0, release=80.0),
+        _preset("Release Swell", "Ambient", "Triangle LFO swells the release time.",
+                lfo2Rate=0.2, lfo2Shape=1, mod2Source=1, mod2Target=6, mod2Amount=60.0, release=800.0, drive=6.0),
+        _preset("HPF Sweep", "Bass", "Sine LFO sweeps the detector high-pass.",
+                lfo1Rate=0.4, lfo1Shape=0, mod1Target=7, mod1Amount=100.0, detectHpf=100.0, drive=8.0),
+        _preset("Stereo Wander", "Utility", "Triangle LFO moves the stereo link from unlinked to fully linked.",
+                lfo1Rate=0.15, lfo1Shape=1, mod1Target=8, mod1Amount=100.0, stereoLink=50.0),
+        _preset("Tone LFO", "Bright", "Sine LFO sweeps the tilt tone control.",
+                lfo2Rate=0.6, lfo2Shape=0, mod2Source=1, mod2Target=11, mod2Amount=100.0, tone=0.0, drive=7.0),
+        _preset("Curve Mod", "Character", "Saw LFO modulates the envelope curve.",
+                lfo1Rate=0.3, lfo1Shape=2, mod1Target=12, mod1Amount=80.0, curve=1.0, drive=9.0),
+        _preset("Drive Sweeper", "Mix bus", "Synced triangle LFO sweeps the drive.",
+                lfo1Rate=2.0, lfo1Shape=1, lfo1Sync=1, lfo1Division=5, mod1Target=1, mod1Amount=80.0, drive=6.0),
+        # Plan 18 Phase 7: 10 more, focused on the new LFO waveforms and the transforms
+        # (Bouncing Ball = shape 7; Invert/Rectify/Quantise/Smooth/Pulse/Skew per LFO).
+        _preset("Bouncing Drive", "Drums", "Bouncing Ball LFO kicks the drive in diminishing hops.",
+                lfo1Rate=1.5, lfo1Shape=7, mod1Target=1, mod1Amount=70.0, drive=10.0, attack=2.0),
+        _preset("Rectified Fold", "Lo-Fi", "A rectified LFO lifts the wavefolder from the floor up.",
+                lfo1Rectify=1, lfo1Rate=0.8, mod1Target=10, mod1Amount=60.0, fold=5.0, drive=11.0, tone=-0.2),
+        _preset("Quantised Bias", "Character", "The tube bias snaps through five stepped levels.",
+                lfo1Quantise=5, lfo1Rate=1.2, mod1Target=9, mod1Amount=50.0, bias=0.12, drive=9.0),
+        _preset("Smoothed Tone", "Bright", "A heavily smoothed LFO tilts the tone without corners.",
+                lfo2Smooth=0.8, lfo2Rate=0.9, mod2Source=1, mod2Target=11, mod2Amount=70.0, tone=0.0, drive=6.0),
+        _preset("Pulse Curve", "Character", "A narrow pulse gate steps the envelope curve.",
+                lfo1PulseWidth=0.3, lfo1Rate=1.0, mod1Target=12, mod1Amount=60.0, curve=1.5, drive=8.0),
+        _preset("Skewed Sensitivity", "Subtle", "A skewed LFO leans the envelope sensitivity into its rise.",
+                lfo2Skew=0.6, lfo2Rate=0.5, mod2Source=1, mod2Target=2, mod2Amount=60.0, sensitivity=0.4, drive=5.0),
+        _preset("Inverted Attack", "Drums", "The inverted waveform digs the attack deeper on the fall.",
+                lfo1Invert=1, lfo1Rate=0.9, mod1Target=5, mod1Amount=60.0, attack=12.0, drive=10.0, release=90.0),
+        _preset("Bouncing Bias", "Character", "Bouncing Ball bounces the tube bias off the rails.",
+                lfo1Shape=7, lfo1Rate=0.7, mod1Target=9, mod1Amount=45.0, bias=0.15, drive=12.0, tone=0.2),
+        _preset("Stepped Drive", "Glitch", "A quantised LFO stairs the drive in six levels.",
+                lfo1Quantise=6, lfo1Rate=2.5, mod1Target=1, mod1Amount=55.0, drive=12.0, mode=1),
+        _preset("Rectified Release", "Ambient", "Rectification folds the release time upward.",
+                lfo1Rectify=1, lfo1Rate=0.25, mod1Target=6, mod1Amount=60.0, release=600.0, drive=7.0),
     ],
     "MicroTimingChaos": [
         _preset("Slow Orbit", "Ambient", "Slow, sparse orbit.", speed=0.5, lerp=40.0, density=50.0),
@@ -237,6 +471,27 @@ PRESETS = {
         _preset("Frozen Pattern", "Utility", "The pattern without any drift.", lerp=0.0),
         _preset("Seed 42 Dense", "Utility", "The default seed, much denser.", density=90.0),
         _preset("Tempo Rider", "Utility", "Triangle LFO moves the tempo.", lfo2Shape=1, mod1Source=1, mod1Target=13, mod1Amount=30.0),
+        # Plan 18 Phase 7: 10 more, focused on the new LFO waveforms and the transforms.
+        _preset("Bouncing Chaos", "Experimental", "Bouncing Ball bounces the chaos amount.",
+                lfo1Shape=7, lfo1Rate=1.2, mod1Target=1, mod1Amount=60.0, chaos=50.0),
+        _preset("Bouncing Timing", "Rhythmic", "The ball's bounces stagger the timing range.",
+                lfo1Shape=7, lfo1Rate=0.8, mod1Target=2, mod1Amount=70.0, timingRange=25.0),
+        _preset("Rectified Density", "Techno", "A rectified LFO pumps the density upward only.",
+                lfo1Rectify=1, lfo1Rate=2.0, mod1Target=8, mod1Amount=50.0, density=45.0),
+        _preset("Quantised Gate", "Glitch", "The gate length snaps through six stepped values.",
+                lfo1Quantise=6, lfo1Rate=3.0, mod1Target=9, mod1Amount=60.0, gate=50.0, rate=3),
+        _preset("Smoothed Lerp", "Ambient", "A heavily smoothed LFO eases the drift amount.",
+                lfo2Smooth=0.9, lfo2Rate=0.4, mod1Source=1, mod1Target=4, mod1Amount=50.0, lerp=30.0),
+        _preset("Pulse Swing", "Rhythmic", "A narrow pulse flips the swing hard on the beat.",
+                lfo1PulseWidth=0.3, lfo1Sync=1, lfo1Division=4, mod1Target=10, mod1Amount=100.0, swing=0.0),
+        _preset("Skewed Velocity", "Melodic", "The skew leans the velocity shape into its rise.",
+                lfo1Skew=0.6, lfo1Rate=0.5, mod1Target=11, mod1Amount=40.0, baseVelocity=80),
+        _preset("Inverted Speed", "Sparse", "The inverted waveform drags the attractor speed down.",
+                lfo1Invert=1, lfo1Rate=0.3, mod1Target=12, mod1Amount=60.0, speed=0.7, density=35.0),
+        _preset("Bouncing Gate", "Glitch", "Diminishing bounces shorten the gate.",
+                lfo2Shape=7, lfo2Rate=2.0, mod1Source=1, mod1Target=9, mod1Amount=-50.0, gate=70.0, rate=2),
+        _preset("Stepped Chaos", "Experimental", "A quantised LFO stairs the chaos in eight levels.",
+                lfo2Quantise=8, lfo2Rate=1.0, mod1Source=1, mod1Target=1, mod1Amount=70.0, chaos=40.0, lerp=40.0),
     ],
     "Sgraffito": [
         _preset("Glass Dust", "Ambient", "Slow, sparse cloud with long decay.", sample_path="embedded:glass_dust_4k.wav", grainSize=90.0, grainDensity=8.0, grainSpread=55.0, memoryDecay=8.0, release=800.0),
@@ -259,5 +514,248 @@ PRESETS = {
         _preset("Held Breath", "Pads", "Latched voices holding through the memory decay.", sample_path="embedded:held_breath_4k.wav", sustainHold=1, memoryAmount=40.0, memoryDecay=30.0, attack=150.0, release=2500.0),
         _preset("Fine Grained Drift", "Experimental", "Fine pitch and velocity shaping over a drifting memory.", sample_path="embedded:fine_grained_drift_4k.wav", pitchFine=40.0, velocityCurve=1.5, memoryAmount=35.0, memoryDecay=15.0, attack=60.0, release=600.0, flutter=5.0),
         _preset("Slow Attack Tape", "Glitch", "Tape stop that eases in with a long attack and release.", sample_path="embedded:slow_attack_tape_4k.wav", mode=1, sliceCount=12, tapeStopTime=250.0, tapeStopCurve=1, attack=200.0, release=1200.0, dust=5.0, wow=8.0),
+        # Plan 18 Phase 7: 10 more, one generated sample each, focused on the new LFO
+        # waveforms and the transforms (mod targets: 3 Root Key, 9 Memory, 16 Ghost
+        # Threshold, 18 Grain Size, 21 Swell Time, 22 Dust, 24 Wow).
+        _preset("Bouncing Dust", "Experimental", "Bouncing Ball hops the pitch centre over a plucked loop.", sample_path="embedded:bouncing_dust_4k.wav", lfo1Shape=7, lfo1Rate=1.4, mod1Target=3, mod1Amount=30.0, dust=8.0, release=400.0),
+        _preset("Rectified Cloud", "Ambient", "A rectified LFO lifts the memory trace from silence.", sample_path="embedded:rectified_cloud_4k.wav", lfo1Rectify=1, lfo1Rate=0.3, mod1Target=9, mod1Amount=60.0, memoryAmount=30.0, memoryDecay=12.0, release=1200.0),
+        _preset("Quantised Ghosts", "Sparse", "Ghost notes step through five threshold levels.", sample_path="embedded:quantised_ghosts_4k.wav", lfo1Quantise=5, lfo1Rate=1.0, mod1Target=16, mod1Amount=50.0, ghostOn=1, ghostThreshold=70.0, release=500.0),
+        _preset("Smoothed Swell", "Pads", "A heavily smoothed LFO breathes the swell time.", sample_path="embedded:smoothed_swell_4k.wav", lfo2Smooth=0.9, lfo2Rate=0.3, mod1Source=1, mod1Target=21, mod1Amount=60.0, mode=3, release=2000.0, memoryAmount=25.0),
+        _preset("Pulse Dust", "Textural", "A gated pulse raises the dust on every other step.", sample_path="embedded:pulse_dust_4k.wav", lfo1PulseWidth=0.4, lfo1Rate=2.0, mod1Target=22, mod1Amount=60.0, dust=6.0, crackle=4.0),
+        _preset("Skewed Tape", "Glitch", "The skew leans a tape-stop wobble off centre.", sample_path="embedded:skewed_tape_4k.wav", lfo1Skew=0.6, lfo1Rate=0.9, mod1Target=24, mod1Amount=45.0, mode=1, sliceCount=8, tapeStopTime=200.0, wow=6.0),
+        _preset("Bouncing Memory", "Rhythmic", "The ball's hops lift the memory amount in diminishing leaps.", sample_path="embedded:bouncing_memory_4k.wav", lfo1Shape=7, lfo1Rate=1.1, mod1Target=9, mod1Amount=55.0, memoryAmount=25.0, memoryDecay=9.0, release=350.0),
+        _preset("Inverted Swell", "Evolution", "The inverted waveform pulls the swell down to rebuild it.", sample_path="embedded:inverted_swell_4k.wav", lfo1Invert=1, lfo1Rate=0.25, mod1Target=21, mod1Amount=50.0, mode=3, attack=180.0, release=1800.0, dust=10.0),
+        _preset("Stepped Drift", "Experimental", "A quantised LFO stairs the wow through eight flat steps.", sample_path="embedded:stepped_drift_4k.wav", lfo1Quantise=8, lfo1Rate=0.8, mod1Target=24, mod1Amount=60.0, wow=12.0, memoryAmount=20.0, release=800.0),
+        _preset("Pulse Ghosts", "Echo", "A narrow pulse gates the ghost threshold in and out.", sample_path="embedded:pulse_ghosts_4k.wav", lfo1PulseWidth=0.3, lfo1Rate=1.6, mod1Target=16, mod1Amount=65.0, ghostOn=1, ghostThreshold=60.0, ghostDelay=36.0, crackle=6.0),
+    ],
+    # Plan 6.1: the chord/arp engine. Every preset runs arpMode=Arp (1), so none equals
+    # the default (Chord) state. Bank order is append-only.
+    "MidiEffect": [
+        _preset("Classic 8-Step", "Arp", "Even 16ths at the default gate and velocity.", arpMode=1),
+        _preset("Descending Runner", "Arp", "Fast descending 8ths with a falling spread.", arpMode=1, stepRate=3, gateLength=50.0, velocityCurve=1, octaveSpread=-0.5),
+        _preset("Scatter Chaos", "Experimental", "Scattered 32nds with random velocity.", arpMode=1, arp=4, stepRate=9, gateLength=70.0, velocityCurve=3),
+        _preset("Bass Octave Pump", "Bass", "A short octave crawl one octave down.", arpMode=1, stepRate=3, gateLength=80.0, octaveSpread=0.5, octave=-1),
+        _preset("Laid-Back Keys", "R&B", "Soft decaying 16ths, slightly hot.", arpMode=1, gateLength=55.0, velocityCurve=2, velocity=120.0),
+        _preset("Triplet Cascade", "Funk", "Rising 8th-note triplets.", arpMode=1, stepRate=4, gateLength=65.0, velocityCurve=1, velocityDirection=0, octaveSpread=0.2),
+        _preset("Minor Drift", "Ambient", "Sparse minor 16ths, spread down.", arpMode=1, gateLength=40.0, velocityCurve=2, octaveSpread=-0.3),
+        _preset("Dotted Drive", "Techno", "Fast 32nds, spread up.", arpMode=1, stepRate=9, gateLength=75.0, octaveSpread=0.4),
+        _preset("Piano Lift", "Classical", "Rising linear velocity over 16ths.", arpMode=1, velocityCurve=1, velocityDirection=0, octaveSpread=0.2),
+        _preset("Guitar Roll", "Rock", "Rolling 16ths under a major 7.", arpMode=1, chord=7, gateLength=50.0, velocityCurve=1, octaveSpread=-0.2),
+        _preset("Deep Space", "Ambient", "Slow random 32nds, wide and high.", arpMode=1, stepRate=9, gateLength=45.0, velocityCurve=3, octaveSpread=0.6, octave=1),
+        _preset("Pop Stab", "Pop", "Punchy 8ths with hot velocity.", arpMode=1, stepRate=3, gateLength=70.0, velocityCurve=2, velocity=130.0),
+        _preset("Jazz Comp", "Jazz", "Ascending 8ths through a minor 7.", arpMode=1, stepRate=3, chord=6, velocityCurve=1, velocityDirection=0, octaveSpread=-0.4),
+        _preset("Machine Gun", "Electronic", "Ultra-fast 32nds at a full gate.", arpMode=1, stepRate=9, gateLength=80.0, octaveSpread=0.5),
+        _preset("Slow Bloom", "Ambient", "Wide, slow, accented from the bottom.", arpMode=1, gateLength=90.0, velocityCurve=2, velocityDirection=0, octaveSpread=0.5, velocity=80.0),
+    ],
+    # Plan 6.1: the character stereo processor. Every preset changes at least one
+    # parameter from the default. Bank order is append-only.
+    "StereoTool": [
+        _preset("Tube Warmth", "Vintage", "Warm tube drive.", drive=6.0),
+        _preset("Tape Glue", "Classic", "Smooth tape-style glue.", character=1, drive=9.0),
+        _preset("Hard Clip Drive", "Rock", "Aggressive hard clipping.", character=4, drive=18.0),
+        _preset("Console Clean", "Pop", "Gentle console colour.", character=3, drive=3.0),
+        _preset("Diode Bright", "Electronic", "Bright asymmetric edge.", character=2, drive=12.0),
+        _preset("Dynamic Width", "Groove", "Width blooms on transients.", drive=3.0, transientAmount=60.0, transientTarget=0, transientAttack=10.0, transientRelease=400.0),
+        _preset("Mono Center", "Focus", "Mid-forward, tight centre.", drive=6.0, midFocus=50.0),
+        _preset("Wide Highs", "Air", "Mono lows, wide highs.", character=1, drive=6.0, midFocus=-30.0, sideFilter=1, sideCrossover=4000.0),
+        _preset("Vintage Punch", "Rock", "Drive pumps on the hits.", character=4, drive=15.0, transientAmount=40.0, transientTarget=1, transientAttack=5.0, transientRelease=80.0),
+        _preset("Smooth Stereo", "Pop", "Soft, slow dynamic movement.", character=3, drive=4.0, transientAmount=20.0, transientAttack=80.0, transientRelease=300.0),
+        _preset("Aggressive Width", "Electronic", "Hard width throw on transients.", drive=10.0, width=40.0, transientAmount=100.0, transientTarget=0, transientAttack=5.0, transientRelease=800.0),
+        _preset("Balanced Vintage", "Classic", "Rounded vintage tone with a touch of centre.", character=1, drive=8.0, midFocus=10.0),
+        _preset("Bright Air", "Electronic", "Airy top, mono bottom.", character=2, drive=10.0, sideFilter=1, sideCrossover=6000.0),
+        _preset("Narrow Focus", "Vocals", "Tight vocal centre.", character=3, drive=5.0, midFocus=80.0),
+        _preset("Full Spectrum", "All-genre", "Wide but controlled over tape drive.", character=1, drive=7.0, transientAmount=30.0, transientAttack=30.0, transientRelease=250.0, sideFilter=1, sideCrossover=200.0),
+        # Plan 13: 10 new StereoTool presets that use the shared LFO/routing.
+        _preset("Width Sway", "Groove", "Triangle LFO sways the stereo width.",
+                lfo1Rate=0.3, lfo1Shape=1, mod1Target=1, mod1Amount=100.0, drive=4.0),
+        _preset("Drive Bloom", "Classic", "Sine LFO blooms the tube drive.",
+                lfo1Rate=0.25, lfo1Shape=0, mod1Target=2, mod1Amount=100.0, drive=6.0),
+        _preset("Mix Breather", "Ambient", "Slow sine breathes the dry/wet balance.",
+                lfo1Rate=0.15, lfo1Shape=0, mod1Target=3, mod1Amount=-60.0, mix=80.0, character=1, drive=5.0),
+        _preset("Attack Flutter", "Experimental", "Sample-and-hold jitters the follower attack.",
+                lfo2Rate=6.0, lfo2Shape=4, mod2Source=1, mod2Target=4, mod2Amount=100.0, transientAmount=40.0, transientTarget=0),
+        _preset("Release Swell", "Groove", "Sine LFO swells the follower release.",
+                lfo1Rate=0.2, lfo1Shape=0, mod1Target=5, mod1Amount=80.0, transientAmount=30.0, transientRelease=150.0, drive=6.0),
+        _preset("Amount Pulse", "Electronic", "Synced square pulses the transient amount.",
+                lfo1Rate=2.0, lfo1Shape=3, lfo1Sync=1, lfo1Division=4, mod1Target=6, mod1Amount=60.0, transientTarget=0, drive=8.0),
+        _preset("Focus Sway", "Vocals", "Triangle LFO sways the centre focus.",
+                lfo1Rate=0.4, lfo1Shape=1, mod1Target=7, mod1Amount=100.0, midFocus=-30.0, drive=5.0),
+        _preset("Filter Sweep", "Electronic", "Saw LFO sweeps the side filter corner.",
+                lfo1Rate=0.25, lfo1Shape=2, mod1Target=8, mod1Amount=100.0, sideFilter=2, sideCrossover=800.0, drive=6.0),
+        _preset("Input Breathing", "Subtle", "Slow sine breathes the input stage.",
+                lfo1Rate=0.1, lfo1Shape=0, mod1Target=9, mod1Amount=10.0, drive=4.0),
+        _preset("Output Pump", "Mix bus", "Synced square pumps the output level.",
+                lfo1Rate=2.0, lfo1Shape=3, lfo1Sync=1, lfo1Division=4, mod1Target=10, mod1Amount=15.0, drive=3.0),
+        # Plan 17 Phase 11: +10 presets focused on the plan-18 interest routing targets —
+        # Pan, Mono Maker, the three multiband widths, the M/S tones and the rotation.
+        # Appended, so the bank order stays stable for host programs.
+        _preset("Pan Sway", "Groove", "The LFO sways the balance law side to side.",
+                lfo1Rate=0.4, mod1Target=11, mod1Amount=60.0, pan=0.0),
+        _preset("Mono Maker Sweep", "Focus", "The LFO sweeps the mono-maker crossover.",
+                lfo1Rate=0.15, mod1Target=12, mod1Amount=70.0, monoMakerCrossover=200.0),
+        _preset("Low Width Bloom", "Air", "The LFO breathes the low band's width.",
+                lfo1Rate=0.25, mod1Target=13, mod1Amount=80.0, multibandWidthLow=0.0),
+        _preset("Mid Width Pulse", "Electronic", "A quantised LFO steps the mid-band width.",
+                lfo1Rate=0.6, mod1Target=14, mod1Amount=90.0, lfo1Quantise=4, multibandWidthMid=0.0),
+        _preset("High Width Shimmer", "Air", "The LFO sways the high band's width.",
+                lfo1Rate=0.5, mod1Target=15, mod1Amount=70.0, multibandWidthHigh=0.0),
+        _preset("Tone Mid Drift", "Vocals", "The LFO drifts the mid channel's tilt.",
+                lfo1Rate=0.2, mod1Target=16, mod1Amount=60.0, msToneMid=0.2),
+        _preset("Side Tone Sway", "Wide", "The LFO sways the side channel's tilt.",
+                lfo1Rate=0.3, mod1Target=17, mod1Amount=65.0, msToneSide=0.0),
+        _preset("Rotation Pulse", "Experimental", "A square LFO pulses the image rotation depth.",
+                lfo1Rate=0.8, mod1Target=19, mod1Amount=90.0, imageRotationRate=0.5, imageRotationDepth=40.0),
+        _preset("Rotating Rate", "Experimental", "The LFO sways the image rotation's own rate.",
+                lfo1Rate=0.3, mod1Target=18, mod1Amount=80.0, imageRotationDepth=30.0, imageRotationRate=0.4),
+        _preset("Inverted Pan Slide", "Experimental", "An inverted, skewed LFO leans the pan.",
+                lfo1Rate=0.45, mod1Target=11, mod1Amount=50.0, lfo1Invert=1, lfo1Skew=0.4, pan=0.0),
+    ],
+    # Plan 11: Multiband Saturation, the two-band split. Every preset changes at least one
+    # parameter from the default. Bank order is append-only.
+    "MultibandSaturation": [
+        _preset("Band Glue", "Mix bus", "Gentle tube glue on both bands.", driveLow=3.0, driveHigh=3.0, sensitivity=0.4),
+        _preset("Low Weight", "Bass", "Driven low band, clean highs.", driveLow=12.0, driveHigh=2.0, toneLow=-0.3),
+        _preset("Air Bands", "Bright", "Tape texture with a lifted top band.", mode=1, driveHigh=8.0, toneHigh=0.7, crossover=1500.0),
+        _preset("Split Crunch", "Drums", "Hard drive on both bands, fast envelope.", driveLow=18.0, driveHigh=16.0, attack=2.0, release=80.0),
+        _preset("Vocal Leveller", "Vocal", "Envelope control per band, gentle drive.", driveLow=4.0, driveHigh=4.0, sensitivity=0.7, attack=8.0, release=120.0),
+        _preset("Tape Split", "Character", "Warm tape character over both bands.", mode=1, driveLow=7.0, driveHigh=5.0, toneHigh=-0.2),
+        _preset("Diode Bite", "Character", "Aggressive diode edge in each band.", mode=2, driveLow=14.0, driveHigh=10.0),
+        _preset("Sub Keeper", "Subtle", "Only the low band works; the highs pass untouched.", driveLow=9.0, driveHigh=0.0, crossover=200.0),
+        _preset("High Sparkle", "Bright", "A bright, driven high band over a calm low.", driveHigh=10.0, toneHigh=0.9, crossover=2500.0),
+        _preset("Dark Console", "Lo-Fi", "Dark tilt on both bands.", driveLow=8.0, toneLow=-0.5, toneHigh=-0.7),
+        _preset("Parallel Bands", "Subtle", "Heavy drive mixed back, both bands.", mix=40.0, driveLow=12.0, driveHigh=12.0),
+        _preset("Bass Punch", "Bass", "A fast envelope tightens the low band.", driveLow=15.0, sensitivity=0.8, attack=1.0, release=60.0, crossover=300.0),
+        _preset("Gentle Two", "Mix bus", "Barely there, both bands.", driveLow=2.0, driveHigh=2.0, sensitivity=0.2),
+        _preset("Extreme Split", "Extreme", "Maximum drive on both bands, diode mode.", mode=2, driveLow=24.0, driveHigh=24.0, sensitivity=1.0),
+        _preset("Null Split", "Utility", "Fully dry: a transparent reference.", mix=0.0),
+        # Plan 13: 10 new MultibandSaturation presets that use the shared LFO/routing.
+        _preset("Crossover Sweep", "Mix bus", "Triangle LFO sweeps the crossover point.",
+                lfo1Rate=0.3, lfo1Shape=1, mod1Target=1, mod1Amount=100.0, crossover=500.0, driveLow=4.0, driveHigh=4.0),
+        _preset("Drive Pump", "Drums", "Square LFO pumps the low-band drive.",
+                lfo1Rate=2.0, lfo1Shape=3, mod1Target=2, mod1Amount=80.0, driveLow=8.0, attack=2.0, release=80.0),
+        _preset("High Sparkle LFO", "Bright", "Sine LFO moves the high-band drive.",
+                lfo1Rate=0.4, lfo1Shape=0, mod1Target=3, mod1Amount=100.0, driveHigh=8.0, crossover=2000.0),
+        _preset("Sensitivity Breathe", "Vocal", "Triangle LFO breathes the envelope sensitivity.",
+                lfo1Rate=0.25, lfo1Shape=1, mod1Target=4, mod1Amount=-80.0, sensitivity=0.6, driveLow=5.0, driveHigh=5.0),
+        _preset("Attack Jitter", "Lo-Fi", "Sample-and-hold LFO jitters the attack time.",
+                lfo2Rate=6.0, lfo2Shape=4, mod2Source=1, mod2Target=5, mod2Amount=100.0, attack=5.0, driveLow=10.0),
+        _preset("Release Swell", "Ambient", "Sine LFO swells the release time.",
+                lfo1Rate=0.2, lfo1Shape=0, mod1Target=6, mod1Amount=80.0, release=800.0, driveLow=7.0),
+        _preset("Tone Wobble", "Character", "Triangle LFO wobbles the low-band tone.",
+                lfo1Rate=0.5, lfo1Shape=1, mod1Target=7, mod1Amount=100.0, toneLow=0.0, driveLow=8.0),
+        _preset("High Tilt Sway", "Bright", "Saw LFO sways the high-band tilt.",
+                lfo2Rate=0.3, lfo2Shape=2, mod2Source=1, mod2Target=8, mod2Amount=100.0, toneHigh=0.0, driveHigh=9.0),
+        _preset("Wet/Dry Pulse", "Mix bus", "Synced square LFO pulses the mix.",
+                lfo1Rate=2.0, lfo1Shape=3, lfo1Sync=1, lfo1Division=4, mod1Target=9, mod1Amount=-60.0, mix=80.0),
+        _preset("Output Pump", "Utility", "Sine LFO pumps the output level.",
+                lfo1Rate=0.35, lfo1Shape=0, mod1Target=10, mod1Amount=50.0, outputLevel=0.0),
+        # Plan 17 Phase 9: the interest features — the per-band mix, the folds and the
+        # thermal drift. Appended, so the bank order stays stable for host programs.
+        _preset("Clean Low End", "Bass", "The lows stay untouched while the highs bite.",
+                mixLow=0.0, mixHigh=100.0, crossover=300.0, driveHigh=15.0, driveLow=0.0),
+        _preset("Folded Air", "Bright", "The high band's wavefolder adds airy harmonics.",
+                foldHigh=50.0, driveHigh=9.0, crossover=2000.0),
+        _preset("Folded Bass", "Lo-Fi", "Folded low harmonics crunch the bottom.",
+                foldLow=35.0, driveLow=12.0, crossover=250.0),
+        _preset("Thermal Sag", "Character", "The drive eases as the signal sustains.",
+                thermalDrift=100.0, driveLow=6.0, driveHigh=6.0),
+        _preset("Gentle Thermal", "Subtle", "A subtle breath in the drive and crossover.",
+                thermalDrift=35.0, driveLow=9.0, driveHigh=6.0),
+        _preset("Parallel Low", "Wide", "The low band runs parallel saturation.",
+                mixLow=40.0, driveLow=18.0, crossover=400.0),
+        _preset("Parallel High", "Wide", "The high band runs parallel saturation.",
+                mixHigh=35.0, driveHigh=15.0, crossover=1200.0),
+        _preset("Split Fold", "Drums", "Both bands fold for snappy transients.",
+                foldLow=25.0, foldHigh=25.0, driveLow=9.0, driveHigh=9.0, crossover=900.0),
+        _preset("Warm Sag Bass", "Bass", "The thermal sag warms folded bass notes.",
+                thermalDrift=60.0, foldLow=15.0, driveLow=9.0, crossover=200.0),
+        _preset("Half Processed", "Lo-Fi", "Both bands blend halfway to clean.",
+                mixLow=50.0, mixHigh=50.0, driveLow=15.0, driveHigh=15.0),
+    ],
+    # Plan 6.1: the four-slot loop instrument. Every preset carries four embedded: loop
+    # paths (the slot loading rides as state properties) and changes at least one
+    # parameter. Bank order is append-only.
+    "Cyclical": [
+        _preset("Four on the Floor", "Groove", "Kick, hats, bass and chord locked to 16ths.",
+                loop_paths=["embedded:kick_4k.wav", "embedded:hats_4k.wav", "embedded:bass_4k.wav", "embedded:chord_4k.wav"],
+                **per_slot(quantize=1), slot3Speed=2.0),
+        _preset("Backbeat Stack", "Groove", "Snare, hats and bass interlock with swing.",
+                loop_paths=["embedded:snare_4k.wav", "embedded:hats_4k.wav", "embedded:bass_4k.wav", "embedded:perc_4k.wav"],
+                **per_slot(quantize=1, swing=12.0)),
+        _preset("Half-Time Drift", "Groove", "Halved speeds and a reversed chord swell.",
+                loop_paths=["embedded:kick_4k.wav", "embedded:snare_4k.wav", "embedded:chord_4k.wav", "embedded:texture_4k.wav"],
+                slot3Direction=1, slot3Speed=0.5, slot4Speed=0.5),
+        _preset("Sub Anchor", "Bass", "A forward bass riff over a reversed kick.",
+                loop_paths=["embedded:bass_4k.wav", "embedded:kick_4k.wav", "embedded:perc_4k.wav", "embedded:noise_4k.wav"],
+                slot2Direction=1, slot2Speed=0.5, slot2Pitch=-12),
+        _preset("Rubber Bassline", "Bass", "Double-speed bass with granular sparkle.",
+                loop_paths=["embedded:bass_4k.wav", "embedded:hats_4k.wav", "embedded:arp_4k.wav", "embedded:noise_4k.wav"],
+                slot1Speed=2.0, slot3Speed=0.5, slot4Granular=1),
+        _preset("Glass Loop", "Texture", "Bells and pads drifting at uneven speeds.",
+                loop_paths=["embedded:bells_4k.wav", "embedded:texture_4k.wav", "embedded:drone_4k.wav", "embedded:noise_4k.wav"],
+                slot2Speed=0.75, slot3Speed=0.5, **per_slot(crossfade=50.0)),
+        _preset("Tape Halo", "Texture", "A reversed pad over a slow forward texture.",
+                loop_paths=["embedded:texture_4k.wav", "embedded:drone_4k.wav", "embedded:bells_4k.wav", "embedded:noise_4k.wav"],
+                slot2Direction=1, slot1Speed=0.5, **per_slot(crossfade=200.0)),
+        _preset("Grain Field", "Experimental", "All four slots granular, two random ping-pong.",
+                loop_paths=["embedded:chord_4k.wav", "embedded:vox_4k.wav", "embedded:perc_4k.wav", "embedded:noise_4k.wav"],
+                slot1Granular=1, slot2Granular=1, slot3Granular=1, slot4Granular=1,
+                slot2Direction=2, slot2PingRandom=1, slot4Direction=2, slot4PingRandom=1),
+        _preset("Broken Clock", "Experimental", "Ping-pong slots with randomised turn points.",
+                loop_paths=["embedded:kick_4k.wav", "embedded:snare_4k.wav", "embedded:arp_4k.wav", "embedded:vox_4k.wav"],
+                slot1Direction=2, slot2Direction=2, slot3Direction=2, slot4Direction=2,
+                slot1PingRandom=1, slot3PingRandom=1, **per_slot(quantize=2, swing=-10.0)),
+        _preset("Reverse Universe", "Experimental", "Three reversed loops behind a forward kick.",
+                loop_paths=["embedded:kick_4k.wav", "embedded:chord_4k.wav", "embedded:vox_4k.wav", "embedded:texture_4k.wav"],
+                slot2Direction=1, slot3Direction=1, slot4Direction=1, slot4Speed=0.5, **per_slot(crossfade=120.0)),
+        _preset("Stutter Grid", "Electronic", "Sprinting hats over a 16th grid.",
+                loop_paths=["embedded:kick_4k.wav", "embedded:hats_4k.wav", "embedded:snare_4k.wav", "embedded:perc_4k.wav"],
+                **per_slot(quantize=1), slot1Speed=2.0, slot2Speed=4.0),
+        _preset("Warehouse", "Electronic", "Wide pan, long crossfade, driving kick.",
+                loop_paths=["embedded:kick_4k.wav", "embedded:bass_4k.wav", "embedded:chord_4k.wav", "embedded:drone_4k.wav"],
+                **per_slot(pan=30.0, crossfade=30.0), slot1Speed=2.0, slot3Speed=0.5),
+        _preset("Slow Motion", "Ambient", "Quarter-speed pads and bells.",
+                loop_paths=["embedded:texture_4k.wav", "embedded:bells_4k.wav", "embedded:drone_4k.wav", "embedded:noise_4k.wav"],
+                slot1Speed=0.5, slot2Speed=0.5, slot3Speed=0.25, **per_slot(crossfade=300.0), masterVolume=-6.0),
+        _preset("Night Drive", "Ambient", "A granular texture under a straight pulse.",
+                loop_paths=["embedded:kick_4k.wav", "embedded:texture_4k.wav", "embedded:drone_4k.wav", "embedded:vox_4k.wav"],
+                slot2Granular=1, slot4Direction=1, slot4Speed=0.5, **per_slot(crossfade=200.0)),
+        _preset("Gate Cutter", "Groove", "Gate mode chops the held notes.",
+                loop_paths=["embedded:kick_4k.wav", "embedded:hats_4k.wav", "embedded:chord_4k.wav", "embedded:vox_4k.wav"],
+                **per_slot(trigger=1, quantize=2, swing=18.0), slot4Granular=1),
+        # Plan 14: the new concept - chop with Slice Length, BPM sync with Beats, Toggle
+        # trigger, per-slot notes.
+        _preset("Dr Rex Grid", "Electronic", "Two chopped slots play slice-per-key on disjoint ranges.",
+                loop_paths=["embedded:kick_4k.wav", "embedded:hats_4k.wav", "embedded:bass_4k.wav", "embedded:perc_4k.wav"],
+                **per_slot(quantize=1), slot1Note=36, slot1Chop=1, slot1Slices=16, slot2Note=64, slot2Chop=1, slot2Slices=8),
+        _preset("Late Slices", "Experimental", "A chopped pad whose late slices stretch out.",
+                loop_paths=["embedded:chord_4k.wav", "embedded:drone_4k.wav", "embedded:texture_4k.wav", "embedded:noise_4k.wav"],
+                slot1Chop=1, slot1Slices=8, slot1SliceLength=60.0, slot1Note=48),
+        _preset("Early Slices", "Experimental", "The opposite skew: the early slices take the space.",
+                loop_paths=["embedded:vox_4k.wav", "embedded:texture_4k.wav", "embedded:bells_4k.wav", "embedded:noise_4k.wav"],
+                slot1Chop=1, slot1Slices=8, slot1SliceLength=-60.0, slot1Note=48),
+        _preset("Slice Skew Pair", "Texture", "Two chopped pads skewed in opposite directions.",
+                loop_paths=["embedded:texture_4k.wav", "embedded:chord_4k.wav", "embedded:bells_4k.wav", "embedded:drone_4k.wav"],
+                slot1Chop=1, slot1Slices=6, slot1SliceLength=45.0, slot1Note=48,
+                slot2Chop=1, slot2Slices=6, slot2SliceLength=-45.0, slot2Note=60),
+        _preset("Chopped Break", "Bass", "A double-speed chopped bass riff, key-per-slice.",
+                loop_paths=["embedded:bass_4k.wav", "embedded:kick_4k.wav", "embedded:perc_4k.wav", "embedded:noise_4k.wav"],
+                **per_slot(quantize=1), slot1Chop=1, slot1Slices=8, slot1SliceLength=40.0, slot1Speed=2.0),
+        _preset("Synced Bars", "Groove", "Every loop locks to the host: whole loop in Beats beats.",
+                loop_paths=["embedded:kick_4k.wav", "embedded:hats_4k.wav", "embedded:bass_4k.wav", "embedded:chord_4k.wav"],
+                **per_slot(sync=1), slot1Beats=4, slot2Beats=8, slot3Beats=2, slot4Beats=4),
+        _preset("Half-Time Sync", "Groove", "Synced loops stretched over eight beats each.",
+                loop_paths=["embedded:kick_4k.wav", "embedded:snare_4k.wav", "embedded:chord_4k.wav", "embedded:texture_4k.wav"],
+                **per_slot(sync=1), slot1Beats=8, slot2Beats=8, slot3Beats=8, slot4Beats=8, masterVolume=-3.0),
+        _preset("Toggle Looper", "Ambient", "Toggle mode: one press starts the pad, the next stops it.",
+                loop_paths=["embedded:drone_4k.wav", "embedded:texture_4k.wav", "embedded:chord_4k.wav", "embedded:noise_4k.wav"],
+                **per_slot(trigger=2, crossfade=120.0), slot1Note=48, slot2Note=50, slot3Note=52),
+        _preset("Spread Keys", "Electronic", "The four slots sit across the keyboard, chops included.",
+                loop_paths=["embedded:kick_4k.wav", "embedded:hats_4k.wav", "embedded:snare_4k.wav", "embedded:perc_4k.wav"],
+                slot1Note=48, slot2Note=52, slot3Note=55, slot4Note=59,
+                slot2Chop=1, slot2Slices=4),
+        _preset("Tempo Runner", "Electronic", "Free-running tempo at 150 BPM drives the quantised chop.",
+                loop_paths=["embedded:kick_4k.wav", "embedded:hats_4k.wav", "embedded:arp_4k.wav", "embedded:perc_4k.wav"],
+                **per_slot(tempo=150.0, quantize=1, trigger=1), slot1Chop=1, slot1Slices=8),
     ],
 }

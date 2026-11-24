@@ -1,0 +1,11 @@
+{
+  "_name": "Air Bands",
+  "_category": "Bright",
+  "_description": "Tape texture with a lifted top band.",
+  "_plugin": "MultibandSaturation",
+  "_pluginVersion": "1.0.0",
+  "mode": 1,
+  "crossover": 1500.0,
+  "driveHigh": 8.0,
+  "toneHigh": 0.7
+}

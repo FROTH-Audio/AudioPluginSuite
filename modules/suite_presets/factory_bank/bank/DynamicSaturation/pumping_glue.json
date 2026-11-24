@@ -1,0 +1,14 @@
+{
+  "_name": "Pumping Glue",
+  "_category": "Mix bus",
+  "_description": "Tube glue with a rhythmic wet/dry pump.",
+  "_plugin": "DynamicSaturation",
+  "_pluginVersion": "1.0.0",
+  "drive": 4.0,
+  "sensitivity": 0.4,
+  "mix": 80.0,
+  "lfo1Rate": 0.5,
+  "lfo1Shape": 0,
+  "mod1Target": 3,
+  "mod1Amount": -60.0
+}

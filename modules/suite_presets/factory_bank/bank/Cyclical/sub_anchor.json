@@ -1,0 +1,16 @@
+{
+  "_name": "Sub Anchor",
+  "_category": "Bass",
+  "_description": "A forward bass riff over a reversed kick.",
+  "_plugin": "Cyclical",
+  "_pluginVersion": "1.0.0",
+  "_loopPaths": [
+    "embedded:bass_4k.wav",
+    "embedded:kick_4k.wav",
+    "embedded:perc_4k.wav",
+    "embedded:noise_4k.wav"
+  ],
+  "slot2Speed": 0.5,
+  "slot2Direction": 1,
+  "slot2Pitch": -12
+}

@@ -1,0 +1,14 @@
+{
+  "_name": "Inverted Attack",
+  "_category": "Drums",
+  "_description": "The inverted waveform digs the attack deeper on the fall.",
+  "_plugin": "DynamicSaturation",
+  "_pluginVersion": "1.0.0",
+  "drive": 10.0,
+  "attack": 12.0,
+  "release": 90.0,
+  "lfo1Rate": 0.9,
+  "lfo1Invert": 1,
+  "mod1Target": 5,
+  "mod1Amount": 60.0
+}

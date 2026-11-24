@@ -1,0 +1,464 @@
+#include "PluginProcessor.h"
+#include "PluginEditor.h"
+
+#if SUITE_PRESET_BANK_AS_PROGRAMS
+ #include "PresetBank.h"
+#endif
+
+#include <iterator>
+
+namespace
+{
+    /** The controls the routing can move. Choice index n is entry n - 1, so the order matches
+        ModTarget and is saved in sessions: append only. */
+    const SuiteModulation::TargetInfo modulationTargets[] {
+        { MultibandSaturationProcessor::crossoverId,   "Crossover" },
+        { MultibandSaturationProcessor::driveLowId,    "Drive Low" },
+        { MultibandSaturationProcessor::driveHighId,   "Drive High" },
+        { MultibandSaturationProcessor::sensitivityId, "Sensitivity" },
+        { MultibandSaturationProcessor::attackId,      "Attack" },
+        { MultibandSaturationProcessor::releaseId,     "Release" },
+        { MultibandSaturationProcessor::toneLowId,     "Tone Low" },
+        { MultibandSaturationProcessor::toneHighId,    "Tone High" },
+        { MultibandSaturationProcessor::mixId,         "Mix" },
+        { MultibandSaturationProcessor::outputLevelId, "Output" },
+    };
+}
+
+MultibandSaturationProcessor::MultibandSaturationProcessor()
+    : AudioProcessor (BusesProperties()
+                          .withInput ("Input", juce::AudioChannelSet::stereo(), true)
+                          .withOutput ("Output", juce::AudioChannelSet::stereo(), true)),
+      apvts (*this, nullptr, "PARAMETERS", createParameterLayout()),
+      modulation (apvts, modulationTargets, (int) std::size (modulationTargets), nullptr)
+{
+    mode         = apvts.getRawParameterValue (modeId);
+    crossover    = apvts.getRawParameterValue (crossoverId);
+    driveLow     = apvts.getRawParameterValue (driveLowId);
+    driveHigh    = apvts.getRawParameterValue (driveHighId);
+    sensitivity  = apvts.getRawParameterValue (sensitivityId);
+    attack       = apvts.getRawParameterValue (attackId);
+    release      = apvts.getRawParameterValue (releaseId);
+    toneLow      = apvts.getRawParameterValue (toneLowId);
+    toneHigh     = apvts.getRawParameterValue (toneHighId);
+    mix          = apvts.getRawParameterValue (mixId);
+    outputLevel  = apvts.getRawParameterValue (outputLevelId);
+    mixLow       = apvts.getRawParameterValue (mixLowId);
+    mixHigh      = apvts.getRawParameterValue (mixHighId);
+    thermalDrift = apvts.getRawParameterValue (thermalDriftId);
+    foldLow      = apvts.getRawParameterValue (foldLowId);
+    foldHigh     = apvts.getRawParameterValue (foldHighId);
+}
+
+juce::AudioProcessorValueTreeState::ParameterLayout MultibandSaturationProcessor::createParameterLayout()
+{
+    std::vector<std::unique_ptr<juce::RangedAudioParameter>> params;
+
+    params.push_back (std::make_unique<juce::AudioParameterChoice> (
+        juce::ParameterID { modeId, 1 }, "Saturation Mode",
+        juce::StringArray { "Tube", "Tape", "Diode" }, 0));
+
+    // Log scale: 1 kHz sits at the centre of the slider travel.
+    juce::NormalisableRange<float> crossoverRange (80.0f, 8000.0f, 1.0f);
+    crossoverRange.setSkewForCentre (1000.0f);
+    params.push_back (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { crossoverId, 1 }, "Crossover", crossoverRange, 500.0f, "Hz"));
+
+    params.push_back (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { driveLowId, 1 }, "Drive Low",
+        juce::NormalisableRange<float> (0.0f, 24.0f, 0.1f), 6.0f, "dB"));
+    params.push_back (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { driveHighId, 1 }, "Drive High",
+        juce::NormalisableRange<float> (0.0f, 24.0f, 0.1f), 6.0f, "dB"));
+
+    params.push_back (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { sensitivityId, 1 }, "Envelope Sensitivity",
+        juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 0.5f));
+
+    params.push_back (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { attackId, 1 }, "Attack",
+        juce::NormalisableRange<float> (1.0f, 100.0f, 0.1f, 0.35f), 5.0f, "ms"));
+    params.push_back (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { releaseId, 1 }, "Release",
+        juce::NormalisableRange<float> (50.0f, 2000.0f, 0.1f, 0.4f), 150.0f, "ms"));
+
+    params.push_back (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { toneLowId, 1 }, "Tone Low",
+        juce::NormalisableRange<float> (-1.0f, 1.0f, 0.01f), 0.0f));
+    params.push_back (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { toneHighId, 1 }, "Tone High",
+        juce::NormalisableRange<float> (-1.0f, 1.0f, 0.01f), 0.0f));
+
+    params.push_back (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { mixId, 1 }, "Mix",
+        juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 100.0f, "%"));
+    params.push_back (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { outputLevelId, 1 }, "Output",
+        juce::NormalisableRange<float> (-12.0f, 6.0f, 0.01f), 0.0f, "dB"));
+
+    // LFOs and modulation routing, appended last so the existing parameter order never moves.
+    SuiteModulation::Router::addParameters (params, modTargetNames());
+
+    // Plan 17 Phase 9: the interest features, appended AFTER the router's parameters so no
+    // saved index moves. The per-band mix defaults to 100 % (the committed sound); the
+    // thermal drift and the folds default to their inert values.
+    params.push_back (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { mixLowId, 1 }, "Mix Low",
+        juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 100.0f, "%"));
+    params.push_back (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { mixHighId, 1 }, "Mix High",
+        juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 100.0f, "%"));
+    params.push_back (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { thermalDriftId, 1 }, "Thermal Drift",
+        juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 0.0f, "%"));
+    params.push_back (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { foldLowId, 1 }, "Fold Low",
+        juce::NormalisableRange<float> (0.0f, 50.0f, 0.1f), 0.0f, "%"));
+    params.push_back (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { foldHighId, 1 }, "Fold High",
+        juce::NormalisableRange<float> (0.0f, 50.0f, 0.1f), 0.0f, "%"));
+
+    return { params.begin(), params.end() };
+}
+
+juce::StringArray MultibandSaturationProcessor::modTargetNames()
+{
+    // Must follow the ModTarget enum order exactly.
+    return { "None", "Crossover", "Drive Low", "Drive High", "Sensitivity", "Attack",
+             "Release", "Tone Low", "Tone High", "Mix", "Output" };
+}
+
+void MultibandSaturationProcessor::prepareToPlay (double sampleRate, int)
+{
+    preparedSampleRate = sampleRate > 0.0 ? sampleRate : 44100.0;
+
+    modulation.prepare (preparedSampleRate);
+    streamSample = 0;
+    beatClock = 0.0;
+
+    for (auto& split : splits)
+        split.prepare (preparedSampleRate, crossover->load());
+
+    const float attackMs = juce::jlimit (1.0f, 100.0f, attack->load());
+    const float releaseMs = juce::jlimit (50.0f, 2000.0f, release->load());
+    for (auto& follower : envelopes)
+        follower.prepare (preparedSampleRate, attackMs, releaseMs);
+
+    for (auto& tone : tones)
+        tone.prepare (preparedSampleRate);
+
+    driveLowSmoother.reset (preparedSampleRate, 0.05);
+    driveHighSmoother.reset (preparedSampleRate, 0.05);
+    toneLowSmoother.reset (preparedSampleRate, 0.05);
+    toneHighSmoother.reset (preparedSampleRate, 0.05);
+    mixSmoother.reset (preparedSampleRate, 0.05);
+    outputGainSmoother.reset (preparedSampleRate, 0.05);
+    crossoverSmoother.reset (preparedSampleRate, 0.02);
+
+    // Plan 17 Phase 9: the interest parameters smooth like the rest; the thermal
+    // follower is very slow (2 s attack, 4 s release) — the sag takes seconds.
+    mixLowSmoother.reset (preparedSampleRate, 0.05);
+    mixHighSmoother.reset (preparedSampleRate, 0.05);
+    foldLowSmoother.reset (preparedSampleRate, 0.05);
+    foldHighSmoother.reset (preparedSampleRate, 0.05);
+    thermalSmoother.reset (preparedSampleRate, 0.05);
+    for (auto& follower : thermalEnvs)
+        follower.prepare (preparedSampleRate, 2000.0f, 4000.0f);
+
+    driveLowSmoother.setCurrentAndTargetValue (juce::Decibels::decibelsToGain (driveLow->load()));
+    driveHighSmoother.setCurrentAndTargetValue (juce::Decibels::decibelsToGain (driveHigh->load()));
+    toneLowSmoother.setCurrentAndTargetValue (toneLow->load());
+    toneHighSmoother.setCurrentAndTargetValue (toneHigh->load());
+    mixSmoother.setCurrentAndTargetValue (mix->load() / 100.0f);
+    outputGainSmoother.setCurrentAndTargetValue (juce::Decibels::decibelsToGain (outputLevel->load()));
+    crossoverSmoother.setCurrentAndTargetValue (crossover->load());
+    mixLowSmoother.setCurrentAndTargetValue (mixLow->load() / 100.0f);
+    mixHighSmoother.setCurrentAndTargetValue (mixHigh->load() / 100.0f);
+    foldLowSmoother.setCurrentAndTargetValue (foldLow->load() / 50.0f);
+    foldHighSmoother.setCurrentAndTargetValue (foldHigh->load() / 50.0f);
+    thermalSmoother.setCurrentAndTargetValue (thermalDrift->load() / 100.0f);
+}
+
+bool MultibandSaturationProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
+{
+    const auto& output = layouts.getMainOutputChannelSet();
+    const auto& input = layouts.getMainInputChannelSet();
+
+    if (output != juce::AudioChannelSet::mono() && output != juce::AudioChannelSet::stereo())
+        return false;
+
+    return input == output;
+}
+
+void MultibandSaturationProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer&)
+{
+    juce::ScopedNoDenormals noDenormals;
+
+    const int numChannels = juce::jmin (buffer.getNumChannels(), (int) splits.size());
+    const int numSamples = buffer.getNumSamples();
+    if (numSamples <= 0)
+        return;
+
+    // The LFOs run on a tempo-locked internal beat clock: an effect has no sequencer position to
+    // follow, and a tempo-locked clock keeps the synced shapes moving when the transport is stopped.
+    const auto offsets = modulation.computeOffsets ((double) streamSample, beatClock, (double) streamSample);
+    modulation.publish (offsets, (double) streamSample, beatClock);
+
+    // Block settings. The smoothers ramp over 50 ms, so automation never zips.
+    const auto mode = (CoreDSP::Saturation::Mode) juce::jlimit (0, 2, (int) this->mode->load());
+
+    const float sensitivityAmount = juce::jlimit (0.0f, 1.0f,
+                                                  modulation.modulate ((int) ModTarget::Sensitivity, sensitivity->load(), offsets));
+    driveLowSmoother.setTargetValue (juce::Decibels::decibelsToGain (
+        modulation.modulate ((int) ModTarget::DriveLow, driveLow->load(), offsets)));
+    driveHighSmoother.setTargetValue (juce::Decibels::decibelsToGain (
+        modulation.modulate ((int) ModTarget::DriveHigh, driveHigh->load(), offsets)));
+    toneLowSmoother.setTargetValue (modulation.modulate ((int) ModTarget::ToneLow, toneLow->load(), offsets));
+    toneHighSmoother.setTargetValue (modulation.modulate ((int) ModTarget::ToneHigh, toneHigh->load(), offsets));
+    mixSmoother.setTargetValue (juce::jlimit (0.0f, 100.0f,
+                                              modulation.modulate ((int) ModTarget::Mix, mix->load(), offsets)) / 100.0f);
+    outputGainSmoother.setTargetValue (juce::Decibels::decibelsToGain (
+        modulation.modulate ((int) ModTarget::Output, outputLevel->load(), offsets)));
+
+    // Crossover is smoothed in Hz before the LR4 coefficients are computed (plan 13).
+    crossoverSmoother.setTargetValue (modulation.modulate ((int) ModTarget::Crossover, crossover->load(), offsets));
+
+    // Plan 17 Phase 9: the interest parameters are not routing targets (the plan keeps the
+    // table as it is); they read and smooth like the rest. The fold normalises to 0..1.
+    mixLowSmoother.setTargetValue (juce::jlimit (0.0f, 100.0f, mixLow->load()) / 100.0f);
+    mixHighSmoother.setTargetValue (juce::jlimit (0.0f, 100.0f, mixHigh->load()) / 100.0f);
+    foldLowSmoother.setTargetValue (juce::jlimit (0.0f, 50.0f, foldLow->load()) / 50.0f);
+    foldHighSmoother.setTargetValue (juce::jlimit (0.0f, 50.0f, foldHigh->load()) / 50.0f);
+    thermalSmoother.setTargetValue (juce::jlimit (0.0f, 100.0f, thermalDrift->load()) / 100.0f);
+
+    const float attackMs = juce::jlimit (1.0f, 100.0f,
+                                         modulation.modulate ((int) ModTarget::Attack, attack->load(), offsets));
+    const float releaseMs = juce::jlimit (50.0f, 2000.0f,
+                                          modulation.modulate ((int) ModTarget::Release, release->load(), offsets));
+    for (auto& follower : envelopes)
+        follower.setTimes (attackMs, releaseMs);
+
+    // The visual snapshot's per-block maxima restart each block (plan 11 D7).
+    bandSnapshot.envelope[0].store (0.0f, std::memory_order_relaxed);
+    bandSnapshot.envelope[1].store (0.0f, std::memory_order_relaxed);
+
+    for (int n = 0; n < numSamples; ++n)
+    {
+        const float driveLowGain = driveLowSmoother.getNextValue();
+        const float driveHighGain = driveHighSmoother.getNextValue();
+        const float toneLowValue = toneLowSmoother.getNextValue();
+        const float toneHighValue = toneHighSmoother.getNextValue();
+        const float mixAmount = mixSmoother.getNextValue();
+        const float outputGain = outputGainSmoother.getNextValue();
+        const float crossoverHz = crossoverSmoother.getNextValue();
+
+        // Plan 17 Phase 9: the per-band mix, the folds and the thermal drift.
+        const float mixLowAmount = mixLowSmoother.getNextValue();
+        const float mixHighAmount = mixHighSmoother.getNextValue();
+        const float foldLowAmount = foldLowSmoother.getNextValue();
+        const float foldHighAmount = foldHighSmoother.getNextValue();
+        const float thermalAmount = thermalSmoother.getNextValue();
+
+        for (int channel = 0; channel < numChannels; ++channel)
+        {
+            auto* data = buffer.getWritePointer (channel);
+            const float in = data[n];
+
+            // The thermal drift: one very slow follower per channel sags the drive and
+            // wows the crossover. At 0 both factors are exactly 1, so the default path is
+            // bit-identical.
+            const float thermalEnv = thermalEnvs[(size_t) channel].process (std::abs (in));
+            const float thermalSag = 1.0f - thermalAmount * 0.35f * thermalEnv;
+            const float thermalWow = 1.0f + thermalAmount * 0.05f * thermalEnv;
+
+            float low = 0.0f, high = 0.0f;
+            splits[(size_t) channel].setCrossoverHz (crossoverHz * thermalWow);
+            splits[(size_t) channel].process (channel, in, low, high);
+
+            // Each band gets the Dynamic Drive rule: Drive x (1 + Sensitivity x Envelope).
+            const float envLow = envelopes[(size_t) channel].process (low);
+            const float envHigh = envelopes[2 + (size_t) channel].process (high);
+            const float preLow = CoreDSP::Saturation::dynamicDrive (driveLowGain * thermalSag, sensitivityAmount, envLow);
+            const float preHigh = CoreDSP::Saturation::dynamicDrive (driveHighGain * thermalSag, sensitivityAmount, envHigh);
+
+            float wetLow = CoreDSP::Saturation::shape (preLow * low, mode);
+            float wetHigh = CoreDSP::Saturation::shape (preHigh * high, mode);
+
+            // The per-band fold (the Dynamic Saturation wavefolder). fold(x, 0) is a bypass.
+            wetLow = CoreDSP::Saturation::fold (wetLow, foldLowAmount);
+            wetHigh = CoreDSP::Saturation::fold (wetHigh, foldHighAmount);
+
+            wetLow = tones[(size_t) channel].process (wetLow, toneLowValue);
+            wetHigh = tones[2 + (size_t) channel].process (wetHigh, toneHighValue);
+
+            // The per-band mix: each band's processed signal blends against its clean band.
+            // 100 % branches to the shaped signal, so the default path stays bit-identical.
+            if (mixLowAmount < 1.0f)
+                wetLow = low + mixLowAmount * (wetLow - low);
+            if (mixHighAmount < 1.0f)
+                wetHigh = high + mixHighAmount * (wetHigh - high);
+
+            // The sum is clamped to the rails (the Dynamic Saturation ceiling rule), then the
+            // dry/wet mix and the output level. No added latency, so the dry path needs no delay.
+            float wet = juce::jlimit (-1.0f, 1.0f, wetLow + wetHigh);
+            wet = (in + mixAmount * (wet - in)) * outputGain;
+            data[n] = wet;
+
+            // The visual snapshot's block maxima (plan 11 D7).
+            bandSnapshot.envelope[0].store (juce::jmax (bandSnapshot.envelope[0].load (std::memory_order_relaxed),
+                                                        std::abs (envLow)), std::memory_order_relaxed);
+            bandSnapshot.envelope[1].store (juce::jmax (bandSnapshot.envelope[1].load (std::memory_order_relaxed),
+                                                        std::abs (envHigh)), std::memory_order_relaxed);
+        }
+    }
+
+    // Advance the clock that drives the free LFOs and the synced beat position.
+    // No host tempo (including the Standalone): a fixed 120 BPM keeps the synced LFOs moving.
+    beatClock += (double) numSamples * SuiteModulation::hostTempoOrDefault (getPlayHead()) / 60.0 / preparedSampleRate;
+    streamSample += numSamples;
+    modulation.advanceBlock (numSamples);
+}
+
+juce::AudioProcessorEditor* MultibandSaturationProcessor::createEditor()
+{
+    return new MultibandSaturationEditor (*this);
+}
+
+void MultibandSaturationProcessor::getStateInformation (juce::MemoryBlock& destData)
+{
+    destData = SuiteState::write (apvts, stateVersion);
+}
+
+void MultibandSaturationProcessor::setStateInformation (const void* data, int sizeInBytes)
+{
+    SuiteState::read (data, sizeInBytes, apvts, stateVersion, migrations);
+
+    // The preset identity rides as a property (plan 09 1.4, D3): restore the bar's
+    // selection from the replaced state. A session without the property — every
+    // session saved before plan 09 — reads as Init.
+    lastPresetSelection = SuitePresets::decodePresetSelection (
+        apvts.state.getProperty (presetSelectionProperty).toString());
+}
+
+void MultibandSaturationProcessor::setPresetSelection (const SuitePresets::PresetSelection& selection)
+{
+    lastPresetSelection = selection;
+
+    // The lerpCurve / samplePath pattern (plan 09 1.4): keep the property in sync at
+    // change time, so the identity rides in every saved session and host program dump.
+    if (selection.kind == SuitePresets::PresetSelection::Kind::none)
+        apvts.state.removeProperty (presetSelectionProperty, nullptr);
+    else
+        apvts.state.setProperty (presetSelectionProperty,
+                                 SuitePresets::encodePresetSelection (selection), nullptr);
+}
+
+void MultibandSaturationProcessor::applyPresetState (const juce::ValueTree& tree)
+{
+    // Presets use resetMissing=true so absent parameters are set to default. The tree is
+    // encoded into the binary state format first, so it goes through the same read path
+    // as a saved session: version check, migrations, replaceState, resetMissing.
+    const juce::MemoryBlock block = SuiteState::detail::encodeXml (*tree.createXml());
+    const auto result = SuiteState::read (block.getData(), (int) block.getSize(), apvts, stateVersion,
+                                          migrations, {}, true);
+
+    // Applying any tree resets the preset identity (plan 09 1.4): the caller — the bar
+    // or the host-program bridge — re-states it right after, when it knows the preset.
+    if (result == SuiteState::LoadResult::loaded)
+        lastPresetSelection = {};
+
+#if SUITE_PRESET_BANK_AS_PROGRAMS
+    // A preset applied from the bar or a file is no longer one of the host programs.
+    if (result == SuiteState::LoadResult::loaded)
+        currentProgramIndex.store (-1, std::memory_order_relaxed);
+#else
+    juce::ignoreUnused (result);
+#endif
+}
+
+//==============================================================================
+// Host program list. Program 0 is Init; 1 to N are the factory presets in bank order. The list only
+// exists in a Pro build with SUITE_PRESET_BANK_AS_PROGRAMS on; otherwise the plugin reports one
+// program, as it did before the preset system.
+
+int MultibandSaturationProcessor::getNumPrograms()
+{
+#if SUITE_PRESET_BANK_AS_PROGRAMS
+    return SuitePresets::PresetPrograms::getNumPrograms (getPresetPluginId());
+#else
+    return 1;
+#endif
+}
+
+int MultibandSaturationProcessor::getCurrentProgram()
+{
+#if SUITE_PRESET_BANK_AS_PROGRAMS
+    return currentProgramIndex.load (std::memory_order_relaxed);
+#else
+    return 0;
+#endif
+}
+
+void MultibandSaturationProcessor::setCurrentProgram (int index)
+{
+#if SUITE_PRESET_BANK_AS_PROGRAMS
+    if (SuitePresets::PresetPrograms::applyProgram (*this, index))
+    {
+        currentProgramIndex.store (index, std::memory_order_relaxed);
+
+        // The host program and the bar's selection describe the same event (plan 09 1.4):
+        // program 0 is Init, program N is factory preset N-1 in bank order.
+        SuitePresets::PresetSelection selection;
+
+        if (index > 0)
+        {
+            selection.kind = SuitePresets::PresetSelection::Kind::factory;
+            selection.factoryIndex = index - 1;
+        }
+
+        setPresetSelection (selection);
+    }
+#else
+    juce::ignoreUnused (index);
+#endif
+}
+
+const juce::String MultibandSaturationProcessor::getProgramName (int index)
+{
+#if SUITE_PRESET_BANK_AS_PROGRAMS
+    return SuitePresets::PresetPrograms::getProgramName (getPresetPluginId(), index);
+#else
+    juce::ignoreUnused (index);
+    return {};
+#endif
+}
+
+void MultibandSaturationProcessor::changeProgramName (int, const juce::String&)
+{
+    // The factory programs are read-only.
+}
+
+void MultibandSaturationProcessor::getCurrentProgramStateInformation (juce::MemoryBlock& destData)
+{
+    getStateInformation (destData);
+}
+
+void MultibandSaturationProcessor::setCurrentProgramStateInformation (const void* data, int sizeInBytes)
+{
+    setStateInformation (data, sizeInBytes);
+
+#if SUITE_PRESET_BANK_AS_PROGRAMS
+    currentProgramIndex.store (-1, std::memory_order_relaxed);
+#endif
+}
+
+float MultibandSaturationProcessor::getModulatedValue (ModTarget target) const
+{
+    return modulation.getModulatedValue ((int) target);
+}
+
+//==============================================================================
+juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
+{
+    return new MultibandSaturationProcessor();
+}

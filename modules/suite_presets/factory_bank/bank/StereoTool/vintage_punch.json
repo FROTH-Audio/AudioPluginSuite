@@ -1,0 +1,13 @@
+{
+  "_name": "Vintage Punch",
+  "_category": "Rock",
+  "_description": "Drive pumps on the hits.",
+  "_plugin": "StereoTool",
+  "_pluginVersion": "1.0.0",
+  "drive": 15.0,
+  "character": 4,
+  "transientAttack": 5.0,
+  "transientRelease": 80.0,
+  "transientAmount": 40.0,
+  "transientTarget": 1
+}

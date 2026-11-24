@@ -330,6 +330,107 @@ def slow_attack_tape():
     ), drive=1.6), fadeOut=0.4)
 
 
+# --- Plan 18 Phase 7: ten more samples, one per new preset (the new LFO waveforms and
+# the transforms are the preset focus; the samples showcase the performance). ---
+
+def bouncing_dust():
+    """A dusty plucked loop whose bounces invite the Bouncing Ball LFO."""
+    parts = []
+    for k in range(4):
+        parts.append(tone(220.0 * (1.0 + 0.5 * k), 0.6,
+                          ((1, 1.0), (2, 0.3)), attack=0.005, decay=0.5))
+    return fade(concatenate(*parts), fadeOut=0.3)
+
+
+def rectified_cloud():
+    """A hazy cloud with a strong lower register for rectified folding."""
+    return fade(mix(
+        tone(82.4, 2.8, ((1, 0.8), (2, 0.3)), attack=0.5, decay=4.0),
+        noise(2.8, 0.10, lp=0.85),
+        tone(329.6, 2.8, ((1, 0.25),), attack=0.8),
+    ), fadeOut=0.5)
+
+
+def quantised_ghosts():
+    """Bell hits with clean gaps, made for stepped (quantised) movement."""
+    parts = []
+    for k, f in enumerate((523.3, 659.3, 784.0, 987.8)):
+        parts.append(silence(0.08))
+        parts.append(tone(f, 0.5, ((1, 1.0), (3, 0.2), (5, 0.1)), attack=0.002, decay=0.4))
+    return fade(concatenate(*parts), fadeOut=0.2)
+
+
+def smoothed_swell():
+    """A slow pad that a smoothed LFO can breathe with."""
+    return fade(mix(
+        tone(146.8, 3.2, ((1, 0.7), (2, 0.25)), attack=1.4, vibrato=0.004, vibratoHz=0.3),
+        tone(220.0, 3.2, ((1, 0.35),), attack=1.8, vibrato=0.003, vibratoHz=0.2),
+        noise(3.2, 0.05, lp=0.92),
+    ), fadeOut=0.6)
+
+
+def pulse_dust():
+    """Cracky, rhythmic dust over a dry loop."""
+    body = tone(98.0, 2.4, ((1, 0.9), (2, 0.2)), attack=0.01, decay=2.5)
+    ticks = []
+    for k in range(12):
+        ticks.append(noise(0.02, 0.5, lp=0.2))
+        ticks.append(silence(0.18))
+    return fade(mix(body, concatenate(*ticks)[:seconds(2.4)]), fadeOut=0.3)
+
+
+def skewed_tape():
+    """A saturated loop with a lopsided groove for the skew transform."""
+    parts = []
+    for k in range(4):
+        parts.append(tone(110.0 + 6.0 * k, 0.5 + 0.22 * k,
+                          ((1, 1.0), (2, 0.35), (4, 0.15)), attack=0.01, decay=0.9))
+    return fade(shape(concatenate(*parts), drive=2.2), fadeOut=0.35)
+
+
+def bouncing_memory():
+    """Sparse plucks over a fading bed, for a bouncing memory amount."""
+    bed = tone(130.8, 2.6, ((1, 0.5), (2, 0.2)), attack=0.6, decay=3.0)
+    hits = []
+    for k, f in enumerate((261.6, 329.6, 392.0, 523.3)):
+        hits.append(silence(0.3 + 0.25 * k))
+        hits.append(tone(f, 0.35, ((1, 0.8),), attack=0.003, decay=0.3))
+    return fade(mix(bed, concatenate(*hits)[:seconds(2.6)]), fadeOut=0.4)
+
+
+def inverted_swell():
+    """A rising pad: inverted movement pulls it down and back."""
+    return fade(mix(
+        tone(174.6, 3.0, ((1, 0.6), (3, 0.2)), attack=2.2, vibrato=0.005, vibratoHz=0.25),
+        noise(3.0, 0.06, lp=0.88),
+    ), fadeIn=0.2, fadeOut=0.5)
+
+
+def stepped_drift():
+    """A slowly wobbling tone with flat steps in its pitch, made for quantised wow."""
+    n = seconds(2.8)
+    steps = 8
+    out = [0.0] * n
+    for i in range(n):
+        step = (i * steps) // n
+        f = 196.0 * (1.0 + 0.03 * ((step % 2) * 2 - 1))
+        out[i] = 0.7 * math.sin(2.0 * math.pi * f * i / SAMPLE_RATE)
+        out[i] += 0.2 * math.sin(2.0 * math.pi * 2.0 * f * i / SAMPLE_RATE)
+    return fade(out, fadeOut=0.4)
+
+
+def pulse_ghosts():
+    """Airy whispers with sharp attacks for the pulse-width transform."""
+    bed = noise(2.6, 0.5, lp=0.95)
+    n = seconds(2.6)
+    out = [0.0] * n
+    for i in range(n):
+        gate = 1.0 if (i // 2400) % 2 == 0 else 0.15
+        out[i] = bed[i] * gate
+    out = mix(out, tone(246.9, 2.6, ((1, 0.2),), attack=0.4))
+    return fade(out, fadeOut=0.4)
+
+
 RECIPES = {
     "Glass Dust": glass_dust,
     "Deep Cloud": deep_cloud,
@@ -351,6 +452,17 @@ RECIPES = {
     "Held Breath": held_breath,
     "Fine Grained Drift": fine_grained_drift,
     "Slow Attack Tape": slow_attack_tape,
+    # Plan 18 Phase 7: ten more, one per new preset.
+    "Bouncing Dust": bouncing_dust,
+    "Rectified Cloud": rectified_cloud,
+    "Quantised Ghosts": quantised_ghosts,
+    "Smoothed Swell": smoothed_swell,
+    "Pulse Dust": pulse_dust,
+    "Skewed Tape": skewed_tape,
+    "Bouncing Memory": bouncing_memory,
+    "Inverted Swell": inverted_swell,
+    "Stepped Drift": stepped_drift,
+    "Pulse Ghosts": pulse_ghosts,
 }
 
 

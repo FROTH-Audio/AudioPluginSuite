@@ -1,0 +1,11 @@
+{
+  "_name": "High Width Shimmer",
+  "_category": "Air",
+  "_description": "The LFO sways the high band's width.",
+  "_plugin": "StereoTool",
+  "_pluginVersion": "1.0.0",
+  "multibandWidthHigh": 0.0,
+  "lfo1Rate": 0.5,
+  "mod1Target": 15,
+  "mod1Amount": 70.0
+}

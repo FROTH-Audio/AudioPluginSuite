@@ -268,6 +268,45 @@ namespace SuiteUI
     }
 
     //==============================================================================
+    StereoLevelMeter::StereoLevelMeter (juce::Colour left, juce::Colour right)
+        : leftColour (left), rightColour (right)
+    {
+    }
+
+    void StereoLevelMeter::setLevels (float left, float right)
+    {
+        leftLevel = left;
+        rightLevel = right;
+        repaint();
+    }
+
+    void StereoLevelMeter::paint (juce::Graphics& g)
+    {
+        auto area = getLocalBounds().toFloat().reduced (2.0f);
+        const float gap = 2.0f;
+        const float barW = (area.getWidth() - gap) * 0.5f;
+
+        const auto leftArea = area.removeFromLeft (barW);
+        const auto rightArea = area.removeFromRight (barW);
+
+        const auto drawBar = [&] (juce::Rectangle<float> bounds, juce::Colour c, float linearLevel)
+        {
+            const float db = 20.0f * std::log10 (juce::jmax (linearLevel, 1.0e-6f));
+            const float fill = unitInterval (db, meterFloorDb, 0.0f);
+
+            g.setColour (Colours::track);
+            g.fillRoundedRectangle (bounds, 3.0f);
+
+            auto filled = bounds.withTop (bounds.getBottom() - fill * bounds.getHeight());
+            g.setColour (c);
+            g.fillRoundedRectangle (filled, 3.0f);
+        };
+
+        drawBar (leftArea, leftColour, leftLevel);
+        drawBar (rightArea, rightColour, rightLevel);
+    }
+
+    //==============================================================================
     SegmentedSelector::SegmentedSelector (juce::Colour accentColour)
         : accent (accentColour)
     {
@@ -380,6 +419,149 @@ namespace SuiteUI
     }
 
     //==============================================================================
+    LabelledSelector::LabelledSelector (const juce::String& caption, juce::Colour accentColour)
+        : selector (accentColour)
+    {
+        label.setText (caption, juce::dontSendNotification);
+        label.setJustificationType (juce::Justification::centred);
+        label.setFont (SuiteUI::uiFont (13.0f, true));
+        label.setColour (juce::Label::textColourId, SuiteUI::Colours::textDim);
+
+        addAndMakeVisible (label);
+        addAndMakeVisible (selector);
+    }
+
+    void LabelledSelector::setOptions (const juce::StringArray& labels)
+    {
+        selector.setOptions (labels);
+        repaint();
+    }
+
+    void LabelledSelector::resized()
+    {
+        auto area = getLocalBounds();
+        label.setBounds (area.removeFromTop (SuiteUI::captionHeight));
+
+        // The pill fills the cell width, centred in what remains (plan 05 R3: a selector
+        // is laid out centred, it never fills a row).
+        selector.setBounds (area.withSizeKeepingCentre (area.getWidth(), SuiteUI::pillHeight)
+                                .reduced (2, 0));
+    }
+
+    //==============================================================================
+    LabelledDropdown::LabelledDropdown (const juce::String& caption)
+    {
+        label.setText (caption, juce::dontSendNotification);
+        label.setJustificationType (juce::Justification::centred);
+        label.setFont (SuiteUI::uiFont (13.0f, true));
+        label.setColour (juce::Label::textColourId, SuiteUI::Colours::textDim);
+
+        box.setJustificationType (juce::Justification::centred);
+        box.setColour (juce::ComboBox::textColourId, SuiteUI::Colours::text);
+        box.setColour (juce::ComboBox::backgroundColourId, SuiteUI::Colours::panel);
+        box.setColour (juce::ComboBox::outlineColourId, SuiteUI::Colours::panelEdge);
+        box.setColour (juce::ComboBox::arrowColourId, SuiteUI::Colours::textDim);
+
+        addAndMakeVisible (label);
+        addAndMakeVisible (box);
+    }
+
+    void LabelledDropdown::setOptions (const juce::StringArray& items)
+    {
+        box.clear (juce::dontSendNotification);
+        box.addItemList (items, 1);
+        repaint();
+    }
+
+    void LabelledDropdown::setSelectedIndex (int index)
+    {
+        box.setSelectedId (index + 1, juce::dontSendNotification);
+    }
+
+    int LabelledDropdown::getSelectedIndex() const noexcept
+    {
+        return box.getSelectedId() - 1;
+    }
+
+    void LabelledDropdown::resized()
+    {
+        auto area = getLocalBounds();
+        label.setBounds (area.removeFromTop (SuiteUI::captionHeight));
+
+        // Same footprint as the selector pill (plan 11 D1): 36 px tall, centred.
+        box.setBounds (area.withSizeKeepingCentre (area.getWidth(), SuiteUI::pillHeight)
+                           .reduced (2, 0));
+    }
+
+    //==============================================================================
+    HelpLine::HelpLine()
+    {
+        setInterceptsMouseClicks (false, false);
+    }
+
+    void HelpLine::setIdleText (const juce::String& newText)
+    {
+        idleText = newText;
+
+        if (showingIdle && text != idleText)
+        {
+            text = idleText;
+            repaint();
+        }
+    }
+
+    void HelpLine::setEnablePredicate (std::function<bool()> predicate)
+    {
+        enablePredicate = std::move (predicate);
+    }
+
+    void HelpLine::showFor (const juce::Component* component)
+    {
+        if (enablePredicate && ! enablePredicate())
+        {
+            setText (idleText);
+            return;
+        }
+
+        const auto help = component != nullptr ? component->getHelpText() : juce::String();
+        setText (help.isNotEmpty() ? help : idleText);
+    }
+
+    void HelpLine::setText (const juce::String& newText)
+    {
+        if (text == newText)
+            return;
+
+        text = newText;
+        showingIdle = (text == idleText);
+        repaint();
+    }
+
+    void HelpLine::paint (juce::Graphics& g)
+    {
+        g.setColour (SuiteUI::Colours::textDim);
+        g.setFont (SuiteUI::uiFont (11.0f));
+        g.drawText (text, getLocalBounds().reduced (16, 0), juce::Justification::centredLeft, true);
+    }
+
+    //==============================================================================
+    void drawGroupFrame (juce::Graphics& g, juce::Rectangle<int> bounds, const juce::String& title,
+                         juce::Colour accent)
+    {
+        const auto frame = bounds.toFloat();
+
+        g.setColour (SuiteUI::Colours::panel.withAlpha (0.55f));
+        g.fillRoundedRectangle (frame, 8.0f);
+        g.setColour (SuiteUI::Colours::track);
+        g.drawRoundedRectangle (frame, 8.0f, 1.0f);
+
+        g.setColour (accent);
+        g.setFont (SuiteUI::uiFont (15.0f, true));
+        g.drawText (title, bounds.withHeight (SuiteUI::groupTitleHeight).translated (0, 4).reduced (12, 0),
+                    juce::Justification::centredLeft);
+    }
+
+    //==============================================================================
     namespace
     {
         constexpr int keyboardFirstKey = 24;
@@ -411,6 +593,42 @@ namespace SuiteUI
     PlayableKeyboardStrip::PlayableKeyboardStrip()
     {
         setWantsKeyboardFocus (false);
+    }
+
+    PlayableKeyboardStrip::~PlayableKeyboardStrip()
+    {
+        // The destructor flush (plan 13): an editor destroyed while a key is held still
+        // sends the note-off. The callbacks must not touch this object afterwards.
+        releaseHeldNotes();
+    }
+
+    void PlayableKeyboardStrip::releaseHeldNotes()
+    {
+        bool any = false;
+        for (int note = 0; note < 128; ++note)
+        {
+            if (! pressed[(size_t) note])
+                continue;
+
+            pressed[(size_t) note] = false;
+            any = true;
+
+            if (onNoteOff)
+                onNoteOff (note);
+        }
+
+        dragNote = -1;
+
+        if (any)
+            repaint();
+    }
+
+    bool PlayableKeyboardStrip::isAnyNoteHeld() const noexcept
+    {
+        for (int note = 0; note < 128; ++note)
+            if (pressed[(size_t) note])
+                return true;
+        return false;
     }
 
     void PlayableKeyboardStrip::setActiveNotes (const bool* notes128)
@@ -522,6 +740,11 @@ namespace SuiteUI
         if (note < 0)
             return;
 
+        // Already held (a second press before the release): no second note-on, so the
+        // note-off balance holds.
+        if (pressed[(size_t) note])
+            return;
+
         dragNote = note;
         pressed[(size_t) note] = true;
         repaint();
@@ -551,9 +774,11 @@ namespace SuiteUI
             onNoteOn (note, 0.8f);
     }
 
-    void PlayableKeyboardStrip::mouseUp (const juce::MouseEvent& e)
+    void PlayableKeyboardStrip::mouseUp (const juce::MouseEvent&)
     {
-        const int note = dragNote >= 0 ? dragNote : noteAt (e.position);
+        // Only the note the mouse actually holds is released (plan 13): the pointer
+        // position at mouse-up can sit over a key the strip never started.
+        const int note = dragNote;
         dragNote = -1;
 
         if (note >= 0 && pressed[(size_t) note])
@@ -564,5 +789,11 @@ namespace SuiteUI
             if (onNoteOff)
                 onNoteOff (note);
         }
+    }
+
+    void PlayableKeyboardStrip::mouseExit (const juce::MouseEvent&)
+    {
+        // The pointer leaving the strip releases everything it holds (plan 13).
+        releaseHeldNotes();
     }
 }

@@ -1,0 +1,11 @@
+{
+  "_name": "Mono Maker Sweep",
+  "_category": "Focus",
+  "_description": "The LFO sweeps the mono-maker crossover.",
+  "_plugin": "StereoTool",
+  "_pluginVersion": "1.0.0",
+  "monoMakerCrossover": 200.0,
+  "lfo1Rate": 0.15,
+  "mod1Target": 12,
+  "mod1Amount": 70.0
+}

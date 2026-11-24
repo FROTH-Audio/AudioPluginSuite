@@ -1,0 +1,12 @@
+{
+  "_name": "Bass Punch",
+  "_category": "Bass",
+  "_description": "A fast envelope tightens the low band.",
+  "_plugin": "MultibandSaturation",
+  "_pluginVersion": "1.0.0",
+  "crossover": 300.0,
+  "driveLow": 15.0,
+  "sensitivity": 0.8,
+  "attack": 1.0,
+  "release": 60.0
+}

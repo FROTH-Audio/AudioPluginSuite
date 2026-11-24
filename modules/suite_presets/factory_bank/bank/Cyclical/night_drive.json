@@ -1,0 +1,20 @@
+{
+  "_name": "Night Drive",
+  "_category": "Ambient",
+  "_description": "A granular texture under a straight pulse.",
+  "_plugin": "Cyclical",
+  "_pluginVersion": "1.0.0",
+  "_loopPaths": [
+    "embedded:kick_4k.wav",
+    "embedded:texture_4k.wav",
+    "embedded:drone_4k.wav",
+    "embedded:vox_4k.wav"
+  ],
+  "slot1Crossfade": 200.0,
+  "slot2Granular": 1,
+  "slot2Crossfade": 200.0,
+  "slot3Crossfade": 200.0,
+  "slot4Speed": 0.5,
+  "slot4Direction": 1,
+  "slot4Crossfade": 200.0
+}

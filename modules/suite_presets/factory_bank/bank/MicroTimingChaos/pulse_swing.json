@@ -1,0 +1,13 @@
+{
+  "_name": "Pulse Swing",
+  "_category": "Rhythmic",
+  "_description": "A narrow pulse flips the swing hard on the beat.",
+  "_plugin": "MicroTimingChaos",
+  "_pluginVersion": "1.0.0",
+  "swing": 0.0,
+  "lfo1Sync": 1,
+  "lfo1Division": 4,
+  "lfo1PulseWidth": 0.3,
+  "mod1Target": 10,
+  "mod1Amount": 100.0
+}

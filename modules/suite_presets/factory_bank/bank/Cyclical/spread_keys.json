@@ -1,0 +1,19 @@
+{
+  "_name": "Spread Keys",
+  "_category": "Electronic",
+  "_description": "The four slots sit across the keyboard, chops included.",
+  "_plugin": "Cyclical",
+  "_pluginVersion": "1.0.0",
+  "_loopPaths": [
+    "embedded:kick_4k.wav",
+    "embedded:hats_4k.wav",
+    "embedded:snare_4k.wav",
+    "embedded:perc_4k.wav"
+  ],
+  "slot1Note": 48,
+  "slot2Note": 52,
+  "slot2Chop": 1,
+  "slot2Slices": 4,
+  "slot3Note": 55,
+  "slot4Note": 59
+}

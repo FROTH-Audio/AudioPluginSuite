@@ -1,4 +1,5 @@
-"""Audit the factory bank against the rules in `docs/plans/03_presets.md` section 5.
+"""Audit the factory bank against the preset rules in `AGENTS.md` section 5.5 and
+`modules/suite_presets/factory_bank/README.md`.
 
 Checks the authoring data in `tools/preset_data.py` and, when they exist, the generated files
 under `modules/suite_presets/factory_bank/bank/`. Exits non-zero on the first rule that is
@@ -6,7 +7,7 @@ broken, so it can be used in CI.
 
 Rules:
 
-- 26 / 26 / 28 / 20 presets (100 total).
+- 26 / 26 / 28 / 20 / 15 / 15 / 15 presets (160 total, plan 11).
 - Unique names per plugin, at least 3 categories per plugin, non-empty category and description.
 - Every ID exists, every value is inside its `NormalisableRange`, values have the right type.
 - No preset equals the default state.
@@ -31,8 +32,11 @@ from pathlib import Path
 
 from preset_data import PRESETS, SCHEMA
 
-EXPECTED_COUNTS = {"SpectralDrift": 26, "DynamicSaturation": 26, "MicroTimingChaos": 28, "Sgraffito": 20}
-EXPECTED_TOTAL = 100
+# Plan 18 Phase 7: the counts grow by the +10 round (DS, MTC and Sgraffito). The counts
+# are append-only expectations, so they only ever grow.
+EXPECTED_COUNTS = {"SpectralDrift": 46, "DynamicSaturation": 46, "MicroTimingChaos": 38, "Sgraffito": 30,
+                   "MidiEffect": 15, "StereoTool": 35, "MultibandSaturation": 35, "Cyclical": 25}
+EXPECTED_TOTAL = 270
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_BANK = REPO_ROOT / "modules" / "suite_presets" / "factory_bank" / "bank"
@@ -144,6 +148,17 @@ def check_authoring(audit):
                             f"{label}: samplePath must be an embedded: URI, never a file "
                             f"path (plan 07 Q3 revised)")
 
+            # Plan 6.1: Cyclical's four slot loops ride as state properties; only
+            # embedded: URIs are allowed in the bank.
+            loop_paths = preset.get("loopPaths")
+            if loop_paths is not None:
+                audit.check(len(loop_paths) == 4,
+                            f"{label}: loopPaths needs exactly four entries")
+                for index, path in enumerate(loop_paths):
+                    audit.check(str(path).startswith("embedded:"),
+                                f"{label}: loop{index + 1}Path must be an embedded: URI, "
+                                f"never a file path (plan 6.1)")
+
             for pid, value in params.items():
                 spec = schema.get(pid)
                 audit.check(spec is not None, f"{label}: unknown parameter id {pid!r}")
@@ -221,6 +236,7 @@ def check_generated(audit, bank_dir):
             "params": params,
             "lerpCurve": parameters.get("lerpCurve"),
             "samplePath": parameters.get("samplePath"),
+            "loopPaths": [parameters.get(f"loop{index}Path") for index in (1, 2, 3, 4)],
         }
 
     for plugin, presets in PRESETS.items():
@@ -246,6 +262,13 @@ def check_generated(audit, bank_dir):
 
             audit.check(entry["lerpCurve"] == preset.get("lerpCurve"),
                         f"bank XML: {plugin} / {name} lerpCurve differs")
+
+            # Plan 6.1: Cyclical's four loop paths must match the authoring data. Presets
+            # without loop references carry no loop attributes at all.
+            if "loopPaths" in preset:
+                generated_paths = [path if path is not None else "" for path in entry["loopPaths"]]
+                audit.check([str(path) for path in preset["loopPaths"]] == generated_paths,
+                            f"bank XML: {plugin} / {name} loop paths differ")
 
             # Plan 07 Q3, revised in phase 4: the generated XML may carry an embedded:
             # URI, never a file path.
@@ -285,6 +308,13 @@ def check_generated(audit, bank_dir):
                         f"bank JSON: {plugin} / {preset['name']} parameter set differs")
             audit.check(data.get("_lerpCurve") == preset.get("lerpCurve"),
                         f"bank JSON: {plugin} / {preset['name']} lerpCurve differs")
+
+            # Plan 6.1: the four loop paths must match the authoring data.
+            if "loopPaths" in preset:
+                json_paths = data.get("_loopPaths", [])
+                audit.check([str(path) for path in json_paths]
+                                == [str(path) for path in preset["loopPaths"]],
+                            f"bank JSON: {plugin} / {preset['name']} loop paths differ")
 
             # Plan 07 Q3, revised in phase 4: the JSON may carry an embedded: URI,
             # never a file path.
@@ -349,6 +379,10 @@ ROUTER_PARAMETER_IDS = (
      for suffix in ("Rate", "Shape", "Sync", "Division", "Offset")]
     + [f"mod{slot}{suffix}" for slot in range(1, 7)
        for suffix in ("Source", "Target", "Amount", "Delay")]
+    # Plan 17 Phase 7: the per-LFO waveform transforms, appended after every existing
+    # parameter (12 more, six per LFO).
+    + [f"lfo{index}{suffix}" for index in (1, 2)
+       for suffix in ("Invert", "Rectify", "Quantise", "Smooth", "PulseWidth", "Skew")]
 )
 
 

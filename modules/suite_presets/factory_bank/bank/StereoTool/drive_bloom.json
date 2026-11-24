@@ -1,0 +1,12 @@
+{
+  "_name": "Drive Bloom",
+  "_category": "Classic",
+  "_description": "Sine LFO blooms the tube drive.",
+  "_plugin": "StereoTool",
+  "_pluginVersion": "1.0.0",
+  "drive": 6.0,
+  "lfo1Rate": 0.25,
+  "lfo1Shape": 0,
+  "mod1Target": 2,
+  "mod1Amount": 100.0
+}

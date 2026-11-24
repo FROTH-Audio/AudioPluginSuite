@@ -9,6 +9,7 @@
 
 #include "PluginProcessor.h"
 #include "SuiteHeaderMenu.h"
+#include "SuiteHelp.h"
 #include "SuiteLookAndFeel.h"
 #include "SuiteModulationControls.h"
 #include "SuiteModulationPanel.h"
@@ -33,14 +34,6 @@ private:
     /** The LFO colours of the modulation panel. */
     static SuiteModulation::ModulationPanel::Style modulationStyle();
 
-    /** Forwards mouse moves from every child to the editor, so the help line follows the pointer. */
-    struct HelpTracker : public juce::MouseListener
-    {
-        std::function<void (const juce::MouseEvent&)> onMove;
-        void mouseMove (const juce::MouseEvent& e) override { if (onMove) onMove (e); }
-    };
-
-    void showHelp (const juce::MouseEvent&);
     void layoutSoundPage (juce::Rectangle<int> area);
     void layoutModPage (juce::Rectangle<int> area);
 
@@ -48,9 +41,8 @@ private:
 
     // Declared first so it is destroyed last, after every component that uses it.
     SuiteUI::SuiteLookAndFeel lookAndFeel { juce::Colour (0xffff9f1c) };
-    HelpTracker helpTracker;
-
-    juce::Label helpLabel;
+    SuiteUI::HelpTracker helpTracker;
+    SuiteUI::HelpLine helpLine;
 
     // The visualiser shows on both pages, so modulation is visible while routing.
     SuiteUI::CurveView transferCurve { juce::Colour (0xffff9f1c) };
@@ -89,7 +81,7 @@ private:
     // Preset bar (Pro builds: visible, public build: height 0 so layout unchanged)
     std::unique_ptr<SuitePresets::PresetBar> presetBar;
 
-    // Gear at the far right of the header: settings and about (plan 08).
+    // menu at the far right of the header: settings and about (plan 08).
     SuiteUI::HeaderMenuButton headerMenu { juce::Colour (0xffff9f1c) };
 
     void resized() override;

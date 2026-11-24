@@ -1,0 +1,13 @@
+{
+  "_name": "Quantised Bias",
+  "_category": "Character",
+  "_description": "The tube bias snaps through five stepped levels.",
+  "_plugin": "DynamicSaturation",
+  "_pluginVersion": "1.0.0",
+  "drive": 9.0,
+  "bias": 0.12,
+  "lfo1Rate": 1.2,
+  "lfo1Quantise": 5,
+  "mod1Target": 9,
+  "mod1Amount": 50.0
+}

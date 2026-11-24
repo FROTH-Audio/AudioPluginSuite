@@ -1,0 +1,11 @@
+{
+  "_name": "Mix Tide",
+  "_category": "Ambient",
+  "_description": "The wet share rises and falls like a tide.",
+  "_plugin": "SpectralDrift",
+  "_pluginVersion": "1.0.0",
+  "mix": 70.0,
+  "lfo1Rate": 0.08,
+  "mod1Target": 11,
+  "mod1Amount": 60.0
+}

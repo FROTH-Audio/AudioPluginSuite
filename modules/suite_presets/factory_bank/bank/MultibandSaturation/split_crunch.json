@@ -1,0 +1,11 @@
+{
+  "_name": "Split Crunch",
+  "_category": "Drums",
+  "_description": "Hard drive on both bands, fast envelope.",
+  "_plugin": "MultibandSaturation",
+  "_pluginVersion": "1.0.0",
+  "driveLow": 18.0,
+  "driveHigh": 16.0,
+  "attack": 2.0,
+  "release": 80.0
+}

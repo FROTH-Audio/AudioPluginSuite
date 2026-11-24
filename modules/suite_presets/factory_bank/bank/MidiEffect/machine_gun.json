@@ -1,0 +1,11 @@
+{
+  "_name": "Machine Gun",
+  "_category": "Electronic",
+  "_description": "Ultra-fast 32nds at a full gate.",
+  "_plugin": "MidiEffect",
+  "_pluginVersion": "1.0.0",
+  "arpMode": 1,
+  "stepRate": 9,
+  "gateLength": 80.0,
+  "octaveSpread": 0.5
+}

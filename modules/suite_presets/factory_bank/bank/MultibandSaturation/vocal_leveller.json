@@ -1,0 +1,12 @@
+{
+  "_name": "Vocal Leveller",
+  "_category": "Vocal",
+  "_description": "Envelope control per band, gentle drive.",
+  "_plugin": "MultibandSaturation",
+  "_pluginVersion": "1.0.0",
+  "driveLow": 4.0,
+  "driveHigh": 4.0,
+  "sensitivity": 0.7,
+  "attack": 8.0,
+  "release": 120.0
+}

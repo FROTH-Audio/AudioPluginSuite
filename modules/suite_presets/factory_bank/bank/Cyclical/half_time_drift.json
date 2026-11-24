@@ -1,0 +1,16 @@
+{
+  "_name": "Half-Time Drift",
+  "_category": "Groove",
+  "_description": "Halved speeds and a reversed chord swell.",
+  "_plugin": "Cyclical",
+  "_pluginVersion": "1.0.0",
+  "_loopPaths": [
+    "embedded:kick_4k.wav",
+    "embedded:snare_4k.wav",
+    "embedded:chord_4k.wav",
+    "embedded:texture_4k.wav"
+  ],
+  "slot3Speed": 0.5,
+  "slot3Direction": 1,
+  "slot4Speed": 0.5
+}

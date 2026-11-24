@@ -1,0 +1,14 @@
+{
+  "_name": "High Tilt Sway",
+  "_category": "Bright",
+  "_description": "Saw LFO sways the high-band tilt.",
+  "_plugin": "MultibandSaturation",
+  "_pluginVersion": "1.0.0",
+  "driveHigh": 9.0,
+  "toneHigh": 0.0,
+  "lfo2Rate": 0.3,
+  "lfo2Shape": 2,
+  "mod2Source": 1,
+  "mod2Target": 8,
+  "mod2Amount": 100.0
+}

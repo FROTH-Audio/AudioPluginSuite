@@ -82,6 +82,23 @@ namespace SuiteUI
                                bool shouldDrawButtonAsHighlighted,
                                bool shouldDrawButtonAsDown) override;
 
+        // Dropdowns and their popup menus use the suite's panel/track/text look (plan 12).
+        void drawComboBox (juce::Graphics&, int width, int height, bool isButtonDown,
+                           int buttonX, int buttonY, int buttonW, int buttonH,
+                           juce::ComboBox&) override;
+
+        juce::Font getComboBoxFont (juce::ComboBox&) override;
+        void positionComboBoxText (juce::ComboBox&, juce::Label&) override;
+
+        void drawPopupMenuBackground (juce::Graphics&, int width, int height) override;
+        juce::Font getPopupMenuFont() override;
+
+        void drawPopupMenuItem (juce::Graphics&, const juce::Rectangle<int>& area,
+                                bool isSeparator, bool isActive, bool isHighlighted,
+                                bool isTicked, bool hasSubMenu, const juce::String& text,
+                                const juce::String& shortcutKeyText, const juce::Drawable* icon,
+                                const juce::Colour* textColourToUse) override;
+
     private:
         juce::Colour accent;
     };

@@ -1,0 +1,21 @@
+{
+  "_name": "Chopped Break",
+  "_category": "Bass",
+  "_description": "A double-speed chopped bass riff, key-per-slice.",
+  "_plugin": "Cyclical",
+  "_pluginVersion": "1.0.0",
+  "_loopPaths": [
+    "embedded:bass_4k.wav",
+    "embedded:kick_4k.wav",
+    "embedded:perc_4k.wav",
+    "embedded:noise_4k.wav"
+  ],
+  "slot1Speed": 2.0,
+  "slot1Chop": 1,
+  "slot1Slices": 8,
+  "slot1SliceLength": 40.0,
+  "slot1Quantize": 1,
+  "slot2Quantize": 1,
+  "slot3Quantize": 1,
+  "slot4Quantize": 1
+}

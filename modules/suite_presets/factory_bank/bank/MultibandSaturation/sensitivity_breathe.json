@@ -1,0 +1,14 @@
+{
+  "_name": "Sensitivity Breathe",
+  "_category": "Vocal",
+  "_description": "Triangle LFO breathes the envelope sensitivity.",
+  "_plugin": "MultibandSaturation",
+  "_pluginVersion": "1.0.0",
+  "driveLow": 5.0,
+  "driveHigh": 5.0,
+  "sensitivity": 0.6,
+  "lfo1Rate": 0.25,
+  "lfo1Shape": 1,
+  "mod1Target": 4,
+  "mod1Amount": -80.0
+}

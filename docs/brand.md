@@ -2,7 +2,7 @@
 
 The brand for the plugin suite. "FROTH" is not a registered trademark for audio software as far as the search done when choosing it went, but run a proper clearance search (USPTO, and EUIPO if you sell in Europe) before publishing. The word "Pulsar" was dropped because it is a registered trademark.
 
-The generator is `tools/brand/build.py`. Check that script for how the name is set. The `BRAND_WORD` and `BRAND_SUFFIX` constants named in earlier versions of this file are not in it. Regenerate the artwork after any change.
+The generator is `tools/brand/build.py`, the owner's local tool; it is not in this repository (`.gitignore` excludes `tools/brand/`), so a fresh clone has the generated artwork but not the script. Check that script for how the name is set. The `BRAND_WORD` and `BRAND_SUFFIX` constants named in earlier versions of this file are not in it. Regenerate the artwork after any change.
 
 ## Parts
 
@@ -26,7 +26,7 @@ Bahnschrift Bold, the Windows system font, is used to draw the artwork. The artw
 
 ## Regenerating
 
-From the repository root:
+From the repository root, with the owner's local generator (it is not in this repository):
 
 ```
 python -I tools/brand/build.py

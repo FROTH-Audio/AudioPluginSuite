@@ -1,0 +1,14 @@
+{
+  "_name": "Drive Pump",
+  "_category": "Drums",
+  "_description": "Square LFO pumps the low-band drive.",
+  "_plugin": "MultibandSaturation",
+  "_pluginVersion": "1.0.0",
+  "driveLow": 8.0,
+  "attack": 2.0,
+  "release": 80.0,
+  "lfo1Rate": 2.0,
+  "lfo1Shape": 3,
+  "mod1Target": 2,
+  "mod1Amount": 80.0
+}

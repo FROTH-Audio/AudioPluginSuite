@@ -8,7 +8,7 @@ Writes, for every preset:
 Each preset is stored as a delta from the default state, both in the JSON files and in the
 `<PARAMETERS>` element of the bank XML. `applyPresetState()` resets every absent ID to its
 default, so a delta materialises the full state at load time. That is the one place this
-deviates from `docs/plans/03_presets.md`, which describes full explicit state; deltas keep the
+deviates from the full-explicit-state design recorded in `AGENTS.md` section 5.5; deltas keep the
 embedded asset small and survive a parameter being added.
 
 Run from the repository root:
@@ -30,8 +30,10 @@ PLUGIN_VERSION = "1.0.0"
 STATE_VERSION = 1
 # Spectral Drift is at state version 2 since plan 05.1 pass 2 (the Drift Rate parameter was
 # removed and the Drift routing target appended); its presets are authored against the new
-# routing order. The other plugins are still at version 1.
-STATE_VERSIONS = {"SpectralDrift": 2}
+# routing order. MIDI Chord Arp Scale Tool is at version 2 since plan 12 (Step Rate grew
+# from five to twelve values in a clean order, so the authoring indices are the new ones).
+# The other plugins are still at version 1.
+STATE_VERSIONS = {"SpectralDrift": 2, "MidiEffect": 2}
 
 
 def state_version_for(plugin):
@@ -76,6 +78,10 @@ def preset_json(plugin, preset):
     if "samplePath" in preset:
         data["_samplePath"] = preset["samplePath"]
 
+    # Cyclical (plan 6.1): the four slot loops ride as state properties.
+    if "loopPaths" in preset:
+        data["_loopPaths"] = preset["loopPaths"]
+
     # Keep the schema order in the JSON too, so a diff shows a new parameter in one place.
     params = preset["params"]
     for pid in parameter_order(plugin):
@@ -104,6 +110,8 @@ def preset_xml(plugin, preset, indent="  "):
     lines.append(f"{indent}  <PARAMETERS suiteStateVersion=\"{state_version_for(plugin)}\""
                  + (f" lerpCurve={xml_escape_attribute(preset['lerpCurve'])}" if "lerpCurve" in preset else "")
                  + (f" samplePath={xml_escape_attribute(preset['samplePath'])}" if "samplePath" in preset else "")
+                 + "".join(f" loop{index + 1}Path={xml_escape_attribute(path)}"
+                           for index, path in enumerate(preset.get("loopPaths", [])))
                  + ">")
 
     for pid in parameter_order(plugin):

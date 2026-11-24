@@ -1,0 +1,11 @@
+{
+  "_name": "Low Width Bloom",
+  "_category": "Air",
+  "_description": "The LFO breathes the low band's width.",
+  "_plugin": "StereoTool",
+  "_pluginVersion": "1.0.0",
+  "multibandWidthLow": 0.0,
+  "lfo1Rate": 0.25,
+  "mod1Target": 13,
+  "mod1Amount": 80.0
+}

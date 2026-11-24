@@ -1,0 +1,12 @@
+{
+  "_name": "Wide Highs",
+  "_category": "Air",
+  "_description": "Mono lows, wide highs.",
+  "_plugin": "StereoTool",
+  "_pluginVersion": "1.0.0",
+  "drive": 6.0,
+  "character": 1,
+  "midFocus": -30.0,
+  "sideFilter": 1,
+  "sideCrossover": 4000.0
+}

@@ -1,0 +1,16 @@
+{
+  "_name": "Smoothed Swell",
+  "_category": "Pads",
+  "_description": "A heavily smoothed LFO breathes the swell time.",
+  "_plugin": "Sgraffito",
+  "_pluginVersion": "1.0.0",
+  "_samplePath": "embedded:smoothed_swell_4k.wav",
+  "mode": 3,
+  "release": 2000.0,
+  "memoryAmount": 25.0,
+  "lfo2Rate": 0.3,
+  "lfo2Smooth": 0.9,
+  "mod1Source": 1,
+  "mod1Target": 21,
+  "mod1Amount": 60.0
+}

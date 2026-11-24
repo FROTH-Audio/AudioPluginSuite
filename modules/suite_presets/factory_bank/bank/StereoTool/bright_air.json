@@ -1,0 +1,11 @@
+{
+  "_name": "Bright Air",
+  "_category": "Electronic",
+  "_description": "Airy top, mono bottom.",
+  "_plugin": "StereoTool",
+  "_pluginVersion": "1.0.0",
+  "drive": 10.0,
+  "character": 2,
+  "sideFilter": 1,
+  "sideCrossover": 6000.0
+}

@@ -89,7 +89,7 @@ public:
     static constexpr const char* modAmountIds[6] = { "mod1Amount", "mod2Amount", "mod3Amount", "mod4Amount", "mod5Amount", "mod6Amount" };
     static constexpr const char* modDelayIds[6] = { "mod1Delay", "mod2Delay", "mod3Delay", "mod4Delay", "mod5Delay", "mod6Delay" };
 
-    static constexpr int numControls = 71;
+    static constexpr int numControls = 83;   // 71 + 12 plan-17 Phase 7 LFO transforms
     static constexpr int lfoCount = 2;
     static constexpr int slotCount = 6;
 
@@ -133,7 +133,7 @@ public:
         { "rootKey",        "Root Key",   true },
         { "pitchFine",      "Pitch Fine" },
         { "glide",          "Glide" },
-        { "level",          "Level" },
+        { "level",          "Output" },
         { "attack",         "Attack" },
         { "release",        "Release" },
         { "memoryAmount",   "Memory Amount" },
@@ -387,6 +387,11 @@ public:
 
     // Per-sample-rate derived values.
     double preparedSampleRate = 44100.0;
+
+    // The output gain (plan 12): the former dead Level knob, now the final gain stage,
+    // smoothed 20 ms so automation does not zip. 0 dB is exactly 1.0, so the default is
+    // bit-identical to the version without the knob.
+    juce::SmoothedValue<float> outputGainSmoothed;
 
     // Free-LFO clock: stream position in samples and a tempo-locked beat clock (see SuiteModulation).
     std::int64_t streamSample = 0;

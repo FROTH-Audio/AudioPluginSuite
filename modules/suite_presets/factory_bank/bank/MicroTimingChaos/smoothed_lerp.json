@@ -1,0 +1,13 @@
+{
+  "_name": "Smoothed Lerp",
+  "_category": "Ambient",
+  "_description": "A heavily smoothed LFO eases the drift amount.",
+  "_plugin": "MicroTimingChaos",
+  "_pluginVersion": "1.0.0",
+  "lerp": 30.0,
+  "lfo2Rate": 0.4,
+  "lfo2Smooth": 0.9,
+  "mod1Source": 1,
+  "mod1Target": 4,
+  "mod1Amount": 50.0
+}
