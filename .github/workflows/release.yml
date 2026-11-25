@@ -73,7 +73,7 @@ jobs:
 
           # VST3 bundles are folders; Standalone builds are .exe files.
           Get-ChildItem -Path build -Recurse |
-            Where-Object { $_.FullName -match '_artefacts[\\/]Release[\\/](VST3|Standalone)[\\/]' -and
+            Where-Object { $_.FullName -match '_artefacts[\\/]Release[\\/](VST3|Standalone)[\\/][^\\/]+$' -and
                            ($_.Name -like '*.vst3' -or $_.Name -like '*.exe') } |
             ForEach-Object { Copy-Item -Path $_.FullName -Destination $staging -Recurse }
 

@@ -71,9 +71,21 @@ namespace SuiteUI
                             const juce::String& versionString, const juce::String& pluginCode,
                             const juce::String& pluginId)
         : lockup (lockupImage), name (productName), version (versionString),
-          code (pluginCode), id (pluginId)
+          code (pluginCode), id (pluginId),
+          repoLink (kRepositoryUrl, juce::URL (kRepositoryUrl))
     {
-        setSize (380, 210);
+        repoLink.setComponentID ("suite-repository-link");
+        repoLink.setFont (uiFont (12.0f), false, juce::Justification::centredLeft);
+        repoLink.setColour (juce::HyperlinkButton::textColourId, Colours::text);
+        addAndMakeVisible (repoLink);
+        setSize (480, 270);
+    }
+
+    void AboutPanel::resized()
+    {
+        auto bounds = getLocalBounds().reduced (16);
+        bounds.removeFromTop (44 + 6 + 28 + 20 + 4 + 20 + 20);
+        repoLink.setBounds (bounds.removeFromTop (22));
     }
 
     void AboutPanel::paint (juce::Graphics& g)
@@ -100,29 +112,31 @@ namespace SuiteUI
         bounds.removeFromTop (6);
         g.setColour (Colours::text);
         g.setFont (uiFont (20.0f, true));
-        g.drawText (name, bounds.removeFromTop (28), juce::Justification::centredLeft);
+        g.drawFittedText (name, bounds.removeFromTop (28), juce::Justification::centredLeft,
+                          1, 0.7f);
 
         g.setFont (uiFont (13.0f));
         g.setColour (Colours::textDim);
-        g.drawText (version + "  -  FROTH Audio", bounds.removeFromTop (20),
-                    juce::Justification::centredLeft);
+        g.drawFittedText (version + "  -  FROTH Audio", bounds.removeFromTop (20),
+                          juce::Justification::centredLeft, 1, 0.7f);
 
         bounds.removeFromTop (4);
-        g.drawText ("Plugin code " + code + "  -  " + id, bounds.removeFromTop (20),
-                    juce::Justification::centredLeft);
+        g.drawFittedText ("Plugin code " + code + "  -  " + id, bounds.removeFromTop (20),
+                          juce::Justification::centredLeft, 1, 0.7f);
 
         const juce::String juceVersion { "Built with JUCE " };
-        g.drawText (juceVersion + juce::String (JUCE_MAJOR_VERSION) + "."
-                        + juce::String (JUCE_MINOR_VERSION) + "."
-                        + juce::String (JUCE_BUILDNUMBER),
-                    bounds.removeFromTop (20), juce::Justification::centredLeft);
+        g.drawFittedText (juceVersion + juce::String (JUCE_MAJOR_VERSION) + "."
+                              + juce::String (JUCE_MINOR_VERSION) + "."
+                              + juce::String (JUCE_BUILDNUMBER),
+                          bounds.removeFromTop (20), juce::Justification::centredLeft,
+                          1, 0.7f);
 
         // The whole suite is GPL v3 (LICENSE); the plugin repeats it here because the About
         // dialog is the one place every user looks.
         g.setColour (Colours::textDim);
-        g.drawText ("Licensed under the GNU GPL v3. This plugin comes with no warranty.",
-                    getLocalBounds().removeFromBottom (28).reduced (16, 0),
-                    juce::Justification::centredLeft);
+        g.drawFittedText ("Licensed under the GNU GPL v3. This plugin comes with no warranty.",
+                          getLocalBounds().removeFromBottom (28).reduced (16, 0),
+                          juce::Justification::centredLeft, 1, 0.7f);
     }
 
     void showAboutDialog (const juce::Image& lockupImage, const juce::String& productName,

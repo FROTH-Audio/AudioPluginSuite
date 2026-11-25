@@ -541,7 +541,8 @@ namespace SuiteUI
     {
         g.setColour (SuiteUI::Colours::textDim);
         g.setFont (SuiteUI::uiFont (11.0f));
-        g.drawText (text, getLocalBounds().reduced (16, 0), juce::Justification::centredLeft, true);
+        g.drawFittedText (text, getLocalBounds().reduced (16, 0),
+                          juce::Justification::centredLeft, 1, 0.7f);
     }
 
     //==============================================================================

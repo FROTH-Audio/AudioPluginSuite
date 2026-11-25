@@ -124,6 +124,68 @@ Then rescan plugins in your DAW. The Standalone build runs without a host and is
 
 The plugins need a VST3 host on Windows, or a VST3 or Audio Unit host on macOS.
 
+### Release downloads
+
+The manual **Release** workflow attaches one ZIP per platform, with the plugin bundles placed
+directly at the ZIP root (there is no extra suite folder):
+
+```text
+AudioPluginSuite-<version>-windows.zip
+├── Cyclical.vst3/
+├── Cyclical.exe
+├── Dynamic Saturation Companion.vst3/
+├── Dynamic Saturation Companion.exe
+├── Groove Mutator.vst3/
+├── Groove Mutator.exe
+├── Micro-Timing Chaos.vst3/
+├── Micro-Timing Chaos.exe
+├── MIDI Chord Arp Scale Tool.vst3/
+├── MIDI Chord Arp Scale Tool.exe
+├── MultiSat.vst3/
+├── MultiSat.exe
+├── Sgraffito.vst3/
+├── Sgraffito.exe
+├── Spectral Drift Shifter.vst3/
+├── Spectral Drift Shifter.exe
+├── Stereo Tool Effect.vst3/
+└── Stereo Tool Effect.exe
+
+AudioPluginSuite-<version>-macos.zip
+├── Cyclical.vst3/
+├── Cyclical.component/
+├── Cyclical.app/
+├── Dynamic Saturation Companion.vst3/
+├── Dynamic Saturation Companion.component/
+├── Dynamic Saturation Companion.app/
+├── Groove Mutator.vst3/
+├── Groove Mutator.component/
+├── Groove Mutator.app/
+├── Micro-Timing Chaos.vst3/
+├── Micro-Timing Chaos.component/
+├── Micro-Timing Chaos.app/
+├── MIDI Chord Arp Scale Tool.vst3/
+├── MIDI Chord Arp Scale Tool.component/
+├── MIDI Chord Arp Scale Tool.app/
+├── MultiSat.vst3/
+├── MultiSat.component/
+├── MultiSat.app/
+├── Sgraffito.vst3/
+├── Sgraffito.component/
+├── Sgraffito.app/
+├── Spectral Drift Shifter.vst3/
+├── Spectral Drift Shifter.component/
+├── Spectral Drift Shifter.app/
+├── Stereo Tool Effect.vst3/
+├── Stereo Tool Effect.component/
+└── Stereo Tool Effect.app/
+```
+
+The Windows ZIP contains VST3 bundles and Standalone executables. The macOS ZIP contains
+VST3, Audio Unit and Standalone bundles. Each bundle retains its own internal platform
+directory structure. These archives contain the built plugin artefacts, not the source tree,
+manuals or a separate installer. Install the relevant bundle from the archive using the
+locations above.
+
 ### Modulation
 
 Spectral Drift, Dynamic Saturation and Micro-Timing Chaos share one modulation system. Each has **two LFOs** and **six routing slots**. A slot sends one LFO to one control, with a signed amount. The routed control moves across its own range, so ±100 % sweeps the full range of the control, whatever its scale.
@@ -845,6 +907,11 @@ Issues and pull requests are welcome. Before opening a pull request:
 1. Build in Release and run `ctest --test-dir build -C Release --output-on-failure`.
 2. Add tests for new DSP behaviour and for new parameters.
 3. Describe audible changes in the pull request, and note any change to parameter ranges or IDs, since those affect saved sessions.
+
+## Support development
+
+If these plugins are useful to you, you can [buy me a coffee](https://www.buymeacoffee.com/tfroehlich).
+Thanks for supporting independent audio software development.
 
 ## License
 

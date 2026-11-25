@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "SuiteLookAndFeel.h"
+#include "SuiteHeaderMenu.h"
 #include "SuiteWidgets.h"
 
 namespace
@@ -423,7 +424,33 @@ namespace
 
         assert (paintAndCountVisiblePixels (line, 300, 26) > 0);
 
+        line.setText (juce::String::repeatedString ("Long help text that must stay on one line. ", 12));
+        assert (paintAndCountVisiblePixels (line, 300, 26) > 0);
+
         std::puts ("[PASS] testHelpLine");
+    }
+
+    void testAboutPanel()
+    {
+        SuiteUI::AboutPanel panel ({}, "MIDI Chord Arp Scale Tool", "1.0.0", "Midi", "MidiEffect");
+        assert (panel.getWidth() >= 440);
+        assert (panel.getHeight() >= 250);
+        assert (paintAndCountVisiblePixels (panel, panel.getWidth(), panel.getHeight()) > 0);
+
+        auto* link = dynamic_cast<juce::HyperlinkButton*> (
+            panel.getChildComponent (0));
+        assert (link != nullptr);
+        assert (link->getComponentID() == "suite-repository-link");
+        assert (link->getButtonText() == SuiteUI::kRepositoryUrl);
+        assert (link->getURL().toString (false) == SuiteUI::kRepositoryUrl);
+        assert (panel.getLocalBounds().contains (link->getBounds()));
+        assert (juce::GlyphArrangement::getStringWidth (SuiteUI::uiFont (12.0f),
+                                                        link->getButtonText()) <= link->getWidth());
+        assert (juce::GlyphArrangement::getStringWidth (SuiteUI::uiFont (20.0f, true),
+                                                        "MIDI Chord Arp Scale Tool")
+                <= panel.getWidth() - 32);
+
+        std::puts ("[PASS] testAboutPanel");
     }
 
     void testDrawGroupFrame()
@@ -515,6 +542,7 @@ int main()
     testLabelledSliders();
     testLabelledDropdown();
     testHelpLine();
+    testAboutPanel();
     testDrawGroupFrame();
     testLookAndFeelToggleButton();
     testSpectrumDisplay();

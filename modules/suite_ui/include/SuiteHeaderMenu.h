@@ -4,6 +4,8 @@
 
 namespace SuiteUI
 {
+    inline constexpr const char* kRepositoryUrl = "https://github.com/FROTH-Audio/AudioPluginSuite";
+
     /**
         A small hamburger icon button for the plugin header. Left click opens a popup menu with
         "Settings..." and "About..."; the callbacks run on the message thread. The icon is
@@ -41,6 +43,7 @@ namespace SuiteUI
                     const juce::String& pluginId);
 
         void paint (juce::Graphics&) override;
+        void resized() override;
 
     private:
         juce::Image lockup;
@@ -48,6 +51,7 @@ namespace SuiteUI
         juce::String version;
         juce::String code;
         juce::String id;
+        juce::HyperlinkButton repoLink;
     };
 
     /** Opens the About dialog as a modal DialogWindow centred around centreAround. */
