@@ -1,0 +1,22 @@
+{
+  "_name": "Half-Time Dust",
+  "_category": "Hip-Hop",
+  "_description": "A half-time backbeat with soft ghosts and a slow evolution.",
+  "_plugin": "GrooveMutator",
+  "_pluginVersion": "1.0.0",
+  "sync": 1,
+  "swing": 12.0,
+  "chaos": 18.0,
+  "evolveRate": 3,
+  "track1Steps": 8,
+  "track1Pulses": 2,
+  "track1Division": 5,
+  "track2Steps": 8,
+  "track2Pulses": 1,
+  "track2Division": 5,
+  "track2Ghost": 28.0,
+  "track3Steps": 16,
+  "track3Pulses": 6,
+  "track3Division": 4,
+  "track3Vel": 72.0
+}

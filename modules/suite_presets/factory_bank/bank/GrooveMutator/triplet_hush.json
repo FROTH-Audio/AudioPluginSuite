@@ -1,0 +1,17 @@
+{
+  "_name": "Triplet Hush",
+  "_category": "Hip-Hop",
+  "_description": "Triplet hats sit over a steady kick and a modulated ghost lane.",
+  "_plugin": "GrooveMutator",
+  "_pluginVersion": "1.0.0",
+  "sync": 1,
+  "track1Pulses": 4,
+  "track2Pulses": 2,
+  "track3Steps": 24,
+  "track3Pulses": 9,
+  "track3Division": 1,
+  "track3Ghost": 20.0,
+  "lfo1Rate": 0.12,
+  "mod1Target": 41,
+  "mod1Amount": 45.0
+}

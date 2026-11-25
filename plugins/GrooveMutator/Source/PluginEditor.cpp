@@ -6,9 +6,8 @@
 
 namespace
 {
-    // Owner findings (2026-11-24): more width, less height. GRID page: step grid top half,
-    // controls below. LANES page: clever horizontal layout, smaller knobs. MUTATE: more
-    // space for EVOLVE RATE pills.
+    // GRID keeps the full step editor above eight lane-control columns; MUTATE also holds
+    // the former GROOVE page.
     constexpr int editorWidth = 1200;
     constexpr int margin = 16;
     constexpr int headerHeight = 44;
@@ -19,11 +18,10 @@ namespace
     constexpr int rowGap = 6;
     constexpr int knobDiameter = SuiteUI::knobDiameter * 0.7f;
     constexpr int knobRowHeight = 92 * 0.7f + 12;  // caption + knob + value, 30% smaller knobs
-    // Plan 22, Finding 2: the GRID row's fixed parts, so the strip and the ruler share one
-    // geometry (the strip fills the row between the name and the five control cells).
-    constexpr int laneNameWidth = 42;   // wide enough for "F#2" (the note-name label)
-    constexpr int laneNameGap = 10;
-    constexpr int gridControlWidth = 64 + 52 + 64 + 64 + 64;   // division, on, level, vel, note
+    // The note dropdown and ruler share the same left inset; velocity and level live below.
+    constexpr int laneNameWidth = 82;
+    constexpr int laneNameGap = 8;
+    constexpr int gridControlWidth = 64 + 52;   // division and on
     constexpr int laneViewInset = 6;                           // LaneView::paint's x reduction
     // Plan 22, Finding 6: the LANES page's pattern selector cell (caption + pill + padding).
     constexpr int selectorCellHeight = SuiteUI::captionHeight + SuiteUI::pillHeight + 8;
@@ -31,12 +29,13 @@ namespace
     // exactly the sum of its rows (the plan-20 rule: a mismatch cuts the last row off).
     constexpr int gridGroupHeight = groupTitleHeight + 4 + rulerHeight + 8
                                   + 8 * knobRowHeight + 7 * rowGap + 8;
+    constexpr int laneControlGroupHeight = groupTitleHeight + 4 + knobRowHeight + 8;
     constexpr int editorHeight = margin * 2 + headerHeight + groupGap + gridGroupHeight
-                               + groupGap + footerHeight;
+                               + groupGap + laneControlGroupHeight + groupGap + footerHeight;
     constexpr int trailHeight = 260;
     constexpr int simpleGroupHeight = groupTitleHeight + 4 + knobRowHeight + 4;
 
-    const char* pageNames[] = { "GRID", "LANES", "MUTATE", "GROOVE", "MOD" };
+    const char* pageNames[] = { "GRID", "LANES", "MUTATE", "MOD" };
 
     // The brand lockup (plan 22, Finding 1): the embedded artwork from the CMake LOCKUP.
     const juce::Image& brandLockup()
@@ -62,12 +61,29 @@ GrooveMutatorEditor::LaneCard::LaneCard (GrooveMutatorProcessor& p, int trackInd
 
     auto& apvts = p.apvts;
 
-    // The name starts from the default note; the editor's timer keeps it in step.
+    juce::StringArray noteNames;
+    for (int note = 24; note <= 96; ++note)
+        noteNames.add (juce::MidiMessage::getMidiNoteName (note, true, true, 4));
+    noteDropdown.setOptions (noteNames);
+    noteDropdown.setComponentID ("track-note-selector-" + juce::String (track + 1));
+
+    // Keep the title-band note name current on LANES; GRID uses the dropdown.
     const int initialNote = juce::roundToInt (apvts.getRawParameterValue (
         GrooveMutatorProcessor::trackNoteIds[track])->load());
     name.setText (juce::MidiMessage::getMidiNoteName (initialNote, true, true, 4),
                   juce::dontSendNotification);
-    noteAttachment  = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (apvts, GrooveMutatorProcessor::trackNoteIds[track], noteCtrl.slider);
+    auto* noteParameter = apvts.getParameter (GrooveMutatorProcessor::trackNoteIds[track]);
+    noteAttachment = std::make_unique<juce::ParameterAttachment> (
+        *noteParameter,
+        [this] (float value) { noteDropdown.setSelectedIndex (juce::roundToInt (value) - 24); },
+        nullptr);
+    noteDropdown.box.onChange = [this]
+    {
+        const int index = noteDropdown.getSelectedIndex();
+        if (index >= 0)
+            noteAttachment->setValueAsCompleteGesture ((float) (index + 24));
+    };
+    noteAttachment->sendInitialUpdate();
     velAttachment   = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (apvts, GrooveMutatorProcessor::trackVelIds[track], velCtrl.slider);
     levelAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (apvts, GrooveMutatorProcessor::trackGainIds[track], levelCtrl.slider);
     onAttachment    = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (apvts, GrooveMutatorProcessor::trackOnIds[track], onToggle);
@@ -97,7 +113,7 @@ GrooveMutatorEditor::GrooveMutatorEditor (GrooveMutatorProcessor& p)
 
     setSize (editorWidth, editorHeight);
     setResizable (true, true);
-    setResizeLimits (editorWidth - 60, editorHeight - 60, 1200, 1200);
+    setResizeLimits (editorWidth - 60, editorHeight, 1200, 1200);
 
     // The lane widgets into the tree.
     for (int track = 0; track < GrooveMutatorProcessor::numTracks; ++track)
@@ -105,7 +121,7 @@ GrooveMutatorEditor::GrooveMutatorEditor (GrooveMutatorProcessor& p)
         auto& card = *lanes[(size_t) track];
         addAndMakeVisible (card.view);
         addAndMakeVisible (card.name);
-        addAndMakeVisible (card.noteCtrl);
+        addAndMakeVisible (card.noteDropdown);
         addAndMakeVisible (card.velCtrl);
         addAndMakeVisible (card.levelCtrl);
         addAndMakeVisible (card.onToggle);
@@ -119,18 +135,18 @@ GrooveMutatorEditor::GrooveMutatorEditor (GrooveMutatorProcessor& p)
         addAndMakeVisible (card.ghostCtrl);
 
         SuiteUI::describe (card.view, "The lane's pattern. A filled box fires, a brighter box is an accent, a ring a ghost, a hollow box a fill, and a hole a flam. In Steps mode, click cells to paint the pattern.");
-        SuiteUI::describe (card.noteCtrl, "The GM note the lane sends.");
-        SuiteUI::describe (card.velCtrl, "The lane's velocity share.");
-        SuiteUI::describe (card.levelCtrl, "The lane's level stage: it scales the notes' velocity contribution.");
+        SuiteUI::describe (card.noteDropdown, "The GM note the lane sends.");
+        SuiteUI::describe (card.velCtrl, "The lane's velocity share and a modulation target.");
+        SuiteUI::describe (card.levelCtrl, "The lane's level stage: it scales the notes' velocity contribution and is a modulation target.");
         SuiteUI::describe (card.onToggle, "The lane plays while it is on.");
         SuiteUI::describe (card.divisionCtrl, "The lane's own step length.");
         SuiteUI::describe (card.patternCtrl, "Euclid spreads the pulses evenly; Hash uses the seeded pattern; Steps paints the strip directly.");
         SuiteUI::describe (card.stepsCtrl, "The pattern length, in steps.");
         SuiteUI::describe (card.pulsesCtrl, "The hit count. Euclid spreads it; Hash reads it as density.");
         SuiteUI::describe (card.rotationCtrl, "Shifts the Euclid pattern around the grid.");
-        SuiteUI::describe (card.accentCtrl, "The share of accent hits (louder).");
-        SuiteUI::describe (card.flamCtrl, "The share of flammed hits (a second, quieter hit a few milliseconds later).");
-        SuiteUI::describe (card.ghostCtrl, "The share of ghost hits (quieter).");
+        SuiteUI::describe (card.accentCtrl, "The share of accent hits (louder); this control is a modulation target.");
+        SuiteUI::describe (card.flamCtrl, "The share of flammed hits (a second, quieter hit a few milliseconds later); this control is a modulation target.");
+        SuiteUI::describe (card.ghostCtrl, "The share of ghost hits (quieter); this control is a modulation target.");
     }
 
     // MUTATE page.
@@ -144,7 +160,7 @@ GrooveMutatorEditor::GrooveMutatorEditor (GrooveMutatorProcessor& p)
     SuiteUI::describe (fillStyleCtrl, "The fill's shape: a tom roll, a snare build, a hat drop or a chaos burst.");
     SuiteUI::describe (fillBarsCtrl, "How much of the cycle the fill can occupy.");
 
-    // GROOVE page.
+    // Feel and clock controls, grouped on MUTATE.
     SuiteUI::describe (swingCtrl, "Moves every second step late (or, negative, early).");
     SuiteUI::describe (humaniseTimeCtrl, "Random timing jitter, deterministic from the seed.");
     SuiteUI::describe (humaniseVelCtrl, "Random velocity jitter, deterministic from the seed.");
@@ -154,7 +170,7 @@ GrooveMutatorEditor::GrooveMutatorEditor (GrooveMutatorProcessor& p)
     SuiteUI::describe (tempoCtrl, "The tempo while Host Sync is off.");
     SuiteUI::describe (triggerModeCtrl, "Latch starts the groove on one press; Gate runs only while the key is held.");
     SuiteUI::describe (triggerKeyCtrl, "The key that starts and stops the groove.");
-    SuiteUI::describe (pageSelector, "GRID: the eight lanes. LANES: pattern and articulation. MUTATE: chaos and fills. GROOVE: the feel and the clock. MOD: the LFOs and routing.");
+    SuiteUI::describe (pageSelector, "GRID: the eight lanes and their mix controls. LANES: pattern and articulation. MUTATE: chaos, fills, feel and clock. MOD: the LFOs and routing.");
     SuiteUI::describe (*presetBar, "Factory presets, INIT and SAVE. The menu lists user presets.");
     SuiteUI::describe (headerMenu, "Settings... and About...");
 
@@ -191,8 +207,18 @@ GrooveMutatorEditor::GrooveMutatorEditor (GrooveMutatorProcessor& p)
     using Target = GrooveMutatorProcessor::ModTarget;
     std::vector<SuiteModulation::ControlDisplay::Entry> displayEntries;
     for (int track = 0; track < GrooveMutatorProcessor::numTracks; ++track)
+    {
         displayEntries.push_back ({ lanes[(size_t) track]->velCtrl.slider,
                                     (int) Target::TrackVel1 + track });
+        displayEntries.push_back ({ lanes[(size_t) track]->levelCtrl.slider,
+                                    (int) Target::TrackLevel1 + track });
+        displayEntries.push_back ({ lanes[(size_t) track]->accentCtrl.slider,
+                                    (int) Target::TrackAccent1 + track });
+        displayEntries.push_back ({ lanes[(size_t) track]->flamCtrl.slider,
+                                    (int) Target::TrackFlam1 + track });
+        displayEntries.push_back ({ lanes[(size_t) track]->ghostCtrl.slider,
+                                    (int) Target::TrackGhost1 + track });
+    }
     displayEntries.push_back ({ chaosCtrl.slider,        (int) Target::Chaos });
     displayEntries.push_back ({ mutateScaleCtrl.slider,  (int) Target::MutationScale });
     displayEntries.push_back ({ fillProbCtrl.slider,     (int) Target::FillProbability });
@@ -210,7 +236,7 @@ GrooveMutatorEditor::GrooveMutatorEditor (GrooveMutatorProcessor& p)
     addAndMakeVisible (helpLine);
 
 
-    // MUTATE and GROOVE widgets into the tree.
+    // MUTATE widgets into the tree.
     for (auto* component : { static_cast<juce::Component*> (&trailPlot),
                              static_cast<juce::Component*> (&chaosCtrl),
                              static_cast<juce::Component*> (&mutateScaleCtrl),
@@ -249,7 +275,7 @@ GrooveMutatorEditor::GrooveMutatorEditor (GrooveMutatorProcessor& p)
     presetBar->onPresetLoaded = [this] { repaint(); };
 
     // R8: the page switch in the header row, left of the preset bar.
-    pageSelector.setOptions ({ pageNames[0], pageNames[1], pageNames[2], pageNames[3], pageNames[4] });
+    pageSelector.setOptions ({ pageNames[0], pageNames[1], pageNames[2], pageNames[3] });
     pageSelector.onChange = [this] (int index) { setPage (index); };
 
     setPage (0);
@@ -265,21 +291,22 @@ GrooveMutatorEditor::~GrooveMutatorEditor()
 
 SuiteModulation::ModulationPanel::Style GrooveMutatorEditor::modulationStyle()
 {
-    return { { juce::Colour (0xff252525), juce::Colour (0xff252525) },
+    const juce::Colour modulationAccent (0xff4169e1);
+    return { { modulationAccent, modulationAccent },
              SuiteUI::Colours::text, SuiteUI::Colours::textDim,
              SuiteUI::Colours::panel, SuiteUI::Colours::track };
 }
 
 void GrooveMutatorEditor::setPage (int newPage)
 {
-    currentPage = juce::jlimit (0, 4, newPage);
+    currentPage = juce::jlimit (0, 3, newPage);
     pageSelector.setSelectedIndex (currentPage);
 
     for (auto& card : lanes)
     {
         card->view.setVisible (currentPage == 0);
-        card->name.setVisible (currentPage == 0 || currentPage == 1);
-        card->noteCtrl.setVisible (currentPage == 0);
+        card->name.setVisible (currentPage == 1);
+        card->noteDropdown.setVisible (currentPage == 0);
         card->velCtrl.setVisible (currentPage == 0);
         card->levelCtrl.setVisible (currentPage == 0);
         card->onToggle.setVisible (currentPage == 0);
@@ -303,18 +330,17 @@ void GrooveMutatorEditor::setPage (int newPage)
     fillProbCtrl.setVisible (currentPage == 2);
     fillStyleCtrl.setVisible (currentPage == 2);
     fillBarsCtrl.setVisible (currentPage == 2);
+    swingCtrl.setVisible (currentPage == 2);
+    humaniseTimeCtrl.setVisible (currentPage == 2);
+    humaniseVelCtrl.setVisible (currentPage == 2);
+    velCurveCtrl.setVisible (currentPage == 2);
+    polyRatioCtrl.setVisible (currentPage == 2);
+    syncToggle.setVisible (currentPage == 2);
+    tempoCtrl.setVisible (currentPage == 2);
+    triggerModeCtrl.setVisible (currentPage == 2);
+    triggerKeyCtrl.setVisible (currentPage == 2);
 
-    swingCtrl.setVisible (currentPage == 3);
-    humaniseTimeCtrl.setVisible (currentPage == 3);
-    humaniseVelCtrl.setVisible (currentPage == 3);
-    velCurveCtrl.setVisible (currentPage == 3);
-    polyRatioCtrl.setVisible (currentPage == 3);
-    syncToggle.setVisible (currentPage == 3);
-    tempoCtrl.setVisible (currentPage == 3);
-    triggerModeCtrl.setVisible (currentPage == 3);
-    triggerKeyCtrl.setVisible (currentPage == 3);
-
-    modulationPanel.setVisible (currentPage == 4);
+    modulationPanel.setVisible (currentPage == 3);
 
     updateAffinity();
     resized();
@@ -334,7 +360,12 @@ void GrooveMutatorEditor::paint (juce::Graphics& g)
 
     // The group frames per page (R14b).
     if (currentPage == 0)
+    {
         SuiteUI::drawGroupFrame (g, gridBounds, "STEP GRID", lookAndFeel.getAccent());
+        for (int track = 0; track < GrooveMutatorProcessor::numTracks; ++track)
+            SuiteUI::drawGroupFrame (g, laneBounds[(size_t) track],
+                                     "LANE " + juce::String (track + 1), lookAndFeel.getAccent());
+    }
     else if (currentPage == 1)
     {
         // One framed column per lane (plan 22, Finding 6): eight channel strips, each with
@@ -347,9 +378,6 @@ void GrooveMutatorEditor::paint (juce::Graphics& g)
     {
         SuiteUI::drawGroupFrame (g, chaosBounds, "CHAOS", lookAndFeel.getAccent());
         SuiteUI::drawGroupFrame (g, fillBounds, "FILL", lookAndFeel.getAccent());
-    }
-    else if (currentPage == 3)
-    {
         SuiteUI::drawGroupFrame (g, grooveBounds, "GROOVE", lookAndFeel.getAccent());
         SuiteUI::drawGroupFrame (g, clockBounds, "CLOCK & TRIGGER", lookAndFeel.getAccent());
     }
@@ -395,16 +423,15 @@ void GrooveMutatorEditor::resized()
 
     if (currentPage == 0)
     {
+        area.removeFromBottom (footerHeight);
         gridBounds = area.removeFromTop (gridGroupHeight);
 
         auto inner = gridBounds.withTrimmedTop (groupTitleHeight + 4).reduced (10, 4);
 
-        // The shared step ruler above the eight lane rows; each row carries the lane's
-        // strip on the left and its controls on the right. The group height is the sum of
-        // these rows (gridGroupHeight), so nothing is clipped.
+        // The shared step ruler above the eight lane rows. Note selection is on the left;
+        // the strip and ruler share the same width, with lane mix controls below.
         rulerBounds = inner.removeFromTop (rulerHeight);
-        // Plan 22, Finding 2: the ruler spans exactly the strips' cells - the same left
-        // inset (name + gap) and right control block as every row, minus LaneView's 6 px.
+        // The ruler is inset by the note dropdown and LaneView's 6 px drawing inset.
         rulerBounds = { rulerBounds.getX() + laneNameWidth + laneNameGap + laneViewInset,
                         rulerBounds.getY(),
                         rulerBounds.getWidth() - laneNameWidth - laneNameGap
@@ -417,26 +444,38 @@ void GrooveMutatorEditor::resized()
             auto& card = *lanes[(size_t) track];
             auto row = inner.removeFromTop (knobRowHeight);
 
-            // From the right: division, on, level, velocity, note; the strip gets the rest.
+            // From the right: division and on; the strip gets the rest.
             auto cell = row.removeFromRight (64).reduced (3);  // smaller cells
             card.divisionCtrl.setBounds (cell);
             cell = row.removeFromRight (52).reduced (3);  // toggle
             card.onToggle.setBounds (cell.withSizeKeepingCentre (cell.getWidth(), SuiteUI::pillHeight));
-            cell = row.removeFromRight (64).reduced (3);
-            card.levelCtrl.setBounds (cell);
-            cell = row.removeFromRight (64).reduced (3);
-            card.velCtrl.setBounds (cell);
-            cell = row.removeFromRight (64).reduced (3);
-            card.noteCtrl.setBounds (cell);
 
-            // Plan 22, Finding 2: the strip fills the row between the name and the controls
-            // (it used to be carved out of the row, leaving a dead gutter on its left).
-            card.name.setBounds (row.removeFromLeft (laneNameWidth));
+            card.noteDropdown.setBounds (row.removeFromLeft (laneNameWidth).reduced (2, 0));
             row.removeFromLeft (laneNameGap);
             card.view.setBounds (row);
 
             if (track < GrooveMutatorProcessor::numTracks - 1)
                 inner.removeFromTop (rowGap);
+        }
+
+        area.removeFromTop (groupGap);
+        const int laneColumnWidth = (area.getWidth()
+                                    - (GrooveMutatorProcessor::numTracks - 1) * groupGap)
+                                    / GrooveMutatorProcessor::numTracks;
+        for (int track = 0; track < GrooveMutatorProcessor::numTracks; ++track)
+        {
+            auto& card = *lanes[(size_t) track];
+            laneBounds[(size_t) track] = area.removeFromLeft (laneColumnWidth);
+            auto controlsArea = laneBounds[(size_t) track]
+                                    .withTrimmedTop (groupTitleHeight + 4)
+                                    .reduced (4, 4);
+            auto row = controlsArea.removeFromTop (knobRowHeight);
+            const int controlWidth = row.getWidth() / 2;
+            card.velCtrl.setBounds (row.removeFromLeft (controlWidth).reduced (2, 0));
+            card.levelCtrl.setBounds (row.reduced (2, 0));
+
+            if (track < GrooveMutatorProcessor::numTracks - 1)
+                area.removeFromLeft (groupGap);
         }
     }
     else if (currentPage == 1)
@@ -489,6 +528,7 @@ void GrooveMutatorEditor::resized()
     }
     else if (currentPage == 2)
     {
+        area.removeFromBottom (footerHeight);
         trailBounds = area.removeFromTop (trailHeight);
         trailPlot.setBounds (trailBounds);
 
@@ -496,6 +536,10 @@ void GrooveMutatorEditor::resized()
         chaosBounds = area.removeFromTop (simpleGroupHeight);
         area.removeFromTop (groupGap);
         fillBounds = area.removeFromTop (simpleGroupHeight);
+        area.removeFromTop (groupGap);
+        grooveBounds = area.removeFromTop (simpleGroupHeight);
+        area.removeFromTop (groupGap);
+        clockBounds = area.removeFromTop (simpleGroupHeight);
 
         {
             auto inner = chaosBounds.withTrimmedTop (groupTitleHeight + 4).reduced (10, 4);
@@ -527,16 +571,9 @@ void GrooveMutatorEditor::resized()
             auto cell2 = row.removeFromLeft (row.getWidth() - 64 - cellWide.getWidth() - 15).reduced (3);
             fillBarsCtrl.setBounds (cell2);
         }
-    }
-    else if (currentPage == 3)
-    {
-        grooveBounds = area.removeFromTop (simpleGroupHeight);
-        area.removeFromTop (groupGap);
-        clockBounds = area.removeFromTop (simpleGroupHeight);
-
         {
             auto inner = grooveBounds.withTrimmedTop (groupTitleHeight + 4).reduced (10, 4);
-            auto row = inner.removeFromTop (SuiteUI::knobRowHeight);
+            auto row = inner.removeFromTop (knobRowHeight);
             auto cell = row.removeFromLeft (84);
             swingCtrl.setBounds (cell);
             cell = row.removeFromLeft (84);
@@ -551,7 +588,7 @@ void GrooveMutatorEditor::resized()
 
         {
             auto inner = clockBounds.withTrimmedTop (groupTitleHeight + 4).reduced (10, 4);
-            auto row = inner.removeFromTop (SuiteUI::knobRowHeight);
+            auto row = inner.removeFromTop (knobRowHeight);
             auto cell = row.removeFromLeft (90).reduced (3);
             syncToggle.setBounds (cell.withSizeKeepingCentre (cell.getWidth(), SuiteUI::pillHeight));
             cell = row.removeFromLeft (84);
@@ -564,6 +601,7 @@ void GrooveMutatorEditor::resized()
     }
     else
     {
+        area.removeFromBottom (footerHeight);
         modBounds = area;
         modulationPanel.setBounds (modBounds.withTrimmedTop (groupTitleHeight + 4).reduced (12, 6));
     }

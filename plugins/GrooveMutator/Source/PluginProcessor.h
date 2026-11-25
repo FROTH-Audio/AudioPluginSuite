@@ -98,8 +98,7 @@ public:
     static constexpr int numControls = 159;   // master 17 + 8 tracks × 12 + router 46 (recounted at build time)
 
     /** The parameters an LFO can move, in ModTarget order (append-only; the choice index
-        is the position + 1). Per the plan: the six master musical inputs plus the eight
-        per-track velocities. Recorded here before code. */
+        is the position + 1): six master musical inputs and five controls per track. */
     enum class ModTarget
     {
         None = 0,
@@ -117,6 +116,38 @@ public:
         TrackVel6,
         TrackVel7,
         TrackVel8,
+        TrackLevel1,
+        TrackLevel2,
+        TrackLevel3,
+        TrackLevel4,
+        TrackLevel5,
+        TrackLevel6,
+        TrackLevel7,
+        TrackLevel8,
+        TrackAccent1,
+        TrackAccent2,
+        TrackAccent3,
+        TrackAccent4,
+        TrackAccent5,
+        TrackAccent6,
+        TrackAccent7,
+        TrackAccent8,
+        TrackFlam1,
+        TrackFlam2,
+        TrackFlam3,
+        TrackFlam4,
+        TrackFlam5,
+        TrackFlam6,
+        TrackFlam7,
+        TrackFlam8,
+        TrackGhost1,
+        TrackGhost2,
+        TrackGhost3,
+        TrackGhost4,
+        TrackGhost5,
+        TrackGhost6,
+        TrackGhost7,
+        TrackGhost8,
         count
     };
 

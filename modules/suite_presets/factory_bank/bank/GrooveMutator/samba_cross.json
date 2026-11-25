@@ -1,0 +1,20 @@
+{
+  "_name": "Samba Cross",
+  "_category": "Latin/Afro-Cuban",
+  "_description": "A bright cross-rhythm with fast hats and an open cymbal answer.",
+  "_plugin": "GrooveMutator",
+  "_pluginVersion": "1.0.0",
+  "sync": 1,
+  "polyRatio": 4,
+  "track1Pulses": 4,
+  "track1Division": 4,
+  "track2Pulses": 2,
+  "track2Division": 4,
+  "track3Steps": 24,
+  "track3Pulses": 13,
+  "track3Division": 1,
+  "track4On": 1,
+  "track4Steps": 12,
+  "track4Pulses": 3,
+  "track4Division": 4
+}

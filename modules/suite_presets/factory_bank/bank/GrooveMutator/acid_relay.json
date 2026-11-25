@@ -1,0 +1,19 @@
+{
+  "_name": "Acid Relay",
+  "_category": "Electronic/Techno",
+  "_description": "Fast hats and a modulated flam lane trace an acid-like pulse.",
+  "_plugin": "GrooveMutator",
+  "_pluginVersion": "1.0.0",
+  "sync": 1,
+  "track3Steps": 32,
+  "track3Pulses": 19,
+  "track3Division": 1,
+  "track3Vel": 85.0,
+  "track4On": 1,
+  "track4Steps": 12,
+  "track4Pulses": 5,
+  "track4Division": 3,
+  "lfo1Rate": 0.22,
+  "mod1Target": 34,
+  "mod1Amount": 55.0
+}

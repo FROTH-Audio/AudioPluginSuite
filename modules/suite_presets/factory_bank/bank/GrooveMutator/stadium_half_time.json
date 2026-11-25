@@ -1,0 +1,22 @@
+{
+  "_name": "Stadium Half-Time",
+  "_category": "Rock",
+  "_description": "A broad half-time stomp with a modulated snare accent.",
+  "_plugin": "GrooveMutator",
+  "_pluginVersion": "1.0.0",
+  "sync": 1,
+  "track1Steps": 8,
+  "track1Pulses": 2,
+  "track1Division": 5,
+  "track2Steps": 8,
+  "track2Pulses": 1,
+  "track2Division": 5,
+  "track2Accent": 18.0,
+  "track4On": 1,
+  "track4Steps": 4,
+  "track4Pulses": 1,
+  "track4Division": 5,
+  "lfo1Rate": 0.16,
+  "mod1Target": 24,
+  "mod1Amount": 35.0
+}

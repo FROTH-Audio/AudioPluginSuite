@@ -1,0 +1,22 @@
+{
+  "_name": "Shuffle Exchange",
+  "_category": "Jazz/Funk",
+  "_description": "A relaxed shuffle with ghost notes and gentle velocity variation.",
+  "_plugin": "GrooveMutator",
+  "_pluginVersion": "1.0.0",
+  "sync": 1,
+  "swing": 24.0,
+  "humaniseVelocity": 12.0,
+  "track1Steps": 12,
+  "track1Pulses": 3,
+  "track1Division": 1,
+  "track2Steps": 12,
+  "track2Pulses": 2,
+  "track2Division": 1,
+  "track3Steps": 24,
+  "track3Pulses": 7,
+  "track3Division": 1,
+  "track3Ghost": 24.0,
+  "track5On": 1,
+  "track5Pulses": 2
+}

@@ -1,0 +1,18 @@
+{
+  "_name": "Neon Break",
+  "_category": "Electronic/Techno",
+  "_description": "A broken kick-snare grid with crisp hats and short fills.",
+  "_plugin": "GrooveMutator",
+  "_pluginVersion": "1.0.0",
+  "sync": 1,
+  "fillProb": 25.0,
+  "fillStyle": 3,
+  "track1Steps": 16,
+  "track1Pulses": 5,
+  "track1Rotation": 1,
+  "track2Steps": 16,
+  "track2Pulses": 3,
+  "track2Rotation": 4,
+  "track3Steps": 32,
+  "track3Pulses": 13
+}

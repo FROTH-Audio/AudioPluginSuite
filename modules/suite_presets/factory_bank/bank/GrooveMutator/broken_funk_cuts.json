@@ -1,0 +1,21 @@
+{
+  "_name": "Broken-Funk Cuts",
+  "_category": "Jazz/Funk",
+  "_description": "A broken kick pattern, busy hats and a lightly mutated clap.",
+  "_plugin": "GrooveMutator",
+  "_pluginVersion": "1.0.0",
+  "sync": 1,
+  "chaos": 28.0,
+  "evolveRate": 1,
+  "mutateScale": 36.0,
+  "track1Pulses": 5,
+  "track1Rotation": 2,
+  "track2Pulses": 2,
+  "track3Steps": 24,
+  "track3Pulses": 8,
+  "track3Division": 1,
+  "track7On": 1,
+  "track7Steps": 16,
+  "track7Pulses": 3,
+  "track7Division": 4
+}

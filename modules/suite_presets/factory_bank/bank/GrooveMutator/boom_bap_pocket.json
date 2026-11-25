@@ -1,0 +1,19 @@
+{
+  "_name": "Boom Bap Pocket",
+  "_category": "Hip-Hop",
+  "_description": "A swung kick and snare pocket with a sparse hat line.",
+  "_plugin": "GrooveMutator",
+  "_pluginVersion": "1.0.0",
+  "sync": 1,
+  "swing": 16.0,
+  "humaniseVelocity": 14.0,
+  "track1Steps": 16,
+  "track1Pulses": 3,
+  "track1Rotation": 1,
+  "track2Steps": 16,
+  "track2Pulses": 2,
+  "track2Rotation": 4,
+  "track3Steps": 16,
+  "track3Pulses": 7,
+  "track3Vel": 82.0
+}

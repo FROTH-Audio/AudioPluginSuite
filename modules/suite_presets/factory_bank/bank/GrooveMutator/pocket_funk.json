@@ -1,0 +1,21 @@
+{
+  "_name": "Pocket Funk",
+  "_category": "Jazz/Funk",
+  "_description": "A syncopated sixteen-step pocket with accents that bloom over time.",
+  "_plugin": "GrooveMutator",
+  "_pluginVersion": "1.0.0",
+  "sync": 1,
+  "swing": 9.0,
+  "track1Pulses": 4,
+  "track1Rotation": 1,
+  "track2Pulses": 3,
+  "track2Rotation": 4,
+  "track3Pulses": 11,
+  "track6On": 1,
+  "track6Pulses": 4,
+  "track6Division": 4,
+  "track6Accent": 45.0,
+  "lfo1Rate": 0.14,
+  "mod1Target": 29,
+  "mod1Amount": 38.0
+}

@@ -1,0 +1,20 @@
+{
+  "_name": "Odd-Time Fusion",
+  "_category": "Jazz/Funk",
+  "_description": "A five-step phrase cycles over steady backbeat anchors.",
+  "_plugin": "GrooveMutator",
+  "_pluginVersion": "1.0.0",
+  "sync": 1,
+  "polyRatio": 2,
+  "chaos": 16.0,
+  "track1Steps": 10,
+  "track1Pulses": 3,
+  "track2Steps": 16,
+  "track2Pulses": 2,
+  "track2Rotation": 4,
+  "track3Steps": 20,
+  "track3Pulses": 9,
+  "track6On": 1,
+  "track6Steps": 10,
+  "track6Pulses": 2
+}

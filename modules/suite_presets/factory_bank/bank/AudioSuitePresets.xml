@@ -2939,4 +2939,374 @@
       <PARAM id="track3Vel" value="120"/>
     </PARAMETERS>
   </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="GrooveMutator" pluginVersion="1.0.0">
+    <Meta name="Warehouse Four" category="Electronic/Techno" author="FROTH Audio" description="A locked four-on-floor with a moving low-band lane level."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="sync" value="1"/>
+      <PARAM id="chaos" value="12"/>
+      <PARAM id="fillProb" value="18"/>
+      <PARAM id="track1Pulses" value="4"/>
+      <PARAM id="track2Pulses" value="2"/>
+      <PARAM id="track3Pulses" value="16"/>
+      <PARAM id="track4On" value="1"/>
+      <PARAM id="track4Pulses" value="4"/>
+      <PARAM id="track4Division" value="4"/>
+      <PARAM id="lfo1Rate" value="0.18"/>
+      <PARAM id="mod1Target" value="17"/>
+      <PARAM id="mod1Amount" value="24"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="GrooveMutator" pluginVersion="1.0.0">
+    <Meta name="Acid Relay" category="Electronic/Techno" author="FROTH Audio" description="Fast hats and a modulated flam lane trace an acid-like pulse."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="sync" value="1"/>
+      <PARAM id="track3Steps" value="32"/>
+      <PARAM id="track3Pulses" value="19"/>
+      <PARAM id="track3Division" value="1"/>
+      <PARAM id="track3Vel" value="85"/>
+      <PARAM id="track4On" value="1"/>
+      <PARAM id="track4Steps" value="12"/>
+      <PARAM id="track4Pulses" value="5"/>
+      <PARAM id="track4Division" value="3"/>
+      <PARAM id="lfo1Rate" value="0.22"/>
+      <PARAM id="mod1Target" value="34"/>
+      <PARAM id="mod1Amount" value="55"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="GrooveMutator" pluginVersion="1.0.0">
+    <Meta name="Neon Break" category="Electronic/Techno" author="FROTH Audio" description="A broken kick-snare grid with crisp hats and short fills."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="sync" value="1"/>
+      <PARAM id="fillProb" value="25"/>
+      <PARAM id="fillStyle" value="3"/>
+      <PARAM id="track1Steps" value="16"/>
+      <PARAM id="track1Pulses" value="5"/>
+      <PARAM id="track1Rotation" value="1"/>
+      <PARAM id="track2Steps" value="16"/>
+      <PARAM id="track2Pulses" value="3"/>
+      <PARAM id="track2Rotation" value="4"/>
+      <PARAM id="track3Steps" value="32"/>
+      <PARAM id="track3Pulses" value="13"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="GrooveMutator" pluginVersion="1.0.0">
+    <Meta name="Steel Pulse" category="Electronic/Techno" author="FROTH Audio" description="A restrained industrial pattern with a long-cycle ghost swell."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="sync" value="1"/>
+      <PARAM id="chaos" value="8"/>
+      <PARAM id="evolveRate" value="2"/>
+      <PARAM id="track1Steps" value="8"/>
+      <PARAM id="track1Pulses" value="4"/>
+      <PARAM id="track1Division" value="4"/>
+      <PARAM id="track2Steps" value="8"/>
+      <PARAM id="track2Pulses" value="2"/>
+      <PARAM id="track2Division" value="4"/>
+      <PARAM id="track5On" value="1"/>
+      <PARAM id="track5Steps" value="4"/>
+      <PARAM id="track5Pulses" value="1"/>
+      <PARAM id="track5Division" value="5"/>
+      <PARAM id="track5Ghost" value="35"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="GrooveMutator" pluginVersion="1.0.0">
+    <Meta name="Boom Bap Pocket" category="Hip-Hop" author="FROTH Audio" description="A swung kick and snare pocket with a sparse hat line."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="sync" value="1"/>
+      <PARAM id="swing" value="16"/>
+      <PARAM id="humaniseVelocity" value="14"/>
+      <PARAM id="track1Steps" value="16"/>
+      <PARAM id="track1Pulses" value="3"/>
+      <PARAM id="track1Rotation" value="1"/>
+      <PARAM id="track2Steps" value="16"/>
+      <PARAM id="track2Pulses" value="2"/>
+      <PARAM id="track2Rotation" value="4"/>
+      <PARAM id="track3Steps" value="16"/>
+      <PARAM id="track3Pulses" value="7"/>
+      <PARAM id="track3Vel" value="82"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="GrooveMutator" pluginVersion="1.0.0">
+    <Meta name="Half-Time Dust" category="Hip-Hop" author="FROTH Audio" description="A half-time backbeat with soft ghosts and a slow evolution."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="sync" value="1"/>
+      <PARAM id="swing" value="12"/>
+      <PARAM id="chaos" value="18"/>
+      <PARAM id="evolveRate" value="3"/>
+      <PARAM id="track1Steps" value="8"/>
+      <PARAM id="track1Pulses" value="2"/>
+      <PARAM id="track1Division" value="5"/>
+      <PARAM id="track2Steps" value="8"/>
+      <PARAM id="track2Pulses" value="1"/>
+      <PARAM id="track2Division" value="5"/>
+      <PARAM id="track2Ghost" value="28"/>
+      <PARAM id="track3Steps" value="16"/>
+      <PARAM id="track3Pulses" value="6"/>
+      <PARAM id="track3Division" value="4"/>
+      <PARAM id="track3Vel" value="72"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="GrooveMutator" pluginVersion="1.0.0">
+    <Meta name="Triplet Hush" category="Hip-Hop" author="FROTH Audio" description="Triplet hats sit over a steady kick and a modulated ghost lane."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="sync" value="1"/>
+      <PARAM id="track1Pulses" value="4"/>
+      <PARAM id="track2Pulses" value="2"/>
+      <PARAM id="track3Steps" value="24"/>
+      <PARAM id="track3Pulses" value="9"/>
+      <PARAM id="track3Division" value="1"/>
+      <PARAM id="track3Ghost" value="20"/>
+      <PARAM id="lfo1Rate" value="0.12"/>
+      <PARAM id="mod1Target" value="41"/>
+      <PARAM id="mod1Amount" value="45"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="GrooveMutator" pluginVersion="1.0.0">
+    <Meta name="Lo-Fi Loop" category="Hip-Hop" author="FROTH Audio" description="A rounded low-tempo beat with a breathing kick level and loose timing."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="sync" value="1"/>
+      <PARAM id="humaniseTime" value="5"/>
+      <PARAM id="humaniseVelocity" value="18"/>
+      <PARAM id="track1Steps" value="8"/>
+      <PARAM id="track1Pulses" value="3"/>
+      <PARAM id="track1Division" value="5"/>
+      <PARAM id="track1Gain" value="-4"/>
+      <PARAM id="track2Steps" value="8"/>
+      <PARAM id="track2Pulses" value="1"/>
+      <PARAM id="track2Division" value="5"/>
+      <PARAM id="track2Vel" value="84"/>
+      <PARAM id="track3Pulses" value="5"/>
+      <PARAM id="track3Division" value="4"/>
+      <PARAM id="track3Vel" value="65"/>
+      <PARAM id="lfo1Rate" value="0.1"/>
+      <PARAM id="mod1Target" value="15"/>
+      <PARAM id="mod1Amount" value="30"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="GrooveMutator" pluginVersion="1.0.0">
+    <Meta name="Garage Stomp" category="Rock" author="FROTH Audio" description="A straight rock backbeat with a driving hat and open cymbal."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="sync" value="1"/>
+      <PARAM id="track1Pulses" value="4"/>
+      <PARAM id="track2Pulses" value="2"/>
+      <PARAM id="track3Pulses" value="8"/>
+      <PARAM id="track3Division" value="4"/>
+      <PARAM id="track4On" value="1"/>
+      <PARAM id="track4Pulses" value="2"/>
+      <PARAM id="track4Accent" value="55"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="GrooveMutator" pluginVersion="1.0.0">
+    <Meta name="Punk Rush" category="Rock" author="FROTH Audio" description="A fast, dense kick and snare push with a hard eighth-note hat."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="sync" value="1"/>
+      <PARAM id="chaos" value="22"/>
+      <PARAM id="fillProb" value="20"/>
+      <PARAM id="fillStyle" value="1"/>
+      <PARAM id="track1Steps" value="16"/>
+      <PARAM id="track1Pulses" value="7"/>
+      <PARAM id="track1Division" value="4"/>
+      <PARAM id="track2Steps" value="16"/>
+      <PARAM id="track2Pulses" value="4"/>
+      <PARAM id="track2Division" value="4"/>
+      <PARAM id="track3Steps" value="16"/>
+      <PARAM id="track3Pulses" value="16"/>
+      <PARAM id="track3Division" value="4"/>
+      <PARAM id="track4On" value="0"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="GrooveMutator" pluginVersion="1.0.0">
+    <Meta name="Stadium Half-Time" category="Rock" author="FROTH Audio" description="A broad half-time stomp with a modulated snare accent."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="sync" value="1"/>
+      <PARAM id="track1Steps" value="8"/>
+      <PARAM id="track1Pulses" value="2"/>
+      <PARAM id="track1Division" value="5"/>
+      <PARAM id="track2Steps" value="8"/>
+      <PARAM id="track2Pulses" value="1"/>
+      <PARAM id="track2Division" value="5"/>
+      <PARAM id="track2Accent" value="18"/>
+      <PARAM id="track4On" value="1"/>
+      <PARAM id="track4Steps" value="4"/>
+      <PARAM id="track4Pulses" value="1"/>
+      <PARAM id="track4Division" value="5"/>
+      <PARAM id="lfo1Rate" value="0.16"/>
+      <PARAM id="mod1Target" value="24"/>
+      <PARAM id="mod1Amount" value="35"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="GrooveMutator" pluginVersion="1.0.0">
+    <Meta name="Odd Meter Stomp" category="Rock" author="FROTH Audio" description="A five-against-four drum frame with a moving tom fill."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="sync" value="1"/>
+      <PARAM id="polyRatio" value="2"/>
+      <PARAM id="fillProb" value="30"/>
+      <PARAM id="fillStyle" value="0"/>
+      <PARAM id="track1Steps" value="10"/>
+      <PARAM id="track1Pulses" value="4"/>
+      <PARAM id="track1Division" value="4"/>
+      <PARAM id="track2Steps" value="10"/>
+      <PARAM id="track2Pulses" value="2"/>
+      <PARAM id="track2Division" value="4"/>
+      <PARAM id="track5On" value="1"/>
+      <PARAM id="track5Steps" value="10"/>
+      <PARAM id="track5Pulses" value="3"/>
+      <PARAM id="track6On" value="1"/>
+      <PARAM id="track6Steps" value="10"/>
+      <PARAM id="track6Pulses" value="2"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="GrooveMutator" pluginVersion="1.0.0">
+    <Meta name="Pocket Funk" category="Jazz/Funk" author="FROTH Audio" description="A syncopated sixteen-step pocket with accents that bloom over time."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="sync" value="1"/>
+      <PARAM id="swing" value="9"/>
+      <PARAM id="track1Pulses" value="4"/>
+      <PARAM id="track1Rotation" value="1"/>
+      <PARAM id="track2Pulses" value="3"/>
+      <PARAM id="track2Rotation" value="4"/>
+      <PARAM id="track3Pulses" value="11"/>
+      <PARAM id="track6On" value="1"/>
+      <PARAM id="track6Pulses" value="4"/>
+      <PARAM id="track6Division" value="4"/>
+      <PARAM id="track6Accent" value="45"/>
+      <PARAM id="lfo1Rate" value="0.14"/>
+      <PARAM id="mod1Target" value="29"/>
+      <PARAM id="mod1Amount" value="38"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="GrooveMutator" pluginVersion="1.0.0">
+    <Meta name="Broken-Funk Cuts" category="Jazz/Funk" author="FROTH Audio" description="A broken kick pattern, busy hats and a lightly mutated clap."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="sync" value="1"/>
+      <PARAM id="chaos" value="28"/>
+      <PARAM id="evolveRate" value="1"/>
+      <PARAM id="mutateScale" value="36"/>
+      <PARAM id="track1Pulses" value="5"/>
+      <PARAM id="track1Rotation" value="2"/>
+      <PARAM id="track2Pulses" value="2"/>
+      <PARAM id="track3Steps" value="24"/>
+      <PARAM id="track3Pulses" value="8"/>
+      <PARAM id="track3Division" value="1"/>
+      <PARAM id="track7On" value="1"/>
+      <PARAM id="track7Steps" value="16"/>
+      <PARAM id="track7Pulses" value="3"/>
+      <PARAM id="track7Division" value="4"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="GrooveMutator" pluginVersion="1.0.0">
+    <Meta name="Shuffle Exchange" category="Jazz/Funk" author="FROTH Audio" description="A relaxed shuffle with ghost notes and gentle velocity variation."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="sync" value="1"/>
+      <PARAM id="swing" value="24"/>
+      <PARAM id="humaniseVelocity" value="12"/>
+      <PARAM id="track1Steps" value="12"/>
+      <PARAM id="track1Pulses" value="3"/>
+      <PARAM id="track1Division" value="1"/>
+      <PARAM id="track2Steps" value="12"/>
+      <PARAM id="track2Pulses" value="2"/>
+      <PARAM id="track2Division" value="1"/>
+      <PARAM id="track3Steps" value="24"/>
+      <PARAM id="track3Pulses" value="7"/>
+      <PARAM id="track3Division" value="1"/>
+      <PARAM id="track3Ghost" value="24"/>
+      <PARAM id="track5On" value="1"/>
+      <PARAM id="track5Pulses" value="2"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="GrooveMutator" pluginVersion="1.0.0">
+    <Meta name="Odd-Time Fusion" category="Jazz/Funk" author="FROTH Audio" description="A five-step phrase cycles over steady backbeat anchors."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="sync" value="1"/>
+      <PARAM id="polyRatio" value="2"/>
+      <PARAM id="chaos" value="16"/>
+      <PARAM id="track1Steps" value="10"/>
+      <PARAM id="track1Pulses" value="3"/>
+      <PARAM id="track2Steps" value="16"/>
+      <PARAM id="track2Pulses" value="2"/>
+      <PARAM id="track2Rotation" value="4"/>
+      <PARAM id="track3Steps" value="20"/>
+      <PARAM id="track3Pulses" value="9"/>
+      <PARAM id="track6On" value="1"/>
+      <PARAM id="track6Steps" value="10"/>
+      <PARAM id="track6Pulses" value="2"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="GrooveMutator" pluginVersion="1.0.0">
+    <Meta name="Son Clave" category="Latin/Afro-Cuban" author="FROTH Audio" description="A clave-led son pattern with bass drum, bell and a slow ghost shift."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="sync" value="1"/>
+      <PARAM id="track1Pulses" value="3"/>
+      <PARAM id="track1Rotation" value="1"/>
+      <PARAM id="track2Pulses" value="2"/>
+      <PARAM id="track3Pulses" value="8"/>
+      <PARAM id="track6On" value="1"/>
+      <PARAM id="track6Pulses" value="4"/>
+      <PARAM id="track6Division" value="4"/>
+      <PARAM id="track8On" value="1"/>
+      <PARAM id="track8Steps" value="16"/>
+      <PARAM id="track8Pulses" value="5"/>
+      <PARAM id="track8Rotation" value="3"/>
+      <PARAM id="lfo1Rate" value="0.1"/>
+      <PARAM id="mod1Target" value="46"/>
+      <PARAM id="mod1Amount" value="35"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="GrooveMutator" pluginVersion="1.0.0">
+    <Meta name="Samba Cross" category="Latin/Afro-Cuban" author="FROTH Audio" description="A bright cross-rhythm with fast hats and an open cymbal answer."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="sync" value="1"/>
+      <PARAM id="polyRatio" value="4"/>
+      <PARAM id="track1Pulses" value="4"/>
+      <PARAM id="track1Division" value="4"/>
+      <PARAM id="track2Pulses" value="2"/>
+      <PARAM id="track2Division" value="4"/>
+      <PARAM id="track3Steps" value="24"/>
+      <PARAM id="track3Pulses" value="13"/>
+      <PARAM id="track3Division" value="1"/>
+      <PARAM id="track4On" value="1"/>
+      <PARAM id="track4Steps" value="12"/>
+      <PARAM id="track4Pulses" value="3"/>
+      <PARAM id="track4Division" value="4"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="GrooveMutator" pluginVersion="1.0.0">
+    <Meta name="Afro Six" category="Latin/Afro-Cuban" author="FROTH Audio" description="A six-pulse frame with tom accents and a dancing clave lane."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="sync" value="1"/>
+      <PARAM id="swing" value="6"/>
+      <PARAM id="track1Steps" value="24"/>
+      <PARAM id="track1Pulses" value="6"/>
+      <PARAM id="track1Division" value="1"/>
+      <PARAM id="track2Steps" value="24"/>
+      <PARAM id="track2Pulses" value="3"/>
+      <PARAM id="track2Division" value="1"/>
+      <PARAM id="track5On" value="1"/>
+      <PARAM id="track5Steps" value="24"/>
+      <PARAM id="track5Pulses" value="4"/>
+      <PARAM id="track5Division" value="1"/>
+      <PARAM id="track8On" value="1"/>
+      <PARAM id="track8Steps" value="24"/>
+      <PARAM id="track8Pulses" value="5"/>
+      <PARAM id="track8Division" value="1"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
+  <AudioSuitePreset formatVersion="1" plugin="GrooveMutator" pluginVersion="1.0.0">
+    <Meta name="Cascara Parade" category="Latin/Afro-Cuban" author="FROTH Audio" description="A steady cascara clave with rolling fills and an accented bell."/>
+    <PARAMETERS suiteStateVersion="1">
+      <PARAM id="sync" value="1"/>
+      <PARAM id="fillProb" value="28"/>
+      <PARAM id="fillStyle" value="0"/>
+      <PARAM id="fillBars" value="1"/>
+      <PARAM id="track1Pulses" value="4"/>
+      <PARAM id="track2Pulses" value="2"/>
+      <PARAM id="track3Pulses" value="8"/>
+      <PARAM id="track3Division" value="4"/>
+      <PARAM id="track7On" value="1"/>
+      <PARAM id="track7Pulses" value="4"/>
+      <PARAM id="track7Division" value="4"/>
+      <PARAM id="track8On" value="1"/>
+      <PARAM id="track8Pulses" value="7"/>
+      <PARAM id="track8Accent" value="50"/>
+    </PARAMETERS>
+  </AudioSuitePreset>
 </Bank>

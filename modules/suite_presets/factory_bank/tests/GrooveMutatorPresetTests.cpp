@@ -10,8 +10,8 @@ int main()
 
     std::puts ("Running Groove Mutator Pro preset tests...");
 
-    // Plan 19 Phase 5: 19 factory presets for the mutated groove engine.
-    PresetTest::runBankShape<GrooveMutatorProcessor> ("GrooveMutator", 15);
+    // The original 19 plus 20 genre-focused presets, kept append-only for host programs.
+    PresetTest::runBankShape<GrooveMutatorProcessor> ("GrooveMutator", 39);
 
     {
         GrooveMutatorProcessor processor;

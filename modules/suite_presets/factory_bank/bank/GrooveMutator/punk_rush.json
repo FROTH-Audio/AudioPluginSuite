@@ -1,0 +1,21 @@
+{
+  "_name": "Punk Rush",
+  "_category": "Rock",
+  "_description": "A fast, dense kick and snare push with a hard eighth-note hat.",
+  "_plugin": "GrooveMutator",
+  "_pluginVersion": "1.0.0",
+  "sync": 1,
+  "chaos": 22.0,
+  "fillProb": 20.0,
+  "fillStyle": 1,
+  "track1Steps": 16,
+  "track1Pulses": 7,
+  "track1Division": 4,
+  "track2Steps": 16,
+  "track2Pulses": 4,
+  "track2Division": 4,
+  "track3Steps": 16,
+  "track3Pulses": 16,
+  "track3Division": 4,
+  "track4On": 0
+}

@@ -143,6 +143,26 @@ namespace
         return { { block, juce::MidiMessage::noteOff (1, note) } };
     }
 
+    std::vector<Delivered> runWithModulation (Processor::ModTarget target, const char* parameterId,
+                                               float baseValue, float amount)
+    {
+        Processor processor;
+        setDeterministic (processor);
+        setParameter (processor.apvts, Processor::trackVelIds[0], 100.0f);
+        setParameter (processor.apvts, Processor::trackGainIds[0], 0.0f);
+        setParameter (processor.apvts, Processor::trackAccentIds[0], 0.0f);
+        setParameter (processor.apvts, Processor::trackFlamIds[0], 0.0f);
+        setParameter (processor.apvts, Processor::trackGhostIds[0], 0.0f);
+        setParameter (processor.apvts, parameterId, baseValue);
+        setParameter (processor.apvts, Processor::lfo1OffsetId, 100.0f);
+        setParameter (processor.apvts, Processor::modTargetIds[0], (float) target);
+        setParameter (processor.apvts, Processor::modAmountIds[0], amount);
+        processor.prepareToPlay (sampleRate, blockSize);
+
+        std::int64_t sample = 0;
+        return run (processor, sample, 20, triggerOn());
+    }
+
     int hitsOf (const std::vector<Delivered>& events, int note)
     {
         int count = 0;
@@ -258,9 +278,66 @@ namespace
         assert (target != nullptr);
         assert (target->choices == Processor::modTargetNames());
         assert (target->choices.size() == (int) Processor::ModTarget::count);
-        assert (processor.getRouter().getNumTargets() == 14);
+        assert ((int) Processor::ModTarget::count == 47);
+        assert (processor.getRouter().getNumTargets() == 46);
 
         pass ("testParameters");
+    }
+
+    void testModulationTargetsAffectOutput()
+    {
+        const auto velocity = runWithModulation (Processor::ModTarget::TrackVel1,
+                                                  Processor::trackVelIds[0], 40.0f, 20.0f);
+        bool sawModulatedVelocity = false;
+        for (const auto& event : velocity)
+            if (event.message.isNoteOn() && event.message.getNoteNumber() == 36)
+            {
+                assert (event.message.getVelocity() == 64);
+                sawModulatedVelocity = true;
+                break;
+            }
+        assert (sawModulatedVelocity);
+
+        const auto level = runWithModulation (Processor::ModTarget::TrackLevel1,
+                                               Processor::trackGainIds[0], -12.0f, 20.0f);
+        int levelVelocity = -1;
+        for (const auto& event : level)
+            if (event.message.isNoteOn() && event.message.getNoteNumber() == 36)
+            {
+                levelVelocity = event.message.getVelocity();
+                break;
+            }
+        assert (levelVelocity > 40 && levelVelocity < 100);
+
+        const auto accent = runWithModulation (Processor::ModTarget::TrackAccent1,
+                                                Processor::trackAccentIds[0], 0.0f, 100.0f);
+        bool sawAccent = false;
+        for (const auto& event : accent)
+            if (event.message.isNoteOn() && event.message.getNoteNumber() == 36)
+            {
+                assert (event.message.getVelocity() == 127);
+                sawAccent = true;
+                break;
+            }
+        assert (sawAccent);
+
+        const auto ghost = runWithModulation (Processor::ModTarget::TrackGhost1,
+                                               Processor::trackGhostIds[0], 0.0f, 100.0f);
+        bool sawGhost = false;
+        for (const auto& event : ghost)
+            if (event.message.isNoteOn() && event.message.getNoteNumber() == 36)
+            {
+                assert (event.message.getVelocity() < 100);
+                sawGhost = true;
+                break;
+            }
+        assert (sawGhost);
+
+        const auto flam = runWithModulation (Processor::ModTarget::TrackFlam1,
+                                              Processor::trackFlamIds[0], 0.0f, 100.0f);
+        assert (hitsOf (flam, 36) >= 2);
+
+        pass ("testModulationTargetsAffectOutput");
     }
 
     void testStateRoundTrip()
@@ -659,6 +736,7 @@ namespace
     void testEditorPages()
     {
         Processor processor;
+        setDeterministic (processor);
         processor.prepareToPlay (sampleRate, blockSize);
 
         std::unique_ptr<juce::AudioProcessorEditor> editor (processor.createEditorAndMakeActive());
@@ -666,12 +744,41 @@ namespace
         auto& gm = *dynamic_cast<GrooveMutatorEditor*> (editor.get());
         assert (&gm != nullptr);
 
+        SuiteUI::LabelledDropdown* noteDropdown = nullptr;
+        int noteDropdownCount = 0;
+        for (int child = 0; child < gm.getNumChildComponents(); ++child)
+        {
+            auto* component = gm.getChildComponent (child);
+            if (auto* dropdown = dynamic_cast<SuiteUI::LabelledDropdown*> (component))
+            {
+                if (component->getComponentID().startsWith ("track-note-selector-"))
+                {
+                    ++noteDropdownCount;
+                    if (component->getComponentID() == "track-note-selector-1")
+                        noteDropdown = dropdown;
+                }
+            }
+        }
+        assert (noteDropdownCount == Processor::numTracks);
+        assert (noteDropdown != nullptr);
+        noteDropdown->box.setSelectedId (38 - 24 + 1, juce::sendNotificationSync);
+        assert (juce::roundToInt (processor.apvts.getRawParameterValue (
+                   Processor::trackNoteIds[0])->load()) == 38);
+        setParameter (processor.apvts, Processor::trackNoteIds[0], 36.0f);
+
+        // Populate the playhead, trail and LFO before capturing deterministic R9 renders.
+        std::int64_t sample = 0;
+        run (processor, sample, 40, triggerOn());
+        juce::MessageManager::getInstance()->runDispatchLoopUntil (50);
+
         // Every page paints content of its own, and each page renders identically twice
-        // (the MTC baseline rule; the editor is idle, so nothing moves between renders).
+        // without processing another block between the two captures.
         juce::Image previous;
-        for (int page = 0; page < 5; ++page)
+        for (int page = 0; page < 4; ++page)
         {
             gm.setPage (page);
+            for (int track = 0; track < Processor::numTracks; ++track)
+                assert (gm.isNoteDropdownVisible (track) == (page == 0));
             const auto first = paintComponent (gm);
             const auto second = paintComponent (gm);
             assert (countChangedPixels (const_cast<juce::Image&> (first),
@@ -694,7 +801,7 @@ namespace
 
         gm.setPage (3);
         gm.setPage (0);
-        gm.setPage (4);
+        gm.setPage (3);
         gm.setPage (0);
 
         for (size_t i = 0; i < before.size(); ++i)
@@ -708,10 +815,9 @@ namespace
         const auto folder = juce::SystemStats::getEnvironmentVariable ("SUITE_RENDER_DIR", {});
         if (! folder.isEmpty())
         {
-            static constexpr const char* pageFiles[5] = { "groovemutator-grid.png", "groovemutator-lanes.png",
-                                                          "groovemutator-mutate.png", "groovemutator-groove.png",
-                                                          "groovemutator-mod.png" };
-            for (int page = 0; page < 5; ++page)
+            static constexpr const char* pageFiles[4] = { "groovemutator-grid.png", "groovemutator-lanes.png",
+                                                          "groovemutator-mutate.png", "groovemutator-mod.png" };
+            for (int page = 0; page < 4; ++page)
             {
                 gm.setPage (page);
                 assert (writeDeterministicPng (gm, juce::File (folder).getChildFile (pageFiles[page])));
@@ -753,10 +859,10 @@ namespace
 
         // Tempo dims while Host Sync is on, live again when sync goes off.
         setParameter (processor.apvts, Processor::syncId, 1.0f);
-        gm.setPage (3);
+        gm.setPage (2);
         assert (! gm.isTempoEnabled());
         setParameter (processor.apvts, Processor::syncId, 0.0f);
-        gm.setPage (3);
+        gm.setPage (2);
         assert (gm.isTempoEnabled());
 
         processor.editorBeingDeleted (editor.get());
@@ -1016,6 +1122,7 @@ int main()
     std::fflush (stdout);
 
     testParameters();
+    testModulationTargetsAffectOutput();
     testStateRoundTrip();
     testLatencyFixed();
     testDefaultSilence();

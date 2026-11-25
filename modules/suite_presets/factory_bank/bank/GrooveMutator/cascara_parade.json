@@ -1,0 +1,21 @@
+{
+  "_name": "Cascara Parade",
+  "_category": "Latin/Afro-Cuban",
+  "_description": "A steady cascara clave with rolling fills and an accented bell.",
+  "_plugin": "GrooveMutator",
+  "_pluginVersion": "1.0.0",
+  "sync": 1,
+  "fillProb": 28.0,
+  "fillStyle": 0,
+  "fillBars": 1,
+  "track1Pulses": 4,
+  "track2Pulses": 2,
+  "track3Pulses": 8,
+  "track3Division": 4,
+  "track7On": 1,
+  "track7Pulses": 4,
+  "track7Division": 4,
+  "track8On": 1,
+  "track8Pulses": 7,
+  "track8Accent": 50.0
+}

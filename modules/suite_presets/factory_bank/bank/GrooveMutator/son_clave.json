@@ -1,0 +1,22 @@
+{
+  "_name": "Son Clave",
+  "_category": "Latin/Afro-Cuban",
+  "_description": "A clave-led son pattern with bass drum, bell and a slow ghost shift.",
+  "_plugin": "GrooveMutator",
+  "_pluginVersion": "1.0.0",
+  "sync": 1,
+  "track1Pulses": 3,
+  "track1Rotation": 1,
+  "track2Pulses": 2,
+  "track3Pulses": 8,
+  "track6On": 1,
+  "track6Pulses": 4,
+  "track6Division": 4,
+  "track8On": 1,
+  "track8Steps": 16,
+  "track8Pulses": 5,
+  "track8Rotation": 3,
+  "lfo1Rate": 0.1,
+  "mod1Target": 46,
+  "mod1Amount": 35.0
+}

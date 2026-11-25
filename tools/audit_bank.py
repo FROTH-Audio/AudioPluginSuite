@@ -7,7 +7,7 @@ broken, so it can be used in CI.
 
 Rules:
 
-- 26 / 26 / 28 / 20 / 15 / 15 / 15 presets (160 total, plan 11).
+- Current factory count expectations are held in `EXPECTED_COUNTS` (309 total).
 - Unique names per plugin, at least 3 categories per plugin, non-empty category and description.
 - Every ID exists, every value is inside its `NormalisableRange`, values have the right type.
 - No preset equals the default state.
@@ -15,6 +15,8 @@ Rules:
 - Dynamic Saturation: no `drive` 24 + `fold` 50 outside the `Extreme` category.
 - Micro-Timing Chaos: host `sync` off in every factory preset and `bpm` left at 120, and the base
   pattern must fire at least one step (a low density with a short repeating pattern can be silent).
+- Groove Mutator: host sync on, tempo 120, trigger key 36 and at least one lane on; factory
+  presets include append-only rhythm identities.
 - No factory preset carries a file-path `samplePath`; only `embedded:` URIs are allowed
   (plan 07 Q3, revised 2026-11-16 in phase 4: the bank may now ship embedded sample
   variants, but never a machine-specific path) - checked in the authoring data, the
@@ -32,12 +34,11 @@ from pathlib import Path
 
 from preset_data import PRESETS, SCHEMA
 
-# Plan 18 Phase 7: the counts grow by the +10 round (DS, MTC and Sgraffito). The counts
-# are append-only expectations, so they only ever grow.
+# Factory counts are append-only expectations, so they only ever grow.
 EXPECTED_COUNTS = {"SpectralDrift": 46, "DynamicSaturation": 46, "MicroTimingChaos": 38, "Sgraffito": 30,
                    "MidiEffect": 15, "StereoTool": 35, "MultibandSaturation": 35, "Cyclical": 25,
-                   "GrooveMutator": 19}
-EXPECTED_TOTAL = 289
+                   "GrooveMutator": 39}
+EXPECTED_TOTAL = 309
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_BANK = REPO_ROOT / "modules" / "suite_presets" / "factory_bank" / "bank"

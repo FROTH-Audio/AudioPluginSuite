@@ -1,0 +1,21 @@
+{
+  "_name": "Steel Pulse",
+  "_category": "Electronic/Techno",
+  "_description": "A restrained industrial pattern with a long-cycle ghost swell.",
+  "_plugin": "GrooveMutator",
+  "_pluginVersion": "1.0.0",
+  "sync": 1,
+  "chaos": 8.0,
+  "evolveRate": 2,
+  "track1Steps": 8,
+  "track1Pulses": 4,
+  "track1Division": 4,
+  "track2Steps": 8,
+  "track2Pulses": 2,
+  "track2Division": 4,
+  "track5On": 1,
+  "track5Steps": 4,
+  "track5Pulses": 1,
+  "track5Division": 5,
+  "track5Ghost": 35.0
+}

@@ -12,9 +12,8 @@
 //==============================================================================
 namespace
 {
-    // Plan 17 Phase 4 prep: the routing targets, in ModTarget order (append-only; the
-    // choice index is the position + 1). The six master musical inputs plus the eight
-    // per-track velocities — recorded in the plan before code.
+    // The routing targets, in ModTarget order (append-only; the choice index is the
+    // position + 1): six master controls, then five controls for each lane.
     const SuiteModulation::TargetInfo modulationTargets[] = {
         { GrooveMutatorProcessor::chaosId,            "Chaos" },
         { GrooveMutatorProcessor::mutateScaleId,      "Mutation Scale" },
@@ -30,6 +29,38 @@ namespace
         { GrooveMutatorProcessor::trackVelIds[5],     "Track 6 Velocity" },
         { GrooveMutatorProcessor::trackVelIds[6],     "Track 7 Velocity" },
         { GrooveMutatorProcessor::trackVelIds[7],     "Track 8 Velocity" },
+        { GrooveMutatorProcessor::trackGainIds[0],    "Track 1 Level" },
+        { GrooveMutatorProcessor::trackGainIds[1],    "Track 2 Level" },
+        { GrooveMutatorProcessor::trackGainIds[2],    "Track 3 Level" },
+        { GrooveMutatorProcessor::trackGainIds[3],    "Track 4 Level" },
+        { GrooveMutatorProcessor::trackGainIds[4],    "Track 5 Level" },
+        { GrooveMutatorProcessor::trackGainIds[5],    "Track 6 Level" },
+        { GrooveMutatorProcessor::trackGainIds[6],    "Track 7 Level" },
+        { GrooveMutatorProcessor::trackGainIds[7],    "Track 8 Level" },
+        { GrooveMutatorProcessor::trackAccentIds[0],  "Track 1 Accent" },
+        { GrooveMutatorProcessor::trackAccentIds[1],  "Track 2 Accent" },
+        { GrooveMutatorProcessor::trackAccentIds[2],  "Track 3 Accent" },
+        { GrooveMutatorProcessor::trackAccentIds[3],  "Track 4 Accent" },
+        { GrooveMutatorProcessor::trackAccentIds[4],  "Track 5 Accent" },
+        { GrooveMutatorProcessor::trackAccentIds[5],  "Track 6 Accent" },
+        { GrooveMutatorProcessor::trackAccentIds[6],  "Track 7 Accent" },
+        { GrooveMutatorProcessor::trackAccentIds[7],  "Track 8 Accent" },
+        { GrooveMutatorProcessor::trackFlamIds[0],    "Track 1 Flam" },
+        { GrooveMutatorProcessor::trackFlamIds[1],    "Track 2 Flam" },
+        { GrooveMutatorProcessor::trackFlamIds[2],    "Track 3 Flam" },
+        { GrooveMutatorProcessor::trackFlamIds[3],    "Track 4 Flam" },
+        { GrooveMutatorProcessor::trackFlamIds[4],    "Track 5 Flam" },
+        { GrooveMutatorProcessor::trackFlamIds[5],    "Track 6 Flam" },
+        { GrooveMutatorProcessor::trackFlamIds[6],    "Track 7 Flam" },
+        { GrooveMutatorProcessor::trackFlamIds[7],    "Track 8 Flam" },
+        { GrooveMutatorProcessor::trackGhostIds[0],   "Track 1 Ghost" },
+        { GrooveMutatorProcessor::trackGhostIds[1],   "Track 2 Ghost" },
+        { GrooveMutatorProcessor::trackGhostIds[2],   "Track 3 Ghost" },
+        { GrooveMutatorProcessor::trackGhostIds[3],   "Track 4 Ghost" },
+        { GrooveMutatorProcessor::trackGhostIds[4],   "Track 5 Ghost" },
+        { GrooveMutatorProcessor::trackGhostIds[5],   "Track 6 Ghost" },
+        { GrooveMutatorProcessor::trackGhostIds[6],   "Track 7 Ghost" },
+        { GrooveMutatorProcessor::trackGhostIds[7],   "Track 8 Ghost" },
     };
     constexpr int numModulationTargets = (int) std::size (modulationTargets);
 }
@@ -40,7 +71,15 @@ juce::StringArray GrooveMutatorProcessor::modTargetNames()
     return { "None", "Chaos", "Mutation Scale", "Fill Probability", "Swing",
              "Humanise Time", "Humanise Velocity",
              "Track 1 Velocity", "Track 2 Velocity", "Track 3 Velocity", "Track 4 Velocity",
-             "Track 5 Velocity", "Track 6 Velocity", "Track 7 Velocity", "Track 8 Velocity" };
+             "Track 5 Velocity", "Track 6 Velocity", "Track 7 Velocity", "Track 8 Velocity",
+             "Track 1 Level", "Track 2 Level", "Track 3 Level", "Track 4 Level",
+             "Track 5 Level", "Track 6 Level", "Track 7 Level", "Track 8 Level",
+             "Track 1 Accent", "Track 2 Accent", "Track 3 Accent", "Track 4 Accent",
+             "Track 5 Accent", "Track 6 Accent", "Track 7 Accent", "Track 8 Accent",
+             "Track 1 Flam", "Track 2 Flam", "Track 3 Flam", "Track 4 Flam",
+             "Track 5 Flam", "Track 6 Flam", "Track 7 Flam", "Track 8 Flam",
+             "Track 1 Ghost", "Track 2 Ghost", "Track 3 Ghost", "Track 4 Ghost",
+             "Track 5 Ghost", "Track 6 Ghost", "Track 7 Ghost", "Track 8 Ghost" };
 }
 
 float GrooveMutatorProcessor::getModulatedValue (ModTarget target) const
@@ -68,15 +107,25 @@ float GrooveMutatorProcessor::trackVelocityFor (int track, int patternIndex) con
 
     // The accent and the ghost are shares of the cycle: an accent hit plays louder, a
     // ghost quieter, and the two are exclusive (the accent wins).
-    const float accentShare = juce::jlimit (0.0f, 100.0f, accentParams[i]->load()) / 100.0f;
-    const float ghostShare = juce::jlimit (0.0f, 100.0f, ghostParams[i]->load()) / 100.0f;
+    const auto targetForTrack = [trackIndex = (int) i] (ModTarget first)
+    {
+        return static_cast<ModTarget> (static_cast<int> (first) + trackIndex);
+    };
+    const float accentShare = juce::jlimit (0.0f, 100.0f,
+                                             getModulatedValue (targetForTrack (ModTarget::TrackAccent1))) / 100.0f;
+    const float ghostShare = juce::jlimit (0.0f, 100.0f,
+                                            getModulatedValue (targetForTrack (ModTarget::TrackGhost1))) / 100.0f;
     if (r < accentShare)
         mul *= 1.3f;
     else if (r > 1.0f - ghostShare)
         mul *= 0.4f;
 
-    // The Level stage scales the velocity contribution (the plan: tracks only emit notes).
-    mul *= juce::Decibels::decibelsToGain (juce::jlimit (-24.0f, 12.0f, gainParams[i]->load()));
+    const float velocity = juce::jlimit (30.0f, 150.0f,
+                                          getModulatedValue (targetForTrack (ModTarget::TrackVel1)));
+    const float level = juce::jlimit (-24.0f, 12.0f,
+                                      getModulatedValue (targetForTrack (ModTarget::TrackLevel1)));
+    mul *= velocity / 100.0f;
+    mul *= juce::Decibels::decibelsToGain (level);
 
     return mul;
 }
@@ -118,7 +167,8 @@ void GrooveMutatorProcessor::setLaneStep (int track, int step, bool on)
 bool GrooveMutatorProcessor::laneFlamsAt (int track, int patternIndex) const
 {
     const auto i = (size_t) std::clamp (track, 0, numTracks - 1);
-    const float flamShare = juce::jlimit (0.0f, 100.0f, flamParams[i]->load()) / 100.0f;
+    const auto target = static_cast<ModTarget> (static_cast<int> (ModTarget::TrackFlam1) + (int) i);
+    const float flamShare = juce::jlimit (0.0f, 100.0f, getModulatedValue (target)) / 100.0f;
     return flamShare > 0.0f
         && CoreDSP::Sequencer::hashUnit ((std::uint32_t) juce::roundToInt (seed->load()),
                                          (std::uint32_t) (7003 + patternIndex)) < flamShare;
@@ -127,18 +177,21 @@ bool GrooveMutatorProcessor::laneFlamsAt (int track, int patternIndex) const
 bool GrooveMutatorProcessor::laneAccentsAt (int track, int patternIndex) const
 {
     const auto i = (size_t) std::clamp (track, 0, numTracks - 1);
+    const auto target = static_cast<ModTarget> (static_cast<int> (ModTarget::TrackAccent1) + (int) i);
     const float r = CoreDSP::Sequencer::hashUnit ((std::uint32_t) juce::roundToInt (seed->load()),
                                                   (std::uint32_t) (9001 + patternIndex));
-    return r < juce::jlimit (0.0f, 100.0f, accentParams[i]->load()) / 100.0f;
+    return r < juce::jlimit (0.0f, 100.0f, getModulatedValue (target)) / 100.0f;
 }
 
 bool GrooveMutatorProcessor::laneGhostsAt (int track, int patternIndex) const
 {
     const auto i = (size_t) std::clamp (track, 0, numTracks - 1);
+    const auto accentTarget = static_cast<ModTarget> (static_cast<int> (ModTarget::TrackAccent1) + (int) i);
+    const auto ghostTarget = static_cast<ModTarget> (static_cast<int> (ModTarget::TrackGhost1) + (int) i);
     const float r = CoreDSP::Sequencer::hashUnit ((std::uint32_t) juce::roundToInt (seed->load()),
                                                   (std::uint32_t) (9001 + patternIndex));
-    const float accentShare = juce::jlimit (0.0f, 100.0f, accentParams[i]->load()) / 100.0f;
-    const float ghostShare = juce::jlimit (0.0f, 100.0f, ghostParams[i]->load()) / 100.0f;
+    const float accentShare = juce::jlimit (0.0f, 100.0f, getModulatedValue (accentTarget)) / 100.0f;
+    const float ghostShare = juce::jlimit (0.0f, 100.0f, getModulatedValue (ghostTarget)) / 100.0f;
     return r >= accentShare && r > 1.0f - ghostShare;
 }
 
@@ -519,11 +572,12 @@ void GrooveMutatorProcessor::runMutationTick (double beat)
     // Freeze locks the current pattern; Chaos 0 means nothing mutates.
     if (freeze->load() > 0.5f)
         return;
-    const float chaosAmount = juce::jlimit (0.0f, 100.0f, chaos->load()) / 100.0f;
+    const float chaosAmount = juce::jlimit (0.0f, 100.0f, getModulatedValue (ModTarget::Chaos)) / 100.0f;
     if (chaosAmount <= 0.0f)
         return;
 
-    const float scaleAmount = juce::jlimit (0.0f, 100.0f, mutateScale->load()) / 100.0f;
+    const float scaleAmount = juce::jlimit (0.0f, 100.0f,
+                                             getModulatedValue (ModTarget::MutationScale)) / 100.0f;
     const auto seedValue = (std::uint32_t) juce::roundToInt (seed->load());
 
     for (int track = 0; track < numTracks; ++track)
@@ -599,7 +653,8 @@ void GrooveMutatorProcessor::scheduleLaneStep (int track, std::int64_t stepIndex
         laneFillAdditions[i] = CoreDSP::Rhythm::fillMask (state.mask, steps,
                                                           juce::jlimit (0, CoreDSP::Rhythm::numFillStyles - 1,
                                                                         juce::roundToInt (fillStyle->load())),
-                                                          juce::jlimit (0.0f, 100.0f, fillProb->load()) / 100.0f,
+                                                          juce::jlimit (0.0f, 100.0f,
+                                                              getModulatedValue (ModTarget::FillProbability)) / 100.0f,
                                                           CoreDSP::Rhythm::mutationHash (
                                                               (std::uint32_t) juce::roundToInt (seed->load()),
                                                               (std::uint64_t) cycle, track));
@@ -623,18 +678,21 @@ void GrooveMutatorProcessor::scheduleLaneStep (int track, std::int64_t stepIndex
                               * (1.0f + (CoreDSP::Sequencer::hashUnit (
                                              (std::uint32_t) juce::roundToInt (seed->load()),
                                              (std::uint32_t) (5003 + patternIndex)) - 0.5f)
-                                             * 2.0f * juce::jlimit (0.0f, 100.0f, humaniseVelocity->load()) / 100.0f);
+                                             * 2.0f * juce::jlimit (0.0f, 100.0f,
+                                                 getModulatedValue (ModTarget::HumaniseVelocity)) / 100.0f);
     const int velocity = juce::jlimit (1, 127,
-                                       juce::roundToInt (100.0f * params.velocity * velocityMul));
+                                       juce::roundToInt (100.0f * velocityMul));
 
     // The timing: the grid sample, the swing (odd steps late, the MTC law), the humanise
     // jitter, then the fixed latency.
     const double swingSamples = CoreDSP::Sequencer::swingBeats (patternIndex,
-                                                                juce::jlimit (-50.0f, 50.0f, swing->load()) / 100.0f,
+                                                                juce::jlimit (-50.0f, 50.0f,
+                                                                    getModulatedValue (ModTarget::Swing)) / 100.0f,
                                                                 stepLenBeats) * samplesPerBeat;
     const float humaniseMs = (CoreDSP::Sequencer::hashUnit ((std::uint32_t) juce::roundToInt (seed->load()),
                                                             (std::uint32_t) (7001 + patternIndex)) - 0.5f)
-                             * 2.0f * juce::jlimit (0.0f, 20.0f, humaniseTime->load());
+                             * 2.0f * juce::jlimit (0.0f, 20.0f,
+                                 getModulatedValue (ModTarget::HumaniseTime));
     const double humaniseSamples = (double) humaniseMs * sampleRate / 1000.0;
     const double gridSample = (double) streamSample + (stepBeat - blockStartBeat) * samplesPerBeat;
     const auto onTarget = std::max<std::int64_t> (streamSample,
@@ -647,10 +705,7 @@ void GrooveMutatorProcessor::scheduleLaneStep (int track, std::int64_t stepIndex
     queueGrooveNote (track, note, velocity, onTarget, length);
 
     // A flam is a second, quieter hit a few milliseconds later (6-12 ms, deterministic).
-    const float flamShare = juce::jlimit (0.0f, 100.0f, flamParams[i]->load()) / 100.0f;
-    if (flamShare > 0.0f
-        && CoreDSP::Sequencer::hashUnit ((std::uint32_t) juce::roundToInt (seed->load()),
-                                         (std::uint32_t) (7003 + patternIndex)) < flamShare)
+    if (laneFlamsAt (track, patternIndex))
     {
         const float flamMs = 6.0f + 6.0f * CoreDSP::Sequencer::hashUnit (
             (std::uint32_t) juce::roundToInt (seed->load()), (std::uint32_t) (7005 + patternIndex));

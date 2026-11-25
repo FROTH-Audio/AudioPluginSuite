@@ -1,0 +1,23 @@
+{
+  "_name": "Odd Meter Stomp",
+  "_category": "Rock",
+  "_description": "A five-against-four drum frame with a moving tom fill.",
+  "_plugin": "GrooveMutator",
+  "_pluginVersion": "1.0.0",
+  "sync": 1,
+  "polyRatio": 2,
+  "fillProb": 30.0,
+  "fillStyle": 0,
+  "track1Steps": 10,
+  "track1Pulses": 4,
+  "track1Division": 4,
+  "track2Steps": 10,
+  "track2Pulses": 2,
+  "track2Division": 4,
+  "track5On": 1,
+  "track5Steps": 10,
+  "track5Pulses": 3,
+  "track6On": 1,
+  "track6Steps": 10,
+  "track6Pulses": 2
+}

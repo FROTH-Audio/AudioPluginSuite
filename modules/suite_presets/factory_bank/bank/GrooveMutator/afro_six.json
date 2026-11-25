@@ -1,0 +1,23 @@
+{
+  "_name": "Afro Six",
+  "_category": "Latin/Afro-Cuban",
+  "_description": "A six-pulse frame with tom accents and a dancing clave lane.",
+  "_plugin": "GrooveMutator",
+  "_pluginVersion": "1.0.0",
+  "sync": 1,
+  "swing": 6.0,
+  "track1Steps": 24,
+  "track1Pulses": 6,
+  "track1Division": 1,
+  "track2Steps": 24,
+  "track2Pulses": 3,
+  "track2Division": 1,
+  "track5On": 1,
+  "track5Steps": 24,
+  "track5Pulses": 4,
+  "track5Division": 1,
+  "track8On": 1,
+  "track8Steps": 24,
+  "track8Pulses": 5,
+  "track8Division": 1
+}

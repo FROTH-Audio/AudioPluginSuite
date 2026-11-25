@@ -45,7 +45,7 @@ namespace SuiteModulation
     public:
         static constexpr int lfoCount = 2;
         static constexpr int slotCount = 6;
-        static constexpr int maxTargets = 32;  // compile-time bound on the number of target choices
+        static constexpr int maxTargets = 64;  // compile-time bound, including the None choice
 
         /** Adds the LFO and routing parameters. targetNames[0] must be "None", then one name per target. */
         static void addParameters(std::vector<std::unique_ptr<juce::RangedAudioParameter>>& params,

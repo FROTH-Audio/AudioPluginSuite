@@ -374,8 +374,11 @@ namespace PresetTest
             assert (! bar->isPresetDirty());
 
             // A tweak after the preset: the name keeps the preset, the dirty mark shows.
-            if (auto* last = processor.getParameters().getLast())
-                last->setValueNotifyingHost (last->getValue() < 0.5f ? 0.87f : 0.13f);
+            auto* last = processor.getParameters().getLast();
+            assert (last != nullptr);
+            const auto previousValue = last->getValue();
+            last->setValueNotifyingHost (previousValue < 0.5f ? 0.87f : 0.13f);
+            assert (last->getValue() != previousValue);
 
             processor.editorBeingDeleted (editor.get());
             editor.reset();
@@ -389,7 +392,10 @@ namespace PresetTest
             assert (bar != nullptr);
             assert (bar->getCurrentPresetName() == presets.front().name);
 
-            juce::MessageManager::getInstance()->runDispatchLoopUntil (150);   // the 10 Hz dirty tick
+            const auto dirtyDeadline = juce::Time::getMillisecondCounterHiRes() + 1000.0;
+            while (! bar->isPresetDirty()
+                   && juce::Time::getMillisecondCounterHiRes() < dirtyDeadline)
+                juce::MessageManager::getInstance()->runDispatchLoopUntil (20);
             assert (bar->isPresetDirty());
 
             processor.editorBeingDeleted (editor.get());

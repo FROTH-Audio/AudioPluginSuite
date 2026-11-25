@@ -6,6 +6,11 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+- Groove Mutator's GRID now has a note dropdown for each lane and a lower row of eight Velocity/Level columns; MUTATE absorbs the former GROOVE page's feel and clock controls. The MOD preview uses royal blue (`#4169E1`) while the rest of the editor keeps its lemon accent.
+- Groove Mutator modulation is now consumed by the scheduler for all 46 targets: six master controls plus Velocity, Level, Accent, Flam and Ghost for each lane. The shared router's capacity now fits those targets plus the `None` choice; the editor displays routed values, and processor tests assert that each new lane-target family changes delivered MIDI.
+- Added 20 append-only Groove Mutator factory presets across Electronic/Techno, Hip-Hop, Rock, Jazz/Funk and Latin/Afro-Cuban, including routed lane-target examples. The plugin now has 39 presets and the suite bank has 309.
+
 ### Fixed
 - Plan 22 - the Groove Mutator owner findings round 2 (seven findings, all implemented and verified: 19/19 GrooveMutatorTests, the preset tests and `tools/audit_bank.py` green at 289):
   - **The brand lockup paints**: the header draws the embedded `lockup_groovemutator.png` through `SuiteUI::drawBrandLockup` (it painted plain text before), and the About dialog receives the same artwork. The stale CMake comment above the live `LOCKUP` line is gone.

@@ -1,0 +1,19 @@
+{
+  "_name": "Warehouse Four",
+  "_category": "Electronic/Techno",
+  "_description": "A locked four-on-floor with a moving low-band lane level.",
+  "_plugin": "GrooveMutator",
+  "_pluginVersion": "1.0.0",
+  "sync": 1,
+  "chaos": 12.0,
+  "fillProb": 18.0,
+  "track1Pulses": 4,
+  "track2Pulses": 2,
+  "track3Pulses": 16,
+  "track4On": 1,
+  "track4Pulses": 4,
+  "track4Division": 4,
+  "lfo1Rate": 0.18,
+  "mod1Target": 17,
+  "mod1Amount": 24.0
+}
