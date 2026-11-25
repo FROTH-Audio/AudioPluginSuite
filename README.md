@@ -79,7 +79,9 @@ FROTH Audio makes plugins that work on sound at the level of its structure: the 
 - [The plugins](#the-plugins)
 - [For users](#for-users)
   - [Installation](#installation)
+  - [Release downloads](#release-downloads)
   - [Modulation](#modulation)
+  - [Presets (optional bank)](#presets-optional-bank)
   - [Spectral Drift Shifter](#spectral-drift-shifter)
   - [Dynamic Saturation Companion](#dynamic-saturation-companion)
   - [Micro-Timing Chaos](#micro-timing-chaos)
@@ -102,6 +104,7 @@ FROTH Audio makes plugins that work on sound at the level of its structure: the 
   - [Known limitations](#known-limitations)
 - [Brand](#brand)
 - [Contributing](#contributing)
+- [Support development](#support-development)
 - [License](#license)
 
 ---
