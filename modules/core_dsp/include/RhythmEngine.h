@@ -307,6 +307,14 @@ namespace CoreDSP::Rhythm
         return additions;
     }
 
+    /** The Fill Length choice's bar count. The choice list is "1 Bar", "2 Bars", "4 Bars",
+        so the count is 1 << index — the choice index itself is not a bar count (index 0
+        must not mean "no window at all"). */
+    inline int fillBarCount (int choiceIndex) noexcept
+    {
+        return 1 << std::clamp (choiceIndex, 0, 2);
+    }
+
     /** True if the step at `stepIndex` (its index within the lane's cycle) lies in the
         fill window: the last `fillBars` four-beat bars of the cycle. A cycle shorter
         than the window is entirely window. */

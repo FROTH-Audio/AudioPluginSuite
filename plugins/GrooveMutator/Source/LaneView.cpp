@@ -39,9 +39,11 @@ void LaneView::paint (juce::Graphics& g)
     const bool stepsMode = patternKind == 2;
 
     // In Steps mode the painted (editable) mask is the truth; otherwise the mutated
-    // live mask the scheduler fires from.
-    const std::uint32_t mask = stepsMode ? processor.getLaneStepsMask (track)
-                                         : processor.laneMask (track);
+    // live mask the scheduler fires from. The fill additions are audible but not
+    // painted (plan 21, C3): the strip draws them as hollow dots so it tells the truth.
+    const std::uint32_t painted = processor.getLaneStepsMask (track);
+    const std::uint32_t mask = stepsMode ? painted : processor.laneMask (track);
+    const std::uint32_t fills = stepsMode ? processor.laneFillMask (track) & ~painted : 0u;
 
     const auto strip = full.reduced (6.0f, (float) juce::jlimit (4, (int) full.getHeight() / 3, 6));
     const float cellWidth = strip.getWidth() / (float) CoreDSP::Rhythm::maxSteps;
@@ -84,12 +86,20 @@ void LaneView::paint (juce::Graphics& g)
             continue;
         }
 
-        // A fired step: full = hit, bright = accent, ring = ghost, double = flam.
+        // A fired step: full = hit, bright = accent, ring = ghost, double = flam. A fill
+        // addition is a hollow dot in the full accent (the ghost's ring is dimmed, so the
+        // two read apart), with the flam's inner ring when the hash says flam.
+        const bool isFill = ((fills >> step) & 1u) != 0u;
         const bool isAccent = processor.laneAccentsAt (track, step);
         const bool isGhost = ! isAccent && processor.laneGhostsAt (track, step);
         const bool isFlam = processor.laneFlamsAt (track, step);
 
-        if (isGhost)
+        if (isFill)
+        {
+            g.setColour (accent);
+            g.drawEllipse (dot, 1.4f);
+        }
+        else if (isGhost)
         {
             g.setColour (dimmed (accent));
             g.drawEllipse (dot, 1.4f);
@@ -103,7 +113,8 @@ void LaneView::paint (juce::Graphics& g)
         if (isFlam)
         {
             auto flamDot = dot.reduced (4.5f);
-            g.setColour (isGhost ? dimmed (accent).brighter (0.15f) : accent.brighter (0.25f));
+            g.setColour (isGhost ? dimmed (accent).brighter (0.15f)
+                                 : (isFill ? accent : accent.brighter (0.25f)));
             g.drawEllipse (flamDot, 1.2f);
         }
     }

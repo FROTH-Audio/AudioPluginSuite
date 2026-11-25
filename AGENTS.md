@@ -160,7 +160,7 @@ All test executables pass:
 - MidiEffectTests (26 functions) - new 2026-11 (plan 06 idea 2.11), extended by plan 6.1, plan 11, plan 12, plan 13 and plan 15 (the UI-note ring, one test per ending path, the slow step rates and the mode affinity)
 - MultibandSaturationTests (14 functions) - new 2026-11 (plan 06 idea 2.4), extended by plan 11, plan 12 and plan 13 (the routing, the smoothed crossover and the page switch)
 - CyclicalTests (39 functions) - new 2026-11-19 (plan 6.1), extended by plan 12, plan 14 and plan 16 (Toggle trigger, per-slot notes, tempo/sync, the loop-sync rate, chop boundaries, the chop key mapping, sync-ignoring chop, granular inside a slice, the waveform chop lines, the full affinity matrix, the auto-chop analyser, the slice arrangement, and the loop transformation tools)
-- GrooveMutatorTests (18 functions) - new 2026-11-24 (plan 19): parameters, state round trip, latency, default silence, the deterministic latch groove, reproducibility, the Gate release, one test per note-off ending path, swing, pass-through, the preset seam, the editor pages (five pages paint, page switches change no parameter, R9 renders), affinity, the Steps paint round trip, the trail publication, and the host-sync grid alignment (a moving host position, onsets asserted on absolute quarter-beats).
+- GrooveMutatorTests (19 functions) - new 2026-11-24 (plan 19), extended by plan 21: parameters, state round trip, latency, default silence, the deterministic latch groove, reproducibility, the Gate release, one test per note-off ending path, swing, pass-through, the preset seam, the editor pages (five pages paint, page switches change no parameter, R9 renders), affinity, the Steps paint round trip, the trail publication, and the host-sync grid alignment (a moving host position, onsets asserted on absolute quarter-beats; since plan 21 the synced groove runs from the transport alone and a stopped transport stays silent with the trigger held), plus plan 21's Steps-lane truth (full chaos never moves a painted pattern; fills apply to Steps lanes and Fill Length's "1 Bar" is a one-bar window).
 - [PluginName]_PresetTests for each plugin (factory bank)
 
 Before 2026-11-08 the list was 9 entries: CoreDSPTests, SuiteUI_Tests, SuiteModulation_Tests, the three plugin test executables, and the three VST3 host-load tests. SuiteUI_Tests also passed against JUCE 8.0.6, the previous pin, which is the version CI ran (last checked 2026-11-06, not re-run since). macOS is not verified on JUCE 9.
@@ -509,7 +509,7 @@ then the tracks, then the router. State version 1.
 
 | ID | Name | Range | Default | Notes |
 |---|---|---|---|---|
-| `sync` | Host Sync | off / on | on | On follows the host's PPQ + tempo (the MTC law); off runs the Tempo parameter |
+| `sync` | Host Sync | off / on | on | On follows the host's PPQ + tempo (the MTC law), and a synced groove runs and stops with the host transport — no trigger key needed (plan 21); off runs the Tempo parameter and the trigger key starts the groove |
 | `tempo` | Tempo | 40 – 240 BPM | 120 | Used while Host Sync is off; dims in the editor while synced |
 | `triggerMode` | Trigger Mode | Latch, Gate | Latch | The mode change is a note-off ending path |
 | `triggerNote` | Trigger Key | 24 – 96 | 36 | `C2 (36)` text (the Root-Key pattern); consumed by the processor, never passed through |
@@ -518,13 +518,13 @@ then the tracks, then the router. State version 1.
 | `humaniseVelocity` | Humanise Velocity | 0 – 100 % | 10 % | Hash at 5003 + patternIndex |
 | `velCurve` | Velocity Curve | Flat, Linear, Exponential, Random | Flat | The MidiTool pattern |
 | `polyRatio` | Polyrhythm | 1:1, 3:4, 5:4, 7:8, 4:3, 8:7 | 1:1 | Scales every lane's division (`CoreDSP::Rhythm::polyScale`) |
-| `chaos` | Chaos | 0 – 100 % | 25 % | Gates each lane's mutation per tick; a routing target |
+| `chaos` | Chaos | 0 – 100 % | 25 % | Gates each lane's mutation per tick; a routing target. Steps lanes are exempt (plan 21): the painted pattern is the audible truth; Euclid and Hash mutate |
 | `evolveRate` | Evolve Rate | per Beat, per Bar, 2, 4, 8 Bars | per Bar | Mutation tick in musical time; the beat-0 boundary is not a crossing |
 | `mutateScale` | Mutation Scale | 0 – 100 % | 50 % | Picks the mutation-operator tier; a routing target |
 | `freeze` | Freeze | bool | off | Locks the live masks (automatable) |
 | `fillProb` | Fill Probability | 0 – 100 % | 15 % | A routing target |
 | `fillStyle` | Fill Style | Tom Roll, Snare Build, Hat Drop, Chaos Burst | Tom Roll | |
-| `fillBars` | Fill Length | 1, 2, 4 Bars | 1 Bar | The last-N-bars window |
+| `fillBars` | Fill Length | 1, 2, 4 Bars | 1 Bar | The last-N-bars window; the choice index maps through `CoreDSP::Rhythm::fillBarCount` (1 << index — the index is not a bar count; plan 21 fixed "1 Bar" disabling fills) |
 | `seed` | Seed | 0 – 999 | 42 | Determinism anchor; a change re-derives every lane |
 | `trackNOn` | On | bool | on for 1–4, off for 5–8 | |
 | `trackNPattern` | Pattern | Euclid, Hash, Steps | Euclid | Steps plays the painted mask (a state property, not a parameter) |

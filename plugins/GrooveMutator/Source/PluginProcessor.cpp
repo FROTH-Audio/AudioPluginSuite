@@ -14,7 +14,7 @@ namespace
 {
     // Plan 17 Phase 4 prep: the routing targets, in ModTarget order (append-only; the
     // choice index is the position + 1). The six master musical inputs plus the eight
-    // per-track velocities â€” recorded in the plan before code.
+    // per-track velocities — recorded in the plan before code.
     const SuiteModulation::TargetInfo modulationTargets[] = {
         { GrooveMutatorProcessor::chaosId,            "Chaos" },
         { GrooveMutatorProcessor::mutateScaleId,      "Mutation Scale" },
@@ -68,8 +68,8 @@ float GrooveMutatorProcessor::trackVelocityFor (int track, int patternIndex) con
 
     // The accent and the ghost are shares of the cycle: an accent hit plays louder, a
     // ghost quieter, and the two are exclusive (the accent wins).
-    const float accentShare = juce::jlimit (0.0f, 1.0f, accentParams[i]->load()) / 100.0f;
-    const float ghostShare = juce::jlimit (0.0f, 1.0f, ghostParams[i]->load()) / 100.0f;
+    const float accentShare = juce::jlimit (0.0f, 100.0f, accentParams[i]->load()) / 100.0f;
+    const float ghostShare = juce::jlimit (0.0f, 100.0f, ghostParams[i]->load()) / 100.0f;
     if (r < accentShare)
         mul *= 1.3f;
     else if (r > 1.0f - ghostShare)
@@ -89,6 +89,13 @@ std::uint32_t GrooveMutatorProcessor::laneMask (int track) const noexcept
 std::uint32_t GrooveMutatorProcessor::getLaneStepsMask (int track) const noexcept
 {
     return laneStepsMask[(size_t) std::clamp (track, 0, numTracks - 1)].load (std::memory_order_relaxed);
+}
+
+std::uint32_t GrooveMutatorProcessor::laneFillMask (int track) const noexcept
+{
+    // The same message-thread-reads-audio-state precedent as laneMask(): a stale cycle's
+    // additions cost nothing (they are recomputed on the next scheduled step).
+    return laneFillAdditions[(size_t) std::clamp (track, 0, numTracks - 1)];
 }
 
 void GrooveMutatorProcessor::setLaneStep (int track, int step, bool on)
@@ -111,7 +118,7 @@ void GrooveMutatorProcessor::setLaneStep (int track, int step, bool on)
 bool GrooveMutatorProcessor::laneFlamsAt (int track, int patternIndex) const
 {
     const auto i = (size_t) std::clamp (track, 0, numTracks - 1);
-    const float flamShare = juce::jlimit (0.0f, 1.0f, flamParams[i]->load()) / 100.0f;
+    const float flamShare = juce::jlimit (0.0f, 100.0f, flamParams[i]->load()) / 100.0f;
     return flamShare > 0.0f
         && CoreDSP::Sequencer::hashUnit ((std::uint32_t) juce::roundToInt (seed->load()),
                                          (std::uint32_t) (7003 + patternIndex)) < flamShare;
@@ -122,7 +129,7 @@ bool GrooveMutatorProcessor::laneAccentsAt (int track, int patternIndex) const
     const auto i = (size_t) std::clamp (track, 0, numTracks - 1);
     const float r = CoreDSP::Sequencer::hashUnit ((std::uint32_t) juce::roundToInt (seed->load()),
                                                   (std::uint32_t) (9001 + patternIndex));
-    return r < juce::jlimit (0.0f, 1.0f, accentParams[i]->load()) / 100.0f;
+    return r < juce::jlimit (0.0f, 100.0f, accentParams[i]->load()) / 100.0f;
 }
 
 bool GrooveMutatorProcessor::laneGhostsAt (int track, int patternIndex) const
@@ -130,8 +137,8 @@ bool GrooveMutatorProcessor::laneGhostsAt (int track, int patternIndex) const
     const auto i = (size_t) std::clamp (track, 0, numTracks - 1);
     const float r = CoreDSP::Sequencer::hashUnit ((std::uint32_t) juce::roundToInt (seed->load()),
                                                   (std::uint32_t) (9001 + patternIndex));
-    const float accentShare = juce::jlimit (0.0f, 1.0f, accentParams[i]->load()) / 100.0f;
-    const float ghostShare = juce::jlimit (0.0f, 1.0f, ghostParams[i]->load()) / 100.0f;
+    const float accentShare = juce::jlimit (0.0f, 100.0f, accentParams[i]->load()) / 100.0f;
+    const float ghostShare = juce::jlimit (0.0f, 100.0f, ghostParams[i]->load()) / 100.0f;
     return r >= accentShare && r > 1.0f - ghostShare;
 }
 
@@ -270,7 +277,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout GrooveMutatorProcessor::crea
 {
     std::vector<std::unique_ptr<juce::RangedAudioParameter>> params;
 
-    // Master block, in Â§1's order (never reorder after first commit).
+    // Master block, in §1's order (never reorder after first commit).
     params.push_back (std::make_unique<juce::AudioParameterBool> (
         juce::ParameterID { syncId, 1 }, "Host Sync", true));
     params.push_back (std::make_unique<juce::AudioParameterFloat> (
@@ -330,7 +337,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout GrooveMutatorProcessor::crea
     params.push_back (std::make_unique<juce::AudioParameterInt> (
         juce::ParameterID { seedId, 1 }, "Seed", 0, 999, 42));
 
-    // Per track Ã—8, in the Â§1 order. The defaults walk the GM drum map and keep the INIT
+    // Per track ×8, in the §1 order. The defaults walk the GM drum map and keep the INIT
     // groove musical (the kick's four-on-floor, the snare's backbeat, and so on).
     for (int track = 0; track < numTracks; ++track)
     {
@@ -481,7 +488,7 @@ void GrooveMutatorProcessor::rederiveLaneIfNeeded (int track)
     p.stepsMask = laneStepsMask[i].load (std::memory_order_relaxed);
 
     // The plan-19 rule: a Seed change / preset load / Freeze-off re-derives the mask, and
-    // so does any pattern-defining value â€” the painted steps included. The signature
+    // so does any pattern-defining value — the painted steps included. The signature
     // catches all of them.
     const std::uint32_t signature = (std::uint32_t) (p.patternKind * 7919u + (std::uint32_t) p.steps * 104729u
                                   + (std::uint32_t) p.pulses * 1299709u + (std::uint32_t) p.rotation * 15485863u
@@ -512,16 +519,21 @@ void GrooveMutatorProcessor::runMutationTick (double beat)
     // Freeze locks the current pattern; Chaos 0 means nothing mutates.
     if (freeze->load() > 0.5f)
         return;
-    const float chaosAmount = juce::jlimit (0.0f, 1.0f, chaos->load()) / 100.0f;
+    const float chaosAmount = juce::jlimit (0.0f, 100.0f, chaos->load()) / 100.0f;
     if (chaosAmount <= 0.0f)
         return;
 
-    const float scaleAmount = juce::jlimit (0.0f, 1.0f, mutateScale->load()) / 100.0f;
+    const float scaleAmount = juce::jlimit (0.0f, 100.0f, mutateScale->load()) / 100.0f;
     const auto seedValue = (std::uint32_t) juce::roundToInt (seed->load());
 
     for (int track = 0; track < numTracks; ++track)
     {
         if (onParams[(size_t) track]->load() <= 0.5f)
+            continue;
+
+        // Steps lanes are the authoring mode (plan 21, C3): what you painted is what
+        // plays, so the mutation operators touch only the generative kinds (Euclid, Hash).
+        if (laneParams[(size_t) track].patternKind == 2)
             continue;
 
         // The chaos gates whether this lane mutates on this tick (deterministic per tick
@@ -587,7 +599,7 @@ void GrooveMutatorProcessor::scheduleLaneStep (int track, std::int64_t stepIndex
         laneFillAdditions[i] = CoreDSP::Rhythm::fillMask (state.mask, steps,
                                                           juce::jlimit (0, CoreDSP::Rhythm::numFillStyles - 1,
                                                                         juce::roundToInt (fillStyle->load())),
-                                                          juce::jlimit (0.0f, 1.0f, fillProb->load()) / 100.0f,
+                                                          juce::jlimit (0.0f, 100.0f, fillProb->load()) / 100.0f,
                                                           CoreDSP::Rhythm::mutationHash (
                                                               (std::uint32_t) juce::roundToInt (seed->load()),
                                                               (std::uint64_t) cycle, track));
@@ -595,7 +607,8 @@ void GrooveMutatorProcessor::scheduleLaneStep (int track, std::int64_t stepIndex
 
     bool fires = ((state.mask >> patternIndex) & 1u) != 0u;
     if (CoreDSP::Rhythm::inFillWindow (patternIndex, steps, params.divisionBeats,
-                                       juce::jlimit (0, 4, juce::roundToInt (fillBars->load()))))
+                                       CoreDSP::Rhythm::fillBarCount (
+                                           juce::roundToInt (fillBars->load()))))
         fires = fires || ((laneFillAdditions[i] >> patternIndex) & 1u) != 0u;
 
     if (! fires)
@@ -610,7 +623,7 @@ void GrooveMutatorProcessor::scheduleLaneStep (int track, std::int64_t stepIndex
                               * (1.0f + (CoreDSP::Sequencer::hashUnit (
                                              (std::uint32_t) juce::roundToInt (seed->load()),
                                              (std::uint32_t) (5003 + patternIndex)) - 0.5f)
-                                             * 2.0f * juce::jlimit (0.0f, 1.0f, humaniseVelocity->load()) / 100.0f);
+                                             * 2.0f * juce::jlimit (0.0f, 100.0f, humaniseVelocity->load()) / 100.0f);
     const int velocity = juce::jlimit (1, 127,
                                        juce::roundToInt (100.0f * params.velocity * velocityMul));
 
@@ -634,7 +647,7 @@ void GrooveMutatorProcessor::scheduleLaneStep (int track, std::int64_t stepIndex
     queueGrooveNote (track, note, velocity, onTarget, length);
 
     // A flam is a second, quieter hit a few milliseconds later (6-12 ms, deterministic).
-    const float flamShare = juce::jlimit (0.0f, 1.0f, flamParams[i]->load()) / 100.0f;
+    const float flamShare = juce::jlimit (0.0f, 100.0f, flamParams[i]->load()) / 100.0f;
     if (flamShare > 0.0f
         && CoreDSP::Sequencer::hashUnit ((std::uint32_t) juce::roundToInt (seed->load()),
                                          (std::uint32_t) (7003 + patternIndex)) < flamShare)
@@ -742,7 +755,9 @@ void GrooveMutatorProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
         grooveWasActive = false;
     }
 
-    const bool running = transportRunning && triggerActive;
+    // The run sources (plan 21): synced, the host transport runs the groove; free (sync
+    // off, or no host playhead), the trigger key runs it (Latch or Gate).
+    const bool running = followHost ? transportRunning : triggerActive;
 
     // Block-start values: the LFO positions for the UI, published once per block.
     const auto blockOffsets = modulation.computeOffsets ((double) streamSample, beatPosition, (double) streamSample);
@@ -764,7 +779,7 @@ void GrooveMutatorProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
     else
     {
         // Panic flag from a preset/state load: every sounding note receives its note-off,
-        // and the grid restarts (the MTC rule â€” but the note-offs survive delivery).
+        // and the grid restarts (the MTC rule — but the note-offs survive delivery).
         if (panicRequested.load (std::memory_order_relaxed))
         {
             panicRequested.store (false, std::memory_order_relaxed);
@@ -801,7 +816,7 @@ void GrooveMutatorProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
         beatPosition = blockEnd;
     }
 
-    // Incoming MIDI passes through with the same latency (the MTC invariant) â€” except the
+    // Incoming MIDI passes through with the same latency (the MTC invariant) — except the
     // trigger note itself, which is a control signal: it starts the groove and is consumed.
     for (const auto metadata : midi)
     {
@@ -828,7 +843,7 @@ void GrooveMutatorProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
             sounding.erase (message.getNoteNumber());
 
         // Any pendingOffs entry pointing at the entry being delivered would dangle once
-        // it is erased â€” drop it here (the MTC matching-erase rule, per note-off).
+        // it is erased — drop it here (the MTC matching-erase rule, per note-off).
         for (auto fit = pendingOffs.begin(); fit != pendingOffs.end();)
         {
             if (fit->second == it)

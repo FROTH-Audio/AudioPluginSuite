@@ -6,7 +6,7 @@ The number in each file name is the execution order. **Finished plans are delete
 
 Deleted on 2026-11-19 (all implemented and verified): 00 (framework readiness, R1-R3), 03 and 03.1-03.4 (presets), 04 and 04.1-04.2 (Sgraffito), 05 and 05.1 (suite UI rework), 07 (sample-linked presets), 08 (header bar, settings and about), 09 (code quality), 10 (Sgraffito owner findings), 11 (MidiEffect/StereoTool/Multiband improvements), 6.1 and 6.1a (Cyclical and the MidiEffect/StereoTool enhancements).
 
-Status below is as of 2026-11-24.
+Status below is as of 2026-11-25.
 
 Deleted on 2026-11-24 (all implemented and verified; the owner gates were satisfied by the
 subsequent DAW-testing or the render review, and the owner approved the remaining gates in
@@ -28,6 +28,7 @@ observations in them stay recoverable from git history.
 | # | File | Status | Why here | Gate before the next step |
 |---|---|---|---|---|
 | 19 | [19_groove-mutator.md](19_groove-mutator.md) | Approved concept; detailed implementation plan written 2026-11-23, refined 2026-11-24 ([19_groove-mutator-concept.md](19_groove-mutator-concept.md) holds the idea record) | New plugin: Groove Mutator, a generative rhythm-MIDI instrument (8 percussion lanes, euclidean + hashed patterns, Lorenz-driven mutation, fills, polyrhythm) | Build starts when the owner says go |
+| 21 | [21_groovemutator-review.md](21_groovemutator-review.md) | Created 2026-11-25 from the implementation review; Phase 1 decided same day (the sequencer runs from the host transport when synced, or the trigger when free — the `play` parameter goes) | Fixes from the review: the half-wired `play` parameter (UB cast, never read), the GRID page layout overflow, the `IS_SYNTH`/pass-through question, stale AGENTS/manual docs, encoding damage | Phase 0's render confirms the GRID overflow before the layout fix |
 | 6.1_review | [6.1_review.md](6.1_review.md) | Reference, created 2026-11-19 | Review of the Cyclical creative-enhancement work: loop loading sources, playback modes, test coverage and known issues. | None |
 
 ## Rules for executing a plan

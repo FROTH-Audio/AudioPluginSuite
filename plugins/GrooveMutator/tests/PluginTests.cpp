@@ -210,7 +210,7 @@ namespace
               Processor::modAmountIds[5], Processor::modDelayIds[5] },
             Processor::numControls);
 
-        // Master ranges (ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â§1's table).
+        // Master ranges (plan 19 §1's table).
         checkRange (processor.apvts, Processor::tempoId, 40.0f, 240.0f, 120.0f);
         checkRange (processor.apvts, Processor::triggerNoteId, 24.0f, 96.0f, 36.0f);
         checkRange (processor.apvts, Processor::swingId, -50.0f, 50.0f, 0.0f);
@@ -356,7 +356,7 @@ namespace
         const auto all = concat (events, tail);
 
         // The kick fires on four-on-the-floor: E(4,16) rot 0 = steps 0, 4, 8, 12 at 1/16,
-        // 120 BPM ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ one beat apart = 24000 samples.
+        // 120 BPM → one beat apart = 24000 samples.
         const auto kickOns = onsOnly (events);
         assert (hitsOf (kickOns, 36) >= 3);
 
@@ -802,6 +802,82 @@ namespace
         pass ("testStepsPaint");
     }
 
+    void testStepsLanesDoNotMutate()
+    {
+        // Plan 21, C3: Steps lanes are the authoring mode — what you painted is what
+        // plays. Full chaos at the fastest evolve rate must not move a painted pattern,
+        // while the generative kinds keep mutating (that is the plan-19 behaviour).
+        Processor processor;
+        setDeterministic (processor);                       // fills off, sync off
+        setParameter (processor.apvts, Processor::chaosId, 100.0f);
+        setParameter (processor.apvts, Processor::mutateScaleId, 100.0f);
+        setParameter (processor.apvts, Processor::evolveRateId, 0.0f);   // per Beat
+        setParameter (processor.apvts, Processor::trackPatternIds[2], 2.0f);
+        processor.prepareToPlay (sampleRate, blockSize);
+
+        processor.setLaneStep (2, 0, true);
+        processor.setLaneStep (2, 5, true);
+        processor.setLaneStep (2, 10, true);
+
+        std::int64_t sample = 0;
+        const auto events = run (processor, sample, 220, triggerOn());
+
+        // A 16-step 1/16 cycle at 120 BPM is 96000 samples; steps 0, 5 and 10 sit at
+        // 0, 30000 and 60000 (the 2400-sample latency folds out). Every hit must land on
+        // a painted step, and all three must fire.
+        std::vector<int> phases;
+        for (const auto& event : events)
+        {
+            if (! event.message.isNoteOn() || event.message.getNoteNumber() != 42)
+                continue;
+            const std::int64_t phase = (event.sample - 2400) % 96000;
+            phases.push_back ((int) phase);
+            assert (phase == 0 || phase == 30000 || phase == 60000);
+        }
+        assert (phases.size() >= 3);
+        pass ("testStepsLanesDoNotMutate");
+    }
+
+    void testFillsApplyToStepsLanes()
+    {
+        // Plan 21, C3: fills stay live on Steps lanes (they only add on the tail, they
+        // never remove), and the Fill Length choice means what it says — "1 Bar" is a
+        // one-bar window, not "no window" (the index-to-bars bug this test pins).
+        Processor processor;
+        setDeterministic (processor);
+        setParameter (processor.apvts, Processor::trackPatternIds[2], 2.0f);
+        setParameter (processor.apvts, Processor::fillProbId, 100.0f);
+        setParameter (processor.apvts, Processor::fillBarsId, 0.0f);   // "1 Bar"
+        processor.prepareToPlay (sampleRate, blockSize);
+
+        processor.setLaneStep (2, 0, true);
+
+        std::int64_t sample = 0;
+        const auto events = run (processor, sample, 220, triggerOn());
+
+        // A 16-step 1/16 cycle is one bar, so a 1-bar fill window covers the whole
+        // cycle: Tom Roll (every other step) adds the unpainted even steps 2..14 at
+        // probability 1. No odd step may fire, and every even step must.
+        std::vector<bool> evenFired (8, false);
+        for (const auto& event : events)
+        {
+            if (! event.message.isNoteOn() || event.message.getNoteNumber() != 42)
+                continue;
+            const std::int64_t phase = (event.sample - 2400) % 96000;
+            assert (phase % 12000 == 0);                    // even steps only (0, 12000, ...)
+            evenFired[(size_t) (phase / 12000)] = true;
+        }
+        for (int step = 0; step < 8; ++step)
+            assert (evenFired[(size_t) step]);
+
+        // The view's truth: the processor exposes exactly the even-step additions.
+        const std::uint32_t expected = (1u << 2) | (1u << 4) | (1u << 6) | (1u << 8)
+                                     | (1u << 10) | (1u << 12) | (1u << 14);
+        assert (processor.laneFillMask (2) == expected);
+
+        pass ("testFillsApplyToStepsLanes");
+    }
+
     void testTrailPublished()
     {
         Processor processor;
@@ -852,9 +928,10 @@ namespace
         processor.setPlayHead (&playhead);
 
         std::int64_t sample = 0;
-        // Two beats of host time: the kick fires at beats 10.0 and 11.0 (its pattern index
-        // starts mid-cycle because the host starts mid-bar).
-        const auto events = run (processor, sample, 100, triggerOn(), &playhead);
+        // Two beats of host time, and NO trigger note: since plan 21 the synced groove
+        // runs from the transport alone. The kick fires at beats 10.0 and 11.0 (its
+        // pattern index starts mid-cycle because the host starts mid-bar).
+        const auto events = run (processor, sample, 100, {}, &playhead);
 
         // One quarter-beat at 120 BPM / 48 kHz is 6000 samples; the fixed latency folds out.
         const std::int64_t quarterBeat = 6000;
@@ -886,6 +963,12 @@ namespace
         playhead.playing = false;
         const auto stop = run (processor, sample, 8);   // the transport stop flushes
         assertNoStuckNotes (concat (events, concat (after, stop)), "host-sync stop");
+
+        // While synced, the trigger key is not a run source: a stopped transport stays
+        // silent even with the trigger key held (plan 21).
+        const auto quiet = run (processor, sample, 8, triggerOn());
+        assert (onsOnly (quiet).empty());
+
         processor.setPlayHead (nullptr);
 
         pass ("testHostSyncAlignment");
@@ -941,6 +1024,8 @@ int main()
     testEditorPages();
     testAffinity();
     testStepsPaint();
+    testStepsLanesDoNotMutate();
+    testFillsApplyToStepsLanes();
     testTrailPublished();
     testHostSyncAlignment();
     testHeaderContract();

@@ -140,6 +140,10 @@ public:
     /** The lane's painted Steps mask (the editor's draw mode; pattern kind 2). */
     std::uint32_t getLaneStepsMask (int track) const noexcept;
 
+    /** The lane's fill additions for the current cycle (the LaneView's hollow dots;
+        audible but not painted, plan 21 C3). */
+    std::uint32_t laneFillMask (int track) const noexcept;
+
     /** Paints or erases one step of a lane's Steps pattern (message thread). Persisted as
         the stepsMasks state property (the lerpCurve pattern) and re-derived like any
         pattern-defining value. */

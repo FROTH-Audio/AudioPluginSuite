@@ -4,24 +4,29 @@
 
 namespace
 {
-    // Plan 19 Phase 3: the GRID page is the 8-lane musical view; the window height is
-    // derived from the layout constants (the Cyclical lesson: a mismatch cuts the bottom).
-    constexpr int editorWidth = 1000;
+    // Owner findings (2026-11-24): more width, less height. GRID page: step grid top half,
+    // controls below. LANES page: clever horizontal layout, smaller knobs. MUTATE: more
+    // space for EVOLVE RATE pills.
+    constexpr int editorWidth = 1200;
     constexpr int margin = 16;
     constexpr int headerHeight = 44;
     constexpr int footerHeight = 26;
     constexpr int groupGap = 8;
     constexpr int groupTitleHeight = SuiteUI::groupTitleHeight;
     constexpr int rulerHeight = 14;
-    constexpr int rowGap = 8;
+    constexpr int rowGap = 6;
+    constexpr int knobDiameter = SuiteUI::knobDiameter * 0.7f;
+    constexpr int knobRowHeight = 92 * 0.7f + 12;  // caption + knob + value, 30% smaller knobs
+    // The trailing 8 covers reduced()'s top-and-bottom pair, so a group's inner height is
+    // exactly the sum of its rows (the plan-20 rule: a mismatch cuts the last row off).
     constexpr int gridGroupHeight = groupTitleHeight + 4 + rulerHeight + 8
-                                  + 8 * SuiteUI::knobRowHeight + 7 * rowGap + 4;
+                                  + 8 * knobRowHeight + 7 * rowGap + 8;
     constexpr int editorHeight = margin * 2 + headerHeight + groupGap + gridGroupHeight
                                + groupGap + footerHeight;
-    constexpr int lanesGroupHeight = groupTitleHeight + 4 + 4 * SuiteUI::knobRowHeight
-                                   + 3 * rowGap + 4;
+    constexpr int lanesGroupHeight = groupTitleHeight + 4 + 4 * knobRowHeight
+                                   + 3 * rowGap + 8;
     constexpr int trailHeight = 260;
-    constexpr int simpleGroupHeight = groupTitleHeight + 4 + SuiteUI::knobRowHeight + 4;
+    constexpr int simpleGroupHeight = groupTitleHeight + 4 + knobRowHeight + 4;
 
     const char* pageNames[] = { "GRID", "LANES", "MUTATE", "GROOVE", "MOD" };
 }
@@ -187,6 +192,7 @@ GrooveMutatorEditor::GrooveMutatorEditor (GrooveMutatorProcessor& p)
     helpLine.setEnablePredicate ([] { return SuiteSettings::shared().getBool (SuiteSettings::tooltipsKey, true); });
     SuiteUI::attachHelpLine (*this, helpLine, helpTracker);
     addAndMakeVisible (helpLine);
+
 
     // MUTATE and GROOVE widgets into the tree.
     for (auto* component : { static_cast<juce::Component*> (&trailPlot),
@@ -377,28 +383,34 @@ void GrooveMutatorEditor::resized()
         gridBounds = area.removeFromTop (gridGroupHeight);
 
         auto inner = gridBounds.withTrimmedTop (groupTitleHeight + 4).reduced (10, 4);
+
+        // The shared step ruler above the eight lane rows; each row carries the lane's
+        // strip on the left and its controls on the right. The group height is the sum of
+        // these rows (gridGroupHeight), so nothing is clipped.
         rulerBounds = inner.removeFromTop (rulerHeight);
-        inner.removeFromTop (8);
+        inner.removeFromTop (8);   // spacer between the ruler and the first row
 
         for (int track = 0; track < GrooveMutatorProcessor::numTracks; ++track)
         {
             auto& card = *lanes[(size_t) track];
-            auto row = inner.removeFromTop (SuiteUI::knobRowHeight);
+            auto row = inner.removeFromTop (knobRowHeight);
 
             // From the right: division, on, level, velocity, note; the strip gets the rest.
-            auto cell = row.removeFromRight (84).reduced (3);
+            auto cell = row.removeFromRight (64).reduced (3);  // smaller cells
             card.divisionCtrl.setBounds (cell);
-            cell = row.removeFromRight (66).reduced (3);
+            cell = row.removeFromRight (52).reduced (3);  // toggle
             card.onToggle.setBounds (cell.withSizeKeepingCentre (cell.getWidth(), SuiteUI::pillHeight));
-            cell = row.removeFromRight (84).reduced (3);
+            cell = row.removeFromRight (64).reduced (3);
             card.levelCtrl.setBounds (cell);
-            cell = row.removeFromRight (84).reduced (3);
+            cell = row.removeFromRight (64).reduced (3);
             card.velCtrl.setBounds (cell);
-            cell = row.removeFromRight (84).reduced (3);
+            cell = row.removeFromRight (64).reduced (3);
             card.noteCtrl.setBounds (cell);
 
-            card.view.setBounds (row.removeFromRight (row.getWidth() - 34 - 8));
-            card.name.setBounds (row.removeFromLeft (34));
+            // The step grid view takes the remaining space on the left
+            auto gridCell = row.removeFromRight (row.getWidth() - 64 - 64 - 64 - 64 - 64 - 25 - 15);
+            card.view.setBounds (gridCell);
+            card.name.setBounds (row.removeFromLeft (25));
 
             if (track < GrooveMutatorProcessor::numTracks - 1)
                 inner.removeFromTop (rowGap);
@@ -426,25 +438,25 @@ void GrooveMutatorEditor::resized()
             auto& articulationColumn = (track / 4) == 0 ? articulationLeft : articulationRight;
             const int rowInColumn = track % 4;
 
-            auto row = column.removeFromTop (SuiteUI::knobRowHeight);
-            auto nameArea = row.removeFromLeft (36);
+            auto row = column.removeFromTop (knobRowHeight);
+            auto nameArea = row.removeFromLeft (28);  // smaller name area
             card.name.setBounds (nameArea);
-            auto cell = row.removeFromLeft (140).reduced (3);
+            auto cell = row.removeFromLeft (112).reduced (3);  // pattern dropdown, smaller
             card.patternCtrl.setBounds (cell);
-            cell = row.removeFromLeft (84).reduced (3);
+            cell = row.removeFromLeft (64).reduced (3);  // steps, smaller
             card.stepsCtrl.setBounds (cell);
-            cell = row.removeFromLeft (84).reduced (3);
+            cell = row.removeFromLeft (64).reduced (3);  // pulses, smaller
             card.pulsesCtrl.setBounds (cell);
-            cell = row.removeFromLeft (84).reduced (3);
+            cell = row.removeFromLeft (64).reduced (3);  // rotation, smaller
             card.rotationCtrl.setBounds (cell);
 
-            auto articulationRow = articulationColumn.removeFromTop (SuiteUI::knobRowHeight);
-            articulationRow.removeFromLeft (36);
-            cell = articulationRow.removeFromLeft (84).reduced (3);
+            auto articulationRow = articulationColumn.removeFromTop (knobRowHeight);
+            articulationRow.removeFromLeft (28);
+            cell = articulationRow.removeFromLeft (64).reduced (3);  // accent, smaller
             card.accentCtrl.setBounds (cell);
-            cell = articulationRow.removeFromLeft (84).reduced (3);
+            cell = articulationRow.removeFromLeft (64).reduced (3);  // flam, smaller
             card.flamCtrl.setBounds (cell);
-            cell = articulationRow.removeFromLeft (84).reduced (3);
+            cell = articulationRow.removeFromLeft (64).reduced (3);  // ghost, smaller
             card.ghostCtrl.setBounds (cell);
 
             if (rowInColumn < 3)
@@ -466,28 +478,29 @@ void GrooveMutatorEditor::resized()
 
         {
             auto inner = chaosBounds.withTrimmedTop (groupTitleHeight + 4).reduced (10, 4);
-            auto row = inner.removeFromTop (SuiteUI::knobRowHeight);
-            auto cell = row.removeFromLeft (84);
+            auto row = inner.removeFromTop (knobRowHeight);
+            auto cell = row.removeFromLeft (64);
             chaosCtrl.setBounds (cell);
-            cell = row.removeFromLeft (84);
+            cell = row.removeFromLeft (64);
             mutateScaleCtrl.setBounds (cell);
-            cell = row.removeFromLeft (84);
+            cell = row.removeFromLeft (64);
             seedCtrl.setBounds (cell);
-            cell = row.removeFromLeft (240).reduced (3);
-            evolveRateCtrl.setBounds (cell);
-            cell = row.removeFromLeft (90).reduced (3);
+            // R14d: owner findings - more space for EVOLVE RATE pills
+            auto cellWide = row.removeFromLeft (row.getWidth() - 64 - 64 - 64 - 20 - 15).reduced (3);
+            evolveRateCtrl.setBounds (cellWide);
+            cell = row.removeFromLeft (60).reduced (3);  // compact toggle
             freezeToggle.setBounds (cell.withSizeKeepingCentre (cell.getWidth(), SuiteUI::pillHeight));
         }
 
         {
             auto inner = fillBounds.withTrimmedTop (groupTitleHeight + 4).reduced (10, 4);
-            auto row = inner.removeFromTop (SuiteUI::knobRowHeight);
-            auto cell = row.removeFromLeft (84);
+            auto row = inner.removeFromTop (knobRowHeight);
+            auto cell = row.removeFromLeft (64);
             fillProbCtrl.setBounds (cell);
-            cell = row.removeFromLeft (340).reduced (3);
-            fillStyleCtrl.setBounds (cell);
-            cell = row.removeFromLeft (150).reduced (3);
-            fillBarsCtrl.setBounds (cell);
+            auto cellWide = row.removeFromLeft (row.getWidth() - 64 - 15 - 15).reduced (3);
+            fillStyleCtrl.setBounds (cellWide);
+            auto cell2 = row.removeFromLeft (row.getWidth() - 64 - cellWide.getWidth() - 15).reduced (3);
+            fillBarsCtrl.setBounds (cell2);
         }
     }
     else if (currentPage == 3)

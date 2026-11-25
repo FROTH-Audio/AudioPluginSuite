@@ -7,13 +7,13 @@ suite_add_plugin(
     PRODUCT_NAME    "Groove Mutator"
     MANUFACTURER    Asui
     PLUGIN_CODE     GRVM
+    IS_SYNTH
+    NEEDS_MIDI_INPUT
+    NEEDS_MIDI_OUTPUT
     SOURCES         Source/PluginProcessor.cpp Source/PluginProcessor.h
                     Source/PluginEditor.cpp Source/PluginEditor.h
                     Source/LaneView.cpp Source/LaneView.h
     TEST_SOURCES    tests/PluginTests.cpp
-    NEEDS_MIDI_INPUT
-    NEEDS_MIDI_OUTPUT
-    IS_MIDI_EFFECT
     MODULATION
     # R13: the menu's Settings... entry needs the shared settings store.
     SETTINGS
