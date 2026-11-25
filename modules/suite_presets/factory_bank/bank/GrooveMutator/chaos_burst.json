@@ -1,0 +1,16 @@
+{
+  "_name": "Chaos Burst",
+  "_category": "Fills",
+  "_description": "Claves and a tom join a chaos burst every bar.",
+  "_plugin": "GrooveMutator",
+  "_pluginVersion": "1.0.0",
+  "sync": 1,
+  "chaos": 40.0,
+  "evolveRate": 0,
+  "mutateScale": 70.0,
+  "fillProb": 85.0,
+  "fillStyle": 3,
+  "fillBars": 1,
+  "track5On": 1,
+  "track8On": 1
+}

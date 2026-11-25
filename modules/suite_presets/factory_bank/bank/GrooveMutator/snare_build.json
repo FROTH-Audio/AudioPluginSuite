@@ -1,0 +1,16 @@
+{
+  "_name": "Snare Build",
+  "_category": "Fills",
+  "_description": "An eighth-note snare and clap build into the drop.",
+  "_plugin": "GrooveMutator",
+  "_pluginVersion": "1.0.0",
+  "sync": 1,
+  "fillProb": 70.0,
+  "fillStyle": 1,
+  "fillBars": 2,
+  "track2Steps": 8,
+  "track2Pulses": 3,
+  "track2Division": 4,
+  "track2Accent": 45.0,
+  "track7On": 1
+}

@@ -1,0 +1,17 @@
+{
+  "_name": "LFO Chaos Sweep",
+  "_category": "Mutation",
+  "_description": "Toms and claves ride a synced LFO sweeping the mutation input.",
+  "_plugin": "GrooveMutator",
+  "_pluginVersion": "1.0.0",
+  "sync": 1,
+  "chaos": 45.0,
+  "track3Division": 1,
+  "track5On": 1,
+  "track6On": 1,
+  "lfo1Rate": 0.25,
+  "lfo1Sync": 1,
+  "lfo1Division": 2,
+  "mod1Target": 1,
+  "mod1Amount": 90.0
+}

@@ -1,0 +1,16 @@
+{
+  "_name": "Exponential Crescendo",
+  "_category": "Utility",
+  "_description": "A 1/16T hat run climbs exponentially through every pattern.",
+  "_plugin": "GrooveMutator",
+  "_pluginVersion": "1.0.0",
+  "sync": 1,
+  "velCurve": 2,
+  "chaos": 35.0,
+  "track1Vel": 140.0,
+  "track2Vel": 140.0,
+  "track3Steps": 32,
+  "track3Pulses": 8,
+  "track3Division": 1,
+  "track3Vel": 120.0
+}

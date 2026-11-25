@@ -35,8 +35,9 @@ from preset_data import PRESETS, SCHEMA
 # Plan 18 Phase 7: the counts grow by the +10 round (DS, MTC and Sgraffito). The counts
 # are append-only expectations, so they only ever grow.
 EXPECTED_COUNTS = {"SpectralDrift": 46, "DynamicSaturation": 46, "MicroTimingChaos": 38, "Sgraffito": 30,
-                   "MidiEffect": 15, "StereoTool": 35, "MultibandSaturation": 35, "Cyclical": 25}
-EXPECTED_TOTAL = 270
+                   "MidiEffect": 15, "StereoTool": 35, "MultibandSaturation": 35, "Cyclical": 25,
+                   "GrooveMutator": 19}
+EXPECTED_TOTAL = 289
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_BANK = REPO_ROOT / "modules" / "suite_presets" / "factory_bank" / "bank"
@@ -190,6 +191,20 @@ def check_authoring(audit):
                             f"{label}: bpm must stay at 120")
                 audit.check(mtc_preset_fires(params),
                             f"{label}: the base pattern fires no steps (raise density or change the seed)")
+
+            # Plan 22 (owner finding 5): Groove Mutator's factory presets run on the host
+            # transport (host sync on), stay at tempo 120 for the free-clock fallback, and
+            # keep the default trigger key, with at least one lane on.
+            if plugin == "GrooveMutator":
+                audit.check(int(params.get("sync", 1)) == 1,
+                            f"{label}: host sync must be on (the preset follows the host transport)")
+                audit.check(float(params.get("tempo", 120.0)) == 120.0,
+                            f"{label}: tempo must stay at 120")
+                audit.check(int(params.get("triggerNote", 36)) == 36,
+                            f"{label}: the trigger key must stay at 36")
+                audit.check(any(int(params.get(f"track{t}On", 1 if t <= 4 else 0)) == 1
+                                for t in range(1, 9)),
+                            f"{label}: no lane is on")
 
         audit.check(len(categories) >= 3,
                     f"{plugin}: needs at least 3 categories, found {len(categories)}")

@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "CoreDSP.h"
+#include "RhythmEngine.h"
 
 namespace
 {
@@ -1947,9 +1948,185 @@ namespace
         std::puts ("[PASS] testVoicePool");
     }
 
+    //==============================================================================
+    // Rhythm maths (RhythmEngine.h, plan 19)
+
+    /** The exact Euclid distributions: E(3,8) = x..x..x., E(5,16), E(2,16), E(7,12) bit
+        for bit; rotation cycles; E(0,n) is empty and E(n,n) is full. */
+    void testEuclidPatterns()
+    {
+        using namespace CoreDSP::Rhythm;
+
+        const auto bits = [] (std::uint32_t mask, int steps)
+        {
+            std::string s;
+            for (int i = 0; i < steps; ++i)
+                s += ((mask >> i) & 1u) != 0u ? 'x' : '.';
+            return s;
+        };
+
+        assert (bits (euclidPattern (3, 8, 0), 8) == "x..x..x.");
+        assert (bits (euclidPattern (5, 16, 0), 16) == "x...x..x..x..x..");
+        assert (bits (euclidPattern (2, 16, 0), 16) == "x.......x.......");
+        assert (bits (euclidPattern (7, 12, 0), 12) == "x.x.x.xx.x.x");
+
+        // Rotation cycles: rotating E(3,8) by 3 starts the pattern 3 steps in.
+        assert (bits (euclidPattern (3, 8, 3), 8) == bits (euclidPattern (3, 8, 0), 8).substr (3) + bits (euclidPattern (3, 8, 0), 8).substr (0, 3));
+        assert (euclidPattern (3, 8, 8) == euclidPattern (3, 8, 0));    // a full cycle wraps
+        assert (euclidPattern (3, 8, -5) == euclidPattern (3, 8, 3));  // negative wraps too
+
+        // The bounds.
+        assert (euclidPattern (0, 8, 0) == 0u);
+        assert (euclidPattern (8, 8, 3) == 0xFFu);   // full: rotation cannot move anything
+        assert (euclidPattern (9, 8, 0) == 0xFFu);   // pulses clamp to steps
+
+        std::puts ("[PASS] testEuclidPatterns");
+    }
+
+    /** The mutation operators: scale 0 holds; the tiers stay inside the pulse bounds and
+        are deterministic from (mask, steps, scale, hash). */
+    void testMutationOperators()
+    {
+        using namespace CoreDSP::Rhythm;
+
+        const std::uint32_t base = euclidPattern (4, 16, 0);
+        assert (mutatePattern (base, 16, 0.0f, 0x12345u) == base);   // scale 0: holds
+
+        // Determinism: the same inputs give the same mask.
+        assert (mutatePattern (base, 16, 0.5f, 0x12345u) == mutatePattern (base, 16, 0.5f, 0x12345u));
+
+        // Every operator keeps the pulse count inside [0, steps], whatever the hash.
+        auto pulseCount = [] (std::uint32_t mask)
+        {
+            int count = 0;
+            for (int i = 0; i < 32; ++i)
+                if ((mask >> i) & 1u)
+                    ++count;
+            return count;
+        };
+
+        std::uint32_t hash = 0x9E37u;
+        for (int trial = 0; trial < 200; ++trial, hash = hash * 1664525u + 1013904223u)
+        {
+            for (float scale : { 0.25f, 0.5f, 0.75f, 1.0f })
+            {
+                const std::uint32_t mutated = mutatePattern (base, 16, scale, hash);
+                const int count = pulseCount (mutated);
+                assert (count >= 0 && count <= 16);
+                assert ((mutated & ~0xFFFFu) == 0u);   // never outside the step count
+            }
+
+            // The bounds are also safe from the extremes: never outside [0, steps].
+            assert (pulseCount (mutatePattern (0u, 16, 1.0f, hash)) <= 16);
+            assert (pulseCount (mutatePattern (0xFFFFu, 16, 1.0f, hash)) <= 16);
+        }
+
+        // Determinism carries through the mutation hash: mutatePattern with the mutation
+        // hash derived from (seed, tick, lane) is reproducible.
+        const std::uint32_t mh = mutationHash (0x51A5u, 77, 3);
+        assert (mutatePattern (base, 16, 0.5f, mh) == mutatePattern (base, 16, 0.5f, mutationHash (0x51A5u, 77, 3)));
+
+        std::puts ("[PASS] testMutationOperators");
+    }
+
+    /** The lane base patterns: Euclid, Hash and the painted Steps, with the division and
+        the polyrhythm scales. */
+    void testLaneBasePatterns()
+    {
+        using namespace CoreDSP::Rhythm;
+
+        LaneParams euclid;
+        euclid.patternKind = 0;
+        euclid.steps = 8;
+        euclid.pulses = 3;
+        assert (basePattern (euclid, 42u) == euclidPattern (3, 8, 0));
+
+        LaneParams hash;
+        hash.patternKind = 1;
+        hash.steps = 8;
+        hash.pulses = 4;
+        const std::uint32_t hashMask = basePattern (hash, 42u);
+        // The Hash lane is the MTC hashed pattern: the density is the pulse share, so the
+        // count follows it statistically, but the pattern is deterministic per seed.
+        assert (basePattern (hash, 42u) == hashMask);
+
+        // The deterministic extremes: density 0 is empty, density 1 is full.
+        hash.pulses = 0;
+        assert (basePattern (hash, 42u) == 0u);
+        hash.pulses = 8;
+        assert (basePattern (hash, 42u) == 0xFFu);
+
+        LaneParams steps;
+        steps.patternKind = 2;
+        steps.steps = 8;
+        steps.stepsMask = 0b10110010u;
+        assert (basePattern (steps, 42u) == 0b10110010u);
+        steps.steps = 4;   // shrinking the count clamps the painted steps
+        assert (basePattern (steps, 42u) == 0b00000010u);   // only bit 1 lies inside 4 steps
+
+        // The divisions and the polyrhythm scales.
+        assert (std::abs (divisionBeats (2) - 0.25) < 1e-9);
+        assert (std::abs (divisionBeats (7) - 4.0) < 1e-9);
+        assert (std::abs (divisionBeats (1) - 1.0 / 6.0) < 1e-9);
+        assert (std::abs (polyScale (0) - 1.0) < 1e-9);
+        assert (std::abs (polyScale (1) - 0.75) < 1e-9);
+        assert (std::abs (polyScale (4) - 4.0 / 3.0) < 1e-9);
+
+        // The lane state re-derives and holds the live copy.
+        LaneState state;
+        state.rederive (euclid, 42u);
+        assert (state.mask == euclidPattern (3, 8, 0));
+        assert (state.baseMask == state.mask);
+
+        std::puts ("[PASS] testLaneBasePatterns");
+    }
+
+    /** The fill additions only land on unfired steps (no collision with an existing
+        hit's note-off), are deterministic, and prob 0 adds nothing. */
+    void testFillMasks()
+    {
+        using namespace CoreDSP::Rhythm;
+
+        const std::uint32_t live = euclidPattern (4, 16, 0);
+
+        assert (fillMask (live, 16, 0, 0.0f, 0x1234u) == 0u);   // prob 0: nothing
+
+        for (int style = 0; style < numFillStyles; ++style)
+        {
+            const std::uint32_t additions = fillMask (live, 16, style, 0.8f, 0x1234u + (std::uint32_t) style);
+            assert ((additions & live) == 0u);   // never on an existing hit
+            assert ((additions & ~0xFFFFu) == 0u);
+
+            // Deterministic.
+            assert (fillMask (live, 16, style, 0.8f, 0x1234u + (std::uint32_t) style) == additions);
+        }
+
+        // Higher probability tends to add more (a monotone trend, tested over hashes).
+        int additionsLow = 0, additionsHigh = 0;
+        for (std::uint32_t h = 0x51A5u; h < 0x51A5u + 60u; ++h)
+        {
+            additionsLow += (int) fillMask (live, 16, 3, 0.2f, h);
+            additionsHigh += (int) fillMask (live, 16, 3, 0.9f, h);
+        }
+        assert (additionsHigh > additionsLow);
+
+        // The fill window maths: the last bar of a two-bar cycle (32 steps at 1/16).
+        assert (inFillWindow (20, 32, 0.25, 1, 4.0));    // the second half: inside
+        assert (! inFillWindow (4, 32, 0.25, 1, 4.0));   // the first bar: outside
+        assert (inFillWindow (4, 32, 0.25, 2, 4.0));     // a two-bar window covers it
+        assert (! inFillWindow (4, 16, 0.25, 0, 4.0));   // fillBars 0: no window
+
+        std::puts ("[PASS] testFillMasks");
+    }
+
 int main()
 {
     std::puts ("Running CoreDSP unit tests...");
+
+    testEuclidPatterns();
+    testMutationOperators();
+    testLaneBasePatterns();
+    testFillMasks();
 
     testSaturationCurves();
     testTubeBias();

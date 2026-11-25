@@ -1,0 +1,18 @@
+{
+  "_name": "Hat Matrix",
+  "_category": "Groove",
+  "_description": "Hats only: 1/32 closed against a 1/8T open.",
+  "_plugin": "GrooveMutator",
+  "_pluginVersion": "1.0.0",
+  "sync": 1,
+  "chaos": 35.0,
+  "track1On": 0,
+  "track2On": 0,
+  "track3Steps": 32,
+  "track3Pulses": 11,
+  "track3Division": 0,
+  "track3Vel": 80.0,
+  "track4Steps": 12,
+  "track4Pulses": 5,
+  "track4Division": 3
+}

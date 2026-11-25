@@ -34,3 +34,5 @@ test-settings/
 # Python bytecode
 __pycache__/
 *.pyc
+
+build_test/

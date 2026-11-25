@@ -1,0 +1,15 @@
+{
+  "_name": "Hat Drop",
+  "_category": "Fills",
+  "_description": "A 1/16T closed-hat run carries the fill, no open hat.",
+  "_plugin": "GrooveMutator",
+  "_pluginVersion": "1.0.0",
+  "sync": 1,
+  "fillProb": 50.0,
+  "fillStyle": 2,
+  "fillBars": 1,
+  "track3Steps": 32,
+  "track3Pulses": 13,
+  "track3Division": 1,
+  "track4On": 0
+}

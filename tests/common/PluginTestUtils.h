@@ -22,6 +22,7 @@ namespace PluginTest
     inline void pass (const char* name)
     {
         std::printf ("[PASS] %s\n", name);
+        std::fflush (stdout);
     }
 
     /** Finds the first descendant (or the root itself) with the given component ID. */
