@@ -10,8 +10,9 @@ GRID/LANES/MUTATE pages (window 1000 → 1200 wide) recorded in the untracked
 `groovemutator_owner_findings.md` (root). Every file/line reference below is against that
 tree and must be re-checked before acting (plans move; so does the code).
 
-Status: **Phases 0–2, 4 and the C3 decision executed 2026-11-25**, verified 31/31 CTest and
-19/19 GrooveMutatorTests; renders under `build/renders/plan21-fixed/` and `plan21-c3/`. C3 is
+Status: **Phases 0–4 executed and Phase 3 confirmed by the owner 2026-11-25**, verified
+31/31 CTest and 19/19 GrooveMutatorTests; renders under `build/renders/plan21-fixed/` and
+`plan21-c3/`. C3 is
 resolved the owner's way: Steps lanes are exempt from mutation (the painted pattern is the
 audible truth), fills stay live on them, and the LaneView draws a Steps lane's fill additions
 as hollow dots (`laneFillMask`, the same message-thread read precedent as `laneMask`). Two
@@ -19,10 +20,10 @@ plan-19 bugs fell out of the C3 test and are fixed: the Fill Length choice index
 as a bar count ("1 Bar" = the default — disabled fills entirely; now
 `CoreDSP::Rhythm::fillBarCount`, 1 << index), and **eleven 0–100 % parameter reads clamped
 to [0, 1] before the /100**, so Accent/Ghost/Flam/Chaos/Mutation Scale/Fill Probability/
-Humanise Velocity were all 0–1 % knobs (CHANGELOG has the list). Still open: Phase 3 (the
-`IS_SYNTH`/pass-through DAW check — note the clamp fix changes what the DAW tests will hear:
-the defaults now behave as labelled), Phase 5 (MANUAL.md + its committed screenshots, the
-root findings doc; the AGENTS §4.9 rows are updated).
+Humanise Velocity were all 0–1 % knobs (CHANGELOG has the list). Phase 3 is the owner's DAW
+confirmation (the `IS_SYNTH` declaration loads and the stereo pass-through holds; recorded
+in AGENTS §1). Still open: Phase 5 (MANUAL.md + its committed screenshots, and the root
+findings doc; the AGENTS §1/§4.9/§6 rows are updated).
 
 ---
 
@@ -165,13 +166,14 @@ Gate: none — the decision is recorded. Phase 2 may start.
    MUTATE, GROOVE, MOD must be unchanged); the owner approves the measured window size
    (R4).
 
-## Phase 3 — Plugin identity and pass-through (A3)
+## Phase 3 — Plugin identity and pass-through (A3) — **CONFIRMED by the owner 2026-11-25**
 
-7. Confirm with the owner that `IS_SYNTH` is the intent (the DAW-scanner remedy).
-8. Extend the host test (or a new plugin test) to assert the audio pass-through still
-   holds with the synth declaration, and record in AGENTS §4.9 what a DAW does with the
-   input bus. Flag to the owner that a real-DAW check (Ableton, after a **full rescan** —
-   the plan-18 cache lesson) is needed; it cannot be verified here.
+7. `IS_SYNTH` is confirmed: the DAW check passed (the plugin loads and the stereo
+   pass-through holds with the synth declaration). Recorded in AGENTS §1's plugin table.
+8. The JUCE host test `GrooveMutator_VST3_HostLoad` and `testPassThrough` both pass against
+   the synth build. Note for the Ableton rescan rule: the parameter count is unchanged by
+   this plan (159), so no forced rescan is needed — a fresh instance is enough to pick up
+   the clamp/behaviour fixes.
 
 ## Phase 4 — Hygiene
 

@@ -6,13 +6,14 @@ The plugin code is `GRVM`. The bundle id is `com.audiosuite.groovemutator`.
 
 <img src="../../docs/manuals/groovemutator-grid.png" alt="Groove Mutator GRID page" width="653">
 
-Groove Mutator is a generative rhythm-MIDI instrument. Eight percussion lanes run Euclid,
+Groove Mutator is a generative rhythm instrument. Eight percussion lanes run Euclid,
 hashed or hand-painted step patterns, each in its own grid, and a deterministic mutation
-tick rewrites the patterns while the groove plays. One trigger key (default C2 / MIDI 36)
-starts the groove — **Latch** keeps it running after one press, **Gate** plays only while
-the key is held — and every lane emits notes on one MIDI channel while audio passes through
-untouched. The preset bar (R12) and the hamburger menu (R13) sit in the header; the page
-switch (R8) moves between **GRID, LANES, MUTATE, GROOVE and MOD**. The accent is slate.
+tick rewrites the generative patterns while the groove plays. With **Host Sync** on, the
+groove runs and stops with the host transport; with sync off, one trigger key (default
+C2 / MIDI 36) starts it — **Latch** keeps it running after one press, **Gate** plays only
+while the key is held — and every lane emits notes on one MIDI channel while audio passes
+through untouched. The preset bar (R12) and the hamburger menu (R13) sit in the header; the
+page switch (R8) moves between **GRID, LANES, MUTATE, GROOVE and MOD**. The accent is lemon.
 
 ## Page: GRID
 
@@ -23,7 +24,7 @@ pattern strip (the LaneView) and its sound controls:
 
 | Control | Range | What it does |
 |---|---|---|
-| **Pattern strip** | — | The lane's pattern. A full dot is a hit, a bright dot an accent, a ring a ghost, a double dot a flam — the same hash rules the scheduler uses. The playhead column marks the step the lane is on. In **Steps** mode the strip answers draw mode: click a cell to paint or erase that step (the painted pattern travels with the session). In Euclid and Hash modes the strip is read-only. |
+| **Pattern strip** | — | The lane's pattern. A full dot is a hit, a bright dot an accent, a ring a ghost, a double dot a flam — the same hash rules the scheduler uses. A hollow dot is a fill addition (audible, but not one of your painted steps). The playhead column marks the step the lane is on. In **Steps** mode the strip answers draw mode: click a cell to paint or erase that step (the painted pattern travels with the session). Steps lanes are the authoring mode — Chaos never moves a painted pattern, so the strip always matches what plays. In Euclid and Hash modes the strip shows the live, mutated pattern and is read-only. |
 | **Note** | 24 – 96 | The GM note the lane sends (shown as `C2 (36)`). Defaults walk the drum map: kick, snare, closed/open hat, low/mid tom, clap, claves. |
 | **Velocity** | 30 – 150 % | The lane's velocity share. A modulation target (one per lane). |
 | **Level** | −24 – +12 dB | The lane's level stage: it scales the notes' velocity contribution. |
@@ -53,14 +54,14 @@ The pattern and articulation knobs, four lanes per column:
 | Control | Range | What it does |
 |---|---|---|
 | **Trail** | — | The attractor's phase-space plot: it follows the musical time while the groove runs and feeds the mutation. |
-| **Chaos** | 0 – 100 % | The mutation input: at each tick, every lane whose seeded draw falls under Chaos mutates. A modulation target. |
+| **Chaos** | 0 – 100 % | The mutation input: at each tick, every Euclid or Hash lane whose seeded draw falls under Chaos mutates (Steps lanes are exempt — what you painted is what plays). A modulation target. |
 | **Evolve Rate** | per Beat / per Bar / 2 / 4 / 8 Bars | How often the mutation tick fires, in musical time. |
 | **Mutation Scale** | 0 – 100 % | Picks the operator tier: small drifts first, then swaps, splits, accent flips and whole density re-shapes at 100 %. A modulation target. |
 | **Freeze** | on / off | Locks the current patterns; the tick stops touching them (automatable). |
 | **Seed** | 0 – 999 | The determinism anchor. A change re-derives every lane's pattern. |
 | **Fill Probability** | 0 – 100 % | The chance of a fill on the cycle's last bars. A modulation target. |
 | **Fill Style** | Tom Roll / Snare Build / Hat Drop / Chaos Burst | The fill's shape. Fill hits never collide with an existing hit's note. |
-| **Fill Length** | 1 / 2 / 4 Bars | How much of the cycle the fill can occupy. |
+| **Fill Length** | 1 / 2 / 4 Bars | How much of the cycle the fill can occupy: the last 1, 2 or 4 four-beat bars of the lane's cycle (a cycle shorter than the window is entirely window). |
 
 ## Page: GROOVE
 
@@ -72,8 +73,8 @@ The pattern and articulation knobs, four lanes per column:
 | **Hum Time / Hum Vel** | 0 – 20 ms / 0 – 100 % | Deterministic timing and velocity jitter (the seed decides). Modulation targets. |
 | **Vel Curve** | Flat / Linear / Exponential / Random | Shapes the velocity across each pattern. |
 | **Poly** | 1:1 … 8:7 | Metric modulation: scales every lane's division, so the whole groove falls against the bar. |
-| **Sync** | off / on | On: the grid follows the host's PPQ and tempo (the Micro-Timing Chaos law — a jump re-aligns every lane). Off: the **Tempo** parameter drives the clock; the Tempo knob dims while synced. |
-| **Trigger** | Latch / Gate | Latch starts the groove on one press; Gate runs only while the key is held. |
+| **Sync** | off / on | On: the groove runs and stops with the host transport, and the lane grids follow the host's PPQ and tempo (the Micro-Timing Chaos law — a jump re-aligns every lane). Off: the **Tempo** parameter drives the clock and the trigger key starts the groove; the Tempo knob dims while synced. |
+| **Trigger** | Latch / Gate | The free-clock run source (Host Sync off): Latch starts the groove on one press; Gate runs only while the key is held. While synced, the trigger key is not a run source. |
 | **Key** | 24 – 96 | The trigger key (shown as `C2 (36)`). Every ending path — transport stop, key release, mode change, preset or state load, prepare, releaseResources — sends a note-off for every sounding note first. |
 
 ## Page: MOD
@@ -88,11 +89,12 @@ modulated value live on the GRID, MUTATE and GROOVE pages.
 
 ## Triggering and the clock
 
-With Host Sync on the lane grids follow the host's PPQ: the first step after a start (or a
-relocate) is the next grid boundary, so every hit lands on an absolute grid point of the
-host timeline. With sync off the Tempo parameter runs the clock from the trigger press. The
-reported latency is a fixed 50 ms (the suite's timing budget), so host delay compensation
-stays stable whatever the knobs do.
+With Host Sync on the groove follows the host transport: the transport starts and stops it,
+and the lane grids follow the host's PPQ — the first step after a start (or a relocate) is
+the next grid boundary, so every hit lands on an absolute grid point of the host timeline.
+With sync off the Tempo parameter runs the clock and the trigger key starts and stops the
+groove (Latch or Gate). The reported latency is a fixed 50 ms (the suite's timing budget),
+so host delay compensation stays stable whatever the knobs do.
 
 ## Presets
 
