@@ -1,12 +1,19 @@
 {
   "_name": "Slow Evolve",
   "_category": "Mutation",
-  "_description": "A slow, deep mutation every eight bars.",
+  "_description": "A half-time frame mutates deeply every eight bars.",
   "_plugin": "GrooveMutator",
   "_pluginVersion": "1.0.0",
-  "sync": 0,
+  "sync": 1,
   "chaos": 60.0,
   "evolveRate": 4,
   "mutateScale": 80.0,
-  "seed": 7
+  "seed": 7,
+  "track1Steps": 8,
+  "track1Pulses": 4,
+  "track1Division": 5,
+  "track2Steps": 8,
+  "track2Pulses": 1,
+  "track2Rotation": 1,
+  "track2Division": 5
 }

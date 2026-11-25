@@ -192,15 +192,16 @@ def check_authoring(audit):
                 audit.check(mtc_preset_fires(params),
                             f"{label}: the base pattern fires no steps (raise density or change the seed)")
 
-            # Plan 19: Groove Mutator's factory presets run on the internal clock and stay
-            # playable from the default trigger key, with at least one lane on.
+            # Plan 22 (owner finding 5): Groove Mutator's factory presets run on the host
+            # transport (host sync on), stay at tempo 120 for the free-clock fallback, and
+            # keep the default trigger key, with at least one lane on.
             if plugin == "GrooveMutator":
-                audit.check(int(params.get("sync", 1)) == 0,
-                            f"{label}: host sync must be off (the preset runs on its own clock)")
+                audit.check(int(params.get("sync", 1)) == 1,
+                            f"{label}: host sync must be on (the preset follows the host transport)")
                 audit.check(float(params.get("tempo", 120.0)) == 120.0,
                             f"{label}: tempo must stay at 120")
                 audit.check(int(params.get("triggerNote", 36)) == 36,
-                            f"{label}: the trigger key must stay at 36 (one held note plays the bank)")
+                            f"{label}: the trigger key must stay at 36")
                 audit.check(any(int(params.get(f"track{t}On", 1 if t <= 4 else 0)) == 1
                                 for t in range(1, 9)),
                             f"{label}: no lane is on")

@@ -150,7 +150,7 @@ private:
 
     // The group frames and the ruler strip, painted per page (R14b).
     juce::Rectangle<int> gridBounds, rulerBounds;
-    juce::Rectangle<int> patternBounds, articulationBounds;
+    std::array<juce::Rectangle<int>, GrooveMutatorProcessor::numTracks> laneBounds;   // LANES cards
     juce::Rectangle<int> trailBounds, chaosBounds, fillBounds;
     juce::Rectangle<int> grooveBounds, clockBounds, modBounds;
 

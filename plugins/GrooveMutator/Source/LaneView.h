@@ -8,10 +8,10 @@
     LaneView — one percussion lane's step strip (plan 19 Phase 3, a plugin-local widget
     because GrooveMutator is its only consumer).
 
-    Draws the lane's pattern over up to CoreDSP::Rhythm::maxSteps cells: a full dot is a
-    hit, a bright dot an accent, a ring a ghost, a double dot a flam (all read from the
-    same hash rules the scheduler uses). The playhead column marks the step the lane is
-    on right now.
+    Draws the lane's pattern over up to CoreDSP::Rhythm::maxSteps cells: a filled box is a
+    hit, a brighter box an accent, a ring a ghost, a hollow ring a fill addition and a hole
+    a flam (all read from the same hash rules the scheduler uses). The playhead column marks
+    the step the lane is on right now.
 
     Draw mode: clicking a cell paints or erases the step while the lane's pattern is
     Steps (kind 2); in Euclid and Hash modes the strip is read-only (the pattern comes

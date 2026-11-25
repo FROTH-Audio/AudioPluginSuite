@@ -1,12 +1,16 @@
 {
   "_name": "Frozen Groove",
   "_category": "Mutation",
-  "_description": "Freezes a mutated shape: chaos keeps working, the pattern holds.",
+  "_description": "Freezes a busy mutated shape: chaos keeps working, the pattern holds.",
   "_plugin": "GrooveMutator",
   "_pluginVersion": "1.0.0",
-  "sync": 0,
+  "sync": 1,
   "chaos": 80.0,
   "mutateScale": 90.0,
   "freeze": 1,
-  "seed": 11
+  "seed": 11,
+  "track1Pulses": 5,
+  "track2Pulses": 3,
+  "track3Pulses": 11,
+  "track4Pulses": 4
 }

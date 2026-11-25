@@ -149,7 +149,8 @@ def build(out_dir):
             seen_slugs.add(slug)
 
             (plugin_dir / f"{slug}.json").write_text(
-                json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+                json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8",
+                newline="\n")
 
             xml_lines.append(preset_xml(plugin, preset))
             total += 1
@@ -157,7 +158,8 @@ def build(out_dir):
     xml_lines.append("</Bank>")
     xml_lines.append("")
 
-    (out_dir / "AudioSuitePresets.xml").write_text("\n".join(xml_lines), encoding="utf-8")
+    (out_dir / "AudioSuitePresets.xml").write_text("\n".join(xml_lines), encoding="utf-8",
+                                                   newline="\n")
 
     print(f"Wrote {total} presets to {out_dir}")
     for plugin in SCHEMA:

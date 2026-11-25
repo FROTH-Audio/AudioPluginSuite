@@ -1,12 +1,14 @@
 {
   "_name": "Backbeat Weight",
   "_category": "Groove",
-  "_description": "A heavier snare on the leans, slight swing.",
+  "_description": "A syncopated kick and a heavier snare on the leans, slight swing.",
   "_plugin": "GrooveMutator",
   "_pluginVersion": "1.0.0",
-  "sync": 0,
+  "sync": 1,
   "swing": 8.0,
   "velCurve": 1,
+  "track1Pulses": 5,
+  "track1Rotation": 1,
   "track2Vel": 125.0,
   "track2Accent": 50.0
 }

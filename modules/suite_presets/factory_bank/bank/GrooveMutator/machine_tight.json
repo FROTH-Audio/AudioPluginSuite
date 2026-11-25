@@ -1,12 +1,17 @@
 {
   "_name": "Machine Tight",
   "_category": "Feel",
-  "_description": "No jitter, no mutation: the grid, perfectly straight.",
+  "_description": "No jitter, no mutation: a straight 16th hat grid, perfectly locked.",
   "_plugin": "GrooveMutator",
   "_pluginVersion": "1.0.0",
-  "sync": 0,
+  "sync": 1,
   "humaniseTime": 0.0,
   "humaniseVelocity": 0.0,
   "chaos": 0.0,
-  "fillProb": 0.0
+  "fillProb": 0.0,
+  "track1Pulses": 4,
+  "track3Steps": 16,
+  "track3Pulses": 16,
+  "track4Steps": 16,
+  "track4Pulses": 4
 }

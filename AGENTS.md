@@ -46,7 +46,7 @@ Nine audio plugins written with JUCE 9.0.5 in C++17. Formats: VST3 on Windows an
 - **Editor** (Phase 5, Sgraffito): 880×700 px window, SOUND/TEXTURE/MOD pages, 60 Hz timer, slate accent colour `#9aa0a6`.
 - **Modulation** (Phase 5): `SuiteModulation::Router` shared with other plugins, 2 LFOs, 6 routing slots (source/target/amount/delay). All parameters automatable, savable, restorable.
 - **Presets**: 289 factory presets (46 SD / 46 DS / 38 MTC / 30 Sgraffito / 15 MidiEffect / 35 StereoTool / 35 Multiband / 25 Cyclical / 19 GrooveMutator, plans 6.1, 11, 13, 14, 17 and 19 — plan 13 added +10 modulation presets each to SD, DS, StereoTool and MultiSat, plan 14 added +10 concept presets to Cyclical, plan 18 Phase 7 added +10 transform/LFO-waveform presets each to DS, MTC and Sgraffito, plan 17 Phases 9 and 11 added +10 interest-feature presets each to MultiSat, SD and StereoTool, plan 19 added 19 GrooveMutator presets) behind the `SUITE_PRESET_BANK` flag (full bank accepted by owner decision, 2026-11-12; five Sgraffito presets added by plan 05.3 F1.3; the two first-pass plugins joined in plan 6.1, then Cyclical, then Multiband Saturation in plan 11). Bank + programs (`SUITE_PRESET_BANK_AS_PROGRAMS`) maps Init=program 0, factory presets=programs 1..N.
-- **Test results**: 31/31 CTest entries pass with the factory bank on (last full run 2026-11-24, plan 19; the default build is 20, the bank build adds nine preset-test executables).
+- **Test results**: 31/31 CTest entries pass with the factory bank on (last full run 2026-11-25, plan 22; the default build is 22, the bank build adds nine preset-test executables).
 
 ---
 
@@ -140,10 +140,10 @@ $CM = "C:\Program Files\Microsoft Visual Studio\18\Community\Common7\IDE\CommonE
 - Build records for the pre-refactor baseline are in `build/baselines/phase0-pre-refactor/`, and the converted tree in `build/baselines/phase1-after-suite_add_plugin/`. They are generated and not committed (`build/` is ignored). To regenerate: `git archive 0d21400` into `build/baselines/src`, configure that tree with `-DFETCHCONTENT_SOURCE_DIR_JUCE=<repo>/build/_deps/juce-src` so JUCE is not fetched again, build Release, then save `Defs.txt`, `Info.txt`, `<Name>_resources.rc`, the VST3 file list and the source lists from each `.vcxproj`.
 - Asset embedding: `juce_add_binary_data(MicroTimingChaosAssets ...)` builds a `BinaryData` target that the plugin and its test executable link. Add new icons or textures to its `SOURCES` list, then reference them by the generated name (`file_name_with_underscores`, for example `bpm_sync_active_svg`).
 
-Last verified status (2026-11-24, plan 19): JUCE 9.0.5. Release build: 0 errors. Full CTest: 31/31 with the factory bank on; 20 default; `tools/audit_bank.py` passes with 289 presets.
+Last verified status (2026-11-25, plan 22): JUCE 9.0.5. Release build: 0 errors. Full CTest: 31/31 with the factory bank on; 22 default; `tools/audit_bank.py` passes with 289 presets.
 
-- Default build (`SUITE_PRESET_BANK=OFF`): 20 entries - CoreDSPTests, SuiteState_Tests, SuiteModulation_Tests, SuiteUI_Tests, SuiteSettingsTests, the nine plugin test executables, and the eight VST3 host-load tests.
-- Bank build (`SUITE_PRESET_BANK=ON`): **31** entries - the 20 public entries (the nine plugin test executables among them) plus **nine** factory-preset test executables (`SpectralDrift_PresetTests`, `DynamicSaturation_PresetTests`, `MicroTimingChaos_PresetTests`, `Sgraffito_PresetTests`, `MidiEffect_PresetTests`, `StereoTool_PresetTests`, `MultibandSaturation_PresetTests`, `Cyclical_PresetTests`, `GrooveMutatorPresetTests`). `suite_add_plugin` skips a plugin's preset-test target until `<Name>PresetTests.cpp` exists.
+- Default build (`SUITE_PRESET_BANK=OFF`): 22 entries - CoreDSPTests, SuiteState_Tests, SuiteModulation_Tests, SuiteUI_Tests, SuiteSettingsTests, the nine plugin test executables, and the eight VST3 host-load tests.
+- Bank build (`SUITE_PRESET_BANK=ON`): **31** entries - the 22 public entries (the nine plugin test executables among them) plus **nine** factory-preset test executables (`SpectralDrift_PresetTests`, `DynamicSaturation_PresetTests`, `MicroTimingChaos_PresetTests`, `Sgraffito_PresetTests`, `MidiEffect_PresetTests`, `StereoTool_PresetTests`, `MultibandSaturation_PresetTests`, `Cyclical_PresetTests`, `GrooveMutatorPresetTests`). `suite_add_plugin` skips a plugin's preset-test target until `<Name>PresetTests.cpp` exists.
 - Bank with host program list (`SUITE_PRESET_BANK_AS_PROGRAMS=ON`): the same entry count; the program-list virtuals are exercised inside the plugin preset tests via `runProgramList`.
 
 All test executables pass:
@@ -544,8 +544,16 @@ Modulation targets (14, in `ModTarget` order, append-only): 0 None, 1 Chaos, 2 M
 divisions, notes, pattern kinds, Steps/Pulses/Rotation (structural).
 
 Latency reported: fixed 50 ms (2400 samples at 48 kHz; the MTC budget). Tail length: 0.
-The window is 1000×960 (the GRID page's eight 92 px knob rows + ruler, derived from the
-layout constants; the owner approves the measured size from the renders, R4). The painted
+The window is 1200×822 (both dimensions derived from the layout constants: the GRID page's
+eight compact 70 % knob rows + ruler; the owner approves the measured size from the renders,
+R4). Plan 22 (owner findings round 2): the GRID strip fills its column (the note-name label
+and a 10 px gap on the left, the five control cells on the right), the shared ruler above it
+spans exactly the strips (inset by the name block and `LaneView`'s 6 px), and every step is a
+rounded box — a filled box fires, a brighter box is an accent, a ring a ghost, a hollow box a
+fill addition, and a hole a flam. The LANES page is eight columns, one framed card per lane
+(`drawGroupFrame`, titled "LANE n" with the note name in the title band), each holding the
+pattern selector and the six pattern/articulation knobs. The header paints the embedded brand
+lockup (`BinaryData::lockup_groovemutator_png`, also passed to the About dialog). The painted
 Steps masks ride as the `stepsMasks` state property (8 hex tokens; the lerpCurve pattern),
 re-derived through the lane signature like any pattern-defining value.
 
@@ -640,7 +648,7 @@ The factory bank (`modules/suite_presets/factory_bank/`, gated by `SUITE_PRESET_
 - `PresetMenuModel`: builds a `juce::PopupMenu` with Factory/User submenus grouped by category.
 - `PresetPrograms` (behind the separate `SUITE_PRESET_BANK_AS_PROGRAMS` flag): host program list where program 0 is Init and programs 1..N are the factory presets in bank order. Bank order is append-only once hosts cache indices.
 
-Factory presets are authored as JSON deltas in `tools/preset_data.py` (46 SD / 46 DS / 38 MTC / 30 Sgraffito / 15 MidiEffect / 25 StereoTool / 35 MultibandSaturation / 25 Cyclical / 19 GrooveMutator = 289, plans 6.1, 11, 13, 14, 17 and 19) and generated into `modules/suite_presets/factory_bank/bank/` by `tools/build_bank.py`. `tools/audit_bank.py` enforces the rules: unique names per plugin, ≥3 categories, every value inside the parameter's `NormalisableRange`, no preset equal to the default state, SD `freeze` only in `Freeze`, DS `drive` 24+`fold` 50 only in `Extreme`, MTC host `sync` off and `bpm` 120 in every factory preset, the base pattern must fire at least one step, GrooveMutator host `sync` off, `tempo` 120 and trigger key 36 with at least one lane on (plan 19: the bank is playable from one held note), factory presets may carry a `samplePath` only as an `embedded:` URI, never a file path (plan 07 Q3, revised in phase 4; checked in the authoring data, the generated XML attributes and the JSON files), and — since plan 05.2 — the authoring schema must cover every parameter the plugins expose (live IDs parsed from the sources, the shared Router's parameters included). Plan 05.3 F1.3 resolved the coverage findings: parameters no factory preset moves are now a recorded decision (levels/gains are never preset-authored; the structural LFO/routing slots stay at defaults), and Sgraffito gained five new presets.
+Factory presets are authored as JSON deltas in `tools/preset_data.py` (46 SD / 46 DS / 38 MTC / 30 Sgraffito / 15 MidiEffect / 25 StereoTool / 35 MultibandSaturation / 25 Cyclical / 19 GrooveMutator = 289, plans 6.1, 11, 13, 14, 17 and 19) and generated into `modules/suite_presets/factory_bank/bank/` by `tools/build_bank.py`. `tools/audit_bank.py` enforces the rules: unique names per plugin, ≥3 categories, every value inside the parameter's `NormalisableRange`, no preset equal to the default state, SD `freeze` only in `Freeze`, DS `drive` 24+`fold` 50 only in `Extreme`, MTC host `sync` off and `bpm` 120 in every factory preset, the base pattern must fire at least one step, GrooveMutator host `sync` on, `tempo` 120 and trigger key 36 with at least one lane on (plan 22: the bank follows the host transport; the trigger key is the no-playhead fallback), factory presets may carry a `samplePath` only as an `embedded:` URI, never a file path (plan 07 Q3, revised in phase 4; checked in the authoring data, the generated XML attributes and the JSON files), and — since plan 05.2 — the authoring schema must cover every parameter the plugins expose (live IDs parsed from the sources, the shared Router's parameters included). Plan 05.3 F1.3 resolved the coverage findings: parameters no factory preset moves are now a recorded decision (levels/gains are never preset-authored; the structural LFO/routing slots stay at defaults), and Sgraffito gained five new presets.
 
 `SUITE_PRESET_BANK_AS_PROGRAMS=OFF` (default build): plugins report `getNumPrograms() == 1`, `getProgramName() == ""`, exactly as before the preset system. With both flags on, the program virtuals map to `applyPresetState` / `getStateInformation`, and `currentProgramIndex` tracks the last applied program (-1 after any preset/state change that is not a factory program).
 
@@ -654,7 +662,7 @@ MTC's `lerpCurve` state property (not a parameter) round-trips through presets a
 
 ## 6. Test architecture
 
-Thirty-one CTest entries (bank build) run twenty-three executables: `CoreDSPTests` (47 test functions), `SuiteStateTests` (9), `SuiteUI_Tests` (`SuiteUITests`, 13), `SuiteModulation_Tests` (`SuiteModulationTests`, 10), `SuiteSettingsTests` (`SuiteSettingsTests`, 9), `SpectralDriftTests` (30), `DynamicSaturationTests` (25), `MicroTimingChaosTests` (47), `SgraffitoTests` (55), `StereoToolTests` (19), `MidiEffectTests` (23), `MultibandSaturationTests` (10), `CyclicalTests` (24), `GrooveMutatorTests` (19), and `PluginHostTests`, which has one ctest entry per plugin (8). With the factory bank on, nine preset-test executables join them (one per plugin: SpectralDrift, DynamicSaturation, MicroTimingChaos, Sgraffito, MidiEffect, StereoTool, MultibandSaturation, Cyclical and GrooveMutator). The README has the full list.
+Thirty-one CTest entries (bank build) run twenty-four executables: `CoreDSPTests` (47 test functions), `SuiteStateTests` (9), `SuiteUI_Tests` (`SuiteUITests`, 13), `SuiteModulation_Tests` (`SuiteModulationTests`, 10), `SuiteSettingsTests` (`SuiteSettingsTests`, 9), `SpectralDriftTests` (30), `DynamicSaturationTests` (25), `MicroTimingChaosTests` (47), `SgraffitoTests` (55), `StereoToolTests` (19), `MidiEffectTests` (23), `MultibandSaturationTests` (10), `CyclicalTests` (24), `GrooveMutatorTests` (19), and `PluginHostTests`, which has one ctest entry per plugin (8). With the factory bank on, nine preset-test executables join them (one per plugin: SpectralDrift, DynamicSaturation, MicroTimingChaos, Sgraffito, MidiEffect, StereoTool, MultibandSaturation, Cyclical and GrooveMutator). The README has the full list.
 
 **Module tests** (`modules/suite_modulation/tests/SuiteModulationTests.cpp`): the router, with a stub processor (no plugin). They cover the routed LFO, the zero case (bit for bit), bipolar amounts, whole-number targets, Host Sync ignoring Tempo, the one-bar period, sample and hold, out-of-range indices, and the control display (values set without notifying), plus the modulation panel's preferred height (every child stays inside it; plan 10 phase 9). Not covered: the control display skipping a slider the mouse holds, since the test cannot press a mouse button. The panel and scope are checked only by the MicroTimingChaos editor test.
 
@@ -792,12 +800,22 @@ Mouse events in tests use the 15-argument `juce::MouseEvent` constructor, which 
 - **A latched groove never lets a fixed tail be long enough.** Any run window can end between a note-on and its note-off; tests stop the groove through an ending path (the trigger-mode change) before flushing, and assert no-stuck on the combined stream.
 - **Swing is a fraction of the lane's step** (`Sequencer::swingBeats`): 50 % of a 1/16 step at 120 BPM = 3000 samples late. The first test's 1500 expectation was wrong, not the engine.
 - **Jump detection follows the MTC law**: any PPQ diff over 1e-3 beats resets the grid — which is why a *moving* host must advance its PPQ in tests; a static playhead looks like a jump to every block. The test helper `run()` takes an optional `FakePlayHead*` and advances it at the host tempo.
-- **The LaneView articulation dots read the scheduler's hash rules**, not the velocity product: accent/ghost come from the hash at 9001 + patternIndex (a classification via `trackVelocityFor` would skew with the Velocity and Level knobs).
+- **The LaneView articulation marks read the scheduler's hash rules**, not the velocity product: accent/ghost come from the hash at 9001 + patternIndex (a classification via `trackVelocityFor` would skew with the Velocity and Level knobs).
 - **Affinity is DSP-truthful**: Steps lanes dim Pulses and Rotation; Hash lanes dim Rotation only (the maths ignores it; Pulses stay live as density). `updateAffinity` runs in the 60 Hz timer and in `setPage`, so a page switch shows the right state immediately.
-- **The GRID page is eight 92 px knob rows** (R1 knobs, one row per lane with the dots strip, Note/Velocity/Level/On/Division beside it); pattern + articulation live on a second LANES page (R4: the page, not smaller knobs). Window 1000×960, height derived from the layout constants — the owner approves the measured size from the renders.
+- **The GRID page is eight compact knob rows** (R1 knobs at 70 % size, one row per lane with the strip, Note/Velocity/Level/On/Division beside it); pattern + articulation live on a second LANES page (R4: the page, not smaller knobs). The window is 1200×822 (plan 22 re-rendered the owner's wider, shorter layout), height derived from the layout constants — the owner approves the measured size from the renders.
 - **The painted Steps masks are a state property** (`stepsMasks`, 8 hex tokens; the lerpCurve pattern), read into `LaneParams::stepsMask` and part of the rederive signature. Factory presets use Euclid/Hash only (a preset delta carries no masks; a Steps preset would arrive empty).
 - **The `LaneCard`-before-`setSize` rule**: the first `resized()` walks the lane cards, so they must exist before `setSize()` (the preset bar's rule, extended).
 - **`playheadStep` starts at −1**, not 0 (a zero initialiser painted a fake playhead column before the first block).
+
+**Plan 22 decisions (Groove Mutator owner findings round 2, 2026-11-25):**
+- **The lockup paints** (Finding 1): the editor's header draws `BinaryData::lockup_groovemutator_png` through `SuiteUI::drawBrandLockup`, and the About dialog receives the same image. The artwork was already correct (owner-confirmed, no regeneration); the editor simply never drew it. The stale CMake comment above the live `LOCKUP` line is gone.
+- **The GRID strip fills its column** (Finding 2): the old row carved a 480 px strip out of an 840 px row, leaving a 335 px dead gutter. The row is now name (42 px, wide enough for `F#2`) + 10 px gap + the strip (about 788 px, 25 px cells) + the five control cells (308 px). The shared ruler is inset by the same name block and by `LaneView`'s 6 px horizontal inset, so its ticks sit over the cells. The step counter stays the ruler numbers (owner choice; no live `STEP n` readout).
+- **Enabled steps are rounded boxes** (Finding 4): the 11 px dots became full-height rounded boxes (2 px inset, radius 3). A filled box fires, a brighter box is an accent, a ring a ghost, a hollow box a fill addition, a hole a flam; off steps are a faint track-coloured box and beyond-Steps cells a dimmer inset. The `mouseDown` hit logic and the "draw" caption are unchanged, and the lane help text now describes boxes.
+- **The factory bank follows the host transport** (Finding 5): the code default was already sync on, so the change is the bank and the rule — all 19 presets carry `sync=1`, `audit_bank.py` checks `sync == 1` (comment rewritten: the trigger key is the no-playhead fallback, not the way the bank plays), and `testParameters` asserts the parameter's default so the toggle cannot drift silently.
+- **The 19 presets play different rhythms** (Finding 3): each preset now carries a structural identity — its own division/steps/pulses/rotation per lane, note map, swing, polyrhythm, fill style and mutation tier — instead of the same hit positions with a different feel. Names and order are unchanged (the host program list is append-only).
+- **The LANES page is eight columns** (Finding 6): one `drawGroupFrame` card per lane, titled "LANE n" with the note name in the title band (the timer's name rewrite needs a separate widget), then the pattern selector and the six pattern/articulation knobs spread down the column. The old 2-column PATTERN + ARTICULATION groups (whose rows did not share a grid) are gone.
+- **FREEZE sits with the knobs** (Finding 7): the pill shares the knobs' 64 px cell and sits beside SEED, and a `captionHeight` top trim puts it on the knob band's centre line instead of floating at the far right.
+- **`tools/build_bank.py` writes LF** (`newline="\n"`): the generator used to rewrite the bank with CRLF on Windows, which made `git status` report every unchanged preset as modified (the `.gitattributes` `* text=auto eol=lf` rule). The content was always identical; the checkout noise is gone.
 
 ---
 
@@ -1011,7 +1029,7 @@ Each item is a mistake or a slow path hit during the framework work (2026-11-08)
 
 **Throwaway builds.** When a test needs a root change, such as a new plugin, build in a folder under `build/`, then remove the root line and the folder. Check `git status` at the end.
 
-**Verification.** Run the full CTest set (20 entries default build, 28 with the bank on) before you say a change works. A change in the entry count is a change in the test set, so report it. Say which checks you could not run, such as macOS or a desktop-only editor test.
+**Verification.** Run the full CTest set (22 entries default build, 31 with the bank on) before you say a change works. A change in the entry count is a change in the test set, so report it. Say which checks you could not run, such as macOS or a desktop-only editor test.
 
 **Stop and report** when a step needs the owner: a commit, a push, a macOS machine, an external search, a licence decision, or a deletion of an untracked file.
 
@@ -1029,7 +1047,7 @@ Select-String -Path "C:\Users\tfroe\Documents\PROJECTS\AudioPluginSuite\build\lo
 Select-String -Path "C:\Users\tfroe\Documents\PROJECTS\AudioPluginSuite\build\logs\check-build.log" -Pattern "warning" | Measure-Object  # baseline: ~31 pre-existing C4996 deprecations from the shared router's AudioParameterFloat form; count and compare, 0 new
 ```
 
-**2. CTest.** Run the full set (20 entries default build, 28 with the bank on), with `ctest.exe --test-dir build -C Release --output-on-failure`. A changed entry count is a changed test set. Say so.
+**2. CTest.** Run the full set (22 entries default build, 31 with the bank on), with `ctest.exe --test-dir build -C Release --output-on-failure`. A changed entry count is a changed test set. Say so.
 
 **3. Look for escape damage.** A PowerShell replace once wrote the two characters backtick and `n` into C++ source in place of newlines. Search every changed file for them, and for duplicate definitions:
 

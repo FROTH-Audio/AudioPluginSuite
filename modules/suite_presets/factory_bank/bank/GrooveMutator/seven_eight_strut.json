@@ -4,9 +4,15 @@
   "_description": "A 7:8 shuffle with a laid-back swing.",
   "_plugin": "GrooveMutator",
   "_pluginVersion": "1.0.0",
-  "sync": 0,
+  "sync": 1,
   "swing": 15.0,
   "polyRatio": 3,
   "evolveRate": 2,
-  "seed": 23
+  "seed": 23,
+  "track1Steps": 14,
+  "track1Pulses": 4,
+  "track2Steps": 14,
+  "track2Pulses": 3,
+  "track3Steps": 28,
+  "track3Pulses": 12
 }

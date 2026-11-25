@@ -1,5 +1,7 @@
 #include "PluginEditor.h"
 
+#include "BinaryData.h"
+#include "SuiteBrand.h"
 #include "SuiteSettings.h"
 
 namespace
@@ -17,18 +19,32 @@ namespace
     constexpr int rowGap = 6;
     constexpr int knobDiameter = SuiteUI::knobDiameter * 0.7f;
     constexpr int knobRowHeight = 92 * 0.7f + 12;  // caption + knob + value, 30% smaller knobs
+    // Plan 22, Finding 2: the GRID row's fixed parts, so the strip and the ruler share one
+    // geometry (the strip fills the row between the name and the five control cells).
+    constexpr int laneNameWidth = 42;   // wide enough for "F#2" (the note-name label)
+    constexpr int laneNameGap = 10;
+    constexpr int gridControlWidth = 64 + 52 + 64 + 64 + 64;   // division, on, level, vel, note
+    constexpr int laneViewInset = 6;                           // LaneView::paint's x reduction
+    // Plan 22, Finding 6: the LANES page's pattern selector cell (caption + pill + padding).
+    constexpr int selectorCellHeight = SuiteUI::captionHeight + SuiteUI::pillHeight + 8;
     // The trailing 8 covers reduced()'s top-and-bottom pair, so a group's inner height is
     // exactly the sum of its rows (the plan-20 rule: a mismatch cuts the last row off).
     constexpr int gridGroupHeight = groupTitleHeight + 4 + rulerHeight + 8
                                   + 8 * knobRowHeight + 7 * rowGap + 8;
     constexpr int editorHeight = margin * 2 + headerHeight + groupGap + gridGroupHeight
                                + groupGap + footerHeight;
-    constexpr int lanesGroupHeight = groupTitleHeight + 4 + 4 * knobRowHeight
-                                   + 3 * rowGap + 8;
     constexpr int trailHeight = 260;
     constexpr int simpleGroupHeight = groupTitleHeight + 4 + knobRowHeight + 4;
 
     const char* pageNames[] = { "GRID", "LANES", "MUTATE", "GROOVE", "MOD" };
+
+    // The brand lockup (plan 22, Finding 1): the embedded artwork from the CMake LOCKUP.
+    const juce::Image& brandLockup()
+    {
+        static const juce::Image image = juce::ImageCache::getFromMemory (BinaryData::lockup_groovemutator_png,
+                                                                          BinaryData::lockup_groovemutator_pngSize);
+        return image;
+    }
 }
 
 GrooveMutatorEditor::LaneCard::LaneCard (GrooveMutatorProcessor& p, int trackIndex,
@@ -102,7 +118,7 @@ GrooveMutatorEditor::GrooveMutatorEditor (GrooveMutatorProcessor& p)
         addAndMakeVisible (card.flamCtrl);
         addAndMakeVisible (card.ghostCtrl);
 
-        SuiteUI::describe (card.view, "The lane's pattern. Dots fire; a bright dot is an accent, a ring a ghost, a double a flam. In Steps mode, click cells to paint the pattern.");
+        SuiteUI::describe (card.view, "The lane's pattern. A filled box fires, a brighter box is an accent, a ring a ghost, a hollow box a fill, and a hole a flam. In Steps mode, click cells to paint the pattern.");
         SuiteUI::describe (card.noteCtrl, "The GM note the lane sends.");
         SuiteUI::describe (card.velCtrl, "The lane's velocity share.");
         SuiteUI::describe (card.levelCtrl, "The lane's level stage: it scales the notes' velocity contribution.");
@@ -220,8 +236,7 @@ GrooveMutatorEditor::GrooveMutatorEditor (GrooveMutatorProcessor& p)
     addAndMakeVisible (headerMenu);
     headerMenu.onAbout = [this]
     {
-        // The lockup lands here once the owner's tools/brand/lockups.py row is run (LOCKUP in CMake).
-        SuiteUI::showAboutDialog ({}, SUITE_PLUGIN_NAME, SUITE_PLUGIN_VERSION,
+        SuiteUI::showAboutDialog (brandLockup(), SUITE_PLUGIN_NAME, SUITE_PLUGIN_VERSION,
                                   SUITE_PLUGIN_CODE, SUITE_PLUGIN_ID, this);
     };
     headerMenu.onSettings = [this]
@@ -313,20 +328,20 @@ void GrooveMutatorEditor::paint (juce::Graphics& g)
     g.setGradientFill (background);
     g.fillAll();
 
-    // Header: the product name until the owner's lockup lands (LOCKUP in CMake).
-    g.setColour (lookAndFeel.getAccent());
-    g.setFont (SuiteUI::uiFont (15.0f, true));
-    auto titleArea = getLocalBounds().removeFromTop (headerHeight).reduced (16, 0);
-    titleArea.setWidth (juce::jmin (220, titleArea.getWidth()));
-    g.drawText ("Groove Mutator", titleArea, juce::Justification::centredLeft);
+    // Header: the brand lockup (plan 22, Finding 1; the embedded LOCKUP artwork).
+    SuiteUI::drawBrandLockup (g, getLocalBounds().removeFromTop (headerHeight).reduced (16, 0),
+                              brandLockup());
 
     // The group frames per page (R14b).
     if (currentPage == 0)
         SuiteUI::drawGroupFrame (g, gridBounds, "STEP GRID", lookAndFeel.getAccent());
     else if (currentPage == 1)
     {
-        SuiteUI::drawGroupFrame (g, patternBounds, "PATTERN", lookAndFeel.getAccent());
-        SuiteUI::drawGroupFrame (g, articulationBounds, "ARTICULATION", lookAndFeel.getAccent());
+        // One framed column per lane (plan 22, Finding 6): eight channel strips, each with
+        // the lane label and note name, the pattern selector and the six knobs.
+        for (int track = 0; track < GrooveMutatorProcessor::numTracks; ++track)
+            SuiteUI::drawGroupFrame (g, laneBounds[(size_t) track],
+                                     "LANE " + juce::String (track + 1), lookAndFeel.getAccent());
     }
     else if (currentPage == 2)
     {
@@ -388,6 +403,13 @@ void GrooveMutatorEditor::resized()
         // strip on the left and its controls on the right. The group height is the sum of
         // these rows (gridGroupHeight), so nothing is clipped.
         rulerBounds = inner.removeFromTop (rulerHeight);
+        // Plan 22, Finding 2: the ruler spans exactly the strips' cells - the same left
+        // inset (name + gap) and right control block as every row, minus LaneView's 6 px.
+        rulerBounds = { rulerBounds.getX() + laneNameWidth + laneNameGap + laneViewInset,
+                        rulerBounds.getY(),
+                        rulerBounds.getWidth() - laneNameWidth - laneNameGap
+                            - gridControlWidth - 2 * laneViewInset,
+                        rulerHeight };
         inner.removeFromTop (8);   // spacer between the ruler and the first row
 
         for (int track = 0; track < GrooveMutatorProcessor::numTracks; ++track)
@@ -407,10 +429,11 @@ void GrooveMutatorEditor::resized()
             cell = row.removeFromRight (64).reduced (3);
             card.noteCtrl.setBounds (cell);
 
-            // The step grid view takes the remaining space on the left
-            auto gridCell = row.removeFromRight (row.getWidth() - 64 - 64 - 64 - 64 - 64 - 25 - 15);
-            card.view.setBounds (gridCell);
-            card.name.setBounds (row.removeFromLeft (25));
+            // Plan 22, Finding 2: the strip fills the row between the name and the controls
+            // (it used to be carved out of the row, leaving a dead gutter on its left).
+            card.name.setBounds (row.removeFromLeft (laneNameWidth));
+            row.removeFromLeft (laneNameGap);
+            card.view.setBounds (row);
 
             if (track < GrooveMutatorProcessor::numTracks - 1)
                 inner.removeFromTop (rowGap);
@@ -418,52 +441,50 @@ void GrooveMutatorEditor::resized()
     }
     else if (currentPage == 1)
     {
-        patternBounds = area.removeFromTop (lanesGroupHeight);
-        area.removeFromTop (groupGap);
-        articulationBounds = area.removeFromTop (lanesGroupHeight);
+        // Plan 22, Finding 6: eight columns, one framed card per lane. Every card is the
+        // page's full height: the label band, the pattern selector, then the six knobs
+        // evenly spread down the column (a channel strip). The cards stop above the
+        // footer band, exactly where the GRID group ends on page 0.
+        area.removeFromBottom (footerHeight);
+        constexpr int numLanes = GrooveMutatorProcessor::numTracks;
+        const int cardWidth = (area.getWidth() - (numLanes - 1) * groupGap) / numLanes;
 
-        auto inner = patternBounds.withTrimmedTop (groupTitleHeight + 4).reduced (10, 4);
-        const int columnWidth = (inner.getWidth() - groupGap) / 2;
-        auto right = inner.removeFromRight (columnWidth);
-        auto left = inner;
-
-        auto articulationInner = articulationBounds.withTrimmedTop (groupTitleHeight + 4).reduced (10, 4);
-        auto articulationRight = articulationInner.removeFromRight (columnWidth);
-        auto articulationLeft = articulationInner;
-
-        for (int track = 0; track < GrooveMutatorProcessor::numTracks; ++track)
+        for (int track = 0; track < numLanes; ++track)
         {
             auto& card = *lanes[(size_t) track];
-            auto& column = (track / 4) == 0 ? left : right;
-            auto& articulationColumn = (track / 4) == 0 ? articulationLeft : articulationRight;
-            const int rowInColumn = track % 4;
+            auto cardArea = area.removeFromLeft (cardWidth);
+            laneBounds[(size_t) track] = cardArea;
 
-            auto row = column.removeFromTop (knobRowHeight);
-            auto nameArea = row.removeFromLeft (28);  // smaller name area
-            card.name.setBounds (nameArea);
-            auto cell = row.removeFromLeft (112).reduced (3);  // pattern dropdown, smaller
-            card.patternCtrl.setBounds (cell);
-            cell = row.removeFromLeft (64).reduced (3);  // steps, smaller
-            card.stepsCtrl.setBounds (cell);
-            cell = row.removeFromLeft (64).reduced (3);  // pulses, smaller
-            card.pulsesCtrl.setBounds (cell);
-            cell = row.removeFromLeft (64).reduced (3);  // rotation, smaller
-            card.rotationCtrl.setBounds (cell);
+            // The note name rides in the title band, right of the "LANE n" caption (the
+            // timer keeps it in step with the Note parameter).
+            card.name.setBounds (cardArea.withHeight (groupTitleHeight + 4).translated (0, 4)
+                                          .removeFromRight (44).reduced (4, 0));
 
-            auto articulationRow = articulationColumn.removeFromTop (knobRowHeight);
-            articulationRow.removeFromLeft (28);
-            cell = articulationRow.removeFromLeft (64).reduced (3);  // accent, smaller
-            card.accentCtrl.setBounds (cell);
-            cell = articulationRow.removeFromLeft (64).reduced (3);  // flam, smaller
-            card.flamCtrl.setBounds (cell);
-            cell = articulationRow.removeFromLeft (64).reduced (3);  // ghost, smaller
-            card.ghostCtrl.setBounds (cell);
+            auto inner = cardArea.withTrimmedTop (groupTitleHeight + 4).reduced (4, 0)
+                                 .withTrimmedBottom (8);
 
-            if (rowInColumn < 3)
+            card.patternCtrl.setBounds (inner.removeFromTop (selectorCellHeight).reduced (2, 0));
+
+            // Six knobs, one per row, with the spare height shared between the rows.
+            constexpr int rows = 6;
+            const int spare = inner.getHeight() - rows * knobRowHeight;
+            const int gap = juce::jmax (rowGap, spare / rows);
+            inner.removeFromTop (gap);
+
+            SuiteUI::LabelledSlider* knobRows[rows] =
+                { &card.stepsCtrl, &card.pulsesCtrl, &card.rotationCtrl,
+                  &card.accentCtrl, &card.flamCtrl, &card.ghostCtrl };
+
+            for (int row = 0; row < rows; ++row)
             {
-                column.removeFromTop (rowGap);
-                articulationColumn.removeFromTop (rowGap);
+                knobRows[row]->setBounds (inner.removeFromTop (knobRowHeight));
+
+                if (row < rows - 1)
+                    inner.removeFromTop (gap);
             }
+
+            if (track < numLanes - 1)
+                area.removeFromLeft (groupGap);
         }
     }
     else if (currentPage == 2)
@@ -485,11 +506,15 @@ void GrooveMutatorEditor::resized()
             mutateScaleCtrl.setBounds (cell);
             cell = row.removeFromLeft (64);
             seedCtrl.setBounds (cell);
+            // Plan 22, Finding 7: FREEZE shares the knobs' cell size and sits beside them,
+            // and its pill sits in the knob band (below the caption row), so the row reads
+            // as one baseline instead of a small pill floating at the far right.
+            cell = row.removeFromLeft (64);
+            auto pillCell = cell.withTrimmedTop (SuiteUI::captionHeight);
+            freezeToggle.setBounds (pillCell.withSizeKeepingCentre (pillCell.getWidth(), SuiteUI::pillHeight));
             // R14d: owner findings - more space for EVOLVE RATE pills
-            auto cellWide = row.removeFromLeft (row.getWidth() - 64 - 64 - 64 - 20 - 15).reduced (3);
+            auto cellWide = row.removeFromLeft (row.getWidth() - 20 - 15).reduced (3);
             evolveRateCtrl.setBounds (cellWide);
-            cell = row.removeFromLeft (60).reduced (3);  // compact toggle
-            freezeToggle.setBounds (cell.withSizeKeepingCentre (cell.getWidth(), SuiteUI::pillHeight));
         }
 
         {

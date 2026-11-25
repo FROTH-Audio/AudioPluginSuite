@@ -211,6 +211,11 @@ namespace
             Processor::numControls);
 
         // Master ranges (plan 19 §1's table).
+        // Plan 22 (owner finding 5): Host Sync ships on. A bool has no checkRange form, so
+        // assert the parameter's default and the value the APVTS holds before any set.
+        assert (processor.apvts.getParameter (Processor::syncId)->getDefaultValue() == 1.0f);
+        assert (processor.apvts.getRawParameterValue (Processor::syncId)->load() > 0.5f);
+
         checkRange (processor.apvts, Processor::tempoId, 40.0f, 240.0f, 120.0f);
         checkRange (processor.apvts, Processor::triggerNoteId, 24.0f, 96.0f, 36.0f);
         checkRange (processor.apvts, Processor::swingId, -50.0f, 50.0f, 0.0f);

@@ -24,7 +24,7 @@ pattern strip (the LaneView) and its sound controls:
 
 | Control | Range | What it does |
 |---|---|---|
-| **Pattern strip** | — | The lane's pattern. A full dot is a hit, a bright dot an accent, a ring a ghost, a double dot a flam — the same hash rules the scheduler uses. A hollow dot is a fill addition (audible, but not one of your painted steps). The playhead column marks the step the lane is on. In **Steps** mode the strip answers draw mode: click a cell to paint or erase that step (the painted pattern travels with the session). Steps lanes are the authoring mode — Chaos never moves a painted pattern, so the strip always matches what plays. In Euclid and Hash modes the strip shows the live, mutated pattern and is read-only. |
+| **Pattern strip** | — | The lane's pattern. A filled box is a hit, a brighter box an accent, a ring a ghost, a hollow box a fill addition (audible, but not one of your painted steps) and a hole in the box a flam — the same hash rules the scheduler uses. Off steps are a faint box and cells beyond the lane's Steps a dimmer one, so the pattern and its length read at a glance. The playhead column marks the step the lane is on. In **Steps** mode the strip answers draw mode: click a cell to paint or erase that step (the painted pattern travels with the session). Steps lanes are the authoring mode — Chaos never moves a painted pattern, so the strip always matches what plays. In Euclid and Hash modes the strip shows the live, mutated pattern and is read-only. |
 | **Note** | 24 – 96 | The GM note the lane sends (shown as `C2 (36)`). Defaults walk the drum map: kick, snare, closed/open hat, low/mid tom, clap, claves. |
 | **Velocity** | 30 – 150 % | The lane's velocity share. A modulation target (one per lane). |
 | **Level** | −24 – +12 dB | The lane's level stage: it scales the notes' velocity contribution. |
@@ -35,7 +35,9 @@ pattern strip (the LaneView) and its sound controls:
 
 <img src="../../docs/manuals/groovemutator-lanes.png" alt="LANES page" width="653">
 
-The pattern and articulation knobs, four lanes per column:
+One framed column per lane, titled **LANE 1** to **LANE 8** with the lane's note name in the
+title band. Each column holds the lane's pattern selector and its six pattern and
+articulation knobs, so a lane's whole shape is read top to bottom in one place:
 
 | Control | Range | What it does |
 |---|---|---|
@@ -99,6 +101,7 @@ so host delay compensation stays stable whatever the knobs do.
 ## Presets
 
 Nineteen factory presets ship with the plugin (behind the `SUITE_PRESET_BANK` build), across
-Groove, Fills, Mutation, Polyrhythm, Feel and Utility. Every preset runs on the internal
-clock at 120 BPM and keeps the trigger key at C2, so the whole bank is playable from one
-held note.
+Groove, Fills, Mutation, Polyrhythm, Feel and Utility. Every preset follows the host transport
+(**Host Sync** on) and keeps the trigger key at C2 as the no-playhead fallback. Each preset
+carries its own rhythm identity — its grid, step count, pulse spread, note map, swing,
+polyrhythm and fills — so selecting one changes the groove itself, not just the feel.

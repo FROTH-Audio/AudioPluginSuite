@@ -23,12 +23,12 @@ int main()
         PresetTest::runAudioSanity (processor);
 
         // The audit's GrooveMutator rules, checked against the bank itself: every preset
-        // runs on the internal clock (host sync off, authored) and the trigger key reads
-        // back at 36 after the apply (resetMissing restores the default the audit assumes).
+        // follows the host transport (host sync on, plan 22) and the trigger key reads back
+        // at 36 after the apply (resetMissing restores the default the audit assumes).
         for (const auto& preset : PresetTest::presetsFor ("GrooveMutator"))
         {
             const auto sync = PresetTest::treeValue (preset.state, GrooveMutatorProcessor::syncId);
-            assert (sync == 0.0f);
+            assert (sync == 1.0f);
 
             processor.applyPresetState (preset.state);
             const auto triggerNote = processor.apvts.getRawParameterValue (
@@ -36,8 +36,10 @@ int main()
             assert (juce::roundToInt (triggerNote) == 36);
         }
 
-        // Playable from one held note: apply each preset, press the trigger key and run
-        // eight seconds — the groove delivers notes (the plan-19 playability rule).
+        // Playable from one held note: a bare processor has no host playhead, so a synced
+        // preset falls back to the trigger key (the plan-21 "no playhead" branch). Apply
+        // each preset, press the trigger key and run eight seconds — the groove delivers
+        // notes.
         {
             constexpr double sampleRate = 48000.0;
             constexpr int blockSize = 512;

@@ -1,12 +1,19 @@
 {
   "_name": "Three Against Four",
   "_category": "Polyrhythm",
-  "_description": "Metric modulation: every lane drifts against the bar.",
+  "_description": "Three-beat lanes against a four-beat bar.",
   "_plugin": "GrooveMutator",
   "_pluginVersion": "1.0.0",
-  "sync": 0,
+  "sync": 1,
   "polyRatio": 1,
-  "chaos": 30.0,
-  "track1Division": 4,
-  "track2Division": 4
+  "chaos": 20.0,
+  "track1Steps": 8,
+  "track1Pulses": 3,
+  "track1Division": 5,
+  "track2Steps": 8,
+  "track2Pulses": 3,
+  "track2Division": 4,
+  "track3Steps": 8,
+  "track3Pulses": 6,
+  "track3Division": 5
 }

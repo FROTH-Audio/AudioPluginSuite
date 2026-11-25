@@ -52,8 +52,10 @@ void LaneView::paint (juce::Graphics& g)
     for (int step = 0; step < CoreDSP::Rhythm::maxSteps; ++step)
     {
         auto cell = strip.withX (strip.getX() + step * cellWidth).withWidth (cellWidth);
-        auto dot = cell.withSizeKeepingCentre (std::min (cellWidth - 3.0f, 11.0f),
-                                               std::min (cell.getHeight() - 3.0f, 11.0f));
+        // Plan 22, Finding 4: a rounded box per cell is the enabled step's shape, inset so
+        // the 4-step dividers still read in the gutters.
+        const auto box = cell.reduced (2.0f, 2.0f);
+        constexpr float boxCorner = 3.0f;
         const bool inside = step < steps;
         const bool fires = inside && ((mask >> step) & 1u) != 0u;
 
@@ -73,7 +75,10 @@ void LaneView::paint (juce::Graphics& g)
 
         if (! inside)
         {
-            // Beyond the lane's Steps count: dim the cell so the count reads.
+            // Beyond the lane's Steps count: a dim cell body plus the boundary divider, so
+            // the count reads at a glance.
+            g.setColour (SuiteUI::Colours::track.withAlpha (0.16f));
+            g.fillRoundedRectangle (box, boxCorner);
             g.setColour (SuiteUI::Colours::track.withAlpha (0.35f));
             g.drawVerticalLine ((int) (cell.getX() + cellWidth), strip.getY(), strip.getBottom());
             continue;
@@ -81,14 +86,14 @@ void LaneView::paint (juce::Graphics& g)
 
         if (! fires)
         {
-            g.setColour (SuiteUI::Colours::track.withAlpha (stepsMode ? 0.55f : 0.3f));
-            g.fillEllipse (dot.reduced (2.0f));
+            // An off step is a faint box: the off/enabled silhouette is the dominant signal.
+            g.setColour (SuiteUI::Colours::track.withAlpha (stepsMode ? 0.6f : 0.45f));
+            g.fillRoundedRectangle (box, boxCorner);
             continue;
         }
 
-        // A fired step: full = hit, bright = accent, ring = ghost, double = flam. A fill
-        // addition is a hollow dot in the full accent (the ghost's ring is dimmed, so the
-        // two read apart), with the flam's inner ring when the hash says flam.
+        // A fired step: a filled box = hit, brighter = accent, a ring = ghost, a hollow
+        // ring = fill addition, and the flam punches a hole (or a dot inside a ring).
         const bool isFill = ((fills >> step) & 1u) != 0u;
         const bool isAccent = processor.laneAccentsAt (track, step);
         const bool isGhost = ! isAccent && processor.laneGhostsAt (track, step);
@@ -97,25 +102,25 @@ void LaneView::paint (juce::Graphics& g)
         if (isFill)
         {
             g.setColour (accent);
-            g.drawEllipse (dot, 1.4f);
+            g.drawRoundedRectangle (box.reduced (0.8f), boxCorner, 1.6f);
         }
         else if (isGhost)
         {
             g.setColour (dimmed (accent));
-            g.drawEllipse (dot, 1.4f);
+            g.drawRoundedRectangle (box.reduced (0.8f), boxCorner, 1.6f);
         }
         else
         {
             g.setColour (isAccent ? accent.brighter (0.45f) : accent);
-            g.fillEllipse (dot);
+            g.fillRoundedRectangle (box, boxCorner);
         }
 
         if (isFlam)
         {
-            auto flamDot = dot.reduced (4.5f);
-            g.setColour (isGhost ? dimmed (accent).brighter (0.15f)
-                                 : (isFill ? accent : accent.brighter (0.25f)));
-            g.drawEllipse (flamDot, 1.2f);
+            const auto inner = box.reduced (4.5f);
+            g.setColour ((isFill || isGhost) ? (isGhost ? dimmed (accent).brighter (0.15f) : accent)
+                                             : SuiteUI::Colours::panel);
+            g.fillRoundedRectangle (inner, 2.0f);
         }
     }
 

@@ -1,12 +1,17 @@
 {
   "_name": "Nervous Mutate",
   "_category": "Mutation",
-  "_description": "The pattern mutates every beat, lightly.",
+  "_description": "A 1/32 hat grid mutates every beat, lightly.",
   "_plugin": "GrooveMutator",
   "_pluginVersion": "1.0.0",
-  "sync": 0,
+  "sync": 1,
   "chaos": 70.0,
   "evolveRate": 0,
   "mutateScale": 40.0,
-  "seed": 97
+  "seed": 97,
+  "track3Steps": 32,
+  "track3Pulses": 17,
+  "track3Division": 0,
+  "track4Steps": 32,
+  "track4Pulses": 5
 }
