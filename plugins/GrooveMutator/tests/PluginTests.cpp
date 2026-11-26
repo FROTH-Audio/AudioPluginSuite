@@ -768,7 +768,9 @@ namespace
 
         // Populate the playhead, trail and LFO before capturing deterministic R9 renders.
         std::int64_t sample = 0;
-        run (processor, sample, 40, triggerOn());
+        const auto renderedEvents = run (processor, sample, 40, triggerOn());
+        assert (std::any_of (renderedEvents.begin(), renderedEvents.end(),
+                             [] (const Delivered& event) { return event.message.isNoteOn(); }));
         juce::MessageManager::getInstance()->runDispatchLoopUntil (50);
 
         // Every page paints content of its own, and each page renders identically twice

@@ -393,11 +393,13 @@ namespace
 
         DynamicSaturationProcessor processor;
         processor.prepareToPlay (sampleRate, blockSize);
+        PluginTest::processDeterministicStereoTone (processor, sampleRate, blockSize, 12);
 
         for (int page = 0; page < 2; ++page)
         {
             std::unique_ptr<juce::AudioProcessorEditor> editor (processor.createEditor());
             static_cast<DynamicSaturationEditor*> (editor.get())->setPage (page);
+            juce::MessageManager::getInstance()->runDispatchLoopUntil (100);
 
             const juce::File file (juce::File (folder).getChildFile (page == 0 ? "dynamicsaturation-sound.png" : "dynamicsaturation-mod.png"));
             assert (PluginTest::writeDeterministicPng (*editor, file));

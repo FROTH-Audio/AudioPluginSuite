@@ -1459,11 +1459,29 @@ namespace
         MicroTimingChaosProcessor processor;
         processor.prepareToPlay (sampleRate, blockSize);
 
+        juce::AudioBuffer<float> audio (2, blockSize);
+        bool sawNoteOn = false;
+        for (int block = 0; block < 192; ++block)
+        {
+            audio.clear();
+            juce::MidiBuffer midi;
+            processor.processBlock (audio, midi);
+            for (const auto event : midi)
+                sawNoteOn = sawNoteOn || event.getMessage().isNoteOn();
+        }
+        assert (sawNoteOn);
+
+        bool hasTrailPoint = false;
+        for (const auto point : processor.getTrail())
+            hasTrailPoint = hasTrailPoint || point.x != 0.0f || point.y != 0.0f;
+        assert (hasTrailPoint);
+
         for (int renderPage = 0; renderPage < 3; ++renderPage)
         {
             std::unique_ptr<juce::AudioProcessorEditor> editor (processor.createEditor());
             auto* mtcEditor = static_cast<MicroTimingChaosEditor*> (editor.get());
             mtcEditor->setPage (renderPage);
+            juce::MessageManager::getInstance()->runDispatchLoopUntil (100);
 
             // On the drift page both lerp views are rendered (plan 05 R9), each to its
             // own file, so the user manual can show both.

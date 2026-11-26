@@ -491,11 +491,14 @@ namespace
         juce::MemoryBlock before;
         processor.getStateInformation (before);
 
+        assert (editor->areInterestControlsVisible());
         editor->setPage (1);
         assert (editor->getPage() == 1);
+        assert (! editor->areInterestControlsVisible());
 
         editor->setPage (0);
         assert (editor->getPage() == 0);
+        assert (editor->areInterestControlsVisible());
 
         juce::MemoryBlock after;
         processor.getStateInformation (after);
@@ -605,11 +608,13 @@ namespace
 
         Processor processor;
         processor.prepareToPlay (sampleRate, blockSize);
+        PluginTest::processDeterministicStereoTone (processor, sampleRate, blockSize, 12);
 
         std::unique_ptr<juce::AudioProcessorEditor> editor (processor.createEditor());
         assert (editor != nullptr);
         auto* multibandEditor = dynamic_cast<MultibandSaturationEditor*> (editor.get());
         assert (multibandEditor != nullptr);
+        juce::MessageManager::getInstance()->runDispatchLoopUntil (100);
 
         const juce::File file (juce::File (folder).getChildFile ("multibandsaturation-default.png"));
         assert (PluginTest::writeDeterministicPng (*editor, file));

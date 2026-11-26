@@ -11,6 +11,7 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 
 #include <cmath>
+#include <cstdint>
 #include <cstdio>
 
 #include "SuiteWidgets.h"
@@ -241,5 +242,31 @@ namespace PluginTest
             const double t = (double) (firstSample + n) / sampleRate;
             buffer.addSample (channel, n, amplitude * (float) std::sin (2.0 * pi * hz * t));
         }
+    }
+
+    /** Feeds real, repeatable stereo audio and asserts the processor produces finite output. */
+    inline void processDeterministicStereoTone (juce::AudioProcessor& processor,
+                                                double sampleRate, int blockSize, int blocks)
+    {
+        juce::AudioBuffer<float> buffer (2, blockSize);
+        std::int64_t firstSample = 0;
+        bool producedSignal = false;
+
+        for (int block = 0; block < blocks; ++block)
+        {
+            buffer.clear();
+            addSine (buffer, 0, sampleRate, 220.0, 0.30f, firstSample);
+            addSine (buffer, 0, sampleRate, 997.0, 0.18f, firstSample);
+            addSine (buffer, 1, sampleRate, 330.0, 0.28f, firstSample);
+            addSine (buffer, 1, sampleRate, 1499.0, 0.16f, firstSample);
+
+            juce::MidiBuffer midi;
+            processor.processBlock (buffer, midi);
+            assert (allFinite (buffer));
+            producedSignal = producedSignal || peak (buffer) > 0.0f;
+            firstSample += blockSize;
+        }
+
+        assert (producedSignal);
     }
 }

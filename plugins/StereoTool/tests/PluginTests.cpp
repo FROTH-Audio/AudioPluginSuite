@@ -1257,11 +1257,13 @@ namespace
 
         Processor processor;
         processor.prepareToPlay (sampleRate, blockSize);
+        PluginTest::processDeterministicStereoTone (processor, sampleRate, blockSize, 12);
 
         std::unique_ptr<juce::AudioProcessorEditor> editor (processor.createEditor());
         assert (editor != nullptr);
         auto* stereoEditor = dynamic_cast<StereoToolEditor*> (editor.get());
         assert (stereoEditor != nullptr);
+        juce::MessageManager::getInstance()->runDispatchLoopUntil (100);
 
         const juce::File file (juce::File (folder).getChildFile ("stereotool-default.png"));
         assert (PluginTest::writeDeterministicPng (*editor, file));

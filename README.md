@@ -877,7 +877,7 @@ Key decisions:
 
 The build runs before the tests, since CTest needs the test executables to exist.
 
-[`release.yml`](.github/workflows/release.yml) is started by hand from the Actions tab (*Run workflow*). It asks for a version number and whether the release should be a draft. It builds and tests on both platforms, packages the plugins into one zip per platform, and creates a GitHub release tagged `v<version>`.
+[`release.yml`](.github/workflows/release.yml) is started by hand from the Actions tab (*Run workflow*). It asks for a version number and whether the release should be a draft. It builds and tests on both platforms, generates a PDF for each plugin manual, packages the plugins and PDFs (under `Manuals/`) into one zip per platform, and creates a GitHub release tagged `v<version>`.
 
 ### Coding conventions
 

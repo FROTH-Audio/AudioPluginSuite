@@ -1225,12 +1225,23 @@ namespace
             return;
         }
 
-        Processor processor;
-        processor.prepareToPlay (sampleRate, blockSize);
-
         {
+            Processor processor;
+            processor.prepareToPlay (sampleRate, blockSize);
+            juce::AudioBuffer<float> audio (2, blockSize);
+            audio.clear();
+            juce::MidiBuffer midi;
+            midi.addEvent (juce::MidiMessage::noteOn (1, 60, 0.9f), 0);
+            processor.processBlock (audio, midi);
+            assert (processor.getArpSnapshot().key.load() == 60);
+            bool sawChordTone = false;
+            for (const auto event : midi)
+                sawChordTone = sawChordTone || event.getMessage().isNoteOn();
+            assert (sawChordTone);
+
             std::unique_ptr<juce::AudioProcessorEditor> editor (processor.createEditor());
             assert (editor != nullptr);
+            juce::MessageManager::getInstance()->runDispatchLoopUntil (100);
             const juce::File file (juce::File (folder).getChildFile ("midieffect-default.png"));
             assert (PluginTest::writeDeterministicPng (*editor, file));
             processor.editorBeingDeleted (editor.get());
@@ -1238,9 +1249,27 @@ namespace
 
         // Arp mode render: both modes of the plugin get a manual screenshot (rule R9).
         {
+            Processor processor;
+            processor.prepareToPlay (sampleRate, blockSize);
             setParameter (processor.apvts, Processor::arpModeId, 1.0f);
+            juce::AudioBuffer<float> audio (2, blockSize);
+            bool sawArpNote = false;
+            for (int block = 0; block < 12; ++block)
+            {
+                audio.clear();
+                juce::MidiBuffer midi;
+                if (block == 0)
+                    midi.addEvent (juce::MidiMessage::noteOn (1, 60, 0.9f), 0);
+                processor.processBlock (audio, midi);
+                for (const auto event : midi)
+                    sawArpNote = sawArpNote || event.getMessage().isNoteOn();
+            }
+            assert (processor.getArpSnapshot().key.load() == 60);
+            assert (sawArpNote);
+
             std::unique_ptr<juce::AudioProcessorEditor> editor (processor.createEditor());
             assert (editor != nullptr);
+            juce::MessageManager::getInstance()->runDispatchLoopUntil (100);
             const juce::File file (juce::File (folder).getChildFile ("midieffect-arp.png"));
             assert (PluginTest::writeDeterministicPng (*editor, file));
             processor.editorBeingDeleted (editor.get());

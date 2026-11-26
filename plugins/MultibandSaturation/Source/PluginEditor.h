@@ -28,6 +28,11 @@ public:
     /** Switches between the sound controls (0) and the modulation page (1). The tests use it too. */
     void setPage (int page);
     int getPage() const noexcept { return currentPage; }
+    bool areInterestControlsVisible() const noexcept
+    {
+        return foldLowCtrl.isVisible() && foldHighCtrl.isVisible() && thermalCtrl.isVisible()
+            && mixLowCtrl.isVisible() && mixHighCtrl.isVisible();
+    }
 
     /** The layout's bands, for the tests (plan 12). Valid after resized() ran. */
     juce::Rectangle<int> visualRect() const noexcept { return visualBounds; }

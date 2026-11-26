@@ -727,6 +727,7 @@ void CyclicalEditor::resized()
     {
         // Plan 18 Phase 6: the MOD page — the shared panel fills the page.
         modulationGroupBounds = area;
+        mixGroupBounds = {};
         modulation.setBounds (area.withTrimmedTop (groupTitleHeight + 4).reduced (12, 6));
     }
     else

@@ -31,6 +31,7 @@ public:
     /** The page switch: 0..3 = SLOT 1..4, 4 = MOD (plan 18 Phase 6; tests use it too). */
     void setPage (int page);
     int getPage() const noexcept { return page; }
+    juce::Rectangle<int> mixGroupRect() const noexcept { return mixGroupBounds; }
 
     /** The plan 10 G1 affinity rule, checked disabled-not-invisible by the tests. */
     bool isSpeedEnabled (int slot) const { return cards[(size_t) slot]->speed.isEnabled(); }

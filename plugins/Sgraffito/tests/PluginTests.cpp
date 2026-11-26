@@ -17,6 +17,24 @@ namespace
 
     using Processor = SgraffitoProcessor;
 
+    void processRenderNote (Processor& processor)
+    {
+        juce::AudioBuffer<float> audio (2, blockSize);
+        audio.clear();
+        juce::MidiBuffer midi;
+        midi.addEvent (juce::MidiMessage::noteOn (1, 60, 0.9f), 0);
+        processor.processBlock (audio, midi);
+        assert (processor.getNumActiveVoices() > 0);
+        assert (peak (audio) > 0.0f);
+    }
+
+    void prepareForRender (Processor& processor)
+    {
+        processor.prepareToPlay (sampleRate, blockSize);
+        assert (processor.hasSample());
+        processRenderNote (processor);
+    }
+
     void testParameters()
     {
         Processor processor;
@@ -621,6 +639,7 @@ namespace
     void testStatusBarShowsHelp()
     {
         Processor processor;
+        prepareForRender (processor);
         std::unique_ptr<juce::AudioProcessorEditor> editor (processor.createEditorAndMakeActive());
         assert (editor != nullptr);
         auto* sgraffito = static_cast<SgraffitoEditor*> (editor.get());
@@ -678,6 +697,7 @@ namespace
     void testLoadButtonSitsTopRight()
     {
         Processor processor;
+        prepareForRender (processor);
         std::unique_ptr<juce::AudioProcessorEditor> editor (processor.createEditorAndMakeActive());
         assert (editor != nullptr);
         static_cast<SgraffitoEditor*> (editor.get())->setPage (0);
@@ -796,13 +816,14 @@ namespace
         }
 
         Processor processor;
-        processor.prepareToPlay (sampleRate, blockSize);
+        prepareForRender (processor);
 
         for (int renderPage = 0; renderPage < 3; ++renderPage)
         {
             std::unique_ptr<juce::AudioProcessorEditor> editor (processor.createEditor());
             assert (editor != nullptr);
             static_cast<SgraffitoEditor*> (editor.get())->setPage (renderPage);
+            juce::MessageManager::getInstance()->runDispatchLoopUntil (100);
 
             const juce::File file (juce::File (folder).getChildFile (
                 renderPage == 0 ? "sgraffito-sound.png"
@@ -816,10 +837,12 @@ namespace
         for (int mode = 0; mode < 4; ++mode)
         {
             setParameter (processor.apvts, Processor::modeId, (float) mode);
+            processRenderNote (processor);
 
             std::unique_ptr<juce::AudioProcessorEditor> editor (processor.createEditor());
             assert (editor != nullptr);
             static_cast<SgraffitoEditor*> (editor.get())->setPage (0);
+            juce::MessageManager::getInstance()->runDispatchLoopUntil (100);
 
             const juce::File file (juce::File (folder).getChildFile (
                 std::array<const char*, 4> { "sgraffito-mode-scrub.png", "sgraffito-mode-chop.png",

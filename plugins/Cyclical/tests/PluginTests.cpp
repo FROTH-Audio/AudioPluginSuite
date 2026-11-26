@@ -2038,14 +2038,31 @@ namespace
 
         Processor processor;
         processor.prepareToPlay (sampleRate, blockSize);
+        assert (processor.loopForUi (0) != nullptr);
+
+        juce::AudioBuffer<float> audio (2, blockSize);
+        auto triggerSlot = [&] (int note)
+        {
+            audio.clear();
+            juce::MidiBuffer midi;
+            midi.addEvent (juce::MidiMessage::noteOn (1, note, 0.9f), 0);
+            processor.processBlock (audio, midi);
+            assert (processor.slotIsActive (note - 60));
+            assert (peak (audio) > 0.0f);
+
+            for (int block = 0; block < 8; ++block)
+            {
+                audio.clear();
+                juce::MidiBuffer empty;
+                processor.processBlock (audio, empty);
+            }
+        };
+        triggerSlot (60);
 
         {
             std::unique_ptr<juce::AudioProcessorEditor> editor (processor.createEditorAndMakeActive());
             assert (editor != nullptr);
 
-            // One timer tick fills the waveform views (the 60 Hz refresh is what copies
-            // the loops into them). The two render passes then run without a tick between
-            // them, so the content is identical.
             juce::MessageManager::getInstance()->runDispatchLoopUntil (150);
 
             assert (PluginTest::writeDeterministicPng (*editor,
@@ -2054,11 +2071,15 @@ namespace
             if (auto* cyclicalEditor = dynamic_cast<CyclicalEditor*> (editor.get()))
             {
                 cyclicalEditor->setPage (1);
+                triggerSlot (61);
+                juce::MessageManager::getInstance()->runDispatchLoopUntil (100);
                 assert (PluginTest::writeDeterministicPng (*editor,
                             juce::File (folder).getChildFile ("cyclical-slot2.png")));
 
                 // Plan 18 Phase 6: the MOD page render (the shared panel in the plugin).
                 cyclicalEditor->setPage (CyclicalProcessor::numSlots);
+                assert (cyclicalEditor->mixGroupRect().isEmpty());
+                juce::MessageManager::getInstance()->runDispatchLoopUntil (100);
                 assert (PluginTest::writeDeterministicPng (*editor,
                             juce::File (folder).getChildFile ("cyclical-mod.png")));
                 cyclicalEditor->setPage (0);
@@ -2082,6 +2103,9 @@ namespace
             // The timer copies the missing flag into the views.
             juce::MessageManager::getInstance()->runDispatchLoopUntil (150);
 
+            auto* cyclicalEditor = dynamic_cast<CyclicalEditor*> (editor.get());
+            assert (cyclicalEditor != nullptr);
+            cyclicalEditor->setPage (1);
             assert (PluginTest::writeDeterministicPng (*editor,
                         juce::File (folder).getChildFile ("cyclical-slots-missing.png")));
             processor.editorBeingDeleted (editor.get());

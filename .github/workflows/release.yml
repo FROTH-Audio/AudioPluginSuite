@@ -64,6 +64,11 @@ jobs:
       - name: Audit factory bank
         run: python tools/audit_bank.py
 
+      - name: Generate plugin manual PDFs
+        run: |
+          python -m pip install -r tools/manuals/requirements-pdf.txt
+          python tools/manuals/build_pdfs.py --output-dir build/manual-pdfs
+
       - name: Package (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
@@ -79,6 +84,9 @@ jobs:
 
           $count = (Get-ChildItem $staging).Count
           if ($count -eq 0) { throw "No plugin artefacts found" }
+
+          New-Item -ItemType Directory -Force -Path "$staging\Manuals" | Out-Null
+          Copy-Item -Path "build/manual-pdfs/*.pdf" -Destination "$staging\Manuals"
 
           Compress-Archive -Path "$staging/*" -DestinationPath "AudioPluginSuite-${{ inputs.version }}-windows.zip"
 
@@ -98,6 +106,9 @@ jobs:
             echo "No plugin artefacts found" >&2
             exit 1
           fi
+
+          mkdir -p "$staging/Manuals"
+          cp build/manual-pdfs/*.pdf "$staging/Manuals/"
 
           (cd "$staging" && zip -r -q "../AudioPluginSuite-${{ inputs.version }}-macos.zip" .)
 
