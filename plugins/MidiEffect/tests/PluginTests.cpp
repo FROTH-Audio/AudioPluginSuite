@@ -752,27 +752,27 @@ namespace
 
         // Arp mode: live again.
         setParameter (processor.apvts, Processor::arpModeId, 1.0f);
-        juce::MessageManager::getInstance()->runDispatchLoopUntil (120);
-        assert (midiEditor->isArpRowEnabled());
+        assert (pumpMessageLoopUntil ([&] { return midiEditor->isArpRowEnabled(); }));
 
         // Plan 17 Phase 6: in Arp mode with Host Sync ON the Tempo is inert — it dims while
         // the Step Rate and the Sync switch stay live.
         setParameter (processor.apvts, Processor::hostSyncId, 1.0f);
-        juce::MessageManager::getInstance()->runDispatchLoopUntil (120);
-        assert (midiEditor->isArpRowEnabled());
-        assert (! midiEditor->isTempoEnabled());
+        assert (pumpMessageLoopUntil ([&]
+        {
+            return midiEditor->isArpRowEnabled() && ! midiEditor->isTempoEnabled();
+        }));
 
         // Sync off: the Tempo knob is live again.
         setParameter (processor.apvts, Processor::hostSyncId, 0.0f);
-        juce::MessageManager::getInstance()->runDispatchLoopUntil (120);
-        assert (midiEditor->isTempoEnabled());
+        assert (pumpMessageLoopUntil ([&] { return midiEditor->isTempoEnabled(); }));
 
         // In Chord mode everything arp-only stays dimmed, synced or not.
         setParameter (processor.apvts, Processor::arpModeId, 0.0f);
         setParameter (processor.apvts, Processor::hostSyncId, 1.0f);
-        juce::MessageManager::getInstance()->runDispatchLoopUntil (120);
-        assert (! midiEditor->isArpRowEnabled());
-        assert (! midiEditor->isTempoEnabled());
+        assert (pumpMessageLoopUntil ([&]
+        {
+            return ! midiEditor->isArpRowEnabled() && ! midiEditor->isTempoEnabled();
+        }));
 
         processor.editorBeingDeleted (editor.get());
         pass ("testModeAffinity");

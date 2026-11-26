@@ -1530,14 +1530,12 @@ namespace
 
         // Grain on: Speed dims but stays visible.
         setParameter (processor.apvts, Processor::slotGranularIds[0], 1.0f);
-        juce::MessageManager::getInstance()->runDispatchLoopUntil (50);   // a timer tick
-        assert (! cyclicalEditor->isSpeedEnabled (0));
+        assert (pumpMessageLoopUntil ([&] { return ! cyclicalEditor->isSpeedEnabled (0); }));
         assert (cyclicalEditor->isSpeedVisible (0));
 
         // Ping-Pong direction: Ping Rand enables.
         setParameter (processor.apvts, Processor::slotDirectionIds[0], 2.0f);
-        juce::MessageManager::getInstance()->runDispatchLoopUntil (50);
-        assert (cyclicalEditor->isPingRandomEnabled (0));
+        assert (pumpMessageLoopUntil ([&] { return cyclicalEditor->isPingRandomEnabled (0); }));
         assert (! cyclicalEditor->isSpeedEnabled (0));   // grain is still on
 
         // Every combination of Chop and Host Sync (plan 14: the three rules interact).
@@ -1545,36 +1543,43 @@ namespace
 
         setParameter (processor.apvts, Processor::slotSyncIds[0], 0.0f);
         setParameter (processor.apvts, Processor::slotChopIds[0], 0.0f);
-        juce::MessageManager::getInstance()->runDispatchLoopUntil (50);
-        assert (cyclicalEditor->isSpeedEnabled (0));
-        assert (cyclicalEditor->isBeatsEnabled (0));
-        assert (! cyclicalEditor->isSlicesEnabled (0));
-        assert (cyclicalEditor->isTempoEnabled (0));     // sync off: the slot's Tempo is live
+        assert (pumpMessageLoopUntil ([&]
+        {
+            return cyclicalEditor->isSpeedEnabled (0)
+                && cyclicalEditor->isBeatsEnabled (0)
+                && ! cyclicalEditor->isSlicesEnabled (0)
+                && cyclicalEditor->isTempoEnabled (0);
+        }));
 
         setParameter (processor.apvts, Processor::slotChopIds[0], 1.0f);
-        juce::MessageManager::getInstance()->runDispatchLoopUntil (50);
-        assert (cyclicalEditor->isSpeedEnabled (0));     // sync off: Speed stays live
-        assert (! cyclicalEditor->isBeatsEnabled (0));   // chopped: Beats dims
-        assert (cyclicalEditor->isSlicesEnabled (0));
-        assert (cyclicalEditor->isSliceLengthEnabled (0));
+        assert (pumpMessageLoopUntil ([&]
+        {
+            return cyclicalEditor->isSpeedEnabled (0)
+                && ! cyclicalEditor->isBeatsEnabled (0)
+                && cyclicalEditor->isSlicesEnabled (0)
+                && cyclicalEditor->isSliceLengthEnabled (0);
+        }));
 
         setParameter (processor.apvts, Processor::slotSyncIds[0], 1.0f);
-        juce::MessageManager::getInstance()->runDispatchLoopUntil (50);
+        assert (pumpMessageLoopUntil ([&] { return ! cyclicalEditor->isTempoEnabled (0); }));
         assert (cyclicalEditor->isSpeedEnabled (0));     // a chopped slot ignores sync
         assert (! cyclicalEditor->isBeatsEnabled (0));
         assert (! cyclicalEditor->isTempoEnabled (0));   // the beat clock still follows the host
 
         setParameter (processor.apvts, Processor::slotChopIds[0], 0.0f);
-        juce::MessageManager::getInstance()->runDispatchLoopUntil (50);
-        assert (! cyclicalEditor->isSpeedEnabled (0));   // unchopped + synced: Speed dims
-        assert (cyclicalEditor->isBeatsEnabled (0));
-        assert (! cyclicalEditor->isSlicesEnabled (0));
-        assert (! cyclicalEditor->isTempoEnabled (0));   // plan 17 Phase 6: the host's tempo is authoritative
+        assert (pumpMessageLoopUntil ([&]
+        {
+            return ! cyclicalEditor->isSpeedEnabled (0)
+                && cyclicalEditor->isBeatsEnabled (0)
+                && ! cyclicalEditor->isSlicesEnabled (0)
+                && ! cyclicalEditor->isTempoEnabled (0);
+        }));
 
         setParameter (processor.apvts, Processor::slotSyncIds[0], 0.0f);
-        juce::MessageManager::getInstance()->runDispatchLoopUntil (50);
-        assert (cyclicalEditor->isSpeedEnabled (0));
-        assert (cyclicalEditor->isTempoEnabled (0));
+        assert (pumpMessageLoopUntil ([&]
+        {
+            return cyclicalEditor->isSpeedEnabled (0) && cyclicalEditor->isTempoEnabled (0);
+        }));
 
         // The page switch: both pages show their own controls only.
         assert (cyclicalEditor->getPage() == 0);

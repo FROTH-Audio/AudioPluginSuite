@@ -1266,15 +1266,33 @@ void SgraffitoProcessor::loadEmbeddedSample (const juce::String& embeddedPath)
 
     const juce::String filePath = embeddedPath.substring (colonPos + 1);
 
-    // Binary data resource names keep only alphanumerics: "grain_4k.wav" becomes "grain_4k_wav".
-    juce::String resourceName;
-    for (const auto character : filePath)
-        resourceName += (juce::CharacterFunctions::isLetterOrDigit (character) ? character : '_');
+    const char* resourceName = nullptr;
+
+    for (int i = 0; i < BinaryData::namedResourceListSize; ++i)
+    {
+        const auto* candidate = BinaryData::namedResourceList[i];
+        const auto* originalFilename = BinaryData::getNamedResourceOriginalFilename (candidate);
+
+        if (originalFilename != nullptr && filePath == originalFilename)
+        {
+            resourceName = candidate;
+            break;
+        }
+    }
+
+    if (resourceName == nullptr)
+    {
+        juce::Logger::writeToLog ("Sgraffito: embedded sample resource not found: " + filePath);
+        return;
+    }
 
     int resourceSize = 0;
-    const char* resourceData = BinaryData::getNamedResource (resourceName.toRawUTF8(), resourceSize);
+    const char* resourceData = BinaryData::getNamedResource (resourceName, resourceSize);
     if (resourceData == nullptr || resourceSize <= 0)
+    {
+        juce::Logger::writeToLog ("Sgraffito: embedded sample resource is empty: " + filePath);
         return;
+    }
 
     juce::MemoryBlock memoryBlock (resourceData, (size_t) resourceSize);
 

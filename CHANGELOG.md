@@ -12,6 +12,7 @@ All notable changes to this project are documented here. The format follows
 - Added 20 append-only Groove Mutator factory presets across Electronic/Techno, Hip-Hop, Rock, Jazz/Funk and Latin/Afro-Cuban, including routed lane-target examples. The plugin now has 39 presets and the suite bank has 309.
 
 ### Fixed
+- Sgraffito now resolves embedded sample URIs against JUCE's original resource filenames instead of duplicating its identifier-sanitising rules, preserving default and preset sample loading across platforms. The MIDI Tool and Cyclical affinity tests now wait for the requested UI state rather than relying on fixed timer delays.
 - Plan 22 - the Groove Mutator owner findings round 2 (seven findings, all implemented and verified: 19/19 GrooveMutatorTests, the preset tests and `tools/audit_bank.py` green at 289):
   - **The brand lockup paints**: the header draws the embedded `lockup_groovemutator.png` through `SuiteUI::drawBrandLockup` (it painted plain text before), and the About dialog receives the same artwork. The stale CMake comment above the live `LOCKUP` line is gone.
   - **The step grid fills its column**: the strip was 480 px wide inside an 840 px row, leaving a 335 px dead gutter; it is now about 788 px (25 px cells) between the note-name label and the five control cells, and the shared ruler is inset to the strips, so its ticks sit over the cells. The note-name label is 42 px wide, so `F#2`/`A#2`/`D#2` read in full.

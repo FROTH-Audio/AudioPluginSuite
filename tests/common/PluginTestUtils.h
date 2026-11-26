@@ -79,6 +79,18 @@ namespace PluginTest
         parameter->setValueNotifyingHost (parameter->convertTo0to1 (value));
     }
 
+    template <typename Predicate>
+    inline bool pumpMessageLoopUntil (Predicate&& predicate, int timeoutMilliseconds = 1000)
+    {
+        const auto deadline = juce::Time::getMillisecondCounterHiRes() + timeoutMilliseconds;
+        auto* messageManager = juce::MessageManager::getInstance();
+
+        while (! predicate() && juce::Time::getMillisecondCounterHiRes() < deadline)
+            messageManager->runDispatchLoopUntil (10);
+
+        return predicate();
+    }
+
     /** Reads a parameter's current denormalised value. */
     inline float getParameter (juce::AudioProcessorValueTreeState& apvts, const char* id)
     {
