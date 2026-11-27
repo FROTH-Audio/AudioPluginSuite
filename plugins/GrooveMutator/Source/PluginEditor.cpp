@@ -16,20 +16,29 @@ namespace
     constexpr int groupTitleHeight = SuiteUI::groupTitleHeight;
     constexpr int rulerHeight = 14;
     constexpr int rowGap = 6;
-    constexpr int knobDiameter = SuiteUI::knobDiameter * 0.7f;
-    constexpr int knobRowHeight = 92 * 0.7f + 12;  // caption + knob + value, 30% smaller knobs
+    // GRID lane rows and the MUTATE groups share this cell height. It sizes cells only —
+    // the drawn knob diameter follows the cell height (LabelledSlider::resized), so a
+    // 76 px cell renders a ≈34 px knob (plan-21 C2; the old 0.7× "knobDiameter" constant
+    // sized nothing and is gone).
+    constexpr int knobRowHeight = 92 * 0.7f + 12;
+    // Plan 24 §4.3: the LANES page's own (taller) knob row — the owner's "LANES knobs
+    // larger" permission. 92 px is the pre-0.7 suite cell; 92 − 18 caption ≥ 64 px slider
+    // bounds, so these knobs render at the full suite 40 px.
+    constexpr int lanesKnobRowHeight = 92;
     // The note dropdown and ruler share the same left inset; velocity and level live below.
     constexpr int laneNameWidth = 82;
     constexpr int laneNameGap = 8;
     constexpr int gridControlWidth = 64 + 52;   // division and on
     constexpr int laneViewInset = 6;                           // LaneView::paint's x reduction
-    // Plan 22, Finding 6: the LANES page's pattern selector cell (caption + pill + padding).
-    constexpr int selectorCellHeight = SuiteUI::captionHeight + SuiteUI::pillHeight + 8;
     // The trailing 8 covers reduced()'s top-and-bottom pair, so a group's inner height is
     // exactly the sum of its rows (the plan-20 rule: a mismatch cuts the last row off).
     constexpr int gridGroupHeight = groupTitleHeight + 4 + rulerHeight + 8
                                   + 8 * knobRowHeight + 7 * rowGap + 8;
-    constexpr int laneControlGroupHeight = groupTitleHeight + 4 + knobRowHeight + 8;
+    // Plan 24 §4.2: three knob rows (VELOCITY+LEVEL, then PATTERN, then STEPS) + gaps.
+    // The three-row revision is confirmed by render: the three-segment PATTERN selector
+    // is illegible when it shares a row with a knob at this 131 px group width.
+    constexpr int laneControlGroupHeight = groupTitleHeight + 4 + 3 * knobRowHeight
+                                         + 2 * rowGap + 8;
     constexpr int editorHeight = margin * 2 + headerHeight + groupGap + gridGroupHeight
                                + groupGap + laneControlGroupHeight + groupGap + footerHeight;
     constexpr int trailHeight = 260;
@@ -55,6 +64,14 @@ GrooveMutatorEditor::LaneCard::LaneCard (GrooveMutatorProcessor& p, int trackInd
     name.setFont (SuiteUI::uiFont (13.0f, true));
     name.setColour (juce::Label::textColourId, SuiteUI::Colours::textDim);
     name.setInterceptsMouseClicks (false, false);
+
+    // GRID: "LANE n" caption above the ON toggle, so each step-grid row is tied to its
+    // titled lane-control group without switching pages. LANES uses card.name instead.
+    laneNameLabel.setText ("LANE " + juce::String (track + 1), juce::dontSendNotification);
+    laneNameLabel.setJustificationType (juce::Justification::centred);
+    laneNameLabel.setFont (SuiteUI::uiFont (11.0f, true));
+    laneNameLabel.setColour (juce::Label::textColourId, SuiteUI::Colours::textDim);
+    laneNameLabel.setInterceptsMouseClicks (false, false);
 
     divisionCtrl.setOptions ({ "1/32", "1/16T", "1/16", "1/8T", "1/8", "1/4", "1/2", "1 Bar" });
     patternCtrl.setOptions ({ "Euclid", "Hash", "Steps" });
@@ -121,6 +138,7 @@ GrooveMutatorEditor::GrooveMutatorEditor (GrooveMutatorProcessor& p)
         auto& card = *lanes[(size_t) track];
         addAndMakeVisible (card.view);
         addAndMakeVisible (card.name);
+        addAndMakeVisible (card.laneNameLabel);
         addAndMakeVisible (card.noteDropdown);
         addAndMakeVisible (card.velCtrl);
         addAndMakeVisible (card.levelCtrl);
@@ -306,14 +324,15 @@ void GrooveMutatorEditor::setPage (int newPage)
     {
         card->view.setVisible (currentPage == 0);
         card->name.setVisible (currentPage == 1);
+        card->laneNameLabel.setVisible (currentPage == 0);
         card->noteDropdown.setVisible (currentPage == 0);
         card->velCtrl.setVisible (currentPage == 0);
         card->levelCtrl.setVisible (currentPage == 0);
         card->onToggle.setVisible (currentPage == 0);
         card->divisionCtrl.setVisible (currentPage == 0);
 
-        card->patternCtrl.setVisible (currentPage == 1);
-        card->stepsCtrl.setVisible (currentPage == 1);
+        card->patternCtrl.setVisible (currentPage == 0);
+        card->stepsCtrl.setVisible (currentPage == 0);
         card->pulsesCtrl.setVisible (currentPage == 1);
         card->rotationCtrl.setVisible (currentPage == 1);
         card->accentCtrl.setVisible (currentPage == 1);
@@ -447,7 +466,9 @@ void GrooveMutatorEditor::resized()
             // From the right: division and on; the strip gets the rest.
             auto cell = row.removeFromRight (64).reduced (3);  // smaller cells
             card.divisionCtrl.setBounds (cell);
-            cell = row.removeFromRight (52).reduced (3);  // toggle
+            cell = row.removeFromRight (52).reduced (3);  // toggle cell
+            // Phase 24.1: "LANE n" caption above the ON toggle (Option A).
+            card.laneNameLabel.setBounds (cell.removeFromTop (SuiteUI::captionHeight));
             card.onToggle.setBounds (cell.withSizeKeepingCentre (cell.getWidth(), SuiteUI::pillHeight));
 
             card.noteDropdown.setBounds (row.removeFromLeft (laneNameWidth).reduced (2, 0));
@@ -469,10 +490,20 @@ void GrooveMutatorEditor::resized()
             auto controlsArea = laneBounds[(size_t) track]
                                     .withTrimmedTop (groupTitleHeight + 4)
                                     .reduced (4, 4);
-            auto row = controlsArea.removeFromTop (knobRowHeight);
-            const int controlWidth = row.getWidth() / 2;
-            card.velCtrl.setBounds (row.removeFromLeft (controlWidth).reduced (2, 0));
-            card.levelCtrl.setBounds (row.reduced (2, 0));
+            auto row1 = controlsArea.removeFromTop (knobRowHeight);
+            const int controlWidth = row1.getWidth() / 2;
+            card.velCtrl.setBounds (row1.removeFromLeft (controlWidth).reduced (2, 0));
+            card.levelCtrl.setBounds (row1.reduced (2, 0));
+
+            // Phase 24.2: PATTERN and STEPS now live on the GRID lane-control group, one
+            // per row (the plan's Option A — sharing a row with a knob — truncates the
+            // three-segment selector to illegibility at this 131 px group width, confirmed
+            // by the first render; Option B's extra height fits: window 1102 < 1200).
+            controlsArea.removeFromTop (rowGap);
+            card.patternCtrl.setBounds (controlsArea.removeFromTop (knobRowHeight).reduced (2, 0));
+
+            controlsArea.removeFromTop (rowGap);
+            card.stepsCtrl.setBounds (controlsArea.removeFromTop (knobRowHeight));
 
             if (track < GrooveMutatorProcessor::numTracks - 1)
                 area.removeFromLeft (groupGap);
@@ -481,9 +512,11 @@ void GrooveMutatorEditor::resized()
     else if (currentPage == 1)
     {
         // Plan 22, Finding 6: eight columns, one framed card per lane. Every card is the
-        // page's full height: the label band, the pattern selector, then the six knobs
-        // evenly spread down the column (a channel strip). The cards stop above the
-        // footer band, exactly where the GRID group ends on page 0.
+        // page's full height: the label band, then the five articulation knobs evenly
+        // spread down the column (a channel strip). PATTERN and STEPS moved to the GRID
+        // lane-control group (plan 24), so the rows use the taller lanesKnobRowHeight.
+        // The cards stop above the footer band, exactly where the GRID group ends on
+        // page 0.
         area.removeFromBottom (footerHeight);
         constexpr int numLanes = GrooveMutatorProcessor::numTracks;
         const int cardWidth = (area.getWidth() - (numLanes - 1) * groupGap) / numLanes;
@@ -502,21 +535,19 @@ void GrooveMutatorEditor::resized()
             auto inner = cardArea.withTrimmedTop (groupTitleHeight + 4).reduced (4, 0)
                                  .withTrimmedBottom (8);
 
-            card.patternCtrl.setBounds (inner.removeFromTop (selectorCellHeight).reduced (2, 0));
-
-            // Six knobs, one per row, with the spare height shared between the rows.
-            constexpr int rows = 6;
-            const int spare = inner.getHeight() - rows * knobRowHeight;
+            // Five knobs, one per row, with the spare height shared between the rows.
+            constexpr int rows = 5;
+            const int spare = inner.getHeight() - rows * lanesKnobRowHeight;
             const int gap = juce::jmax (rowGap, spare / rows);
             inner.removeFromTop (gap);
 
             SuiteUI::LabelledSlider* knobRows[rows] =
-                { &card.stepsCtrl, &card.pulsesCtrl, &card.rotationCtrl,
+                { &card.pulsesCtrl, &card.rotationCtrl,
                   &card.accentCtrl, &card.flamCtrl, &card.ghostCtrl };
 
             for (int row = 0; row < rows; ++row)
             {
-                knobRows[row]->setBounds (inner.removeFromTop (knobRowHeight));
+                knobRows[row]->setBounds (inner.removeFromTop (lanesKnobRowHeight));
 
                 if (row < rows - 1)
                     inner.removeFromTop (gap);

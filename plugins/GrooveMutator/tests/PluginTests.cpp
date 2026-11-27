@@ -780,7 +780,12 @@ namespace
         {
             gm.setPage (page);
             for (int track = 0; track < Processor::numTracks; ++track)
+            {
                 assert (gm.isNoteDropdownVisible (track) == (page == 0));
+                // Plan 24: PATTERN and STEPS live on the GRID lane-control group.
+                assert (gm.isPatternVisible (track) == (page == 0));
+                assert (gm.isStepsVisible (track) == (page == 0));
+            }
             const auto first = paintComponent (gm);
             const auto second = paintComponent (gm);
             assert (countChangedPixels (const_cast<juce::Image&> (first),

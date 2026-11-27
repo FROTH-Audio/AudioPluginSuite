@@ -38,6 +38,8 @@ public:
     bool isPulsesEnabled (int track) const noexcept { return lanes[(size_t) track]->pulsesCtrl.isEnabled(); }
     bool isRotationEnabled (int track) const noexcept { return lanes[(size_t) track]->rotationCtrl.isEnabled(); }
     bool isNoteDropdownVisible (int track) const noexcept { return lanes[(size_t) track]->noteDropdown.isVisible(); }
+    bool isPatternVisible (int track) const noexcept { return lanes[(size_t) track]->patternCtrl.isVisible(); }
+    bool isStepsVisible (int track) const noexcept { return lanes[(size_t) track]->stepsCtrl.isVisible(); }
     bool isTempoEnabled() const noexcept { return tempoCtrl.isEnabled(); }
 
 private:
@@ -63,8 +65,9 @@ private:
     SuiteUI::HelpTracker helpTracker;
     SuiteUI::HelpLine helpLine;
 
-    /** One lane's widgets: the GRID strip (dots, note, on, division) and
-        the LANES knobs (pattern, steps, pulses, rotation, accent, flam, ghost). The editor
+    /** One lane's widgets: the GRID strip (lane name, dots, note, on, division) and
+        the LANES knobs (pulses, rotation, accent, flam, ghost). PATTERN and STEPS now live
+        on the GRID lane-control group (below the step grid), one row per lane. The editor
         lays the members out per page; the attachments ride with the widgets. */
     struct LaneCard
     {
@@ -77,6 +80,7 @@ private:
         SuiteUI::LabelledSlider velCtrl { "VELOCITY", juce::Slider::RotaryVerticalDrag };
         SuiteUI::LabelledSlider levelCtrl { "LEVEL", juce::Slider::RotaryVerticalDrag };
         juce::ToggleButton onToggle { "ON" };
+        juce::Label laneNameLabel;
         SuiteUI::LabelledDropdown divisionCtrl { "DIVISION" };
 
         SuiteUI::LabelledSelector patternCtrl { "PATTERN", juce::Colour (0xffdcf014) };

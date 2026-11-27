@@ -46,7 +46,7 @@ Nine audio plugins written with JUCE 9.0.5 in C++17. Formats: VST3 on Windows an
 - **Editor** (Phase 5, Sgraffito): 880×700 px window, SOUND/TEXTURE/MOD pages, 60 Hz timer, slate accent colour `#9aa0a6`.
 - **Modulation** (Phase 5): `SuiteModulation::Router` shared with other plugins, 2 LFOs, 6 routing slots (source/target/amount/delay). All parameters automatable, savable, restorable.
 - **Presets**: 309 factory presets (46 SD / 46 DS / 38 MTC / 30 Sgraffito / 15 MidiEffect / 35 StereoTool / 35 Multiband / 25 Cyclical / 39 GrooveMutator; GrooveMutator's 20 additions cover five genres) behind the `SUITE_PRESET_BANK` flag (full bank accepted by owner decision, 2026-11-12; five Sgraffito presets added by plan 05.3 F1.3; the two first-pass plugins joined in plan 6.1, then Cyclical, then Multiband Saturation in plan 11). Bank + programs (`SUITE_PRESET_BANK_AS_PROGRAMS`) maps Init=program 0, factory presets=programs 1..N.
-- **Test results**: 31/31 CTest entries pass with the factory bank on (last full run 2026-11-25, after the Groove Mutator DAW findings; the default build is 22, the bank build adds nine preset-test executables).
+- **Test results**: 31/31 CTest entries pass with the factory bank on (last full run 2026-11-28, after the Groove Mutator plan-24 layout round; the default build is 22, the bank build adds nine preset-test executables).
 
 ---
 
@@ -140,7 +140,7 @@ $CM = "C:\Program Files\Microsoft Visual Studio\18\Community\Common7\IDE\CommonE
 - Build records for the pre-refactor baseline are in `build/baselines/phase0-pre-refactor/`, and the converted tree in `build/baselines/phase1-after-suite_add_plugin/`. They are generated and not committed (`build/` is ignored). To regenerate: `git archive 0d21400` into `build/baselines/src`, configure that tree with `-DFETCHCONTENT_SOURCE_DIR_JUCE=<repo>/build/_deps/juce-src` so JUCE is not fetched again, build Release, then save `Defs.txt`, `Info.txt`, `<Name>_resources.rc`, the VST3 file list and the source lists from each `.vcxproj`.
 - Asset embedding: `juce_add_binary_data(MicroTimingChaosAssets ...)` builds a `BinaryData` target that the plugin and its test executable link. Add new icons or textures to its `SOURCES` list, then reference them by the generated name (`file_name_with_underscores`, for example `bpm_sync_active_svg`).
 
-Last verified status (2026-11-25, after the Groove Mutator DAW findings): JUCE 9.0.5. Clean Windows Release build: 0 errors, 52 pre-existing C4996 deprecation warnings from the shared modulation router's `AudioParameterFloat` constructor. Full CTest: 31/31 with the factory bank on; 22 default; `tools/audit_bank.py` passes with 309 presets.
+Last verified status (2026-11-28, after the Groove Mutator plan-24 layout round): JUCE 9.0.5. Clean Windows Release build: 0 errors, 52 pre-existing C4996 deprecation warnings from the shared modulation router's `AudioParameterFloat` constructor. Full CTest: 31/31 with the factory bank on; 22 default; `tools/audit_bank.py` passes with 309 presets.
 
 - Default build (`SUITE_PRESET_BANK=OFF`): 22 entries - CoreDSPTests, SuiteState_Tests, SuiteModulation_Tests, SuiteUI_Tests, SuiteSettingsTests, the nine plugin test executables, and the eight VST3 host-load tests.
 - Bank build (`SUITE_PRESET_BANK=ON`): **31** entries - the 22 public entries (the nine plugin test executables among them) plus **nine** factory-preset test executables (`SpectralDrift_PresetTests`, `DynamicSaturation_PresetTests`, `MicroTimingChaos_PresetTests`, `Sgraffito_PresetTests`, `MidiEffect_PresetTests`, `StereoTool_PresetTests`, `MultibandSaturation_PresetTests`, `Cyclical_PresetTests`, `GrooveMutatorPresetTests`). `suite_add_plugin` skips a plugin's preset-test target until `<Name>PresetTests.cpp` exists.
@@ -546,11 +546,16 @@ Every target is consumed by the scheduler and shown in the live control display.
 divisions, notes, pattern kinds, Steps/Pulses/Rotation (structural).
 
 Latency reported: fixed 50 ms (2400 samples at 48 kHz; the MTC budget). Tail length: 0.
-The window is 1200×938 (derived from the layout constants: eight compact GRID rows plus the
-new lane-mix row, with the shared ruler; R4). Plan 22 (owner findings round 2): the GRID strip fills its column, the shared ruler
-aligns to the strips, and every step is a rounded box. The LANES page is eight columns, one
-framed card per lane, with the note name in the title band and the pattern selector plus six
-pattern/articulation knobs. The header paints the embedded brand lockup. The painted Steps
+The window is 1200×1102 (derived from the layout constants: eight compact GRID rows with the
+shared ruler, plus the lane-mix group's three knob rows; R4). Plan 22 (owner findings round
+2): the GRID strip fills its column, the shared ruler aligns to the strips, and every step is
+a rounded box. Plan 24 (owner findings round 3): each GRID row carries a "LANE n" caption
+above the ON toggle, and the PATTERN selector and STEPS knob moved from LANES to the GRID
+lane-control group (three knob rows per lane: Velocity+Level, Pattern, Steps — the selector
+needs the full group width; sharing a row with a knob truncates it to illegibility). The
+LANES page is eight columns, one framed card per lane, with the note name in the title band
+and the five articulation knobs (Pulses, Rotation, Accent, Flam, Ghost) in taller 92 px rows
+— the full suite 40 px knob. The header paints the embedded brand lockup. The painted Steps
 masks ride as the `stepsMasks` state property (8 hex tokens; the lerpCurve pattern), re-derived
 through the lane signature like any pattern-defining value.
 
@@ -822,6 +827,11 @@ Mouse events in tests use the 15-argument `juce::MouseEvent` constructor, which 
 - **The LANES page is eight columns** (Finding 6): one `drawGroupFrame` card per lane, titled "LANE n" with the note name in the title band (the timer's name rewrite needs a separate widget), then the pattern selector and the six pattern/articulation knobs spread down the column. The old 2-column PATTERN + ARTICULATION groups (whose rows did not share a grid) are gone.
 - **FREEZE sits with the knobs** (Finding 7): the pill shares the knobs' 64 px cell and sits beside SEED, and a `captionHeight` top trim puts it on the knob band's centre line instead of floating at the far right.
 - **`tools/build_bank.py` writes LF** (`newline="\n"`): the generator used to rewrite the bank with CRLF on Windows, which made `git status` report every unchanged preset as modified (the `.gitattributes` `* text=auto eol=lf` rule). The content was always identical; the checkout noise is gone.
+
+**Plan 24 decisions (Groove Mutator owner findings round 3, 2026-11-28):**
+- **"LANE n" above the ON toggle** (Finding 1): each GRID step row gains a static `laneNameLabel` caption (`captionHeight` band carved off the toggle's cell top) tying the row to its already-titled lane-control group below. It is a separate widget from LANES's note-name `name` label, whose timer rewrite it must not inherit.
+- **PATTERN and STEPS moved to GRID** (Finding 2): the GRID lane-control group is three knob rows (Velocity+Level, then Pattern, then Steps); LANES keeps the five articulation knobs. The plan's two-row variant (selector + knob sharing a row) was refuted by the first render — a three-segment selector is illegible in a 64 px cell — so the plan's Option B applies. Window 938 → 1102 (inside the 1200 resize limit).
+- **Knob sizing (the plan-21 C2 resolution):** the unused local `knobDiameter` constant is deleted (it sized nothing — the drawn diameter follows the cell height). GRID keeps its 76 px cells (≈34 px knobs); LANES uses a new `lanesKnobRowHeight` (92 px) whose knobs render at the full suite 40 px — the owner's "GRID smaller / LANES larger" permission. Strict R1 conformance (all knobs 40 px) was not chosen; GRID rows and MUTATE groups are byte-identical to plan 22's renders.
 
 ---
 

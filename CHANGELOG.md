@@ -7,6 +7,9 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Changed
+- Plan 24 - the Groove Mutator owner findings round 3, implemented and verified (21/21 GrooveMutatorTests):
+  - **"LANE n" above the ON toggle on GRID**: each step row now names its lane right above the on/off control, so a row is tied to its lane-mix column below without switching pages.
+  - **PATTERN and STEPS moved to GRID**: the lane-mix columns below the step grid hold three knob rows per lane (Velocity + Level, then Pattern, then Steps); the LANES page keeps the five articulation knobs (Pulses, Rotation, Accent, Flam, Ghost) in taller 92 px rows, rendering at the full suite 40 px knob (the owner's "GRID smaller / LANES larger" permission; the GRID rows keep their compact cells). The window is 1200×1102.
 - Manual screenshots and R9 editor renders now use deterministic processor input for signal-driven views; release archives include a generated PDF for each plugin manual.
 - Groove Mutator's GRID now has a note dropdown for each lane and a lower row of eight Velocity/Level columns; MUTATE absorbs the former GROOVE page's feel and clock controls. The MOD preview uses royal blue (`#4169E1`) while the rest of the editor keeps its lemon accent.
 - Groove Mutator modulation is now consumed by the scheduler for all 46 targets: six master controls plus Velocity, Level, Accent, Flam and Ghost for each lane. The shared router's capacity now fits those targets plus the `None` choice; the editor displays routed values, and processor tests assert that each new lane-target family changes delivered MIDI.
