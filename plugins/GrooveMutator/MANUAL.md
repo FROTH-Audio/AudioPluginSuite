@@ -23,31 +23,35 @@ the MOD page uses a royal-blue LFO preview accent.
 The musical view: eight lane rows over a shared step ruler, with eight compact lane-mix
 columns below them. Each row carries the lane's pattern strip (the LaneView), note selector,
 division and on/off control, with the lane's name (**LANE 1** … **LANE 8**) directly above
-the on/off control, so every row is tied to its column below without switching pages:
+the on/off control and the lane's note right of the column's title, so every row is tied to
+its column below without switching pages:
 
 | Control | Range | What it does |
 |---|---|---|
 | **Pattern strip** | — | The lane's pattern. A filled box is a hit, a brighter box an accent, a ring a ghost, a hollow box a fill addition (audible, but not one of your painted steps) and a hole in the box a flam — the same hash rules the scheduler uses. Off steps are a faint box and cells beyond the lane's Steps a dimmer one, so the pattern and its length read at a glance. The playhead column marks the step the lane is on. In **Steps** mode the strip answers draw mode: click a cell to paint or erase that step (the painted pattern travels with the session). Steps lanes are the authoring mode — Chaos never moves a painted pattern, so the strip always matches what plays. In Euclid and Hash modes the strip shows the live, mutated pattern and is read-only. |
-| **Note** | 24 – 96 | The dropdown selects the GM note the lane sends (shown as a note name). Defaults walk the drum map: kick, snare, closed/open hat, low/mid tom, clap, claves. |
+| **Note** | 24 – 96 | The dropdown selects the GM note the lane sends (shown as a note name). Defaults walk the drum map: kick, snare, closed/open hat, low/mid tom, clap, claves. The selected note is also shown right of the matching column's title below the strips. |
 | **On** | on / off | The lane plays while it is on. Tracks 1–4 are on by default. The lane's name sits right above it. |
 | **Division** | 1/32 … 1 Bar | The lane's own step length, scaled by the master Polyrhythm. |
 | **Velocity** | 30 – 150 % | The lane's velocity share, in the matching column below the strips. A modulation target (one per lane). |
 | **Level** | −24 – +12 dB | The lane's level stage, beside Velocity below the strips. A modulation target (one per lane). |
 | **Pattern** | Euclid / Hash / Steps | The lane's pattern kind, in the matching column below the strips. Euclid spreads the Pulses evenly over the Steps (with Rotation); Hash uses the seeded pattern (Pulses read as density); Steps plays the painted mask. |
 | **Steps** | 1 – 32 | The pattern length, beside Pattern. Re-derives the lane's mask. |
+| **Pulses** | 0 – 32 | The hit count, beside Steps. Dimmed for Steps lanes. |
 
 ## Page: LANES
 
 <img src="../../docs/manuals/groovemutator-lanes.png" alt="LANES page" width="800">
 
 One framed column per lane, titled **LANE 1** to **LANE 8** with the lane's note name in the
-title band. Each column holds the lane's five articulation knobs (the pattern selector and
-the Steps length moved to the GRID page's lane columns), so a lane's articulation is read
-top to bottom in one place:
+title band. Above the columns a compact, read-only **STEP GRID** preview shows all eight
+lanes' patterns at once, each strip named **LANE 1** … **LANE 8** at its left (the same
+painter as the GRID strips — boxes, fills, ghosts, flams and the playhead — but it answers
+no mouse; painting happens on GRID). Each column holds the
+lane's four articulation knobs (the pattern selector, Steps and Pulses moved to the GRID
+page's lane columns):
 
 | Control | Range | What it does |
 |---|---|---|
-| **Pulses** | 0 – 32 | The hit count. Dimmed for Steps lanes. |
 | **Rotation** | 0 – 32 | Shifts the Euclid pattern around the grid. Dimmed for Hash and Steps lanes (the maths ignores it there). |
 | **Accent** | 0 – 100 % | The share of accent hits (× 1.3 velocity). |
 | **Flam** | 0 – 100 % | The share of flammed hits: a second, quieter hit 6–12 ms later, deterministic from the seed. |

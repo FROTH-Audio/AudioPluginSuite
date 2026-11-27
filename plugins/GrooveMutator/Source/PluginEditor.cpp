@@ -25,6 +25,18 @@ namespace
     // larger" permission. 92 px is the pre-0.7 suite cell; 92 − 18 caption ≥ 64 px slider
     // bounds, so these knobs render at the full suite 40 px.
     constexpr int lanesKnobRowHeight = 92;
+    // Findings round 4: the PATTERN selector hugs the bottom of its row (caption directly
+    // on the pill, the spare height above the caption).
+    constexpr int patternCellHeight = SuiteUI::captionHeight + SuiteUI::pillHeight;
+    // Findings round 4, finding 2: the LANES page's read-only STEP GRID preview — eight
+    // miniature LaneViews in a framed group above the lane cards.
+    constexpr int previewStripHeight = 28;
+    constexpr int previewRowGap = 4;
+    // Each strip's "LANE n" label, left of it (the owner's follow-up).
+    constexpr int previewNameWidth = 50;
+    constexpr int previewNameGap = 8;
+    constexpr int previewGroupHeight = groupTitleHeight + 4
+                                     + 8 * previewStripHeight + 7 * previewRowGap + 8;
     // The note dropdown and ruler share the same left inset; velocity and level live below.
     constexpr int laneNameWidth = 82;
     constexpr int laneNameGap = 8;
@@ -127,6 +139,23 @@ GrooveMutatorEditor::GrooveMutatorEditor (GrooveMutatorProcessor& p)
     // The eight lane cards before setSize() as well: the first resized() walks them.
     for (int track = 0; track < GrooveMutatorProcessor::numTracks; ++track)
         lanes[(size_t) track] = std::make_unique<LaneCard> (processor, track, juce::Colour (0xffdcf014));
+
+    // The LANES page's preview strips before setSize() too (they are laid out on page 1).
+    for (int track = 0; track < GrooveMutatorProcessor::numTracks; ++track)
+    {
+        gridPreviews[(size_t) track] = std::make_unique<LaneView> (processor, track,
+                                                                   juce::Colour (0xffdcf014), true);
+        addAndMakeVisible (*gridPreviews[(size_t) track]);
+
+        // The strip's lane name (the owner's follow-up to the preview).
+        auto& previewName = previewNames[(size_t) track];
+        previewName.setText ("LANE " + juce::String (track + 1), juce::dontSendNotification);
+        previewName.setJustificationType (juce::Justification::centredRight);
+        previewName.setFont (SuiteUI::uiFont (11.0f, true));
+        previewName.setColour (juce::Label::textColourId, SuiteUI::Colours::textDim);
+        previewName.setInterceptsMouseClicks (false, false);
+        addAndMakeVisible (previewName);
+    }
 
     setSize (editorWidth, editorHeight);
     setResizable (true, true);
@@ -323,7 +352,9 @@ void GrooveMutatorEditor::setPage (int newPage)
     for (auto& card : lanes)
     {
         card->view.setVisible (currentPage == 0);
-        card->name.setVisible (currentPage == 1);
+        // Finding 4: the note name rides right of the "LANE n" caption on both the GRID
+        // lane-mix groups and the LANES title bands (the timer keeps it in step).
+        card->name.setVisible (currentPage == 0 || currentPage == 1);
         card->laneNameLabel.setVisible (currentPage == 0);
         card->noteDropdown.setVisible (currentPage == 0);
         card->velCtrl.setVisible (currentPage == 0);
@@ -333,12 +364,17 @@ void GrooveMutatorEditor::setPage (int newPage)
 
         card->patternCtrl.setVisible (currentPage == 0);
         card->stepsCtrl.setVisible (currentPage == 0);
-        card->pulsesCtrl.setVisible (currentPage == 1);
+        card->pulsesCtrl.setVisible (currentPage == 0);
         card->rotationCtrl.setVisible (currentPage == 1);
         card->accentCtrl.setVisible (currentPage == 1);
         card->flamCtrl.setVisible (currentPage == 1);
         card->ghostCtrl.setVisible (currentPage == 1);
     }
+
+    for (auto& preview : gridPreviews)
+        preview->setVisible (currentPage == 1);
+    for (auto& previewName : previewNames)
+        previewName.setVisible (currentPage == 1);
 
     trailPlot.setVisible (currentPage == 2);
     chaosCtrl.setVisible (currentPage == 2);
@@ -387,8 +423,11 @@ void GrooveMutatorEditor::paint (juce::Graphics& g)
     }
     else if (currentPage == 1)
     {
+        // The read-only STEP GRID preview above the lane cards (findings round 4).
+        SuiteUI::drawGroupFrame (g, previewBounds, "STEP GRID", lookAndFeel.getAccent());
+
         // One framed column per lane (plan 22, Finding 6): eight channel strips, each with
-        // the lane label and note name, the pattern selector and the six knobs.
+        // the lane label and note name, and the articulation knobs.
         for (int track = 0; track < GrooveMutatorProcessor::numTracks; ++track)
             SuiteUI::drawGroupFrame (g, laneBounds[(size_t) track],
                                      "LANE " + juce::String (track + 1), lookAndFeel.getAccent());
@@ -495,15 +534,32 @@ void GrooveMutatorEditor::resized()
             card.velCtrl.setBounds (row1.removeFromLeft (controlWidth).reduced (2, 0));
             card.levelCtrl.setBounds (row1.reduced (2, 0));
 
-            // Phase 24.2: PATTERN and STEPS now live on the GRID lane-control group, one
-            // per row (the plan's Option A — sharing a row with a knob — truncates the
-            // three-segment selector to illegibility at this 131 px group width, confirmed
-            // by the first render; Option B's extra height fits: window 1102 < 1200).
+            // Phase 24.2 / findings round 4: PATTERN and STEPS (+PULSES) live on the GRID
+            // lane-control group, one row each. The selector hugs the bottom of its row
+            // (finding 3: the caption sits directly on the pill, the spare height above
+            // the caption); a full-width pill is required — sharing a row with a knob
+            // truncates the three segments to illegibility (the plan-24 render finding).
             controlsArea.removeFromTop (rowGap);
-            card.patternCtrl.setBounds (controlsArea.removeFromTop (knobRowHeight).reduced (2, 0));
+            {
+                auto patternRow = controlsArea.removeFromTop (knobRowHeight);
+                card.patternCtrl.setBounds (patternRow.removeFromBottom (patternCellHeight)
+                                                .reduced (2, 0));
+            }
 
+            // Finding 1: PULSES moved from LANES beside STEPS, the same split as above.
             controlsArea.removeFromTop (rowGap);
-            card.stepsCtrl.setBounds (controlsArea.removeFromTop (knobRowHeight));
+            {
+                auto stepsRow = controlsArea.removeFromTop (knobRowHeight);
+                card.stepsCtrl.setBounds (stepsRow.removeFromLeft (stepsRow.getWidth() / 2)
+                                              .reduced (2, 0));
+                card.pulsesCtrl.setBounds (stepsRow.reduced (2, 0));
+            }
+
+            // Finding 4: the note name rides in the group's title band, right of the
+            // "LANE n" caption (the LANES title-band pattern; the timer keeps it in step).
+            card.name.setBounds (laneBounds[(size_t) track]
+                                     .withHeight (groupTitleHeight + 4).translated (0, 4)
+                                     .removeFromRight (44).reduced (4, 0));
 
             if (track < GrooveMutatorProcessor::numTracks - 1)
                 area.removeFromLeft (groupGap);
@@ -511,13 +567,29 @@ void GrooveMutatorEditor::resized()
     }
     else if (currentPage == 1)
     {
-        // Plan 22, Finding 6: eight columns, one framed card per lane. Every card is the
-        // page's full height: the label band, then the five articulation knobs evenly
-        // spread down the column (a channel strip). PATTERN and STEPS moved to the GRID
-        // lane-control group (plan 24), so the rows use the taller lanesKnobRowHeight.
-        // The cards stop above the footer band, exactly where the GRID group ends on
-        // page 0.
+        // Findings round 4, finding 2: the read-only STEP GRID preview band above the lane
+        // cards, then plan 22, Finding 6's eight framed columns. The cards fill what
+        // remains below the preview, stopping above the footer band.
         area.removeFromBottom (footerHeight);
+        previewBounds = area.removeFromTop (previewGroupHeight);
+
+        {
+            auto previewInner = previewBounds.withTrimmedTop (groupTitleHeight + 4)
+                                             .reduced (10, 4);
+            for (int track = 0; track < GrooveMutatorProcessor::numTracks; ++track)
+            {
+                auto previewRow = previewInner.removeFromTop (previewStripHeight);
+                previewNames[(size_t) track].setBounds (previewRow.removeFromLeft (previewNameWidth));
+                previewRow.removeFromLeft (previewNameGap);
+                gridPreviews[(size_t) track]->setBounds (previewRow);
+
+                if (track < GrooveMutatorProcessor::numTracks - 1)
+                    previewInner.removeFromTop (previewRowGap);
+            }
+        }
+
+        area.removeFromTop (groupGap);
+
         constexpr int numLanes = GrooveMutatorProcessor::numTracks;
         const int cardWidth = (area.getWidth() - (numLanes - 1) * groupGap) / numLanes;
 
@@ -535,15 +607,15 @@ void GrooveMutatorEditor::resized()
             auto inner = cardArea.withTrimmedTop (groupTitleHeight + 4).reduced (4, 0)
                                  .withTrimmedBottom (8);
 
-            // Five knobs, one per row, with the spare height shared between the rows.
-            constexpr int rows = 5;
+            // Four articulation knobs, one per row (Pulses moved to GRID, findings
+            // round 4), with the spare height shared between the rows.
+            constexpr int rows = 4;
             const int spare = inner.getHeight() - rows * lanesKnobRowHeight;
             const int gap = juce::jmax (rowGap, spare / rows);
             inner.removeFromTop (gap);
 
             SuiteUI::LabelledSlider* knobRows[rows] =
-                { &card.pulsesCtrl, &card.rotationCtrl,
-                  &card.accentCtrl, &card.flamCtrl, &card.ghostCtrl };
+                { &card.rotationCtrl, &card.accentCtrl, &card.flamCtrl, &card.ghostCtrl };
 
             for (int row = 0; row < rows; ++row)
             {
@@ -651,6 +723,9 @@ void GrooveMutatorEditor::timerCallback()
     trailPlot.repaint();
     for (auto& card : lanes)
         card->view.repaint();
+    // The LANES preview strips follow the same truth as the GRID ones (findings round 4).
+    for (auto& preview : gridPreviews)
+        preview->repaint();
 
     // The lane names follow the notes (the MTC/Sgraffito note-name pattern).
     for (auto& card : lanes)

@@ -16,11 +16,17 @@
     Draw mode: clicking a cell paints or erases the step while the lane's pattern is
     Steps (kind 2); in Euclid and Hash modes the strip is read-only (the pattern comes
     from the maths, not from a mask).
+
+    Preview strips (owner findings round 4, finding 2): constructed with previewStrip =
+    true they are the same painter as a non-editable miniature — no pointer cursor, no
+    mouse events, no "draw" affordance. The LANES page stacks eight of them as a compact
+    read-only STEP GRID preview.
 */
 class LaneView : public juce::Component
 {
 public:
-    LaneView (GrooveMutatorProcessor& processor, int track, juce::Colour accentColour);
+    LaneView (GrooveMutatorProcessor& processor, int track, juce::Colour accentColour,
+              bool previewStrip = false);
 
     void paint (juce::Graphics&) override;
     void mouseDown (const juce::MouseEvent&) override;
@@ -29,6 +35,7 @@ private:
     GrooveMutatorProcessor& processor;
     const int track;
     juce::Colour accent;
+    const bool preview;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (LaneView)
 };

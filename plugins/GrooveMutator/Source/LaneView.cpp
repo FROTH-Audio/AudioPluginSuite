@@ -10,12 +10,22 @@ namespace
     }
 }
 
-LaneView::LaneView (GrooveMutatorProcessor& p, int trackIndex, juce::Colour accentColour)
+LaneView::LaneView (GrooveMutatorProcessor& p, int trackIndex, juce::Colour accentColour,
+                     bool previewStrip)
     : processor (p),
       track (trackIndex),
-      accent (accentColour)
+      accent (accentColour),
+      preview (previewStrip)
 {
-    setMouseCursor (juce::MouseCursor::PointingHandCursor);
+    if (preview)
+    {
+        // The preview strip never answers the mouse (finding 2: non-editable).
+        setInterceptsMouseClicks (false, false);
+    }
+    else
+    {
+        setMouseCursor (juce::MouseCursor::PointingHandCursor);
+    }
     setOpaque (false);
 }
 
@@ -125,7 +135,8 @@ void LaneView::paint (juce::Graphics& g)
     }
 
     // The Steps-mode affordance: the strip answers the draw-mode rule (plan 19 Phase 3).
-    if (stepsMode)
+    // The preview strips skip it (they are never editable).
+    if (stepsMode && ! preview)
     {
         g.setColour (SuiteUI::Colours::textDim);
         g.setFont (SuiteUI::uiFont (9.0f));

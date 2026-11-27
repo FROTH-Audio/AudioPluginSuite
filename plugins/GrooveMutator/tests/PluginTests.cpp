@@ -785,6 +785,10 @@ namespace
                 // Plan 24: PATTERN and STEPS live on the GRID lane-control group.
                 assert (gm.isPatternVisible (track) == (page == 0));
                 assert (gm.isStepsVisible (track) == (page == 0));
+                // Findings round 4: PULSES beside STEPS on GRID; the read-only preview
+                // strips live on LANES only.
+                assert (gm.isPulsesVisible (track) == (page == 0));
+                assert (gm.isGridPreviewVisible (track) == (page == 1));
             }
             const auto first = paintComponent (gm);
             const auto second = paintComponent (gm);

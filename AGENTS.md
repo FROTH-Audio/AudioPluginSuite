@@ -551,11 +551,12 @@ shared ruler, plus the lane-mix group's three knob rows; R4). Plan 22 (owner fin
 2): the GRID strip fills its column, the shared ruler aligns to the strips, and every step is
 a rounded box. Plan 24 (owner findings round 3): each GRID row carries a "LANE n" caption
 above the ON toggle, and the PATTERN selector and STEPS knob moved from LANES to the GRID
-lane-control group (three knob rows per lane: Velocity+Level, Pattern, Steps — the selector
-needs the full group width; sharing a row with a knob truncates it to illegibility). The
-LANES page is eight columns, one framed card per lane, with the note name in the title band
-and the five articulation knobs (Pulses, Rotation, Accent, Flam, Ghost) in taller 92 px rows
-— the full suite 40 px knob. The header paints the embedded brand lockup. The painted Steps
+lane-control group. The header paints the embedded brand lockup. Findings round 4
+(2026-11-28): the GRID lane-control group is Velocity+Level, Pattern (the selector hugs its
+row's bottom: caption directly on the pill, spare height above), Steps+Pulses; the lane
+columns' title bands show the lane name left and the selected note right (the LANES
+pattern); the LANES page stacks eight read-only preview-mode LaneViews as a compact STEP
+GRID preview above the four articulation columns (Rotation, Accent, Flam, Ghost). The painted Steps
 masks ride as the `stepsMasks` state property (8 hex tokens; the lerpCurve pattern), re-derived
 through the lane signature like any pattern-defining value.
 
@@ -832,6 +833,12 @@ Mouse events in tests use the 15-argument `juce::MouseEvent` constructor, which 
 - **"LANE n" above the ON toggle** (Finding 1): each GRID step row gains a static `laneNameLabel` caption (`captionHeight` band carved off the toggle's cell top) tying the row to its already-titled lane-control group below. It is a separate widget from LANES's note-name `name` label, whose timer rewrite it must not inherit.
 - **PATTERN and STEPS moved to GRID** (Finding 2): the GRID lane-control group is three knob rows (Velocity+Level, then Pattern, then Steps); LANES keeps the five articulation knobs. The plan's two-row variant (selector + knob sharing a row) was refuted by the first render — a three-segment selector is illegible in a 64 px cell — so the plan's Option B applies. Window 938 → 1102 (inside the 1200 resize limit).
 - **Knob sizing (the plan-21 C2 resolution):** the unused local `knobDiameter` constant is deleted (it sized nothing — the drawn diameter follows the cell height). GRID keeps its 76 px cells (≈34 px knobs); LANES uses a new `lanesKnobRowHeight` (92 px) whose knobs render at the full suite 40 px — the owner's "GRID smaller / LANES larger" permission. Strict R1 conformance (all knobs 40 px) was not chosen; GRID rows and MUTATE groups are byte-identical to plan 22's renders.
+
+**Groove Mutator owner findings round 4 (2026-11-28, direct implementation — no plan file):**
+- **PULSES beside STEPS on GRID** (Finding 1): the GRID lane group's third row splits like Velocity+Level. PULSES keeps its affinity dimming (Steps lanes) on GRID — `updateAffinity` is page-independent.
+- **A read-only STEP GRID preview on LANES** (Finding 2): `LaneView` gained a `previewStrip` constructor flag — same painter, no pointer cursor, no mouse events, no "draw" affordance. The editor stacks eight preview strips in a framed "STEP GRID" group above the four articulation columns and repaints them from the 60 Hz timer. Each strip carries its "LANE n" name at its left (the owner's follow-up; 50 px label + 8 px gap, the `captionHeight`-era laneNameLabel style).
+- **The PATTERN selector hugs its row's bottom** (Finding 3): a plugin-local cell of exactly `captionHeight + pillHeight` — caption directly on the pill, the spare height above the caption. No shared-widget change (R1/R3 untouched).
+- **The note rides the GRID lane columns' title bands** (Finding 4): `card.name` is visible on GRID and LANES, right of the drawn "LANE n" caption (44 px cell, the timer keeps it in step).
 
 ---
 

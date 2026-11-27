@@ -40,6 +40,8 @@ public:
     bool isNoteDropdownVisible (int track) const noexcept { return lanes[(size_t) track]->noteDropdown.isVisible(); }
     bool isPatternVisible (int track) const noexcept { return lanes[(size_t) track]->patternCtrl.isVisible(); }
     bool isStepsVisible (int track) const noexcept { return lanes[(size_t) track]->stepsCtrl.isVisible(); }
+    bool isPulsesVisible (int track) const noexcept { return lanes[(size_t) track]->pulsesCtrl.isVisible(); }
+    bool isGridPreviewVisible (int track) const noexcept { return gridPreviews[(size_t) track]->isVisible(); }
     bool isTempoEnabled() const noexcept { return tempoCtrl.isEnabled(); }
 
 private:
@@ -107,6 +109,13 @@ private:
 
     std::array<std::unique_ptr<LaneCard>, GrooveMutatorProcessor::numTracks> lanes;
 
+    // The LANES page's read-only STEP GRID preview (findings round 4, finding 2): eight
+    // preview-mode LaneViews above the lane cards. They paint the same truth as the GRID
+    // strips and answer no mouse.
+    std::array<std::unique_ptr<LaneView>, GrooveMutatorProcessor::numTracks> gridPreviews;
+    // Each preview strip's "LANE n" name, left of it (the owner's follow-up).
+    std::array<juce::Label, GrooveMutatorProcessor::numTracks> previewNames;
+
     // MUTATE page: the attractor trail, chaos/fill, and the former GROOVE/clock groups.
     SuiteUI::TrailPlot trailPlot { juce::Colour (0xffdcf014) };
     SuiteUI::LabelledSlider chaosCtrl { "CHAOS", juce::Slider::RotaryVerticalDrag };
@@ -154,7 +163,7 @@ private:
     std::unique_ptr<SuiteModulation::ControlDisplay> controls;
 
     // The group frames and the ruler strip, painted per page (R14b).
-    juce::Rectangle<int> gridBounds, rulerBounds;
+    juce::Rectangle<int> gridBounds, rulerBounds, previewBounds;
     std::array<juce::Rectangle<int>, GrooveMutatorProcessor::numTracks> laneBounds;
     juce::Rectangle<int> trailBounds, chaosBounds, fillBounds;
     juce::Rectangle<int> grooveBounds, clockBounds, modBounds;
