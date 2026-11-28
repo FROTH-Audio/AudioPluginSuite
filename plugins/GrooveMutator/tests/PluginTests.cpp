@@ -173,8 +173,7 @@ namespace
     }
 
     /** No stuck notes: every delivered note-on has a matching note-off after it. */
-    void assertNoStuckNotes (const std::vector<Delivered>& events, const char* tag = "")
-    {
+    void assertNoStuckNotes (const std::vector<Delivered>& events, const char* tag = "")    {
         std::vector<int> held;
         for (const auto& event : events)
         {
@@ -744,6 +743,10 @@ namespace
         auto& gm = *dynamic_cast<GrooveMutatorEditor*> (editor.get());
         assert (&gm != nullptr);
 
+        // The note layout's derived name: the INIT notes match GM Standard (the header
+        // combo's first real entry).
+        assert (gm.currentLayoutName() == "GM Standard");
+
         SuiteUI::LabelledDropdown* noteDropdown = nullptr;
         int noteDropdownCount = 0;
         for (int child = 0; child < gm.getNumChildComponents(); ++child)
@@ -765,7 +768,7 @@ namespace
         assert (juce::roundToInt (processor.apvts.getRawParameterValue (
                    Processor::trackNoteIds[0])->load()) == 38);
         setParameter (processor.apvts, Processor::trackNoteIds[0], 36.0f);
-
+        juce::MessageManager::getInstance()->runDispatchLoopUntil (50);
         // Populate the playhead, trail and LFO before capturing deterministic R9 renders.
         std::int64_t sample = 0;
         const auto renderedEvents = run (processor, sample, 40, triggerOn());
@@ -1096,6 +1099,243 @@ namespace
         pass ("testHostSyncAlignment");
     }
 
+    //==============================================================================
+    // The note-layout template engine (the header strip).
+
+    /** A throwaway folder for user layouts, inside the build tree (never the real
+        Documents folder): the test executable's own folder + note-layout-tests. */
+    juce::File noteLayoutTestFolder()
+    {
+        return juce::File::getSpecialLocation (juce::File::currentExecutableFile)
+            .getParentDirectory().getChildFile ("note-layout-tests");
+    }
+
+    struct ScopedFolderOverride
+    {
+        ScopedFolderOverride() { NoteLayout::folderOverride() = noteLayoutTestFolder(); }
+        ~ScopedFolderOverride()
+        {
+            NoteLayout::folderOverride() = juce::File();
+            noteLayoutTestFolder().deleteRecursively();
+        }
+    };
+
+    void testBuiltInLayouts()
+    {
+        const auto layouts = NoteLayout::builtInLayouts();
+        assert (layouts.size() >= 2);
+
+        for (const auto& layout : layouts)
+        {
+            assert (layout.name.isNotEmpty());
+            assert (layout.builtIn);
+            for (const int note : layout.notes)
+                assert (note >= NoteLayout::minNote && note <= NoteLayout::maxNote);
+        }
+
+        // Unique names, case-insensitively: the derived matcher picks the first match,
+        // so a duplicate name would be unreachable.
+        for (size_t a = 0; a < layouts.size(); ++a)
+            for (size_t b = a + 1; b < layouts.size(); ++b)
+                assert (! layouts[a].name.equalsIgnoreCase (layouts[b].name));
+
+        // GM Standard is the plugin's INIT map, so the defaults always match a layout.
+        assert (layouts.front().name == "GM Standard");
+        for (int lane = 0; lane < NoteLayout::numLanes; ++lane)
+            assert (layouts.front().notes[(size_t) lane] == Processor::defaultTrackNotes[lane]);
+
+        pass ("testBuiltInLayouts");
+    }
+
+    void testLayoutXmlRoundTrip()
+    {
+        ScopedFolderOverride override;
+
+        NoteLayout::Layout layout;
+        layout.name = "My Kit";
+        layout.notes = { { 60, 61, 62, 63, 64, 65, 66, 67 } };
+
+        const auto file = noteLayoutTestFolder().getChildFile ("My Kit.xml");
+        assert (NoteLayout::write (file, layout).wasOk());
+        assert (file.existsAsFile());
+
+        NoteLayout::Layout read;
+        assert (NoteLayout::parse (file, read).wasOk());
+        assert (read.name == "My Kit");
+        assert (read.notes == layout.notes);
+        assert (! read.builtIn);
+        assert (read.file == file);
+
+        // The scanned list finds it.
+        const auto scanned = NoteLayout::scanUserLayouts (noteLayoutTestFolder());
+        assert (scanned.size() == 1 && scanned.front().name == "My Kit");
+
+        pass ("testLayoutXmlRoundTrip");
+    }
+
+    void testLayoutRejectsInvalidFiles()
+    {
+        ScopedFolderOverride override;
+        noteLayoutTestFolder().createDirectory();
+
+        const char* badFiles[] = {
+            // Not an AudioSuite note layout (wrong root tag).
+            "<SomethingElse formatVersion=\"1\" name=\"X\"><Note lane=\"1\" value=\"36\"/></SomethingElse>",
+            // Unsupported version.
+            "<AudioSuiteNoteLayout formatVersion=\"2\" name=\"X\"/>",
+            // No name.
+            "<AudioSuiteNoteLayout formatVersion=\"1\"/>",
+            // Missing lanes.
+            "<AudioSuiteNoteLayout formatVersion=\"1\" name=\"X\"><Note lane=\"1\" value=\"36\"/></AudioSuiteNoteLayout>",
+            // Duplicate lane.
+            "<AudioSuiteNoteLayout formatVersion=\"1\" name=\"X\">"
+                "<Note lane=\"1\" value=\"36\"/><Note lane=\"1\" value=\"38\"/></AudioSuiteNoteLayout>",
+            // Out-of-range note.
+            "<AudioSuiteNoteLayout formatVersion=\"1\" name=\"X\">"
+                "<Note lane=\"1\" value=\"200\"/><Note lane=\"2\" value=\"38\"/>"
+                "<Note lane=\"3\" value=\"42\"/><Note lane=\"4\" value=\"46\"/>"
+                "<Note lane=\"5\" value=\"41\"/><Note lane=\"6\" value=\"45\"/>"
+                "<Note lane=\"7\" value=\"39\"/><Note lane=\"8\" value=\"75\"/></AudioSuiteNoteLayout>",
+        };
+
+        const auto file = noteLayoutTestFolder().getChildFile ("bad.xml");
+        for (const auto* text : badFiles)
+        {
+            file.replaceWithText (text);
+            NoteLayout::Layout read;
+            assert (NoteLayout::parse (file, read).failed());
+        }
+
+        // Not XML at all.
+        file.replaceWithText ("this is not xml");
+        NoteLayout::Layout read;
+        assert (NoteLayout::parse (file, read).failed());
+
+        // And the scan skips every one of them.
+        assert (NoteLayout::scanUserLayouts (noteLayoutTestFolder()).empty());
+
+        pass ("testLayoutRejectsInvalidFiles");
+    }
+
+    void testLayoutAppliesToParameters()
+    {
+        Processor processor;
+
+        NoteLayout::Layout layout;
+        layout.name = "X";
+        for (int lane = 0; lane < NoteLayout::numLanes; ++lane)
+            layout.notes[(size_t) lane] = 60 + lane;
+
+        NoteLayout::applyToParameters (processor.apvts, layout);
+        for (int lane = 0; lane < NoteLayout::numLanes; ++lane)
+            assert (juce::roundToInt (processor.apvts.getRawParameterValue (
+                        Processor::trackNoteIds[lane])->load()) == 60 + lane);
+
+        pass ("testLayoutAppliesToParameters");
+    }
+
+    void testLayoutDrivesDeliveredNotes()
+    {
+        // The musical truth: a layout's notes are what the groove sends.
+        Processor processor;
+        setDeterministic (processor);
+
+        NoteLayout::Layout layout;
+        layout.name = "X";
+        for (int lane = 0; lane < NoteLayout::numLanes; ++lane)
+            layout.notes[(size_t) lane] = 60 + lane;
+        NoteLayout::applyToParameters (processor.apvts, layout);
+        processor.prepareToPlay (sampleRate, blockSize);
+
+        std::int64_t sample = 0;
+        const auto events = run (processor, sample, 200, triggerOn());
+        assert (! onsOnly (events).empty());
+        for (const auto& event : onsOnly (events))
+            assert (event.message.getNoteNumber() >= 60
+                    && event.message.getNoteNumber() < 60 + NoteLayout::numLanes);
+
+        pass ("testLayoutDrivesDeliveredNotes");
+    }
+
+    void testLayoutEditorFlow()
+    {
+        ScopedFolderOverride override;
+
+        Processor processor;
+        std::unique_ptr<juce::AudioProcessorEditor> editor (processor.createEditorAndMakeActive());
+        assert (editor != nullptr);
+        auto& gm = *dynamic_cast<GrooveMutatorEditor*> (editor.get());
+        assert (&gm != nullptr);
+
+        // The defaults match GM Standard; the delete button is dimmed for a built-in.
+        assert (gm.currentLayoutName() == "GM Standard");
+        assert (! gm.isDeleteEnabled());
+
+        // Saving the current notes under a name writes the file, rebuilds the list and
+        // re-derives the name from the (unchanged) notes.
+        setParameter (processor.apvts, Processor::trackNoteIds[0], 60.0f);
+        assert (gm.currentLayoutName() == "Custom");
+        gm.saveLayoutWithName ("My Header Kit");
+        assert (noteLayoutTestFolder().getChildFile ("My Header Kit.xml").existsAsFile());
+        assert (gm.currentLayoutName() == "My Header Kit");
+        assert (gm.isDeleteEnabled());
+
+        // Deleting removes the file; the notes stay (now unmatched: Custom).
+        gm.deleteUserLayout();
+        assert (! noteLayoutTestFolder().getChildFile ("My Header Kit.xml").existsAsFile());
+        assert (gm.currentLayoutName() == "Custom");
+        assert (! gm.isDeleteEnabled());
+        assert (juce::roundToInt (processor.apvts.getRawParameterValue (
+                    Processor::trackNoteIds[0])->load()) == 60);
+
+        // Applying a built-in through the combo (sendNotificationSync runs onChange)
+        // writes its notes through the parameters.
+        juce::ComboBox* combo = nullptr;
+        for (int child = 0; child < gm.getNumChildComponents(); ++child)
+            if ((combo = dynamic_cast<juce::ComboBox*> (gm.getChildComponent (child))) != nullptr)
+                break;
+        assert (combo != nullptr);
+        // The owner's round: select a built-in through the combo by its item text.
+        int chromaticId = 0;
+        for (int item = 0; item < combo->getNumItems(); ++item)
+            if (combo->getItemText (item) == "Ableton Drum Rack (Default)")
+                chromaticId = combo->getItemId (item);
+        assert (chromaticId != 0);
+        combo->setSelectedId (chromaticId, juce::sendNotificationSync);
+        for (int lane = 0; lane < NoteLayout::numLanes; ++lane)
+            assert (juce::roundToInt (processor.apvts.getRawParameterValue (
+                        Processor::trackNoteIds[lane])->load()) == 36 + lane);
+        assert (gm.currentLayoutName() == "Ableton Drum Rack (Default)");
+
+        // A manual note edit re-derives to Custom (50 breaks the Drum Rack match; the
+        // timer's updateLayoutSelection keeps the combo's display in step).
+        setParameter (processor.apvts, Processor::trackNoteIds[0], 50.0f);
+        juce::MessageManager::getInstance()->runDispatchLoopUntil (50);
+        assert (gm.currentLayoutName() == "Custom");
+
+        // The popup path is asynchronous (juce_ComboBox.cpp's popup callback uses the
+        // default sendNotificationAsync): select with the async notification and pump
+        // the loop. The 60 Hz timer must not re-derive the display inside that window —
+        // it used to revert the selection before it applied (the "nothing changes" bug).
+        int mpcId = 0;
+        for (int item = 0; item < combo->getNumItems(); ++item)
+            if (combo->getItemText (item) == "MPC A01-A08")
+                mpcId = combo->getItemId (item);
+        assert (mpcId != 0);
+        combo->setSelectedId (mpcId, juce::sendNotificationAsync);
+        juce::MessageManager::getInstance()->runDispatchLoopUntil (100);
+        for (int lane = 0; lane < NoteLayout::numLanes; ++lane)
+            assert (juce::roundToInt (processor.apvts.getRawParameterValue (
+                        Processor::trackNoteIds[lane])->load()) == 37 + lane);
+        assert (gm.currentLayoutName() == "MPC A01-A08");
+        // The combo's own display follows the applied layout (the derive reads the
+        // parameter values directly — the raw-value atomics lag one notification behind).
+        assert (combo->getText() == "MPC A01-A08");
+
+        processor.editorBeingDeleted (editor.get());
+        pass ("testLayoutEditorFlow");
+    }
+
     void testHeaderContract()
     {
         Processor processor;
@@ -1119,6 +1359,16 @@ namespace
         // The menu's two callbacks are wired (the dialogs themselves are async, plan 08).
         assert (menu->onAbout != nullptr);
         assert (menu->onSettings != nullptr);
+
+        // The note-layout combo is a direct child of the editor (the header strip) and
+        // lists the built-ins plus Custom.
+        juce::ComboBox* layoutCombo = nullptr;
+        for (int i = 0; i < editor->getNumChildComponents(); ++i)
+            if (auto* candidate = dynamic_cast<juce::ComboBox*> (editor->getChildComponent (i)))
+                layoutCombo = candidate;
+        assert (layoutCombo != nullptr);
+        assert (layoutCombo->getNumItems() >= 2);
+        assert (layoutCombo->getItemText (0) == "Custom");
 
         processor.editorBeingDeleted (editor.get());
         pass ("testHeaderContract");
@@ -1152,6 +1402,13 @@ int main()
     testTrailPublished();
     testHostSyncAlignment();
     testHeaderContract();
+
+    testBuiltInLayouts();
+    testLayoutXmlRoundTrip();
+    testLayoutRejectsInvalidFiles();
+    testLayoutAppliesToParameters();
+    testLayoutDrivesDeliveredNotes();
+    testLayoutEditorFlow();
 
     std::puts ("All Groove Mutator plugin tests passed.");
     return 0;

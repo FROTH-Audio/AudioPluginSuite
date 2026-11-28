@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "LaneView.h"
+#include "NoteLayout.h"
 #include "PluginProcessor.h"
 #include "SuiteHeaderMenu.h"
 #include "SuiteHelp.h"
@@ -18,6 +19,38 @@
 #include "SuiteSettings.h"
 #include "SuiteWidgets.h"
 #include "SuitePresets.h"
+
+/** A header ghost button (the PresetBar pattern): a hairline rounded outline, dim text
+    that brightens on hover, no fill. Disabled buttons keep a faint outline. */
+struct GhostHeaderButton : juce::TextButton
+{
+    using TextButton::TextButton;
+
+    void paintButton (juce::Graphics& g, bool shouldDrawButtonAsHighlighted,
+                      bool shouldDrawButtonAsDown) override
+    {
+        const bool active = shouldDrawButtonAsHighlighted || shouldDrawButtonAsDown;
+        auto bounds = getLocalBounds().toFloat().reduced (0.5f, 0.5f);
+        constexpr float corner = 6.0f;
+        const juce::Colour accent (0xffdcf014);
+
+        if (isEnabled() && active)
+        {
+            g.setColour (accent.withAlpha (shouldDrawButtonAsDown ? 0.14f : 0.07f));
+            g.fillRoundedRectangle (bounds, corner);
+        }
+
+        g.setColour (isEnabled() ? accent.withAlpha (active ? 0.95f : 0.55f)
+                                 : SuiteUI::Colours::textDim.withAlpha (0.35f));
+        g.drawRoundedRectangle (bounds, corner, 1.0f);
+
+        g.setFont (SuiteUI::uiFont (11.0f, true));
+        g.setColour (isEnabled() ? (active ? juce::Colours::white
+                                           : SuiteUI::Colours::text.withAlpha (0.75f))
+                                 : SuiteUI::Colours::textDim.withAlpha (0.5f));
+        g.drawText (getButtonText(), getLocalBounds(), juce::Justification::centred);
+    }
+};
 
 class GrooveMutatorEditor : public juce::AudioProcessorEditor,
                             private juce::Timer
@@ -34,6 +67,15 @@ public:
     void setPage (int page);
     int getPage() const noexcept { return currentPage; }
 
+    /** The note-layout engine's seams (the owner's template engine; the tests call
+        these — the confirmation and name dialogs themselves are async). */
+    void rebuildLayoutList();
+    void applySelectedLayout();
+    void saveLayoutWithName (const juce::String& chosenName);
+    void deleteUserLayout();
+    juce::String currentLayoutName() const;
+    bool isDeleteEnabled() const noexcept { return layoutDeleteButton.isEnabled(); }
+
     // The affinity seams (the tests read them; the timer re-evaluates them per tick).
     bool isPulsesEnabled (int track) const noexcept { return lanes[(size_t) track]->pulsesCtrl.isEnabled(); }
     bool isRotationEnabled (int track) const noexcept { return lanes[(size_t) track]->rotationCtrl.isEnabled(); }
@@ -46,6 +88,16 @@ public:
 
 private:
     void timerCallback() override;
+
+    /** The note-layout helpers behind the header strip: the current eight note values,
+        and the combo's selection re-derived from them (Custom when nothing matches). */
+    std::array<int, NoteLayout::numLanes> currentNoteValues() const;
+    void updateLayoutSelection();
+
+    /** The async dialogs behind SAVE and DELETE (the cores above are dialog-free). */
+    void showSaveLayoutDialog();
+    void showDeleteLayoutDialog();
+    void showError (const juce::String& message);
 
     /** The affinity rule (plan 19 Phase 3, decision G1): Steps lanes dim Pulses and
         Rotation, Hash lanes dim Rotation (the maths ignores it), Euclid dims nothing;
@@ -115,6 +167,21 @@ private:
     std::array<std::unique_ptr<LaneView>, GrooveMutatorProcessor::numTracks> gridPreviews;
     // Each preview strip's "LANE n" name, left of it (the owner's follow-up).
     std::array<juce::Label, GrooveMutatorProcessor::numTracks> previewNames;
+
+    /** The header's note-layout strip: the combo, SAVE and DELETE (ghost buttons,
+        the PresetBar pattern). The name is derived from the notes. */
+    juce::Label layoutCaption;
+    juce::ComboBox layoutCombo;
+    GhostHeaderButton layoutSaveButton { "SAVE" };
+    GhostHeaderButton layoutDeleteButton { "DELETE" };
+    juce::ScopedMessageBox layoutMessageBox;
+    /** Every known layout, in display order: built-ins first, then user layouts by name.
+        Combo id = firstLayoutItemId + index. */
+    std::vector<NoteLayout::Layout> layoutList;
+    /** Watch the eight note parameters: they drive the derived layout display (NOT the
+        60 Hz timer — a popup selection fires onChange asynchronously, and a timer
+        re-derivation inside that window reverts the selection before it applies). */
+    std::array<std::unique_ptr<juce::ParameterAttachment>, NoteLayout::numLanes> layoutNoteWatchers;
 
     // MUTATE page: the attractor trail, chaos/fill, and the former GROOVE/clock groups.
     SuiteUI::TrailPlot trailPlot { juce::Colour (0xffdcf014) };

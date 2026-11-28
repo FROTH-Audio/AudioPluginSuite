@@ -13,6 +13,7 @@ suite_add_plugin(
     SOURCES         Source/PluginProcessor.cpp Source/PluginProcessor.h
                     Source/PluginEditor.cpp Source/PluginEditor.h
                     Source/LaneView.cpp Source/LaneView.h
+                    Source/NoteLayout.cpp Source/NoteLayout.h
     TEST_SOURCES    tests/PluginTests.cpp
     MODULATION
     # R13: the menu's Settings... entry needs the shared settings store.

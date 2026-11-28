@@ -42,21 +42,39 @@ namespace
     constexpr int laneNameGap = 8;
     constexpr int gridControlWidth = 64 + 52;   // division and on
     constexpr int laneViewInset = 6;                           // LaneView::paint's x reduction
+    // The owner's height round: the STEP GRID rows shrink to 56 px (the caption+pill
+    // pairs — note dropdown, LANE-name + ON, division — need 18 + 36 = 54 px, so every
+    // control keeps its size; only the strip gets shorter). The MUTATE groups keep the
+    // shared knobRowHeight.
+    constexpr int gridRowHeight = 56;
     // The trailing 8 covers reduced()'s top-and-bottom pair, so a group's inner height is
     // exactly the sum of its rows (the plan-20 rule: a mismatch cuts the last row off).
     constexpr int gridGroupHeight = groupTitleHeight + 4 + rulerHeight + 8
-                                  + 8 * knobRowHeight + 7 * rowGap + 8;
-    // Plan 24 §4.2: three knob rows (VELOCITY+LEVEL, then PATTERN, then STEPS) + gaps.
-    // The three-row revision is confirmed by render: the three-segment PATTERN selector
-    // is illegible when it shares a row with a knob at this 131 px group width.
-    constexpr int laneControlGroupHeight = groupTitleHeight + 4 + 3 * knobRowHeight
-                                         + 2 * rowGap + 8;
+                                  + 8 * gridRowHeight + 7 * rowGap + 8;
+    // Plan 24 §4.2: three rows (VELOCITY+LEVEL, then PATTERN, then STEPS+PULSES) + gaps.
+    // The PATTERN row is the selector's exact 54 px cell (caption directly on the pill;
+    // the two knob rows keep knobRowHeight). The three-row revision is confirmed by
+    // render: the three-segment PATTERN selector is illegible when it shares a row with a
+    // knob at this 131 px group width.
+    constexpr int laneControlGroupHeight = groupTitleHeight + 4 + knobRowHeight + rowGap
+                                         + patternCellHeight + rowGap + knobRowHeight + 8;
     constexpr int editorHeight = margin * 2 + headerHeight + groupGap + gridGroupHeight
                                + groupGap + laneControlGroupHeight + groupGap + footerHeight;
     constexpr int trailHeight = 260;
     constexpr int simpleGroupHeight = groupTitleHeight + 4 + knobRowHeight + 4;
 
     const char* pageNames[] = { "GRID", "LANES", "MUTATE", "MOD" };
+
+    // The header's note-layout strip (left of the page switch; brand lockup ≈163 px wide
+    // at this header height, the measured clearance holds).
+    constexpr int layoutComboWidth = 170;
+    constexpr int layoutSaveWidth = 64;
+    constexpr int layoutDeleteWidth = 50;
+    constexpr int layoutCaptionWidth = 50;
+    constexpr int layoutStripWidth = layoutCaptionWidth + layoutComboWidth + layoutSaveWidth
+                                   + layoutDeleteWidth + 3 * 6;
+    constexpr int customLayoutItemId = 1;
+    constexpr int firstLayoutItemId = 2;
 
     // The brand lockup (plan 22, Finding 1): the embedded artwork from the CMake LOCKUP.
     const juce::Image& brandLockup()
@@ -317,6 +335,45 @@ GrooveMutatorEditor::GrooveMutatorEditor (GrooveMutatorProcessor& p)
         SuiteSettings::showSettingsDialog (SuiteSettings::shared(), this);
     };
 
+    // The header's note-layout strip (the note-layout template engine).
+    layoutCaption.setText ("LAYOUT", juce::dontSendNotification);
+    layoutCaption.setJustificationType (juce::Justification::centredRight);
+    layoutCaption.setFont (SuiteUI::uiFont (11.0f, true));
+    layoutCaption.setColour (juce::Label::textColourId, SuiteUI::Colours::textDim);
+    layoutCaption.setInterceptsMouseClicks (false, false);
+    layoutCombo.setColour (juce::ComboBox::textColourId, SuiteUI::Colours::text);
+    layoutCombo.setColour (juce::ComboBox::backgroundColourId, SuiteUI::Colours::panel);
+    layoutCombo.setColour (juce::ComboBox::outlineColourId, SuiteUI::Colours::panelEdge);
+    layoutCombo.setColour (juce::ComboBox::arrowColourId, SuiteUI::Colours::textDim);
+    layoutCombo.setJustificationType (juce::Justification::centredLeft);
+    layoutCombo.setWantsKeyboardFocus (false);
+    layoutCombo.onChange = [this] { applySelectedLayout(); };
+    layoutSaveButton.onClick = [this] { showSaveLayoutDialog(); };
+    layoutDeleteButton.onClick = [this] { showDeleteLayoutDialog(); };
+    for (auto* control : { static_cast<juce::Component*> (&layoutCaption),
+                           static_cast<juce::Component*> (&layoutCombo),
+                           static_cast<juce::Component*> (&layoutSaveButton),
+                           static_cast<juce::Component*> (&layoutDeleteButton) })
+        addAndMakeVisible (control);
+    rebuildLayoutList();
+    updateLayoutSelection();
+
+    SuiteUI::describe (layoutCaption, "The active note layout: a named map of the eight lanes' output notes.");
+    SuiteUI::describe (layoutCombo, "The active note layout: the eight lanes' output notes as one named map. GM Standard is the GM-compatible default of EZ/Superior Drummer, Addictive Drums, SSD5, BFD and Studio Drummer. Editing a note by hand shows Custom.");
+    SuiteUI::describe (layoutSaveButton, "Save the current eight lane notes as a user note layout (userDocuments/AudioSuite/GrooveMutator/NoteLayouts).");
+    SuiteUI::describe (layoutDeleteButton, "Delete the selected user note layout. Built-in layouts cannot be deleted.");
+
+    // The note parameters drive the derived display (the popup-selection race: a combo
+    // selection fires onChange asynchronously; a timer re-derivation inside that window
+    // reverts it before it applies).
+    for (int lane = 0; lane < NoteLayout::numLanes; ++lane)
+    {
+        auto* noteParameter = apvts.getParameter (GrooveMutatorProcessor::trackNoteIds[lane]);
+        layoutNoteWatchers[(size_t) lane] = std::make_unique<juce::ParameterAttachment> (
+            *noteParameter, [this] (float) { updateLayoutSelection(); }, nullptr);
+        layoutNoteWatchers[(size_t) lane]->sendInitialUpdate();
+    }
+
     if (presetBar->getPreferredHeight() > 0)
         addAndMakeVisible (*presetBar);
     presetBar->onPresetLoaded = [this] { repaint(); };
@@ -342,6 +399,211 @@ SuiteModulation::ModulationPanel::Style GrooveMutatorEditor::modulationStyle()
     return { { modulationAccent, modulationAccent },
              SuiteUI::Colours::text, SuiteUI::Colours::textDim,
              SuiteUI::Colours::panel, SuiteUI::Colours::track };
+}
+
+//==============================================================================
+// The note-layout engine (the header strip).
+
+void GrooveMutatorEditor::rebuildLayoutList()
+{
+    layoutList.clear();
+    for (const auto& layout : NoteLayout::builtInLayouts())
+        layoutList.push_back (layout);
+    for (const auto& layout : NoteLayout::scanUserLayouts (NoteLayout::defaultFolder()))
+        layoutList.push_back (layout);
+
+    layoutCombo.clear (juce::dontSendNotification);
+    layoutCombo.addItem ("Custom", customLayoutItemId);
+    layoutCombo.addSectionHeading ("Built-in");
+    int numBuiltIn = 0;
+    for (const auto& layout : layoutList)
+    {
+        if (! layout.builtIn)
+            continue;
+        layoutCombo.addItem (layout.name, firstLayoutItemId + numBuiltIn);
+        ++numBuiltIn;
+    }
+
+    if (numBuiltIn < (int) layoutList.size())
+    {
+        layoutCombo.addSeparator();
+        layoutCombo.addSectionHeading ("User");
+        for (int index = numBuiltIn; index < (int) layoutList.size(); ++index)
+            layoutCombo.addItem (layoutList[(size_t) index].name, firstLayoutItemId + index);
+    }
+}
+
+std::array<int, NoteLayout::numLanes> GrooveMutatorEditor::currentNoteValues() const
+{
+    return NoteLayout::currentNotes (processor.apvts);
+}
+
+void GrooveMutatorEditor::updateLayoutSelection()
+{
+    const auto notes = currentNoteValues();
+    int matchId = customLayoutItemId;
+    for (int index = 0; index < (int) layoutList.size(); ++index)
+        if (layoutList[(size_t) index].notes == notes)
+        {
+            matchId = firstLayoutItemId + index;
+            break;
+        }
+
+    if (layoutCombo.getSelectedId() != matchId)
+        layoutCombo.setSelectedId (matchId, juce::dontSendNotification);
+    if (layoutCombo.getSelectedId() != matchId)
+        layoutCombo.setSelectedId (matchId, juce::dontSendNotification);
+
+    // DELETE is live only for a matched user layout (dimmed, never hidden).
+    const int matchedIndex = matchId - firstLayoutItemId;
+    layoutDeleteButton.setEnabled (matchedIndex >= 0
+                                   && matchedIndex < (int) layoutList.size()
+                                   && ! layoutList[(size_t) matchedIndex].builtIn);
+}
+
+juce::String GrooveMutatorEditor::currentLayoutName() const
+{
+    // Derived live from the note values (the combo's display follows through the timer).
+    const auto* matched = NoteLayout::matchParameters (processor.apvts, layoutList);
+    return matched != nullptr ? matched->name : juce::String ("Custom");
+}
+
+void GrooveMutatorEditor::applySelectedLayout()
+{
+    const int matchedIndex = layoutCombo.getSelectedId() - firstLayoutItemId;
+    if (matchedIndex < 0 || matchedIndex >= (int) layoutList.size())
+    {
+        // Custom is a state, not a choice: the display snaps back to the true match.
+        updateLayoutSelection();
+        return;
+    }
+
+    NoteLayout::applyToParameters (processor.apvts, layoutList[(size_t) matchedIndex]);
+    updateLayoutSelection();
+}
+
+void GrooveMutatorEditor::saveLayoutWithName (const juce::String& chosenName)
+{
+    const juce::String name = chosenName.trim();
+    if (name.isEmpty())
+    {
+        showError ("The note layout needs a name.");
+        return;
+    }
+
+    NoteLayout::Layout layout;
+    layout.name = name;
+    layout.notes = currentNoteValues();
+
+    const auto file = NoteLayout::defaultFolder()
+                          .getChildFile (juce::File::createLegalFileName (name) + ".xml");
+    const auto result = NoteLayout::write (file, layout);
+    if (! result.wasOk())
+    {
+        showError (result.getErrorMessage());
+        return;
+    }
+
+    rebuildLayoutList();
+    updateLayoutSelection();
+}
+
+void GrooveMutatorEditor::deleteUserLayout()
+{
+    const int matchedIndex = layoutCombo.getSelectedId() - firstLayoutItemId;
+    if (matchedIndex < 0 || matchedIndex >= (int) layoutList.size())
+        return;
+
+    auto& layout = layoutList[(size_t) matchedIndex];
+    if (layout.builtIn || ! layout.file.existsAsFile())
+        return;
+
+    layout.file.deleteFile();
+    rebuildLayoutList();
+    updateLayoutSelection();
+}
+
+void GrooveMutatorEditor::showSaveLayoutDialog()
+{
+    auto* window = new juce::AlertWindow ("Save note layout",
+                                          "Name this map of the eight lanes' output notes.",
+                                          juce::MessageBoxIconType::NoIcon);
+    window->addTextEditor ("name", currentLayoutName() == "Custom" ? juce::String ("My Layout")
+                                                                   : currentLayoutName(),
+                           "Name");
+    window->addButton ("Save", 1, juce::KeyPress (juce::KeyPress::returnKey));
+    window->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
+
+    window->enterModalState (true,
+                             juce::ModalCallbackFunction::create ([this, window] (int result)
+                             {
+                                 if (result != 1)
+                                     return;
+
+                                 const auto name = window->getTextEditorContents ("name").trim();
+                                 if (name.isEmpty())
+                                 {
+                                     showError ("The note layout needs a name.");
+                                     return;
+                                 }
+
+                                 const auto file = NoteLayout::defaultFolder()
+                                     .getChildFile (juce::File::createLegalFileName (name) + ".xml");
+                                 if (file.existsAsFile())
+                                 {
+                                     layoutMessageBox = juce::AlertWindow::showScopedAsync (
+                                         juce::MessageBoxOptions()
+                                             .withIconType (juce::MessageBoxIconType::QuestionIcon)
+                                             .withTitle ("Overwrite note layout?")
+                                             .withMessage ("A note layout called \"" + name
+                                                           + "\" already exists. Replace it?")
+                                             .withButton ("Replace", 1)
+                                             .withButton ("Cancel", 0)
+                                             .withAssociatedComponent (this),
+                                         [this, name] (int answer)
+                                         {
+                                             if (answer == 1)
+                                                 saveLayoutWithName (name);
+                                         });
+                                     return;
+                                 }
+
+                                 saveLayoutWithName (name);
+                             }),
+                             true);
+}
+
+void GrooveMutatorEditor::showDeleteLayoutDialog()
+{
+    if (! isDeleteEnabled())
+        return;
+
+    layoutMessageBox = juce::AlertWindow::showScopedAsync (
+        juce::MessageBoxOptions()
+            .withIconType (juce::MessageBoxIconType::QuestionIcon)
+            .withTitle ("Delete note layout?")
+            .withMessage ("Delete the user note layout \"" + currentLayoutName()
+                          + "\"? The lanes keep their notes.")
+            .withButton ("Delete", 1)
+            .withButton ("Cancel", 0)
+            .withAssociatedComponent (this),
+        [this] (int answer)
+        {
+            if (answer == 1)
+                deleteUserLayout();
+        });
+}
+
+void GrooveMutatorEditor::showError (const juce::String& message)
+{
+    layoutMessageBox = juce::AlertWindow::showScopedAsync (
+        juce::MessageBoxOptions()
+            .withIconType (juce::MessageBoxIconType::WarningIcon)
+            .withTitle ("Note layout")
+            .withMessage (message)
+            .withButton ("OK", 0)
+            .withAssociatedComponent (this),
+        nullptr);
 }
 
 void GrooveMutatorEditor::setPage (int newPage)
@@ -468,7 +730,8 @@ void GrooveMutatorEditor::resized()
 {
     auto area = getLocalBounds().reduced (margin);
 
-    // Header: menu at the far right, the preset bar flat to its left, then the page switch.
+    // Header: menu at the far right, the preset bar flat to its left, then the page switch,
+    // then the note-layout strip.
     auto headerArea = area.removeFromTop (headerHeight);
     headerMenu.setBounds (headerArea.removeFromRight (26).withHeight (26)
                             .withY (headerArea.getCentreY() - 13));
@@ -478,6 +741,18 @@ void GrooveMutatorEditor::resized()
                                 .withY (headerArea.getCentreY() - barHeight / 2));
     pageSelector.setBounds (headerArea.removeFromRight (300).withHeight (SuiteUI::pillHeight)
                                 .withY (headerArea.getCentreY() - SuiteUI::pillHeight / 2));
+
+    // The header's note-layout strip: DELETE, SAVE, the combo, the caption - right to left.
+    auto layoutArea = headerArea.removeFromRight (layoutStripWidth)
+                          .withHeight (SuiteUI::pillHeight)
+                          .withY (headerArea.getCentreY() - SuiteUI::pillHeight / 2);
+    layoutDeleteButton.setBounds (layoutArea.removeFromRight (layoutDeleteWidth));
+    layoutArea.removeFromRight (6);
+    layoutSaveButton.setBounds (layoutArea.removeFromRight (layoutSaveWidth));
+    layoutArea.removeFromRight (6);
+    layoutCombo.setBounds (layoutArea.removeFromRight (layoutComboWidth));
+    layoutArea.removeFromRight (6);
+    layoutCaption.setBounds (layoutArea);
 
     if (currentPage == 0)
     {
@@ -500,12 +775,14 @@ void GrooveMutatorEditor::resized()
         for (int track = 0; track < GrooveMutatorProcessor::numTracks; ++track)
         {
             auto& card = *lanes[(size_t) track];
-            auto row = inner.removeFromTop (knobRowHeight);
+            auto row = inner.removeFromTop (gridRowHeight);
 
-            // From the right: division and on; the strip gets the rest.
-            auto cell = row.removeFromRight (64).reduced (3);  // smaller cells
+            // From the right: division and on; the strip gets the rest. The insets are
+            // horizontal-only so the caption + 36 px pill pairs fit the 56 px row
+            // (18 + 36 = 54) — no control shrinks.
+            auto cell = row.removeFromRight (64).reduced (3, 0);
             card.divisionCtrl.setBounds (cell);
-            cell = row.removeFromRight (52).reduced (3);  // toggle cell
+            cell = row.removeFromRight (52).reduced (3, 0);  // toggle cell
             // Phase 24.1: "LANE n" caption above the ON toggle (Option A).
             card.laneNameLabel.setBounds (cell.removeFromTop (SuiteUI::captionHeight));
             card.onToggle.setBounds (cell.withSizeKeepingCentre (cell.getWidth(), SuiteUI::pillHeight));
@@ -535,16 +812,13 @@ void GrooveMutatorEditor::resized()
             card.levelCtrl.setBounds (row1.reduced (2, 0));
 
             // Phase 24.2 / findings round 4: PATTERN and STEPS (+PULSES) live on the GRID
-            // lane-control group, one row each. The selector hugs the bottom of its row
-            // (finding 3: the caption sits directly on the pill, the spare height above
-            // the caption); a full-width pill is required — sharing a row with a knob
-            // truncates the three segments to illegibility (the plan-24 render finding).
+            // lane-control group, one row each. The selector fills its exact
+            // patternCellHeight row (caption directly on the pill — finding 3); a
+            // full-width pill is required — sharing a row with a knob truncates the
+            // three segments to illegibility (the plan-24 render finding).
             controlsArea.removeFromTop (rowGap);
-            {
-                auto patternRow = controlsArea.removeFromTop (knobRowHeight);
-                card.patternCtrl.setBounds (patternRow.removeFromBottom (patternCellHeight)
-                                                .reduced (2, 0));
-            }
+            card.patternCtrl.setBounds (controlsArea.removeFromTop (patternCellHeight)
+                                            .reduced (2, 0));
 
             // Finding 1: PULSES moved from LANES beside STEPS, the same split as above.
             controlsArea.removeFromTop (rowGap);
@@ -736,6 +1010,10 @@ void GrooveMutatorEditor::timerCallback()
         if (card->name.getText() != text)
             card->name.setText (text, juce::dontSendNotification);
     }
+
+    // The layout display is NOT re-derived here: a combo popup selection fires onChange
+    // asynchronously, and a timer re-derivation inside that window reverts the selection
+    // before it applies (the "nothing changes" bug). The note watchers own the refresh.
 
     updateAffinity();
 }

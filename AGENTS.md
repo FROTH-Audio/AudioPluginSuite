@@ -160,7 +160,7 @@ All test executables pass:
 - MidiEffectTests (26 functions) - new 2026-11 (plan 06 idea 2.11), extended by plan 6.1, plan 11, plan 12, plan 13 and plan 15 (the UI-note ring, one test per ending path, the slow step rates and the mode affinity)
 - MultibandSaturationTests (14 functions) - new 2026-11 (plan 06 idea 2.4), extended by plan 11, plan 12 and plan 13 (the routing, the smoothed crossover and the page switch)
 - CyclicalTests (39 functions) - new 2026-11-19 (plan 6.1), extended by plan 12, plan 14 and plan 16 (Toggle trigger, per-slot notes, tempo/sync, the loop-sync rate, chop boundaries, the chop key mapping, sync-ignoring chop, granular inside a slice, the waveform chop lines, the full affinity matrix, the auto-chop analyser, the slice arrangement, and the loop transformation tools)
-- GrooveMutatorTests (20 functions) - new 2026-11-24 (plan 19), extended by plan 21 and the current DAW findings: parameters, state round trip, latency, default silence, the deterministic latch groove, reproducibility, the Gate release, one test per note-off ending path, swing, pass-through, the preset seam, the editor pages and note dropdown binding, page switches change no parameter, R9 renders, affinity, the Steps paint round trip, the trail publication, host-sync grid alignment, Steps-lane truth, Fill Length behavior, and routed Velocity/Level/Accent/Flam/Ghost changing delivered MIDI.
+- GrooveMutatorTests (26 functions) - new 2026-11-24 (plan 19), extended by plan 21 and the current DAW findings: parameters, state round trip, latency, default silence, the deterministic latch groove, reproducibility, the Gate release, one test per note-off ending path, swing, pass-through, the preset seam, the editor pages and note dropdown binding, page switches change no parameter, R9 renders, affinity, the Steps paint round trip, the trail publication, host-sync grid alignment, Steps-lane truth, Fill Length behavior, and routed Velocity/Level/Accent/Flam/Ghost changing delivered MIDI; extended by the note-layout engine (built-ins, XML round trip, invalid-file rejection, parameter application, delivered notes, and the header save/delete flow).
 - [PluginName]_PresetTests for each plugin (factory bank)
 
 Before 2026-11-08 the list was 9 entries: CoreDSPTests, SuiteUI_Tests, SuiteModulation_Tests, the three plugin test executables, and the three VST3 host-load tests. SuiteUI_Tests also passed against JUCE 8.0.6, the previous pin, which is the version CI ran (last checked 2026-11-06, not re-run since). macOS is not verified on JUCE 9.
@@ -546,8 +546,10 @@ Every target is consumed by the scheduler and shown in the live control display.
 divisions, notes, pattern kinds, Steps/Pulses/Rotation (structural).
 
 Latency reported: fixed 50 ms (2400 samples at 48 kHz; the MTC budget). Tail length: 0.
-The window is 1200×1102 (derived from the layout constants: eight compact GRID rows with the
-shared ruler, plus the lane-mix group's three knob rows; R4). Plan 22 (owner findings round
+The window is 1200×920 (the owner's height round: the GRID rows are 56 px — the caption +
+36 px pill pairs fit unchanged — and the PATTERN row is its exact 54 px cell; STEP GRID
+group 704 → 544, lane-control group 272 → 250, window 1102 → 920; the layout constants are
+the derived sums, R4). Plan 22 (owner findings round
 2): the GRID strip fills its column, the shared ruler aligns to the strips, and every step is
 a rounded box. Plan 24 (owner findings round 3): each GRID row carries a "LANE n" caption
 above the ON toggle, and the PATTERN selector and STEPS knob moved from LANES to the GRID
@@ -559,6 +561,27 @@ pattern); the LANES page stacks eight read-only preview-mode LaneViews as a comp
 GRID preview above the four articulation columns (Rotation, Accent, Flam, Ghost). The painted Steps
 masks ride as the `stepsMasks` state property (8 hex tokens; the lerpCurve pattern), re-derived
 through the lane signature like any pattern-defining value.
+
+**Note-layout template engine (2026-11-28).** The header's LAYOUT strip (left of the page
+switch: inline caption, flat combo, SAVE, DELETE — ghost buttons per the PresetBar
+pattern) names and switches the eight lanes' output notes as one map. A layout is a named
+`std::array<int, 8>` of output notes living in `Source/NoteLayout.{h,cpp}` (plugin-local;
+built-ins compiled in: GM Standard — the INIT map — GM Toms 43-47, GM Percussion,
+Ableton Drum Rack (Default) (C1 upward, chromatic), MPC A01-A08). Applying a layout writes
+the eight `trackNNote` parameters
+(`setValueNotifyingHost`), so sessions and presets recall the notes and the GRID dropdowns
+follow. The active name is **derived**, not stored: the editor matches the current eight
+values against the known layouts and shows Custom otherwise (no parameter change,
+`numControls` stays 159; no state-version bump). User layouts are XML files — one per
+layout, `<AudioSuiteNoteLayout formatVersion="1" name="…">` with eight `<Note lane value>`
+elements, values 24–96, every lane exactly once — under
+`userDocuments/AudioSuite/GrooveMutator/NoteLayouts/` (tests redirect the folder through
+`NoteLayout::folderOverride()`). SAVE prompts for a name (overwrite with
+confirmation); DELETE removes a user layout after confirmation and is dimmed for built-ins;
+deleting keeps the notes (Custom). The combo list rebuilds on construction, save and
+delete; the derived selection re-evaluates every timer tick. Toontrack EZ/Superior,
+Addictive Drums, SSD5, BFD and NI Studio Drummer default to the GM map — documented in the
+manual rather than duplicated (exact-match naming would make a duplicate unreachable).
 
 Current Groove Mutator DAW findings: GRID uses a note-name dropdown and places eight
 Velocity/Level control columns below the lane strips; the former GROOVE page has been removed,
@@ -839,6 +862,10 @@ Mouse events in tests use the 15-argument `juce::MouseEvent` constructor, which 
 - **A read-only STEP GRID preview on LANES** (Finding 2): `LaneView` gained a `previewStrip` constructor flag — same painter, no pointer cursor, no mouse events, no "draw" affordance. The editor stacks eight preview strips in a framed "STEP GRID" group above the four articulation columns and repaints them from the 60 Hz timer. Each strip carries its "LANE n" name at its left (the owner's follow-up; 50 px label + 8 px gap, the `captionHeight`-era laneNameLabel style).
 - **The PATTERN selector hugs its row's bottom** (Finding 3): a plugin-local cell of exactly `captionHeight + pillHeight` — caption directly on the pill, the spare height above the caption. No shared-widget change (R1/R3 untouched).
 - **The note rides the GRID lane columns' title bands** (Finding 4): `card.name` is visible on GRID and LANES, right of the drawn "LANE n" caption (44 px cell, the timer keeps it in step).
+
+**Groove Mutator note-layout template engine (2026-11-28):** the header LAYOUT strip (left of the page switch: inline caption, flat combo, SAVE, DELETE — ghost buttons per the PresetBar pattern) names and switches the eight lanes' output notes as one map. Built-ins compiled in `Source/NoteLayout.{h,cpp}`: GM Standard (the INIT map), GM Toms 43-47, GM Percussion, Ableton Drum Rack (Default) (C1 upward, chromatic), MPC A01-A08; the GM-compatible vendor defaults (Toontrack EZ/Superior, Addictive Drums, SSD5, BFD, NI Studio Drummer) are documented rather than duplicated (exact-match naming would make a duplicate unreachable). Applying a layout writes the eight `trackNNote` parameters (`setValueNotifyingHost`); the active name is **derived** from the note values (Custom otherwise; no parameter change, `numControls` stays 159, no state-version bump). User layouts are XML files (`<AudioSuiteNoteLayout formatVersion="1">` + eight `<Note lane value>`, 24–96, every lane exactly once) under `userDocuments/AudioSuite/GrooveMutator/NoteLayouts/`; tests redirect the folder via `NoteLayout::folderOverride()`. UI-string rule learned here: MSVC compiles without `/utf-8`, so a `…`/`—` literal renders as mojibake ("SAVE ASå□") — keep every string literal ASCII (comments may stay UTF-8). **The combo-selection race (fixed after owner testing):** a combo popup selection fires onChange **asynchronously** (`comboBoxPopupMenuFinishedCallback` uses the default `sendNotificationAsync`, juce_ComboBox.cpp:525), so the 60 Hz timer's re-derivation ran inside that window, reverted the selection to the not-yet-changed match, and the delayed onChange applied the stale id — no layout ever applied. The derived display is therefore driven by eight `ParameterAttachment`s on the note parameters (`layoutNoteWatchers`, they fire only when the notes actually change), never by the timer; the regression test selects with `sendNotificationAsync` and pumps the loop.
+
+**Groove Mutator height round (2026-11-28):** the window is 1200×920 (was 1102): GRID rows 76 → 56 px (`gridRowHeight`; the caption + 36 px pill pairs still fit — no control shrank, the ON/Division cells use horizontal-only insets), the PATTERN row is the selector's exact 54 px cell (the visual intent of the round-4 finding 3 is unchanged: caption on the pill, the row gap above), and the lane-control group's two knob rows keep `knobRowHeight`, so MUTATE and every drawn knob size is unchanged. STEP GRID group 704 → 544 (−22.7 %), window −16.5 %.
 
 ---
 

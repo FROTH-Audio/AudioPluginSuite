@@ -16,6 +16,29 @@ through untouched. The preset bar (R12) and the hamburger menu (R13) sit in the 
 page switch (R8) moves between **GRID, LANES, MUTATE and MOD**. The main accent is lemon;
 the MOD page uses a royal-blue LFO preview accent.
 
+## The header: note layouts
+
+The header's **LAYOUT** strip names and switches the eight lanes' output notes as one map:
+
+| Control | What it does |
+|---|---|
+| **Layout dropdown** | The active layout: a named map of the eight lanes' output notes. Selecting one sets the eight note parameters (the GRID NOTE dropdowns follow, sessions remember the notes). The list has a Built-in and a User section; **Custom** shows when the current notes match no layout (including right after you edit a note by hand). |
+| **SAVE** | Saves the current eight notes as a user layout. The name prompt is prefilled with the active layout's name; saving over an existing name asks first. Files land in `Documents/AudioSuite/GrooveMutator/NoteLayouts/<name>.xml` (one XML file per layout; the folder is created on the first save). |
+| **DELETE** | Removes the selected **user** layout after a confirmation; the lanes keep their notes and the display flips to Custom. Dimmed for built-ins — those cannot be deleted. |
+
+Built-in layouts (the dropdown's Built-in section):
+
+| Layout | Notes (lanes 1–8) | Notes |
+|---|---|---|
+| **GM Standard** | 36, 38, 42, 46, 41, 45, 39, 75 | The plugin's defaults — and the default map of the GM-compatible drum instruments: Toontrack EZ/Superior Drummer, Addictive Drums, Steven Slate Drums, BFD, NI Studio Drummer. |
+| **GM Toms 43-47** | 36, 38, 42, 46, 43, 47, 39, 75 | GM with the higher floor/low-mid tom pair. |
+| **GM Percussion** | 36, 38, 42, 46, 41, 45, 54, 56 | Tambourine and cowbell for the last two lanes. |
+| **Ableton Drum Rack (Default)** | 36 … 43 | Ableton Drum Rack's default pads start at C1 (36) and run upward chromatically — the sequential map for drum racks, Battery-style pad racks and generic 8-pad samplers. |
+| **MPC A01-A08** | 37 … 44 | Akai MPC bank A's first eight pads. |
+
+A layout carries only notes — the lane roles stay where they are (lane 1 stays the kick lane);
+applying a layout re-points every lane at the target instrument's note for that role.
+
 ## Page: GRID
 
 <img src="../../docs/manuals/groovemutator-grid.png" alt="GRID page" width="800">
