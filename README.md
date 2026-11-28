@@ -17,7 +17,8 @@
 </p>
 
 <p align="center">
-  <a href="https://ko-fi.com/F6A42BALAS"><img src="https://ko-fi.com/img/githubbutton_sm.svg", alt="Ko-Fi"></a>
+  <a href="https://ko-fi.com/F6A42BALAS"><img src="https://ko-fi.com/img/githubbutton_sm.svg", alt="Ko-Fi"></a><br>
+  <a href="https://www.buymeacoffee.com/tfroehlich82" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-red.png" alt="Buy Me a Coffee" style="height: 60px !important;width: 217px !important;" ></a>
 </p>
 
 ---
